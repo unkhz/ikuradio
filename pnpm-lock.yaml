@@ -42,8 +42,8 @@ importers:
         specifier: 5.9.3
         version: 5.9.3
       undici:
-        specifier: 7.18.2
-        version: 7.18.2
+        specifier: 8.12.4
+        version: 8.12.4
 
   packages/server:
     dependencies:
@@ -1012,6 +1012,7 @@ packages:
 
   '@ungap/structured-clone@1.3.0':
     resolution: {integrity: sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==}
+    deprecated: Potential CWE-502 - Update to 1.3.1 or higher
 
   '@unrs/resolver-binding-darwin-arm64@1.7.12':
     resolution: {integrity: sha512-C//UObaqVcGKpRMMThzBCDxbqM9YQg2dtWy3OwcERLu+qzLa781AqvGdgqwqakRO+cWCK6dl75ebAcsSozmARg==}
@@ -2357,9 +2358,9 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  undici@7.18.2:
-    resolution: {integrity: sha512-y+8YjDFzWdQlSE9N5nzKMT3g4a5UBX1HKowfdXh0uvAnTaqqwqB92Jt4UXBAeKekDs5IaDKyJFR4X1gYVCgXcw==}
-    engines: {node: '>=20.18.1'}
+  undici@8.12.4:
+    resolution: {integrity: sha512-8Mx+uNKKER2bA4AdtedkqRbwUCIJFr2nJckXRe5yrDqzePqwLP7VNcctN8/XdmDSbF7mS+jJKIszlL+vbam1VA==}
+    engines: {node: '>=22.19.0'}
 
   unrs-resolver@1.7.12:
     resolution: {integrity: sha512-pfcdDxrVoUc5ZB3VCVJNSWbs63lgQVYLVw4k/rCr8Smi/V2Sxi1odEckVq6Zf803OtbYia1+YpiGCZoODfWLsQ==}
@@ -5218,7 +5219,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  undici@7.18.2: {}
+  undici@8.12.4: {}
 
   unrs-resolver@1.7.12:
     dependencies:
