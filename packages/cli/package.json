@@ -12,7 +12,7 @@
     "test": "workspace:*",
     "tsx": "4.20.6",
     "typescript": "5.9.3",
-    "undici": "7.18.2"
+    "undici": "7.30.2"
   },
   "dependencies": {
     "song": "workspace:*",
