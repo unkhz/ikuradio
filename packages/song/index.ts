@@ -2,37 +2,19 @@ import * as original from './verses.js'
 import { numberToWords } from './lib/numbers.js'
 import { editVerse } from './lib/edit.js'
 
-const moods = [
-  'eternity',
-  'death',
-  'spring',
-  'light',
-  'spirit',
-  'human evolution',
-  'transcendence',
-]
-function pickNewMood(): string | undefined {
-  if (Math.random() > 0.67) {
-    return moods[Math.floor(Math.random() * moods.length)]
-  }
-}
-
-function changeMood(instruction: string, mood: string) {
-  return `${instruction} Talk intensely about ${mood}.`
-}
-
 const verseInstruction = [
   'The input is a verse of a song that never ends.',
   'Write the next verse of the song: four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
   'Each line has between eight and fourteen syllables.',
 ].join(' ')
 
-async function pickVariation(input: string, mood?: string) {
-  return editVerse(
-    input,
-    mood ? changeMood(verseInstruction, mood) : verseInstruction,
-    1.2,
-  )
+/** The weather the words are written in. Every verse is written in it, every time. */
+function inMood(instruction: string, mood: readonly string[]) {
+  return `${instruction} The mood of the song is ${mood.join(' and ')}: let every line live in it.`
+}
+
+async function pickVariation(input: string, mood: readonly string[]) {
+  return editVerse(input, inMood(verseInstruction, mood), 1.2)
 }
 
 /**
@@ -67,32 +49,42 @@ function deIndent(part: string) {
   return lines.map((line) => line.replace(/^\s+/, '')).join('\n')
 }
 
-const previous = {
-  firstVerse: original.firstVerse,
-  secondVerse: original.secondVerse,
-  thirdVerse: original.thirdVerse,
-  chorus: original.chorus,
-  finalChorus: original.finalChorus,
+/** The words of one iteration. */
+export type Lyrics = {
+  firstVerse: string
+  secondVerse: string
+  thirdVerse: string
+  chorus: string
+  finalChorus: string
 }
 
-async function generateIteration(iteration: bigint) {
-  if (iteration === 0n) {
-    return [
-      deIndent(original.chorus),
-      deIndent(original.firstVerse),
-      deIndent(original.secondVerse),
-      deIndent(original.thirdVerse),
-      deIndent(original.finalChorus),
-    ]
-  }
-  const mood = pickNewMood()
-  return Promise.all([
-    pickChorus(previous.chorus, iteration),
-    pickVariation(previous.firstVerse, mood),
-    pickVariation(previous.secondVerse, mood),
-    pickVariation(previous.thirdVerse, mood),
-    pickVariation(previous.finalChorus, mood),
-  ])
+/** The words a human wrote, in 2023, before the song began to write itself. */
+export const firstLyrics: Lyrics = {
+  firstVerse: deIndent(original.firstVerse),
+  secondVerse: deIndent(original.secondVerse),
+  thirdVerse: deIndent(original.thirdVerse),
+  chorus: deIndent(original.chorus),
+  finalChorus: deIndent(original.finalChorus),
+}
+
+/**
+ * Writes the words of an iteration from the words of the one before it, in
+ * the given Mood. The verses drift; the chorus stays, and counts.
+ */
+export async function writeLyrics(
+  iteration: bigint,
+  mood: readonly string[],
+  previous: Lyrics,
+): Promise<Lyrics> {
+  const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus] =
+    await Promise.all([
+      pickChorus(previous.chorus, iteration),
+      pickVariation(previous.firstVerse, mood),
+      pickVariation(previous.secondVerse, mood),
+      pickVariation(previous.thirdVerse, mood),
+      pickVariation(previous.finalChorus, mood),
+    ])
+  return { chorus, firstVerse, secondVerse, thirdVerse, finalChorus }
 }
 
 export type SongPart = {
@@ -101,24 +93,14 @@ export type SongPart = {
   content: string
 }
 
-export default async function song(iteration: bigint): Promise<SongPart[]> {
-  const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus] =
-    await generateIteration(iteration)
-
-  Object.assign(previous, {
-    chorus,
-    firstVerse,
-    secondVerse,
-    thirdVerse,
-    finalChorus,
-  })
-
+/** Lays the words out in the order they are sung. */
+export function arrange(lyrics: Lyrics): SongPart[] {
   return [
-    { type: 'verse', index: 0, content: firstVerse },
-    { type: 'chorus', index: 1, content: chorus },
-    { type: 'verse', index: 2, content: secondVerse },
-    { type: 'chorus', index: 3, content: chorus },
-    { type: 'verse', index: 4, content: thirdVerse },
-    { type: 'verse', index: 5, content: finalChorus },
+    { type: 'verse', index: 0, content: lyrics.firstVerse },
+    { type: 'chorus', index: 1, content: lyrics.chorus },
+    { type: 'verse', index: 2, content: lyrics.secondVerse },
+    { type: 'chorus', index: 3, content: lyrics.chorus },
+    { type: 'verse', index: 4, content: lyrics.thirdVerse },
+    { type: 'verse', index: 5, content: lyrics.finalChorus },
   ]
 }

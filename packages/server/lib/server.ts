@@ -10,11 +10,11 @@ import { ReadableStream } from 'node:stream/web'
 export function createServer(
   getStream: (
     req: IncomingMessage,
-    res: ServerResponse<IncomingMessage>
+    res: ServerResponse<IncomingMessage>,
   ) => Promise<{
     stream?: ReadStream | ReadableStream
     headers?: OutgoingHttpHeaders
-  }>
+  }>,
 ) {
   const server = createHttpServer(async (req, res) => {
     if (!req.url) {

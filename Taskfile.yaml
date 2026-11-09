@@ -27,6 +27,9 @@ includes:
   melody:
     taskfile: packages/melody/Taskfile.yaml
     dir: packages/melody
+  mood:
+    taskfile: packages/mood/Taskfile.yaml
+    dir: packages/mood
 
 tasks:
   lint-all:
@@ -36,6 +39,7 @@ tasks:
       - server:lint
       - song:lint
       - melody:lint
+      - mood:lint
       - vocals:lint
       - tools:lint
 
@@ -46,6 +50,7 @@ tasks:
       - server:test
       - song:test
       - melody:test
+      - mood:test
       - vocals:test
       - tools:test
       - ui:test

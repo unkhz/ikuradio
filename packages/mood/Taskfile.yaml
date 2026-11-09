@@ -1,0 +1,10 @@
+version: '3'
+tasks:
+  lint:
+    desc: Run static analysis
+    cmds:
+      - npx tsc --noEmit
+  test:
+    desc: Run tests
+    cmds:
+      - npx jest

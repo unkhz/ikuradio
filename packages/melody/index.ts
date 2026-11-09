@@ -1,9 +1,15 @@
 import { fitPhrase, type Phrase } from './lib/fit.js'
 import { chorusHook, verseWalk } from './lib/hooks.js'
-import { aeolian, degreeToMidi, type Key } from './lib/scale.js'
+import {
+  aeolian,
+  degreeToMidi,
+  modes,
+  type Key,
+  type ModeName,
+} from './lib/scale.js'
 
-export { fitPhrase, chorusHook, verseWalk, aeolian, degreeToMidi }
-export type { Phrase, Key }
+export { fitPhrase, chorusHook, verseWalk, aeolian, modes, degreeToMidi }
+export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
 
 export type Singer = 'male' | 'female' | 'child'
@@ -16,12 +22,19 @@ export type Score = {
   notes: [number, number][]
 }
 
-/** Slow enough to be mournful, quick enough to keep walking. */
-export const tempo = 76
+/** What a Mood tells the tune: which mode to sing in, and how fast. */
+export type Character = {
+  mode: ModeName
+  /** Beats per minute. */
+  tempo: number
+}
 
-/** Every singer sings in A minor, each in their own octave. */
-export function keyFor(singer: Singer): Key {
-  return { tonic: singer === 'male' ? 45 : 57, mode: aeolian }
+/** The character the song was born with: A minor, slow enough to be mournful, quick enough to keep walking. */
+export const firstCharacter: Character = { mode: 'aeolian', tempo: 76 }
+
+/** Every singer sings on A, each in their own octave, in the mode the Mood chose. */
+export function keyFor(singer: Singer, mode: ModeName = 'aeolian'): Key {
+  return { tonic: singer === 'male' ? 45 : 57, mode: modes[mode] }
 }
 
 export type LineOptions = {
@@ -31,6 +44,7 @@ export type LineOptions = {
   lyrics: string
   syllables: number
   singer: Singer
+  character?: Character
 }
 
 /** Sets one line of lyrics to its tune. */
@@ -40,12 +54,13 @@ export function setLine({
   lyrics,
   syllables,
   singer,
+  character = firstCharacter,
 }: LineOptions): Score {
   const tune = part === 'chorus' ? chorusHook : verseWalk
   const { notes, rest } = fitPhrase(tune[line % tune.length], syllables)
-  const key = keyFor(singer)
+  const key = keyFor(singer, character.mode)
   return {
-    bpm: tempo,
+    bpm: character.tempo,
     lyrics,
     notes: [
       ...notes.map(([degree, beats]): [number, number] => [

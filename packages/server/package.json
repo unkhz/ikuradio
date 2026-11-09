@@ -16,6 +16,7 @@
   "dependencies": {
     "song": "workspace:*",
     "melody": "workspace:*",
+    "mood": "workspace:*",
     "vocals": "workspace:*",
     "tools": "workspace:*",
     "zod": "^4.0.0"

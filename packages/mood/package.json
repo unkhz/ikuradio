@@ -1,0 +1,19 @@
+{
+  "name": "mood",
+  "version": "1.0.0",
+  "description": "The weather the song grows in",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jest": "30.0.0",
+    "@types/node": "24.10.15",
+    "jest": "30.0.5",
+    "test": "workspace:*",
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "melody": "workspace:*",
+    "tools": "workspace:*"
+  }
+}

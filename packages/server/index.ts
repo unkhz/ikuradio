@@ -1,15 +1,17 @@
 import { getEnv } from 'tools'
-import song from 'song'
-import { setLine, scoreSeconds } from 'melody'
-import { countSyllables, record } from 'vocals'
+import { arrange } from 'song'
+import { describe } from 'mood'
 import { sing, type LineEvent } from './lib/sing.js'
 import { createServer } from './lib/server.js'
+import { Diary } from './lib/diary.js'
+import { composer, type Iteration } from './lib/compose.js'
+import { lineKey, perform, type SungLine } from './lib/perform.js'
 import { createReadStream } from 'node:fs'
 import { TextEncoderStream } from 'node:stream/web'
 import { readdir, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 
-const { SERVER_PORT, SINGER } = getEnv()
+const { SERVER_PORT, SINGER, ITERATION_COUNT, MOOD_COUNT } = getEnv()
 
 async function readRandomMusicFile(cat: string) {
   const files = await readdir(`audio/${cat}`)
@@ -22,52 +24,48 @@ async function readRandomMusicFile(cat: string) {
 
 const stream = new TextEncoderStream()
 
-type SungLine = { file: string; seconds: number }
+const diary = new Diary('memory/diary.jsonl')
+const { wakesAt, compose } = await composer(diary, {
+  songLength: ITERATION_COUNT,
+  moodCount: MOOD_COUNT,
+})
 
-/** Every line already sung, by where it stands in the song and what it says. */
-const sung = new Map<string, SungLine>()
+/** The iterations that are written and sung, waiting to be shown, or being shown. */
+const performed = new Map<
+  bigint,
+  { iteration: Iteration; lines: Map<string, SungLine> }
+>()
 
-const lineKey = ({ part, index, content }: Omit<LineEvent, 'type'>) =>
-  `${part}:${index}:${content}`
+/** The iteration being shown right now. */
+let current = wakesAt
 
 /**
- * Each iteration is set to its tunes and sung through before it is shown, so
- * that a line is never typed before its voice exists.
+ * Each iteration is composed, set to its tunes and sung through before it
+ * is shown, so that a line is never typed before its voice exists.
  */
 async function getSungSong(iteration: bigint) {
-  const parts = await song(iteration)
-  await Promise.all(
-    parts.flatMap(({ type: part, content }) =>
-      content.split('\n').map(async (line, index) => {
-        if (!line.trim()) return
-        const key = lineKey({ part, index, content: line })
-        if (sung.has(key)) return
-        const syllables = await countSyllables(line)
-        const score = setLine({
-          part,
-          line: index,
-          lyrics: line,
-          syllables,
-          singer: SINGER,
-        })
-        const file = await record(score, SINGER)
-        sung.set(key, { file, seconds: scoreSeconds(score) })
-      }),
-    ),
-  )
-  return parts
+  const composed = await compose(iteration)
+  const lines = await perform(composed, SINGER)
+  performed.set(iteration, {
+    iteration: composed,
+    lines: new Map(lines.map((l) => [lineKey(l.part, l.index, l.lyrics), l])),
+  })
+  return arrange(composed.lyrics)
 }
+
+const sungLine = ({ part, index, content }: LineEvent) =>
+  performed.get(current)?.lines.get(lineKey(part, index, content))
 
 /**
  * Types a line as fast as it is sung. The typing waits once for every
  * character, nine times more after a comma, and ten times more at the end.
  */
 function pace(line: LineEvent) {
-  const sungLine = sung.get(lineKey(line))
-  if (!sungLine) return 80
+  const sung = sungLine(line)
+  if (!sung) return 80
   const commas = line.content.split(',').length - 1
   const beats = line.content.length + commas * 9 + 10
-  return (sungLine.seconds * 1000) / beats
+  return (sung.seconds * 1000) / beats
 }
 
 type CategoryConfig = {
@@ -101,12 +99,25 @@ async function run() {
   let lastMusicTime = 0
   let category = pickCategory()
 
-  for await (const event of sing(getSungSong, pace)) {
+  for await (const event of sing(getSungSong, pace, wakesAt)) {
     const now = Date.now()
     switch (event.type) {
       case 'iteration': {
+        // the event counts from one; the iteration being shown is the one before
+        const next = event.content - 1n
+        if (next !== current) performed.delete(current)
+        current = next
+        const shown = performed.get(current)?.iteration
         category = pickCategory()
-        console.log(`Iteration ${event.content}, ${category.key}`)
+        if (shown?.beginsSong) {
+          // a new Song: show the weather it grows in
+          await write(`~ ${shown.mood.descriptions.join(' + ')} ~`)
+          await write('<br>')
+          await write('<br>')
+        }
+        console.log(
+          `Iteration ${event.content}, ${shown ? describe(shown.mood) : '?'}, ${category.key}`,
+        )
         break
       }
       case 'part': {
@@ -114,9 +125,9 @@ async function run() {
         break
       }
       case 'line': {
-        const sungLine = sung.get(lineKey(event))
-        if (sungLine) {
-          write(`play:${sungLine.file}`)
+        const sung = sungLine(event)
+        if (sung) {
+          write(`play:${sung.file}`)
         }
         if (now - lastMusicTime > category.duration) {
           lastMusicTime = now

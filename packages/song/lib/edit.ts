@@ -1,5 +1,5 @@
 import { wait } from 'tools'
-import { ask } from './mind.js'
+import { askVerse } from './mind.js'
 
 /** A line the throat can carry in two bars without losing its breath. */
 const fits = (line: string) => line.length > 15 && line.length < 81
@@ -44,7 +44,7 @@ export async function editVerse(
   let unreachable = 0
   while (unsuitable < patience) {
     try {
-      const verse = (await ask({ instruction, verse: input, temperature })).map(
+      const verse = (await askVerse(instruction, input, temperature)).map(
         clean,
       )
       const changed = verse.join('\n') !== input

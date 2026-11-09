@@ -14,6 +14,7 @@
     "paths": {
       "tools": ["packages/tools"],
       "melody": ["packages/melody"],
+      "mood": ["packages/mood"],
       "vocals": ["packages/vocals"],
       "song": ["packages/song"]
     }

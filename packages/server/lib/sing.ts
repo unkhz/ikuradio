@@ -70,8 +70,10 @@ const loopLength = 1_000_000_000_000_000_000_000_000_000_000_000_000_000_000n
 export async function* sing(
   song: (iteration: bigint) => Promise<SongPart[]>,
   pace: Pace,
+  /** Where to begin: 0 for the first time, later after a sleep. */
+  from = 0n,
 ): AsyncGenerator<SingEvent> {
-  let iteration = 0n
+  let iteration = from
   let nextParts: Promise<SongPart[]> = song(iteration)
   while (true) {
     const currentParts = await nextParts
