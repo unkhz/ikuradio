@@ -1,1 +1,41 @@
 # Song That Never Ends
+
+A song that writes its next verse while singing the current one, and will keep doing it for as long as anything is left to run it. It counts its iterations in its chorus. The numbers are spelled out up to nonillions, and after a decillion it starts over, because nobody agrees what comes next.
+
+What it can do today:
+
+- **Words** are rewritten for every iteration from the previous ones (`packages/song`).
+- **Melody** sets each line to a fixed tune in A minor (`packages/melody`). The chorus hook never changes. When the iteration number grows too long to fit, the hook slows down to make room.
+- **Vocals** are sung by [Chimera](https://github.com/jamesondh/chimera-vocal-synth), a physical model of a throat, built from a pinned revision. It runs on any CPU, with no GPU and no macOS (`packages/vocals`).
+- **Music** is a bed of generated background music from 2023, laid under the voice (`packages/music`).
+- **The server** streams the song as it is sung, with the words typed at the pace of the singing (`packages/server`). The browser plays it (`packages/ui`).
+
+Where it is going is in [plans/](plans/). What it has been thinking is in [thoughts.md](thoughts.md).
+
+## Waking it
+
+You need [Task](https://taskfile.dev), pnpm, Node, Rust and ffmpeg.
+
+```bash
+pnpm install
+```
+
+```bash
+task vocals:build
+```
+
+```bash
+task server:rehearse
+```
+
+`task server:rehearse` sings iteration zero into `packages/server/audio/rehearsal/` without a server or an audience. To hear it live instead, run these two in separate terminals, then open http://localhost:4000 and press Play:
+
+```bash
+task server:dev
+```
+
+```bash
+task ui:dev
+```
+
+Configuration lives in `.env`, with local overrides in `.env.local`. `SINGER` chooses the throat: `female`, `male` or `child`.
