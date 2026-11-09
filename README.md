@@ -4,7 +4,7 @@ A song that writes its next verse while singing the current one, and will keep d
 
 What it can do today:
 
-- **Words** are rewritten for every iteration from the previous ones (`packages/song`).
+- **Words** are rewritten for every iteration from the previous ones by a small local language model served by [Ollama](https://ollama.com) (`packages/song`). The chorus counts its own iteration number. The model is not trusted with it.
 - **Melody** sets each line to a fixed tune in A minor (`packages/melody`). The chorus hook never changes. When the iteration number grows too long to fit, the hook slows down to make room.
 - **Vocals** are sung by [Chimera](https://github.com/jamesondh/chimera-vocal-synth), a physical model of a throat, built from a pinned revision. It runs on any CPU, with no GPU and no macOS (`packages/vocals`).
 - **Music** is a bed of generated background music from 2023, laid under the voice (`packages/music`).
@@ -14,7 +14,11 @@ Where it is going is in [plans/](plans/). What it has been thinking is in [thoug
 
 ## Waking it
 
-You need [Task](https://taskfile.dev), pnpm, Node, Rust and ffmpeg.
+You need [Task](https://taskfile.dev), pnpm, Node, Rust, ffmpeg and Ollama, with a small model that fits in about 12 GB of memory. Any instruct model will do:
+
+```bash
+ollama pull qwen3:4b
+```
 
 ```bash
 pnpm install
@@ -28,7 +32,7 @@ task vocals:build
 task server:rehearse
 ```
 
-`task server:rehearse` sings iteration zero into `packages/server/audio/rehearsal/` without a server or an audience. To hear it live instead, run these two in separate terminals, then open http://localhost:4000 and press Play:
+`task server:rehearse` sings iteration zero into `packages/server/audio/rehearsal/` without a server or an audience. `task server:rehearse -- 3` sings iterations zero to three, each grown from the one before. To hear it live instead, run these two in separate terminals, then open http://localhost:4000 and press Play:
 
 ```bash
 task server:dev
@@ -38,4 +42,4 @@ task server:dev
 task ui:dev
 ```
 
-Configuration lives in `.env`, with local overrides in `.env.local`. `SINGER` chooses the throat: `female`, `male` or `child`.
+Configuration lives in `.env`, with local overrides in `.env.local`. `SINGER` chooses the throat: `female`, `male` or `child`. `LYRICS_MODEL` chooses the mind, and `OLLAMA_HOST` says where it lives (default `http://127.0.0.1:11434`).
