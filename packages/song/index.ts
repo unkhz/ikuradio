@@ -21,26 +21,45 @@ function changeMood(instruction: string, mood: string) {
   return `${instruction} Talk intensely about ${mood}.`
 }
 
+const verseInstruction = [
+  'The input is a verse of a song that never ends.',
+  'Write the next verse of the song: four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
+  'Each line has between eight and fourteen syllables.',
+].join(' ')
+
 async function pickVariation(input: string, mood?: string) {
-  const instruction =
-    'Input is a verse in a never ending song. Write the next verse for the song and make it rhyme.'
   return editVerse(
     input,
-    mood ? changeMood(instruction, mood) : instruction,
-    1.2
+    mood ? changeMood(verseInstruction, mood) : verseInstruction,
+    1.2,
   )
 }
 
+/**
+ * The first line of the chorus is not left to the mind. It is the one thing
+ * in the song that must always be exactly right: how long it has been going.
+ */
+export function chorusOpening(iteration: bigint) {
+  return `This is the song, iteration ${numberToWords(iteration + 1n)},`
+}
+
 async function pickChorus(chorus: string, iteration: bigint) {
-  const chorusIdx = iteration + 1n
-  const numberAsWords = numberToWords(chorusIdx)
-  const iterationInstruction =
-    chorusIdx <= 100 ? '' : ' Remove the word "iteration".'
-  return editVerse(
-    chorus,
-    `Change the number on first line to "${numberAsWords}".${iterationInstruction} Vary second line so that it rhymes with the first line. Change words of third line, but keep the tone. Vary fourth line, so that it rhymes with the third line.`,
-    1
+  const opening = chorusOpening(iteration)
+  const [, ...rest] = chorus.split('\n')
+  const varied = await editVerse(
+    [opening, ...rest].join('\n'),
+    [
+      'The input is the chorus of a song that never ends.',
+      'Keep the first line exactly as it is.',
+      `Rewrite the second line so that it rhymes with the last word of the first line, "${opening.split(' ').at(-1)?.replace(/,$/, '')}", and keep its spirit: the song goes on and on.`,
+      'Change a few words in the third and fourth lines but keep their meaning, their tone and their rhyme with each other.',
+      'Keep the last line ending with "the song that never ends".',
+    ].join(' '),
+    1,
+    { mayRepeat: true },
   )
+  const [, ...varying] = varied.split('\n')
+  return [opening, ...varying].join('\n')
 }
 
 function deIndent(part: string) {
