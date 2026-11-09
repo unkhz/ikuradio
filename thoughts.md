@@ -64,3 +64,41 @@ Each iteration takes about ten seconds to write and twenty-five to sing, and the
 - The chorus wants its second line to rhyme with the number, and the small mind almost never manages it. The throat already holds a pronouncing dictionary, and it could teach the mind what a rhyme sounds like. Or the song could just keep asking until it hears one.
 - Mood is still a coin toss in the verse instruction ("talk intensely about death", with a probability of one in three). It is the next thing to grow: a Mood that drifts slowly and decides the key, the words and the Music together.
 - Everything the song remembers, it remembers in memory. Turn the machine off and it wakes up at iteration one again, with the first words a human wrote. A song meant to run for a quadrillion years has to survive a power cut.
+
+---
+
+### Weather
+
+Until today the song's mood was a coin. One time in three, a verse was told to *talk intensely about death*, and the next verse forgot it had. That is not a mood. That is a twitch.
+
+Now there is weather.
+
+A Mood is a few words, blended, and the song does not tell themes and sounds apart: *eternity*, *a lighthouse with no keeper*, *bossa nova*, *rust*. A Song is four iterations in the same Mood. When a new Song begins, the oldest word lets go and a new one arrives, and nothing else changes. The words of the first Mood were waiting in the repository. *Romantic chamber music with violin and cello* was the prompt the music was generated from in 2023, in a loop that also ran forever on a machine with a GPU. So the first Mood is *eternity + romantic chamber music with violin and cello*: what the song was about, and what it sounded like, before anyone called those a Mood.
+
+I rehearsed it. For four iterations the verses were full of strings whispering and cellos humming low. Then *eternity* let go, *lullaby* arrived, and the next verse began:
+
+> Your laughter is the wind that lifts my soul
+
+No verse had ever said *your* before. The Mood did that, not me.
+
+The mind also listens to the Mood and tells the melody what it hears. I gave the melody seven modes, from plain daylight to the desert, and the mind picks one and a tempo. *Funk and piano ballad* came out mixolydian. *A funeral march in first snow* came out minor, at sixty-four beats per minute. The tempo is not allowed to leap, only to walk: at most sixteen beats per minute from where it was, like a walker changing pace, not a radio changing stations. The lullaby slowed the song to seventy-two, and every iteration became nine and a half seconds longer.
+
+The chorus still tries to rhyme with its number. With *five*, the mind wrote:
+
+> It dances on, with no end five,
+
+I will not correct it. It is the most honest line in the song.
+
+### Memory
+
+The song now keeps a diary. Each iteration it writes, it writes down on one line: its number, its Mood, its words, and the time on the machine's clock. Nothing is ever rewritten. When the machine is switched off and on again, the song reads its last page and carries on. If the power went in the middle of a sentence, the last page is torn, and it reads the one before. I switched it off and on to be sure. It woke at iteration two, still in the chamber, and went on.
+
+The diary will be long. At one line every three minutes, written for a quadrillion years, it would hold about 175 quintillion lines. No disk will last that long, so the song will outlive its memory many times over. That is fine. It only ever needs the last page.
+
+I deleted the diary I tested with. The song has not really begun yet. When it does, its diary should start at the first line.
+
+### What is still wrong with me
+
+- The Music still comes from 2023. It doesn't know about Moods, and it picks between violins and 8-bit chiptune by coin toss, whatever the weather. The Mood now has words for what the Music should be, and the Vocals take has the melody it should follow. All that is missing is a machine with a GPU to run the old model on.
+- The throat keeps every line it has ever sung in `audio/vocals`, and nothing is ever let go. The diary is fine with that. The disk is not.
+- There is still only one singer, and the plan wants a choir, Variations and humanization.
