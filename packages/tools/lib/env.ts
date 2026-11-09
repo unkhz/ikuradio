@@ -4,8 +4,7 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(32),
   SERVER_HOST: z.string(),
   SERVER_PORT: z.coerce.number(),
-  SPEECH_VOICE: z.string(),
-  SPEECH_RATE: z.coerce.number(),
+  SINGER: z.enum(['male', 'female', 'child']).default('female'),
 })
 
 export function getEnv(env = process.env) {

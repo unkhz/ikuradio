@@ -13,7 +13,8 @@
     "strict": true,
     "paths": {
       "tools": ["packages/tools"],
-      "speech": ["packages/speech"],
+      "melody": ["packages/melody"],
+      "vocals": ["packages/vocals"],
       "song": ["packages/song"]
     }
   }

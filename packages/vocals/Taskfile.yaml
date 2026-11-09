@@ -1,0 +1,26 @@
+version: '3'
+
+vars:
+  # The revision of Chimera the song sings with. Move it on purpose, and listen.
+  CHIMERA_REV: c24945a34296f1cd06c029fd283c43b2a0cc2c26
+  CHIMERA_REPO: https://github.com/jamesondh/chimera-vocal-synth
+
+tasks:
+  build:
+    desc: Build the Chimera throat from its pinned revision
+    status:
+      - test -x .chimera/target/release/chimera
+      - test "$(git -C .chimera rev-parse HEAD)" = "{{.CHIMERA_REV}}"
+    cmds:
+      - test -d .chimera/.git || git init -q .chimera
+      - git -C .chimera fetch -q --depth 1 {{.CHIMERA_REPO}} {{.CHIMERA_REV}}
+      - git -C .chimera checkout -q --detach FETCH_HEAD
+      - cargo build --release --quiet --manifest-path .chimera/Cargo.toml -p chimera-cli
+  lint:
+    desc: Run static analysis
+    cmds:
+      - npx tsc --noEmit
+  test:
+    desc: Run tests
+    cmds:
+      - npx jest

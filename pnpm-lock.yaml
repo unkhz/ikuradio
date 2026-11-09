@@ -13,9 +13,9 @@ importers:
       song:
         specifier: workspace:*
         version: link:../song
-      speech:
+      vocals:
         specifier: workspace:*
-        version: link:../speech
+        version: link:../vocals
       tools:
         specifier: workspace:*
         version: link:../tools
@@ -45,14 +45,35 @@ importers:
         specifier: 7.18.2
         version: 7.18.2
 
+  packages/melody:
+    devDependencies:
+      '@types/jest':
+        specifier: 30.0.0
+        version: 30.0.0
+      '@types/node':
+        specifier: 24.10.15
+        version: 24.10.15
+      jest:
+        specifier: 30.0.5
+        version: 30.0.5(@types/node@24.10.15)
+      test:
+        specifier: workspace:*
+        version: link:../test
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
   packages/server:
     dependencies:
       song:
         specifier: workspace:*
         version: link:../song
-      speech:
+      melody:
         specifier: workspace:*
-        version: link:../speech
+        version: link:../melody
+      vocals:
+        specifier: workspace:*
+        version: link:../vocals
       tools:
         specifier: workspace:*
         version: link:../tools
@@ -90,28 +111,6 @@ importers:
       zod:
         specifier: ^4.0.0
         version: 4.3.6
-    devDependencies:
-      '@types/jest':
-        specifier: 30.0.0
-        version: 30.0.0
-      '@types/node':
-        specifier: 24.10.15
-        version: 24.10.15
-      jest:
-        specifier: 30.0.5
-        version: 30.0.5(@types/node@24.10.15)
-      test:
-        specifier: workspace:*
-        version: link:../test
-      typescript:
-        specifier: 5.9.3
-        version: 5.9.3
-
-  packages/speech:
-    dependencies:
-      tools:
-        specifier: workspace:*
-        version: link:../tools
     devDependencies:
       '@types/jest':
         specifier: 30.0.0
@@ -174,6 +173,28 @@ importers:
       serve:
         specifier: ^14.2.0
         version: 14.2.7
+    devDependencies:
+      '@types/jest':
+        specifier: 30.0.0
+        version: 30.0.0
+      '@types/node':
+        specifier: 24.10.15
+        version: 24.10.15
+      jest:
+        specifier: 30.0.5
+        version: 30.0.5(@types/node@24.10.15)
+      test:
+        specifier: workspace:*
+        version: link:../test
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/vocals:
+    dependencies:
+      melody:
+        specifier: workspace:*
+        version: link:../melody
     devDependencies:
       '@types/jest':
         specifier: 30.0.0

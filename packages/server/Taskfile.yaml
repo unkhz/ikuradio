@@ -4,6 +4,12 @@ tasks:
     desc: Run in development mode
     cmds:
       - npx tsx index.ts
+  rehearse:
+    desc: Sing one iteration into a single take, without the server
+    deps:
+      - :vocals:build
+    cmds:
+      - npx tsx rehearse.ts {{.CLI_ARGS}}
   lint:
     desc: Run static analysis
     cmds:

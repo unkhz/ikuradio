@@ -1,4 +1,3 @@
-import { type } from 'os'
 import { SongPart } from 'packages/song/index.js'
 import { typeLine, wait } from 'tools'
 
@@ -21,6 +20,9 @@ export type PartEvent = {
 export type LineEvent = {
   type: 'line'
   content: string
+  part: SongPart['type']
+  /** Which line of the part, from 0. */
+  index: number
 }
 
 export type CharEvent = {
@@ -30,16 +32,25 @@ export type CharEvent = {
 
 export type SingEvent = IterationEvent | PartEvent | LineEvent | CharEvent
 
+/**
+ * How long to wait between typed characters: a fixed delay, or one decided
+ * line by line, so that the words appear as fast as they are sung.
+ */
+export type Pace = number | ((line: LineEvent) => number)
+
 async function* singPart(
   part: SongPart,
-  typingDelay: number
+  pace: Pace,
 ): AsyncGenerator<SingEvent> {
   const { type, content } = part
   yield { type: 'part', content: type }
-  for (const line of content.split('\n')) {
-    yield { type: 'line', content: line }
+  let typingDelay = typeof pace === 'number' ? pace : 0
+  for (const [index, line] of content.split('\n').entries()) {
+    const event: LineEvent = { type: 'line', content: line, part: type, index }
+    yield event
     const trimmedLine = line.trim()
     if (trimmedLine) {
+      typingDelay = typeof pace === 'number' ? pace : pace(event)
       for await (const char of typeLine(line, typingDelay)) {
         yield { type: 'char', content: char }
       }
@@ -58,7 +69,7 @@ const loopLength = 1_000_000_000_000_000_000_000_000_000_000_000_000_000_000n
 
 export async function* sing(
   song: (iteration: bigint) => Promise<SongPart[]>,
-  typingDelay: number
+  pace: Pace,
 ): AsyncGenerator<SingEvent> {
   let iteration = 0n
   let nextParts: Promise<SongPart[]> = song(iteration)
@@ -69,7 +80,7 @@ export async function* sing(
 
     yield { type: 'iteration', content: iteration }
     for (const part of currentParts) {
-      for await (const event of singPart(part, typingDelay)) {
+      for await (const event of singPart(part, pace)) {
         yield event
       }
     }

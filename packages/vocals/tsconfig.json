@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "ESNext"
+    ],
+    "types": [
+      "node",
+      "jest"
+    ]
+  },
+  "exclude": [
+    ".chimera",
+    "node_modules"
+  ]
+}

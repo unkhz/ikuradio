@@ -1,4 +1,4 @@
-import { play } from 'speech'
+import { play } from 'vocals'
 import { getEnv } from 'tools'
 
 const { SERVER_HOST = '127.0.0.1', SERVER_PORT = 3000 } = getEnv()

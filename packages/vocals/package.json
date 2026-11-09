@@ -1,7 +1,7 @@
 {
-  "name": "speech",
+  "name": "vocals",
   "version": "1.0.0",
-  "description": "",
+  "description": "The throat of the song, by way of Chimera",
   "type": "module",
   "author": "",
   "license": "ISC",
@@ -13,6 +13,6 @@
     "typescript": "5.9.3"
   },
   "dependencies": {
-    "tools": "workspace:*"
+    "melody": "workspace:*"
   }
 }

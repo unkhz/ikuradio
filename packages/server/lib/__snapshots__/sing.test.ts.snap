@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`sing should sing 1`] = `
 [
@@ -12,6 +12,8 @@ exports[`sing should sing 1`] = `
   },
   {
     "content": "iteration 0",
+    "index": 0,
+    "part": "chorus",
     "type": "line",
   },
   {
@@ -65,6 +67,8 @@ exports[`sing should sing 1`] = `
   },
   {
     "content": "second line",
+    "index": 1,
+    "part": "chorus",
     "type": "line",
   },
   {
@@ -127,6 +131,8 @@ exports[`sing should sing 1`] = `
   },
   {
     "content": "la la la",
+    "index": 0,
+    "part": "verse",
     "type": "line",
   },
   {
@@ -177,6 +183,8 @@ exports[`sing should sing 1`] = `
   },
   {
     "content": "laa laa laa",
+    "index": 0,
+    "part": "verse",
     "type": "line",
   },
   {
@@ -243,6 +251,8 @@ exports[`sing should sing 1`] = `
   },
   {
     "content": "iteration 1",
+    "index": 0,
+    "part": "chorus",
     "type": "line",
   },
   {
@@ -296,6 +306,8 @@ exports[`sing should sing 1`] = `
   },
   {
     "content": "second line",
+    "index": 1,
+    "part": "chorus",
     "type": "line",
   },
   {

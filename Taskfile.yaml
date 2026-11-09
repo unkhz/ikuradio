@@ -15,15 +15,18 @@ includes:
   song:
     taskfile: packages/song/Taskfile.yaml
     dir: packages/song
-  speech:
-    taskfile: packages/speech/Taskfile.yaml
-    dir: packages/speech
   tools:
     taskfile: packages/tools/Taskfile.yaml
     dir: packages/tools
   ui:
     taskfile: packages/ui/Taskfile.yaml
     dir: packages/ui
+  vocals:
+    taskfile: packages/vocals/Taskfile.yaml
+    dir: packages/vocals
+  melody:
+    taskfile: packages/melody/Taskfile.yaml
+    dir: packages/melody
 
 tasks:
   lint-all:
@@ -32,7 +35,8 @@ tasks:
       - cli:lint
       - server:lint
       - song:lint
-      - speech:lint
+      - melody:lint
+      - vocals:lint
       - tools:lint
 
   test-all:
@@ -41,6 +45,7 @@ tasks:
       - cli:test
       - server:test
       - song:test
-      - speech:test
+      - melody:test
+      - vocals:test
       - tools:test
       - ui:test

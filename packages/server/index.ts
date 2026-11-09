@@ -1,14 +1,15 @@
 import { getEnv } from 'tools'
-import song, { SongPart } from 'song'
-import { say } from 'speech'
-import { sing } from './lib/sing.js'
+import song from 'song'
+import { setLine, scoreSeconds } from 'melody'
+import { countSyllables, record } from 'vocals'
+import { sing, type LineEvent } from './lib/sing.js'
 import { createServer } from './lib/server.js'
 import { createReadStream } from 'node:fs'
 import { TextEncoderStream } from 'node:stream/web'
 import { readdir, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 
-const { SERVER_PORT, SPEECH_VOICE, SPEECH_RATE } = getEnv()
+const { SERVER_PORT, SINGER } = getEnv()
 
 async function readRandomMusicFile(cat: string) {
   const files = await readdir(`audio/${cat}`)
@@ -19,21 +20,54 @@ async function readRandomMusicFile(cat: string) {
   }
 }
 
-const typingDelay =
-  SPEECH_VOICE.toLowerCase() === 'good news' ? SPEECH_RATE * 2 : SPEECH_RATE
-
 const stream = new TextEncoderStream()
 
-async function generateLineAudioData(line: string) {
-  return say(line, SPEECH_RATE, SPEECH_VOICE)
+type SungLine = { file: string; seconds: number }
+
+/** Every line already sung, by where it stands in the song and what it says. */
+const sung = new Map<string, SungLine>()
+
+const lineKey = ({ part, index, content }: Omit<LineEvent, 'type'>) =>
+  `${part}:${index}:${content}`
+
+/**
+ * Each iteration is set to its tunes and sung through before it is shown, so
+ * that a line is never typed before its voice exists.
+ */
+async function getSungSong(iteration: bigint) {
+  const parts = await song(iteration)
+  await Promise.all(
+    parts.flatMap(({ type: part, content }) =>
+      content.split('\n').map(async (line, index) => {
+        if (!line.trim()) return
+        const key = lineKey({ part, index, content: line })
+        if (sung.has(key)) return
+        const syllables = await countSyllables(line)
+        const score = setLine({
+          part,
+          line: index,
+          lyrics: line,
+          syllables,
+          singer: SINGER,
+        })
+        const file = await record(score, SINGER)
+        sung.set(key, { file, seconds: scoreSeconds(score) })
+      }),
+    ),
+  )
+  return parts
 }
 
-async function getCachedSong(iteration: bigint) {
-  const parts = await song(iteration)
-  for (const part of parts) {
-    await generateLineAudioData(part.content)
-  }
-  return parts
+/**
+ * Types a line as fast as it is sung. The typing waits once for every
+ * character, nine times more after a comma, and ten times more at the end.
+ */
+function pace(line: LineEvent) {
+  const sungLine = sung.get(lineKey(line))
+  if (!sungLine) return 80
+  const commas = line.content.split(',').length - 1
+  const beats = line.content.length + commas * 9 + 10
+  return (sungLine.seconds * 1000) / beats
 }
 
 type CategoryConfig = {
@@ -67,7 +101,7 @@ async function run() {
   let lastMusicTime = 0
   let category = pickCategory()
 
-  for await (const event of sing(getCachedSong, typingDelay)) {
+  for await (const event of sing(getSungSong, pace)) {
     const now = Date.now()
     switch (event.type) {
       case 'iteration': {
@@ -80,9 +114,10 @@ async function run() {
         break
       }
       case 'line': {
-        generateLineAudioData(event.content).then(async (filename) =>
-          write(`play:${filename}` + '\n')
-        )
+        const sungLine = sung.get(lineKey(event))
+        if (sungLine) {
+          write(`play:${sungLine.file}`)
+        }
         if (now - lastMusicTime > category.duration) {
           lastMusicTime = now
           readRandomMusicFile(category.key).then(async (filename) => {

@@ -146,7 +146,7 @@ async function read() {
         if (char.startsWith('play:')) {
           if (!isSnapshot) {
             const audioSrc = char.slice(5)
-            const isVoice = audioSrc.startsWith('audio/voice')
+            const isVoice = audioSrc.startsWith('audio/vocals')
             if (isVoice) {
               playVoice(audioContext, audioSrc)
             } else {
