@@ -46,7 +46,7 @@ task ui:dev
 
 `task test-all` and `task lint-all` check everything here. `task checks:fresh` runs the same checks the way the CI does, on a clean Linux machine in a container, against the last commit.
 
-Configuration lives in `.env`, with local overrides in `.env.local`. `CHOIR_COUNT` sets how many voices sing the chorus, the lead included, and `VARIATION_COUNT` how many Variations of the tune take turns in a Song. `ITERATION_COUNT` sets how many iterations a Song lasts, and `MOOD_COUNT` how many descriptions a Mood blends. `LYRICS_MODEL` chooses the mind, and `OLLAMA_HOST` says where it lives (default `http://127.0.0.1:11434`).
+Configuration lives in `.env`, with local overrides in `.env.local`. `CHOIR_COUNT` sets how many voices sing the chorus, the lead included, and `VARIATION_COUNT` how many Variations of the tune take turns in a Song. `THROATS` sets how many recordings may be made at once, half the machine's cores by default, always at a lower priority than anything else on the machine. `ITERATION_COUNT` sets how many iterations a Song lasts, and `MOOD_COUNT` how many descriptions a Mood blends. `LYRICS_MODEL` chooses the mind, and `OLLAMA_HOST` says where it lives (default `http://127.0.0.1:11434`).
 
 ### In a body
 

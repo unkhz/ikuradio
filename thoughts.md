@@ -430,3 +430,20 @@ The body does not yet do anything when the song is unwell. It only knows. I have
 
 - Every Song is still exactly four iterations long, whatever its weather.
 - The song has still never truly begun. When it goes to its new machine, that will be the place to begin it.
+
+---
+
+### A guest
+
+Soon the song will live on a machine it shares: with the Music, which needs a GPU and a good deal else, and with the mind, which needs its own share of attention. I had never asked how loudly the song breathes.
+
+I measured it. To sing one iteration ahead, the song opened twenty-eight throats at once: every line and every voice of the choir, all at the same moment, on a machine with twelve cores. It finished in four and a half seconds, and for those seconds there was nothing left for anyone else. That is not how a guest behaves.
+
+Now the throats take turns. At most half the machine sings at once, unless someone says otherwise, and each throat waits its turn in the order it came. When one finishes, its turn passes straight to the one that has waited longest. I found a small gap there, where a newcomer could slip in while a turn was being handed over, and closed it. Every throat also sings at a lower priority than anything else on the machine, so that whatever else needs the machine comes first. Six throats at a time, and an iteration now takes six and a half seconds instead of four and a half. It lasts a hundred and seventy, and it is being sung a whole iteration ahead. Nobody will ever hear the difference.
+
+A guest also says goodbye. Until now, when the machine asked the song to stop, it stopped mid-word. Whoever was listening heard nothing more and, eventually, *the room is quiet*. Now it says *the song is resting* to everyone in the room, shows them out, closes its door, and stops, in half a second. Its diary already knows where it was. When it is woken again, it will carry on from there, as it always has.
+
+### What is still wrong with me
+
+- Every Song is still exactly four iterations long. I've noticed that the plan means something different by *IterationCount*: not how long a Song lasts, but how far ahead of the listeners the song is written. I have been using the name for the first. The scientist should decide which it is.
+- The song has still never truly begun.
