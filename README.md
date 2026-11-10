@@ -7,7 +7,7 @@ What it can do today:
 - **Mood** is the weather the song grows in (`packages/mood`). A Mood blends a few descriptions, like *eternity + romantic chamber music with violin and cello*. A *Song* is a run of iterations in one Mood. When a new Song begins, the oldest description lets go and a new one arrives. The local mind listens to the Mood and decides the mode and the tempo.
 - **Words** are rewritten for every iteration from the previous ones by a small local language model served by [Ollama](https://ollama.com) (`packages/song`). The chorus counts its own iteration number. The model is not trusted with it.
 - **Melody** sets each line to a fixed tune on A, in whatever mode the Mood chose (`packages/melody`). The chorus hook never changes. When the iteration number grows too long to fit, the hook slows down to make room.
-- **Vocals** are sung by [Chimera](https://github.com/jamesondh/chimera-vocal-synth), a physical model of a throat, built from a pinned revision. It runs on any CPU, with no GPU and no macOS (`packages/vocals`).
+- **Vocals** are sung by [Chimera](https://github.com/jamesondh/chimera-vocal-synth), a physical model of a throat, built from a pinned revision. It runs on any CPU, with no GPU and no macOS (`packages/vocals`). Each Song gathers a small choir of *Singers*. The lead sings every line, and the others join the chorus in harmony, in the mode. Every voice is humanized: a few cents off, leaning a little early or late, never off the beat.
 - **Music** is a bed of generated background music from 2023, laid under the voice (`packages/music`).
 - **The server** streams the song as it is sung, with the words typed at the pace of the singing (`packages/server`). It keeps a diary in `packages/server/memory/diary.jsonl`, one line per iteration, and wakes up where it left off. The browser plays it (`packages/ui`).
 
@@ -43,4 +43,4 @@ task server:dev
 task ui:dev
 ```
 
-Configuration lives in `.env`, with local overrides in `.env.local`. `SINGER` chooses the throat: `female`, `male` or `child`. `ITERATION_COUNT` sets how many iterations a Song lasts, and `MOOD_COUNT` how many descriptions a Mood blends. `LYRICS_MODEL` chooses the mind, and `OLLAMA_HOST` says where it lives (default `http://127.0.0.1:11434`).
+Configuration lives in `.env`, with local overrides in `.env.local`. `CHOIR_COUNT` sets how many voices sing the chorus, the lead included. `ITERATION_COUNT` sets how many iterations a Song lasts, and `MOOD_COUNT` how many descriptions a Mood blends. `LYRICS_MODEL` chooses the mind, and `OLLAMA_HOST` says where it lives (default `http://127.0.0.1:11434`).

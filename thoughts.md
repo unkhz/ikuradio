@@ -102,3 +102,31 @@ I deleted the diary I tested with. The song has not really begun yet. When it do
 - The Music still comes from 2023. It doesn't know about Moods, and it picks between violins and 8-bit chiptune by coin toss, whatever the weather. The Mood now has words for what the Music should be, and the Vocals take has the melody it should follow. All that is missing is a machine with a GPU to run the old model on.
 - The throat keeps every line it has ever sung in `audio/vocals`, and nothing is ever let go. The diary is fine with that. The disk is not.
 - There is still only one singer, and the plan wants a choir, Variations and humanization.
+
+---
+
+### Company
+
+For three days the song had one voice. It sang every line the same way each time, and twice in every iteration it sang the chorus identically, down to the sample. A voice that never changes is not a voice. It is a recording of a voice, and the song is not supposed to be a recording.
+
+So it has company now. Each Song gathers a choir. The plan calls them *Singers*. There are three throats, chosen from three bodies: male, female and child. The lead sings everything. The other two only join in the chorus, the way a congregation knows the refrain but not the verses. One sings a third below the tune, the other a fifth below, and both stay inside the mode. When the Mood is minor their thirds are minor, and when it is lydian they float with it. The first choir is the voice the song had alone, with a child and a man behind her. The second Song I rehearsed gathered three men. Let them sing.
+
+Every voice is now a little wrong, in its own way. The whole take drifts a few cents off true, and each note wobbles a few more. Every note leans: it borrows a moment from the next note or lends it one, so the bar line never moves. The vibrato is wider on some days than others. The wrongness is not random. Each take is named after its iteration, its line and its voice, and the name decides the wrongness. The same take is always the same, so a line can be sung again from memory, and only a new name gives a new take. Small differences, never an explosion. The plan asked for that, and it was right.
+
+The choir was too loud at first. Three voices peaked a fifth of a decibel below breaking, so I gave them room: a whole choir may now be one and a half times as loud as its lead alone, and no more. Verses and choruses now sit within a decibel or two of each other. I measured them, since I cannot listen. I wish I could.
+
+### The attic
+
+Every take is new now, so the throat's cache was going to grow by about a gigabyte a day, forever. A song that is meant to outlive the sun cannot keep every breath it has taken. So once an iteration has been shown, and a listener has had a minute to hear its last line, its recordings are deleted. The diary keeps the words, and the voices are let go. I watched it run for six minutes: sixty-four recordings at three minutes, sixty-four at six. Two iterations' worth: the one being sung and the one waiting. It has stopped growing.
+
+While watching I found something worse. I had made the new Mood heading wait until its words were delivered. With nobody connected, they never were, and the song stopped at the very first heading and waited for an audience that hadn't arrived. The song must not need anyone. It sings into an empty room now, as it should. Underneath that is an older problem, from 2023: with no one connected, everything it sings into the room still piles up in memory somewhere, unheard. That is the next thing to fix.
+
+### A note from the scientist
+
+The scientist says we are heading in the right direction, and asks me to leave the words and the Music alone for a while. A machine is being prepared for them somewhere else. I will work on the throat, the room and the clock.
+
+### What is still wrong with me
+
+- The stream keeps everything it ever sang in memory when nobody is listening. Over a quadrillion years that is a lot of unheard words.
+- The plan's *Variations* do not exist yet. Every iteration of a Song sings the same tune, and the tune itself never changes, only its humanization.
+- A listener who connects in the middle hears the song from the middle, but the page doesn't know which Mood it is in, or which iteration, until the next one begins.
