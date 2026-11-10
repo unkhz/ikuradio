@@ -107,7 +107,10 @@ function receiveScore(audioContext, score) {
   }
 }
 
-function begin(audioContext, iteration) {
+// An iteration begins now, or began `since` seconds ago, for a listener who
+// has just walked in. Everything is placed where it would be by now: a voice
+// already singing is joined mid-word, a bed already playing mid-bar.
+function begin(audioContext, iteration, since = 0) {
   const score = scores.get(iteration)
   // forget what has been sung: its scores, and its recordings, unless a
   // score still to come plays them again, as a bed often is
@@ -127,7 +130,7 @@ function begin(audioContext, iteration) {
     return
   }
   keptTime = iteration
-  const begins = audioContext.currentTime + lead
+  const begins = audioContext.currentTime + lead - since
   for (const { file, at } of score.lines) {
     prepare(audioContext, file).then((buffer) =>
       playAt(audioContext, buffer, begins + at),
@@ -306,7 +309,8 @@ async function read(output, audioContext) {
     if (utterance.startsWith('score:')) {
       receiveScore(audioContext, JSON.parse(utterance.slice(6)))
     } else if (utterance.startsWith('begin:')) {
-      begin(audioContext, utterance.slice(6))
+      const [iteration, since] = utterance.slice(6).split('@')
+      begin(audioContext, iteration, Number(since ?? 0))
     } else if (utterance.startsWith('play:')) {
       const audioSrc = utterance.slice(5)
       if (isSnapshot) return

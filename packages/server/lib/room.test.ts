@@ -84,7 +84,8 @@ describe('Room', () => {
   })
 
   it('gives a newcomer the score of what comes next, until it begins', () => {
-    const room = new Room()
+    let now = 0
+    const room = new Room(() => now)
     room.turnPage(['~ dub ~'])
     room.say('W')
     room.announce('score:{"iteration":"1"}')
@@ -93,9 +94,35 @@ describe('Room', () => {
     expect(early.heard).toBe('~ dub ~\nW\nscore:{"iteration":"1"}\n')
     room.turnPage(['~ dub ~'])
     room.say('begin:1')
+    now = 12_345
     const late = new Ear()
     room.enter(late)
-    expect(late.heard).toBe('~ dub ~\n')
+    // what is being sung, and how long ago it began, to join it on the beat
+    expect(late.heard).toBe('~ dub ~\nscore:{"iteration":"1"}\nbegin:1@12.345\n')
+  })
+
+  it('gives a newcomer both the score being sung and the next', () => {
+    let now = 0
+    const room = new Room(() => now)
+    room.announce('score:{"iteration":"4"}')
+    room.say('begin:4')
+    room.announce('score:{"iteration":"5"}')
+    now = 2000
+    const late = new Ear()
+    room.enter(late)
+    expect(late.heard).toBe(
+      'score:{"iteration":"4"}\nbegin:4@2.000\nscore:{"iteration":"5"}\n',
+    )
+  })
+
+  it('lets a newcomer keep time even when the iteration had no score', () => {
+    let now = 0
+    const room = new Room(() => now)
+    room.say('begin:7')
+    now = 500
+    const late = new Ear()
+    room.enter(late)
+    expect(late.heard).toBe('begin:7@0.500\n')
   })
 
   it('shows everyone out when it closes', () => {

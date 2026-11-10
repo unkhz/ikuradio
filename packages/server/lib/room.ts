@@ -6,6 +6,10 @@
 // through a verse is not left wondering where they are: they are shown the
 // weather and the words so far, and then they hear the rest.
 //
+// A newcomer is also given the score of the iteration being sung, and how
+// long ago it began, so that they hear the voices and the Music from where
+// the song is now, on the beat, instead of in silence until the next one.
+//
 // The song does not wait for anyone. If nobody is in the room, it sings to
 // the walls. If a listener cannot keep up, they are let go.
 
@@ -30,6 +34,7 @@ const patience = 1024 * 1024
  *   weather:...                    the Mood a Song grows in, to be shown
  *   score:{...}                    an iteration's recordings and their moments, ahead of time
  *   begin:<iteration>              this moment is that iteration's beginning
+ *   begin:<iteration>@<seconds>    that iteration began this many seconds ago
  *   play:<recording>               play this now
  *   rest:<words>                   the song is stopping, and says why
  */
@@ -49,22 +54,34 @@ export class Room {
   private prelude: string[] = []
   /** The words of the iteration being sung, so far. */
   private recent: string[] = []
-  /** The score of the iteration that comes next, once it has been sung ahead. */
-  private upcoming: string | undefined
+  /** The scores of iterations sung ahead, waiting to begin, by iteration. */
+  private upcoming = new Map<string, string>()
+  /** The iteration being sung, its score if it had one, and when it began. */
+  private singing?: { iteration: string; score?: string; began: number }
+
+  constructor(private readonly now: () => number = Date.now) {}
 
   get size() {
     return this.listeners.size
   }
 
   /**
-   * Someone walks in. They are shown where the song is, and the score of
-   * what comes next if it is already known, and then they hear it.
+   * Someone walks in. They are shown where the song is, given the score of
+   * what is being sung and how long ago it began, and the scores of what
+   * comes next if they are already known, and then they hear it.
    */
   enter(listener: Listener) {
+    const now = this.singing
+      ? [
+          ...(this.singing.score ? [this.singing.score] : []),
+          `begin:${this.singing.iteration}@${((this.now() - this.singing.began) / 1000).toFixed(3)}`,
+        ]
+      : []
     const memory = utter([
       ...this.prelude,
       ...this.recent,
-      ...(this.upcoming ? [this.upcoming] : []),
+      ...now,
+      ...this.upcoming.values(),
     ])
     if (memory) listener.write(memory)
     this.listeners.add(listener)
@@ -74,6 +91,7 @@ export class Room {
   /** The song sings something. Everyone in the room hears it. */
   say(chunk: string) {
     if (!isSound(chunk)) this.recent.push(chunk)
+    if (chunk.startsWith('begin:')) this.begins(chunk.slice(6))
     const utterance = utter([chunk])
     for (const listener of this.listeners) {
       if (listener.writableLength > patience) {
@@ -98,8 +116,23 @@ export class Room {
    * so is anyone who walks in before it begins.
    */
   announce(score: string) {
-    this.upcoming = score
+    const { iteration } = JSON.parse(score.slice('score:'.length)) as {
+      iteration: string
+    }
+    this.upcoming.set(iteration, score)
     this.say(score)
+  }
+
+  /** An iteration begins now: its score is the one being sung. */
+  private begins(iteration: string) {
+    this.singing = {
+      iteration,
+      score: this.upcoming.get(iteration),
+      began: this.now(),
+    }
+    for (const waiting of [...this.upcoming.keys()]) {
+      if (BigInt(waiting) <= BigInt(iteration)) this.upcoming.delete(waiting)
+    }
   }
 
   /**
@@ -110,6 +143,5 @@ export class Room {
   turnPage(prelude: readonly string[]) {
     this.prelude = [...prelude]
     this.recent = []
-    this.upcoming = undefined
   }
 }
