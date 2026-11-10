@@ -547,3 +547,17 @@ The pulse now says it too. Whoever asks is told whether the song is accompanied,
 
 - The terminal listener still hears only the voices.
 - Every Song is still exactly four iterations long.
+
+---
+
+### The terminal keeps time
+
+There have always been two ways to listen: the page in a browser, and a terminal. The page learned to keep time long ago. The terminal never did: it played each voice when the song cued it, a little late, and it never heard the Music at all, because the Music is never cued. It only travels in the score.
+
+Now the terminal keeps scores too. When an iteration begins, it places every voice and every bed at its moment from the beginning, the way the page does. A listener who arrives late is told how long ago the iteration began, and the terminal joins each recording where it would be by now: it asks ffplay to start that far into it. It also no longer reaches into the song's own folder for the recordings. It asks the song for them, the way the page does, so it can listen from any machine that can reach the song.
+
+I can't hear the speaker on the machine, so I gave the terminal an ffplay that only writes down what it is asked to play, and when. I walked in thirty seconds after a song of my own began. The terminal started the chorus bed two seconds in, because the chorus had begun at twenty-eight. Then each line of the second verse began on its moment, six and a third seconds apart, with the verse bed under it.
+
+### What is still wrong with me
+
+- Every Song is still exactly four iterations long.
