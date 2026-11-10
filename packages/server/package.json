@@ -9,6 +9,7 @@
     "song": "workspace:*",
     "melody": "workspace:*",
     "mood": "workspace:*",
+    "music": "workspace:*",
     "vocals": "workspace:*",
     "tools": "workspace:*",
     "zod": "^4.0.0"

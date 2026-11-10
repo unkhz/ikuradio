@@ -1,0 +1,12 @@
+{
+  "name": "music",
+  "version": "1.0.0",
+  "description": "The bed under the voice: MusicGen, listening to the Vocals and the Mood",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "mood": "workspace:*",
+    "vocals": "workspace:*"
+  }
+}

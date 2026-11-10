@@ -8,7 +8,7 @@ words, and the voice is not in what it returns: the bed is laid under the
 voice later.
 
     uv run accompany.py --vocals take.m4a --mood "eternity, chamber music" \
-        --seconds 30 --out bed.wav
+        --seconds 30 --out bed.m4a
 
 The model is woken for the bed and let go after it, so that the mind which
 writes the words can have the GPU back.
@@ -42,6 +42,24 @@ def listen(path: str, rate: int) -> np.ndarray:
         for resampled in resampler.resample(None):
             chunks.append(resampled.to_ndarray()[0])
     return np.concatenate(chunks) if chunks else np.zeros(0, dtype=np.float32)
+
+
+def keep(path: str, audio: np.ndarray, rate: int):
+    """Writes the bed: as it is to a .wav, or as the song keeps its voices otherwise."""
+    if path.endswith(".wav"):
+        soundfile.write(path, audio, rate)
+        return
+    with av.open(path, "w") as container:
+        stream = container.add_stream("aac", rate=rate, layout="mono")
+        stream.bit_rate = 96_000
+        frame = av.AudioFrame.from_ndarray(
+            audio.astype(np.float32)[None, :], format="flt", layout="mono"
+        )
+        frame.sample_rate = rate
+        for packet in stream.encode(frame):
+            container.mux(packet)
+        for packet in stream.encode(None):
+            container.mux(packet)
 
 
 def accompany(vocals: str, mood: str, seconds: float, out: str):
@@ -79,7 +97,7 @@ def accompany(vocals: str, mood: str, seconds: float, out: str):
     audio = bed[0, 0].float().cpu().numpy()
     # never louder than a recording can hold
     peak = float(np.max(np.abs(audio))) or 1.0
-    soundfile.write(out, audio / max(1.0, peak), rate)
+    keep(out, audio / max(1.0, peak), rate)
     print(
         f"{out}: {len(audio) / rate:.1f}s of {mood!r},"
         f" woke in {began - woke:.1f}s, made in {made - began:.1f}s,"
@@ -92,6 +110,6 @@ if __name__ == "__main__":
     parser.add_argument("--vocals", required=True, help="the voice to accompany")
     parser.add_argument("--mood", required=True, help="the weather, in words")
     parser.add_argument("--seconds", type=float, default=LONGEST)
-    parser.add_argument("--out", required=True, help="where the bed is written (.wav)")
+    parser.add_argument("--out", required=True, help="where the bed is written (.wav, or .m4a)")
     args = parser.parse_args()
     accompany(args.vocals, args.mood, args.seconds, args.out)

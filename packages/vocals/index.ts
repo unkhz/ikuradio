@@ -15,3 +15,4 @@ export {
   type Choir,
   type Voice,
 } from './lib/singers.js'
+export { run, Turns } from './lib/exec.js'

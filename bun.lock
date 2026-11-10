@@ -31,12 +31,21 @@
         "tools": "workspace:*",
       },
     },
+    "packages/music": {
+      "name": "music",
+      "version": "1.0.0",
+      "dependencies": {
+        "mood": "workspace:*",
+        "vocals": "workspace:*",
+      },
+    },
     "packages/server": {
       "name": "server",
       "version": "1.0.0",
       "dependencies": {
         "melody": "workspace:*",
         "mood": "workspace:*",
+        "music": "workspace:*",
         "song": "workspace:*",
         "tools": "workspace:*",
         "vocals": "workspace:*",
@@ -83,6 +92,8 @@
     "melody": ["melody@workspace:packages/melody"],
 
     "mood": ["mood@workspace:packages/mood"],
+
+    "music": ["music@workspace:packages/music"],
 
     "server": ["server@workspace:packages/server"],
 

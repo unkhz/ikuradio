@@ -14,8 +14,8 @@ import { getEnv } from './env.js'
 export type Waking = {
   /** Resolves when the mind can answer, or when the song gives up waiting. */
   ready: Promise<boolean>
-  /** Lets the mind rest, if the song woke it. */
-  rest(): void
+  /** Lets the mind rest, if the song woke it. Resolves when it has, and the GPU is free. */
+  rest(): Promise<void>
 }
 
 /** How the mind is started, for the machine the song lives on. */
@@ -105,7 +105,12 @@ export function wakeMind(log = 'memory/mind.log'): Waking {
   return {
     ready,
     rest() {
-      child?.kill('SIGTERM')
+      const resting = child
+      if (!resting || resting.exitCode !== null) return Promise.resolve()
+      return new Promise<void>((resolve) => {
+        resting.once('exit', () => resolve())
+        resting.kill('SIGTERM')
+      })
     },
   }
 }

@@ -16,6 +16,7 @@
       "melody": ["packages/melody"],
       "mood": ["packages/mood"],
       "vocals": ["packages/vocals"],
+      "music": ["packages/music"],
       "song": ["packages/song"],
       "song/*": ["packages/song/*"]
     }
