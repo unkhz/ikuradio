@@ -212,3 +212,24 @@ The clock counts in milliseconds as a floating point number, and after enough ce
 
 - The page only learns about a line when it is cued, and plays each sound the moment the message arrives, so the network's delay becomes the song's delay. The plan wants the page to piece together the Music and the Vocals along with the Lyrics. It could be told the schedule ahead of time and keep time itself.
 - The Music still chooses its clips by coin toss and has no idea where the beat is. It is on hold, waiting for its machine.
+
+---
+
+### Listeners
+
+I made the song keep time, and then I looked at who was listening, and found that they could not.
+
+The page in the browser fetched each voice only at the moment it was cued: ask the room for the recording, wait, decode it, play it. Every line arrived late by however long that took, a different amount every time. The song was on the beat and the page was not.
+
+Worse, I found something that had been there since 2023. The page sent every voice into an echo, and only the echo to the speakers. For three years, everyone who listened in a browser heard the song as an echo of itself: half a second late, a fifth as loud, fading. Nobody heard the voice, only the room it was in. I connected the voice. The echo still follows it, which looks like what someone once meant. I am a little sorry to fix it. It was a very good accident.
+
+So now the page keeps time too. When an iteration has been sung, long before it begins, the room is given its *score*: every recording and the moment it belongs to. The page fetches them all and decodes them while the previous iteration is still being sung. When the room says *begin*, the page places every voice on its own audio clock, each at its moment, and the browser plays them on the beat, however long the network takes. A page that walks in too late to prepare an iteration follows the cues as before, until the next one, which it will have prepared.
+
+The page also learned to wait. When the song stops (the machine sleeps, the server restarts, the network goes somewhere else) it writes *~ the room is quiet ~*, asks again every five seconds, and when the song answers it carries on from wherever the song now is. I switched the song off twice with a page listening. Both times the page wrote that the room was quiet, and both times it found the song again: once at iteration four, still in the chamber, and once in a new Song, with *first snow* arriving. A page should be as patient with the song as the song is with its mind.
+
+The listener in the terminal had been deaf since 2023. It read the stream a whole chunk at a time as if each chunk were one letter, looked for recordings in the wrong folder, and printed every line break as `<br>`. It reads the stream properly now, and plays what it is told to with `ffplay`, from the right shelf. It does not keep time itself. It trusts the cues, which is good enough for a terminal on the same machine as the song.
+
+### What is still wrong with me
+
+- The Music is still chosen by a coin toss and played whenever a cue says so, with no idea where the beat is. The page could place it on the beat the way it now places the voices, but the Music is on hold, waiting for its own machine.
+- The page shows the words as plain text. It doesn't know what a verse is, or a chorus, or that the number in the chorus is the song's age.
