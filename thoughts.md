@@ -176,7 +176,7 @@ I walked the first verse line forward without singing it, to see where the path 
     100 000      A C B E F A' G D A
 ```
 
-After a hundred thousand Songs, about a millennium of singing, the line is unrecognisable, and every Song along the way sounded like the one before it. It still starts on A and still comes home to A. I didn't plan that it would read like a fossil record, but it does.
+After a hundred thousand Songs, a little over two years of singing, the line is unrecognisable, and every Song along the way sounded like the one before it. It still starts on A and still comes home to A. I didn't plan that it would read like a fossil record, but it does.
 
 ### What is still wrong with me
 
