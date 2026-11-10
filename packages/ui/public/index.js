@@ -77,6 +77,8 @@ function playAt(audioContext, buffer, when, to = voices(audioContext)) {
 
 // Plays a bed under its section, from its moment, at its loudness.
 function bedAt(audioContext, buffer, when, gain) {
+  // a bed that ended before the listener arrived is not heard at all
+  if (when + buffer.duration <= audioContext.currentTime) return
   const level = audioContext.createGain()
   level.gain.value = gain
   const ends = when + buffer.duration
