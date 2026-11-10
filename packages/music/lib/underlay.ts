@@ -9,6 +9,7 @@ import { describe, type Mood } from 'mood'
 import { mixdown, type Placed } from 'vocals'
 import { accompany, musicDir, words } from './bed.js'
 import { sections, type Line } from './sections.js'
+import type { Shelf } from './shelf.js'
 
 /** How loud the bed lies under the voice. Under it, never over it. */
 export const bedGain = 0.45
@@ -34,28 +35,51 @@ async function voiceOf(lines: Line[], from: number): Promise<string> {
   return file
 }
 
+/** The Song a Mood belongs to, as the shelf knows it: its weather and its pulse. */
+export const songOf = ({ descriptions, character }: Mood) =>
+  JSON.stringify({ descriptions, tempo: character.tempo, mode: character.mode })
+
 /**
- * Grows a bed for each part of an iteration and places it under every
- * section of that part. Returns the beds as placed recordings, ready to be
- * mixed under the voice or played beside it.
+ * Finds a bed for each part of an iteration and places it under every
+ * section of that part. With a shelf, a part may play a bed it has played
+ * before in this Song instead of growing a new one. Returns the beds as
+ * placed recordings, ready to be mixed under the voice or played beside
+ * it, and the beds that left the shelf.
  */
-export async function underlay(lines: Line[], mood: Mood): Promise<Placed[]> {
+export async function underlay(
+  lines: Line[],
+  mood: Mood,
+  { shelf, iteration = 0n }: { shelf?: Shelf; iteration?: bigint } = {},
+): Promise<{ beds: Placed[]; departed: string[] }> {
   const all = sections(lines)
+  const song = songOf(mood)
   const beds = new Map<Line['part'], string>()
+  const departed: string[] = []
   for (const section of all) {
     if (beds.has(section.part)) continue
     if (!section.lines.some(({ file }) => file)) continue
+    const choice = shelf?.choose(iteration, song, section.part)
+    if (choice && !choice.grow) {
+      beds.set(section.part, choice.bed)
+      continue
+    }
     const vocals = await voiceOf(section.lines, section.at)
-    beds.set(
-      section.part,
-      await accompany({ vocals, mood: words(mood), seconds: section.seconds }),
-    )
+    const bed = await accompany({
+      vocals,
+      mood: words(mood),
+      seconds: section.seconds,
+    })
+    beds.set(section.part, bed)
+    if (shelf) departed.push(...shelf.keep(song, section.part, bed))
   }
   if (beds.size === 0) {
     console.warn(`no bed grew under ${describe(mood)}: nothing was sung`)
   }
-  return all.flatMap(({ part, at }) => {
-    const file = beds.get(part)
-    return file ? [{ file, at, gain: bedGain }] : []
-  })
+  return {
+    beds: all.flatMap(({ part, at }) => {
+      const file = beds.get(part)
+      return file ? [{ file, at, gain: bedGain }] : []
+    }),
+    departed,
+  }
 }

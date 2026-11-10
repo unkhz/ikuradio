@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { sections, type Line } from './sections.js'
 import { words } from './bed.js'
+import { Shelf, shelfSize } from './shelf.js'
 
 const line = (
   part: Line['part'],
@@ -50,5 +51,44 @@ describe('words', () => {
         character: { mode: 'lydian', tempo: 120 },
       }),
     ).toBe('a lighthouse, 120 bpm, major key')
+  })
+})
+
+describe('the shelf', () => {
+  it('grows both parts when a Song begins', () => {
+    const shelf = new Shelf()
+    expect(shelf.choose(0n, 'a', 'verse')).toEqual({ grow: true })
+    expect(shelf.choose(0n, 'a', 'chorus')).toEqual({ grow: true })
+  })
+
+  it('grows one part each iteration, and plays the other again', () => {
+    const shelf = new Shelf()
+    shelf.keep('a', 'verse', 'v0')
+    shelf.keep('a', 'chorus', 'c0')
+    for (let iteration = 1n; iteration < 40n; iteration++) {
+      const verse = shelf.choose(iteration, 'a', 'verse')
+      const chorus = shelf.choose(iteration, 'a', 'chorus')
+      expect(verse.grow !== chorus.grow).toBe(true)
+      // the same iteration always chooses the same
+      expect(shelf.choose(iteration, 'a', 'verse')).toEqual(verse)
+    }
+  })
+
+  it('lets a Song’s beds go when the Mood changes', () => {
+    const shelf = new Shelf()
+    shelf.keep('a', 'verse', 'v0')
+    shelf.keep('a', 'chorus', 'c0')
+    expect(shelf.choose(5n, 'b', 'verse')).toEqual({ grow: true })
+    expect(shelf.keep('b', 'verse', 'v1').sort()).toEqual(['c0', 'v0'])
+    expect(shelf.all).toEqual(['v1'])
+  })
+
+  it('remembers only so many beds of a part', () => {
+    const shelf = new Shelf()
+    const departed = Array.from({ length: shelfSize + 2 }, (_, i) =>
+      shelf.keep('a', 'verse', `v${i}`),
+    ).flat()
+    expect(departed).toEqual(['v0', 'v1'])
+    expect(shelf.all).toHaveLength(shelfSize)
   })
 })

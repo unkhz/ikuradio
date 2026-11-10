@@ -23,7 +23,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { arrange } from 'song'
 import { describe } from 'mood'
 import { introduce, mixdown } from 'vocals'
-import { underlay } from 'music'
+import { Shelf, underlay } from 'music'
 import { getEnv, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
 import { composer } from './lib/compose.js'
@@ -56,6 +56,7 @@ const sung: {
   take: string
   lines: Awaited<ReturnType<typeof perform>>
   mood: Awaited<ReturnType<typeof compose>>['mood']
+  iteration: bigint
 }[] = []
 
 for (let iteration = 0n; iteration <= last; iteration++) {
@@ -88,17 +89,19 @@ for (let iteration = 0n; iteration <= last; iteration++) {
       ` written in ${seconds(written - started)}s,` +
       ` sung in ${seconds(Date.now() - written)}s`,
   )
-  sung.push({ take, lines, mood: composed.mood })
+  sung.push({ take, lines, mood: composed.mood, iteration })
 }
 
 // the words are written; the mind lets go of the GPU, and the Music may have it
 await mind?.rest()
 
 if (!dry) {
-  for (const { take, lines, mood } of sung) {
+  // the shelf the live song keeps: a part grows a new bed, or plays one again
+  const shelf = new Shelf()
+  for (const { take, lines, mood, iteration } of sung) {
     const started = Date.now()
     try {
-      const beds = await underlay(lines, mood)
+      const { beds } = await underlay(lines, mood, { shelf, iteration })
       if (beds.length === 0) continue
       await mixdown(beds, `${take}.music.m4a`)
       await mixdown(
