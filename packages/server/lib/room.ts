@@ -25,8 +25,12 @@ const patience = 1024 * 1024
 const utter = (chunks: readonly string[]) =>
   chunks.map((chunk) => chunk + '\n').join('')
 
-/** Utterances that are about sound, not words. They are heard once, live, and never remembered. */
-const isSound = (chunk: string) => chunk.startsWith('play:')
+/**
+ * Utterances that are about sound and time, not words: a recording to play,
+ * the score of an iteration, the moment one begins. They are heard once,
+ * live, and never remembered with the words.
+ */
+const isSound = (chunk: string) => /^(play|score|begin):/.test(chunk)
 
 export class Room {
   private listeners = new Set<Listener>()
@@ -34,14 +38,23 @@ export class Room {
   private prelude: string[] = []
   /** The words of the iteration being sung, so far. */
   private recent: string[] = []
+  /** The score of the iteration that comes next, once it has been sung ahead. */
+  private upcoming: string | undefined
 
   get size() {
     return this.listeners.size
   }
 
-  /** Someone walks in. They are shown where the song is, and then they hear it. */
+  /**
+   * Someone walks in. They are shown where the song is, and the score of
+   * what comes next if it is already known, and then they hear it.
+   */
   enter(listener: Listener) {
-    const memory = utter([...this.prelude, ...this.recent])
+    const memory = utter([
+      ...this.prelude,
+      ...this.recent,
+      ...(this.upcoming ? [this.upcoming] : []),
+    ])
     if (memory) listener.write(memory)
     this.listeners.add(listener)
     listener.on('close', () => this.listeners.delete(listener))
@@ -63,6 +76,16 @@ export class Room {
   }
 
   /**
+   * The score of the next iteration is ready, long before it begins. Everyone
+   * in the room is given it now, so they can prepare to hear it on time, and
+   * so is anyone who walks in before it begins.
+   */
+  announce(score: string) {
+    this.upcoming = score
+    this.say(score)
+  }
+
+  /**
    * A new iteration begins, and the room forgets the last one. `prelude` is
    * what a newcomer will be shown from now on, before the words: the
    * weather the song is in.
@@ -70,5 +93,6 @@ export class Room {
   turnPage(prelude: readonly string[]) {
     this.prelude = [...prelude]
     this.recent = []
+    this.upcoming = undefined
   }
 }

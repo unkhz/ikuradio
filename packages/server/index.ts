@@ -59,6 +59,13 @@ async function getSungSong(iteration: bigint): Promise<TimedPart[]> {
     ]),
   )
   performed.set(iteration, { iteration: composed, lines })
+  // the score, so that listeners can prepare every voice before it is due
+  room.announce(
+    `score:${JSON.stringify({
+      iteration: `${iteration}`,
+      lines: [...lines.values()].map(({ file, at }) => ({ file, at })),
+    })}`,
+  )
   return arrange(composed.lyrics).map((part) => ({
     ...part,
     timing: part.content.split('\n').map((line, index) => {
@@ -117,6 +124,8 @@ function pickCategory() {
 async function run() {
   const say = (chunk: string) => room.say(chunk)
 
+  /** True until the first iteration after waking has begun. */
+  let justWoke = true
   let lastMusicTime = 0
   let category = pickCategory()
 
@@ -139,11 +148,15 @@ async function run() {
           ? [`~ ${shown.mood.descriptions.join(' + ')} ~`, '<br>', '<br>']
           : []
         room.turnPage(weather)
-        if (shown?.beginsSong) {
-          // a new Song: everyone already here is shown the new weather too
+        // this moment is the iteration's beginning; listeners keep time from here
+        say(`begin:${current}`)
+        if (shown?.beginsSong || justWoke) {
+          // a new Song, or the song has just woken: everyone already here is
+          // shown the weather too
           weather.forEach(say)
           room.turnPage(weather)
         }
+        justWoke = false
         console.log(
           `Iteration ${event.content}, ${shown ? `${describe(shown.mood)}, sung by ${introduce(shown.choir)}` : '?'}, ${category.key}`,
         )

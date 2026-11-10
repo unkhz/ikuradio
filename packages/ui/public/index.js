@@ -1,6 +1,8 @@
+const server = 'http://127.0.0.1:3000'
+
 function createAudioElement(file, volume) {
   const audioEl = document.createElement('audio')
-  audioEl.src = `http://127.0.0.1:3000/${file}`
+  audioEl.src = `${server}/${file}`
   audioEl.volume = volume
   audioEl.crossOrigin = 'anonymous'
   return audioEl
@@ -51,32 +53,102 @@ function startCrossfade(
   oldTrack,
   newTrack,
   durationSeconds,
-  targetGainValue
+  targetGainValue,
 ) {
   newTrack.gain.gain.setValueAtTime(0, audioContext.currentTime)
 
   // When the startCrossfade starts, reduce the volume of source 1 to 0 and increase the volume of source 2 to 1
   oldTrack.gain.gain.linearRampToValueAtTime(
     0,
-    audioContext.currentTime + durationSeconds
+    audioContext.currentTime + durationSeconds,
   )
   newTrack.gain.gain.linearRampToValueAtTime(
     targetGainValue,
-    audioContext.currentTime + durationSeconds
+    audioContext.currentTime + durationSeconds,
   )
 }
 
-function playVoice(audioContext, audioSrc) {
-  const audioEl = createAudioElement(audioSrc, 1)
-  const track = createTrack(audioContext, audioEl, 1)
-  const delay = createDelay(audioContext, 0.5, 0.22)
-  track.out.connect(delay.in)
-  delay.out.connect(audioContext.destination)
+// The voices. Every voice goes to the speakers, and an echo of it follows
+// half a second behind, fading. In 2023 only the echo was connected.
+let voiceBus
+function voices(audioContext) {
+  if (!voiceBus) {
+    voiceBus = audioContext.createGain()
+    const echo = createDelay(audioContext, 0.5, 0.22)
+    voiceBus.connect(audioContext.destination)
+    voiceBus.connect(echo.in)
+    echo.out.connect(audioContext.destination)
+  }
+  return voiceBus
+}
 
-  audioEl.addEventListener('ended', () => {
-    audioEl.remove()
+// Recordings, fetched and decoded before they are needed, by name.
+const recordings = new Map()
+function prepare(audioContext, file) {
+  if (!recordings.has(file)) {
+    recordings.set(
+      file,
+      fetch(`${server}/${file}`)
+        .then((response) => response.arrayBuffer())
+        .then((data) => audioContext.decodeAudioData(data)),
+    )
+  }
+  return recordings.get(file)
+}
+
+// Plays a recording at a moment on the page's own clock. If the moment has
+// already passed, the recording joins where it would be now, on the beat.
+function playAt(audioContext, buffer, when) {
+  const now = audioContext.currentTime
+  const late = now - when
+  if (late >= buffer.duration) return
+  const source = audioContext.createBufferSource()
+  source.buffer = buffer
+  source.connect(voices(audioContext))
+  if (late > 0) source.start(now, late)
+  else source.start(when)
+}
+
+// Plays a cued recording at once, and does not keep it: it belongs to no score.
+function playVoice(audioContext, audioSrc) {
+  prepare(audioContext, audioSrc).then((buffer) => {
+    recordings.delete(audioSrc)
+    playAt(audioContext, buffer, audioContext.currentTime)
   })
-  audioEl.play()
+}
+
+// The page keeps time. Scores arrive long before their iteration begins;
+// when one begins, every line is placed at its moment on the page's clock.
+const scores = new Map()
+let keptTime // the iteration whose voices the page has placed itself
+const lead = 0.05 // seconds between hearing a beginning and the first sound
+
+function receiveScore(audioContext, score) {
+  scores.set(score.iteration, score)
+  for (const { file } of score.lines) prepare(audioContext, file)
+}
+
+function begin(audioContext, iteration) {
+  const score = scores.get(iteration)
+  // forget what has been sung: its scores and its recordings
+  for (const [name, old] of scores) {
+    if (BigInt(name) < BigInt(iteration)) {
+      scores.delete(name)
+      for (const { file } of old.lines) recordings.delete(file)
+    }
+  }
+  if (!score) {
+    // arrived too late to prepare this one; follow the cues until the next
+    keptTime = undefined
+    return
+  }
+  keptTime = iteration
+  const begins = audioContext.currentTime + lead
+  for (const { file, at } of score.lines) {
+    prepare(audioContext, file).then((buffer) =>
+      playAt(audioContext, buffer, begins + at),
+    )
+  }
 }
 
 let oldMusicTrack
@@ -126,54 +198,82 @@ shouldFollowStory = (threshold = 100) => {
   return !isScrolling && isAtBottom
 }
 
-async function read() {
+// Listens until the song can no longer be heard, then waits for it to be
+// heard again. The page waits for the song the way the song waits for its
+// mind: patiently, asking again every few seconds, forever.
+async function listen() {
   document.getElementById('controls').style.display = 'none'
   const output = document.getElementById('output')
-  const response = await fetch(`http://127.0.0.1:3000`)
-  if (response.body) {
-    const reader = response.body.getReader()
-    let i = 0
-    let hist = []
-    let isSnapshot = true
-    switchStoryElement(output)
-    const audioContext = new AudioContext()
+  const audioContext = new AudioContext()
+  for (;;) {
+    try {
+      await read(output, audioContext)
+    } catch {
+      // the room went quiet: the server stopped, or the way to it did
+    }
+    if (output.lastChild?.textContent !== quiet) {
+      switchStoryElement(output)
+      appendStoryElement(quiet)
+    }
+    keptTime = undefined
+    await new Promise((resolve) => setTimeout(resolve, 5000))
+  }
+}
 
-    while (true) {
-      const { done, value: chunk } = await reader.read()
-      const chars = new TextDecoder().decode(chunk).slice(0, -1)
-      for (const char of chars.split('\n')) {
-        hist = `${hist}${char}`.slice(-8)
-        if (char.startsWith('play:')) {
-          if (!isSnapshot) {
-            const audioSrc = char.slice(5)
-            const isVoice = audioSrc.startsWith('audio/vocals')
-            if (isVoice) {
-              playVoice(audioContext, audioSrc)
-            } else {
-              playMusic(audioContext, audioSrc)
-            }
-          }
-        } else {
-          if (hist.endsWith('<br><br>')) {
-            switchStoryElement(output)
-          } else {
-            appendStoryElement(char)
-          }
-        }
-        if (shouldFollowStory()) {
-          document.getElementById('end').scrollIntoView()
-        }
-        i = (i + 1) % 1024
+const quiet = '~ the room is quiet ~'
+
+async function read(output, audioContext) {
+  const response = await fetch(server)
+  if (!response.body) return
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let unfinished = ''
+  let hist = ''
+  let isSnapshot = true
+  switchStoryElement(output)
+
+  function hear(utterance) {
+    if (utterance.startsWith('score:')) {
+      receiveScore(audioContext, JSON.parse(utterance.slice(6)))
+    } else if (utterance.startsWith('begin:')) {
+      begin(audioContext, utterance.slice(6))
+    } else if (utterance.startsWith('play:')) {
+      const audioSrc = utterance.slice(5)
+      if (isSnapshot) return
+      if (audioSrc.startsWith('audio/vocals')) {
+        // the page places its own voices when it keeps time
+        if (keptTime === undefined) playVoice(audioContext, audioSrc)
+      } else {
+        playMusic(audioContext, audioSrc)
       }
-      if (done) break
-      if (isSnapshot) {
-        setTimeout(() => {
-          isSnapshot = false
-          document.getElementById('end').scrollIntoView()
-        }, 100)
+    } else {
+      hist = `${hist}${utterance}`.slice(-8)
+      if (hist.endsWith('<br><br>')) {
+        switchStoryElement(output)
+      } else {
+        appendStoryElement(utterance)
       }
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    // utterances end with a line break, and may be split across chunks
+    const text = unfinished + decoder.decode(value, { stream: true })
+    const utterances = text.split('\n')
+    unfinished = utterances.pop()
+    utterances.forEach(hear)
+    if (shouldFollowStory()) {
+      document.getElementById('end').scrollIntoView()
+    }
+    if (isSnapshot) {
+      setTimeout(() => {
+        isSnapshot = false
+        document.getElementById('end').scrollIntoView()
+      }, 100)
     }
   }
 }
 
-document.getElementById('play').addEventListener('click', () => read())
+document.getElementById('play').addEventListener('click', () => listen())
