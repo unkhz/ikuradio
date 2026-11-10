@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Score, Singer } from 'melody'
-import { run } from './exec.js'
+import { sing } from './exec.js'
 import { readAloud } from './reading.js'
 
 function chimera() {
@@ -79,7 +79,7 @@ export async function countSyllables(line: string): Promise<number> {
       JSON.stringify({ bpm: 60, lyrics, notes: [[60, 1]] }),
     )
     try {
-      await run(chimera(), ['render', 'notes', input, join(dir, 'probe')])
+      await sing(chimera(), ['render', 'notes', input, join(dir, 'probe')])
       return 1
     } catch (error) {
       const syllables = parseRefusal(String((error as Error).message))
@@ -109,8 +109,8 @@ export async function record(score: Score, singer: Singer): Promise<string> {
   await withScratch(async (dir) => {
     const input = join(dir, 'score.json')
     await writeFile(input, JSON.stringify(sung))
-    await run(chimera(), ['render', 'notes', input, join(dir, 'line'), singer])
-    await run('ffmpeg', [
+    await sing(chimera(), ['render', 'notes', input, join(dir, 'line'), singer])
+    await sing('ffmpeg', [
       '-loglevel',
       'error',
       '-y',

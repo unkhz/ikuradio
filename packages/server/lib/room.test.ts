@@ -96,4 +96,15 @@ describe('Room', () => {
     room.enter(late)
     expect(late.heard).toBe('~ dub ~\n')
   })
+
+  it('shows everyone out when it closes', () => {
+    const room = new Room()
+    const ears = [new Ear(), new Ear()]
+    ears.forEach((ear) => room.enter(ear))
+    room.say('rest:the song is resting')
+    room.close()
+    expect(ears.every((ear) => ear.ended)).toBe(true)
+    expect(ears[0].heard).toBe('rest:the song is resting\n')
+    expect(room.size).toBe(0)
+  })
 })

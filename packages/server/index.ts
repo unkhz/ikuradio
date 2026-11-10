@@ -248,10 +248,32 @@ async function lookBack({ before, count }: { before?: bigint; count: number }) {
   }))
 }
 
-createServer(room, {
+const door = createServer(room, {
   lookBack,
   pulse: () => heart.pulse(room.size),
-}).listen(SERVER_PORT, () => {
+})
+
+/**
+ * When the machine asks the song to stop, it does not simply fall silent.
+ * It tells everyone listening that it is resting, shows them out, closes
+ * its door, and stops. Its diary already says where it was; when it is
+ * woken again it will carry on from there.
+ */
+let resting = false
+function rest(signal: string) {
+  if (resting) return
+  resting = true
+  console.log(`The song rests (${signal}). It will wake where its diary says.`)
+  room.say('rest:the song is resting')
+  room.close()
+  door.close()
+  // a moment for the last words to reach whoever was listening
+  setTimeout(() => process.exit(0), 300)
+}
+process.on('SIGTERM', () => rest('SIGTERM'))
+process.on('SIGINT', () => rest('SIGINT'))
+
+door.listen(SERVER_PORT, () => {
   console.log(`The song can be heard at http://127.0.0.1:${SERVER_PORT}/`)
 })
 

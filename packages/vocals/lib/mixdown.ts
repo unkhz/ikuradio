@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { mkdir, stat } from 'node:fs/promises'
-import { run } from './exec.js'
+import { sing } from './exec.js'
 import { vocalsDir } from './chimera.js'
 
 export type Placed = {
@@ -24,7 +24,7 @@ export async function mixdown(lines: Placed[], out: string) {
       `[${i}:a]adelay=${Math.round(at * 1000)}:all=1,volume=${gain}[l${i}]`,
   )
   const mix = `${lines.map((_, i) => `[l${i}]`).join('')}amix=inputs=${lines.length}:normalize=0[out]`
-  await run('ffmpeg', [
+  await sing('ffmpeg', [
     '-loglevel',
     'error',
     '-y',

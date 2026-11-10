@@ -317,7 +317,9 @@ async function listen() {
     } catch {
       // the room went quiet: the server stopped, or the way to it did
     }
-    if (output.lastChild?.textContent !== quiet) {
+    // the song may already have said it was resting; then the quiet is no news
+    const last = output.lastChild?.textContent ?? ''
+    if (last !== quiet && !/^~ the song is resting/.test(last)) {
       switchStoryElement(output, 'weather')
       appendStoryElement(quiet)
     }
@@ -353,6 +355,9 @@ async function read(output, audioContext) {
       }
     } else if (utterance.startsWith('about:')) {
       describeIteration(JSON.parse(utterance.slice(6)))
+    } else if (utterance.startsWith('rest:')) {
+      switchStoryElement(output, 'weather')
+      appendStoryElement(`~ ${utterance.slice(5)} ~`)
     } else if (utterance.startsWith('weather:')) {
       switchStoryElement(output, 'weather')
       appendStoryElement(`~ ${utterance.slice(8)} ~`)

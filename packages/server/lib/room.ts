@@ -31,6 +31,7 @@ const patience = 1024 * 1024
  *   score:{...}                    an iteration's recordings and their moments, ahead of time
  *   begin:<iteration>              this moment is that iteration's beginning
  *   play:<recording>               play this now
+ *   rest:<words>                   the song is stopping, and says why
  */
 const utter = (chunks: readonly string[]) =>
   chunks.map((chunk) => chunk + '\n').join('')
@@ -40,7 +41,7 @@ const utter = (chunks: readonly string[]) =>
  * the score of an iteration, the moment one begins. They are heard once,
  * live, and never remembered with the words.
  */
-const isSound = (chunk: string) => /^(play|score|begin):/.test(chunk)
+const isSound = (chunk: string) => /^(play|score|begin|rest):/.test(chunk)
 
 export class Room {
   private listeners = new Set<Listener>()
@@ -83,6 +84,12 @@ export class Room {
       }
       listener.write(utterance)
     }
+  }
+
+  /** Everyone is shown out, and the room is empty. */
+  close() {
+    for (const listener of this.listeners) listener.end()
+    this.listeners.clear()
   }
 
   /**

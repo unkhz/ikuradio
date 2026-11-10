@@ -24,6 +24,8 @@ function hear(utterance: string) {
   } else if (utterance.startsWith('about:')) {
     const about = JSON.parse(utterance.slice(6))
     process.title = `Song that never ends, iteration ${about.iteration}`
+  } else if (utterance.startsWith('rest:')) {
+    process.stdout.write(`\n~ ${utterance.slice(5)} ~\n`)
   } else if (utterance.startsWith('weather:')) {
     process.stdout.write(`~ ${utterance.slice(8)} ~\n\n`)
   } else if (utterance.startsWith('part:')) {
