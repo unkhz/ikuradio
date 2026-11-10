@@ -43,4 +43,44 @@ describe('Diary', () => {
     await appendFile(diary.file, '{"iteration":"8","mood":{"descr')
     expect((await diary.lastPage())?.iteration).toBe('7')
   })
+
+  it('reads backwards, newest first, across chunk boundaries', async () => {
+    const diary = new Diary(join(dir, 'diary.jsonl'))
+    for (let i = 0; i < 30; i++) await diary.write(page(i))
+    const pages = await diary.recent({ count: 5, chunk: 300 })
+    expect(pages.map((p) => p.iteration)).toEqual([
+      '29',
+      '28',
+      '27',
+      '26',
+      '25',
+    ])
+  })
+
+  it('reads only before an iteration, so the future stays unread', async () => {
+    const diary = new Diary(join(dir, 'diary.jsonl'))
+    for (let i = 0; i < 30; i++) await diary.write(page(i))
+    const pages = await diary.recent({ count: 3, before: 10n, chunk: 300 })
+    expect(pages.map((p) => p.iteration)).toEqual(['9', '8', '7'])
+    expect(await diary.recent({ count: 3, before: 0n })).toEqual([])
+  })
+
+  it('remembers a retried iteration as it was last written, and passes over torn pages', async () => {
+    const diary = new Diary(join(dir, 'diary.jsonl'))
+    await diary.write(page(0))
+    await diary.write({ ...page(1), written: 'first try' })
+    await appendFile(diary.file, '{"iteration":"1","mo\n')
+    await diary.write({ ...page(1), written: 'second try' })
+    const pages = await diary.recent({ count: 10, chunk: 64 })
+    expect(pages.map((p) => [p.iteration, p.written])).toEqual([
+      ['1', 'second try'],
+      ['0', '2026-11-09T00:00:00.000Z'],
+    ])
+  })
+
+  it('has nothing to say before it is begun', async () => {
+    expect(
+      await new Diary(join(dir, 'none.jsonl')).recent({ count: 3 }),
+    ).toEqual([])
+  })
 })

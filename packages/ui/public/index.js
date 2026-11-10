@@ -213,6 +213,82 @@ function describeIteration(about) {
   status.title = `variation ${about.variation + 1}`
 }
 
+// Looking back. The diary remembers every iteration ever sung; anyone may
+// leaf back through it, a few pages at a time, newest first.
+const pageSize = 12
+
+function textParagraph(kind, lines) {
+  const p = document.createElement('p')
+  p.className = kind
+  lines.forEach((line, i) => {
+    if (i > 0) p.appendChild(document.createElement('br'))
+    p.appendChild(document.createTextNode(line))
+  })
+  return p
+}
+
+function renderPage(page) {
+  const article = document.createElement('article')
+  const heading = document.createElement('h2')
+  heading.textContent = `iteration ${BigInt(page.iteration).toLocaleString('en')}`
+  const when = new Date(page.written)
+  const details = [
+    page.mood.join(' + '),
+    `${page.mode}, ${page.tempo} bpm`,
+    page.choir,
+    isNaN(when) ? undefined : when.toLocaleString(),
+  ].filter(Boolean)
+  article.append(heading, textParagraph('weather', [details.join(' · ')]))
+  for (const part of page.parts) {
+    article.appendChild(textParagraph(part.type, part.content.split('\n')))
+  }
+  return article
+}
+
+async function leafBack(before) {
+  const pages = document.getElementById('pages')
+  const older = document.getElementById('older')
+  older.hidden = true
+  const query = before
+    ? `?before=${before}&count=${pageSize}`
+    : `?count=${pageSize}`
+  try {
+    const found = await fetch(`${server}/diary${query}`).then((r) => r.json())
+    if (!before && found.length === 0) {
+      pages.appendChild(
+        textParagraph('weather', ['nothing has been sung to the end yet']),
+      )
+    }
+    found.forEach((page) => pages.appendChild(renderPage(page)))
+    if (found.length === pageSize) {
+      older.hidden = false
+      older.onclick = () => leafBack(found.at(-1).iteration)
+    }
+  } catch {
+    pages.appendChild(
+      textParagraph('weather', ['~ the diary cannot be reached ~']),
+    )
+  }
+}
+
+function openDiary() {
+  document.getElementById('pages').replaceChildren()
+  document.getElementById('diary').hidden = false
+  document.body.classList.add('looking-back')
+  leafBack()
+}
+
+function closeDiary() {
+  document.getElementById('diary').hidden = true
+  document.body.classList.remove('looking-back')
+}
+
+document.getElementById('look-back').addEventListener('click', openDiary)
+document.getElementById('close-diary').addEventListener('click', closeDiary)
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeDiary()
+})
+
 let isScrolling = false
 window.addEventListener('scroll', () => {
   isScrolling = true

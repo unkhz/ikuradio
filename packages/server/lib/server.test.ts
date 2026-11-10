@@ -1,4 +1,4 @@
-import { recordingPath } from './server.js'
+import { lookBackQuery, recordingPath } from './server.js'
 
 describe('recordingPath', () => {
   it('finds a recording on its shelf', () => {
@@ -15,5 +15,27 @@ describe('recordingPath', () => {
     expect(recordingPath('/audio/vocals/../../.env')).toBeUndefined()
     expect(recordingPath('/audio/%2e%2e/memory/diary.jsonl')).toBeUndefined()
     expect(recordingPath('/')).toBeUndefined()
+  })
+})
+
+describe('lookBackQuery', () => {
+  it('reads before which iteration, and how many', () => {
+    expect(lookBackQuery('/diary?before=412&count=5')).toEqual({
+      before: 412n,
+      count: 5,
+    })
+  })
+
+  it('reads the most recent pages when nothing is asked', () => {
+    expect(lookBackQuery('/diary')).toEqual({ before: undefined, count: 12 })
+  })
+
+  it('never reads too much, or anything that is not a number', () => {
+    expect(lookBackQuery('/diary?count=100000').count).toBe(30)
+    expect(lookBackQuery('/diary?count=0').count).toBe(1)
+    expect(lookBackQuery('/diary?before=-1&count=x')).toEqual({
+      before: undefined,
+      count: 12,
+    })
   })
 })

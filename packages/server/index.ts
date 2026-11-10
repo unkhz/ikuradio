@@ -215,7 +215,28 @@ async function run() {
   }
 }
 
-createServer(room).listen(SERVER_PORT, () => {
+/**
+ * Reads back through the diary for anyone who asks: the iterations already
+ * sung, newest first. Neither the one being sung now nor the one written
+ * ahead is shown before its time. Iterations are counted from one, the way
+ * the chorus counts them.
+ */
+async function lookBack({ before, count }: { before?: bigint; count: number }) {
+  const asked = before === undefined ? current : before - 1n
+  const until = asked < current ? asked : current
+  const pages = await diary.recent({ count, before: until })
+  return pages.map((page) => ({
+    iteration: `${BigInt(page.iteration) + 1n}`,
+    mood: page.mood.descriptions,
+    mode: page.mood.character.mode,
+    tempo: page.mood.character.tempo,
+    choir: page.choir ? introduce(page.choir) : undefined,
+    written: page.written,
+    parts: arrange(page.lyrics).map(({ type, content }) => ({ type, content })),
+  }))
+}
+
+createServer(room, lookBack).listen(SERVER_PORT, () => {
   console.log(`The song can be heard at http://127.0.0.1:${SERVER_PORT}/`)
 })
 

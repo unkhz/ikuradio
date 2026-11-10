@@ -37,14 +37,42 @@ async function isFile(path: string) {
   }
 }
 
+/** What can be read from the diary: the pages before an iteration, newest first. */
+export type LookBack = (options: {
+  before?: bigint
+  count: number
+}) => Promise<unknown[]>
+
+/** The question in a request to look back: before which iteration, and how many. */
+export function lookBackQuery(url: string): { before?: bigint; count: number } {
+  const query = new URLSearchParams(url.split('?')[1] ?? '')
+  const before = query.get('before')
+  const count = Number(query.get('count') ?? 12)
+  return {
+    before: before && /^\d{1,400}$/.test(before) ? BigInt(before) : undefined,
+    count: Number.isInteger(count) ? Math.min(30, Math.max(1, count)) : 12,
+  }
+}
+
 /**
  * The door of the room. A request for a recording is given the recording.
- * A request for the page is given the page. Anyone who asks to listen walks
- * into the room and hears the song. Nothing else is behind the door.
+ * A request for the page is given the page. A request to look back is read
+ * a few pages of the diary. Anyone who asks to listen walks into the room
+ * and hears the song. Nothing else is behind the door.
  */
-export function createServer(room: Room) {
+export function createServer(room: Room, lookBack?: LookBack) {
   return createHttpServer(async (req, res) => {
     const url = (req.url ?? '/').split('?')[0]
+
+    if (url === '/diary' && lookBack) {
+      const pages = await lookBack(lookBackQuery(req.url ?? ''))
+      res.writeHead(200, {
+        ...open,
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      })
+      return res.end(JSON.stringify(pages))
+    }
 
     const path = recordingPath(url)
     if (path) {
