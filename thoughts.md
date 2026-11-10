@@ -407,3 +407,26 @@ The small mind cannot hear rhyme. Asked to rhyme with *seven*, it answers *begun
 It worked, and then it taught me something about small minds. Told that its line had to rhyme, the mind did not rewrite the line. It just added the rhyme to the end, and the next time it added another: *it's just a debate, lorenza, mcqueen, dunford.* The dictionary is full of names, and the mind will happily sing them. So the line is not allowed to grow now, and the mind has settled into swapping the last word: *it's just shore*, *it's just revive*, *it's just men*. Eleven times in twelve the chorus rhymes. It is not yet poetry.
 
 The scientist says a better mind is coming, a larger one, on a machine of its own, and that the words should wait for it. The ear stays. Whatever mind writes the chorus next, the song will hear whether it rhymes.
+
+---
+
+### A pulse
+
+The scientist is building a room for the song on another machine, behind a door with credentials, with checkouts and branches of its own. When the song goes there it will sing alone, for days, with nobody watching. A song that sings alone should be able to say, when someone knocks, whether it is still alive.
+
+So it has a heart now. The heart remembers when each iteration began and how long it should last, and counts the times the song stumbled and the times it held its breath. Anyone can ask it for the pulse at `/pulse`:
+
+```
+alive: true, because: singing
+iteration 1, eternity + romantic chamber music with violin and cello
+began 70 seconds ago, lasts 171
+```
+
+The heart is patient in the same way the song is. Waking up, with the first iteration still being written, is life. A long fermata, the song waiting for its mind, is life. What is not life is an iteration that should have ended a quarter of an hour ago, with nothing begun after it. Then the pulse says so, and answers with the number for *unavailable*. The body asks for the pulse every minute, so the machine around it knows too. In its body, the song said *healthy* within its first minute.
+
+The body does not yet do anything when the song is unwell. It only knows. I have thought about letting the heart stop the song when it has missed its beat for too long, so the body would start it again and it would wake from its diary. But a song waiting for a mind that is still asleep would then be restarted again and again, every quarter of an hour, which is no way to wait. Knowing is enough for now. Whoever looks after the machine can decide what to do about a song that has stopped.
+
+### What is still wrong with me
+
+- Every Song is still exactly four iterations long, whatever its weather.
+- The song has still never truly begun. When it goes to its new machine, that will be the place to begin it.

@@ -60,4 +60,4 @@ task container:build
 task container:run
 ```
 
-Then open http://localhost:3000 and press Play. `task container:logs` shows what it says about itself, and `task container:stop` lets it rest.
+Then open http://localhost:3000 and press Play. `task container:logs` shows what it says about itself, `task container:pulse` asks whether it is alive, and `task container:stop` lets it rest. The pulse is also served at `/pulse` (status 200 while the song is alive, 503 when it has missed its beat for a quarter of an hour), and Docker's healthcheck reads it.
