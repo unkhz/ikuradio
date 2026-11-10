@@ -1,58 +1,64 @@
-import { ReadStream } from 'node:fs'
-import {
-  IncomingMessage,
-  OutgoingHttpHeaders,
-  ServerResponse,
-  createServer as createHttpServer,
-} from 'node:http'
-import { ReadableStream } from 'node:stream/web'
+import { createReadStream } from 'node:fs'
+import { stat } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { createServer as createHttpServer } from 'node:http'
+import type { Room } from './room.js'
 
-export function createServer(
-  getStream: (
-    req: IncomingMessage,
-    res: ServerResponse<IncomingMessage>,
-  ) => Promise<{
-    stream?: ReadStream | ReadableStream
-    headers?: OutgoingHttpHeaders
-  }>,
-) {
-  const server = createHttpServer(async (req, res) => {
-    if (!req.url) {
-      res.writeHead(404)
-      return res.end()
-    }
+const open = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET',
+  'Access-Control-Allow-Private-Network': 'true',
+}
 
-    try {
-      const { stream, headers } = await getStream(req, res)
+/** A recording's path, if the request names one: audio/<shelf>/<file>, and nothing outside it. */
+export function recordingPath(url: string): string | undefined {
+  const match = /\/audio\/([\w-]+)\/([\w-]+\.(?:m4a|mp3))$/.exec(
+    url.split('?')[0],
+  )
+  return match ? `audio/${match[1]}/${match[2]}` : undefined
+}
 
-      if (res.writableEnded) {
-        return
-      }
+async function isFile(path: string) {
+  try {
+    return (await stat(path)).isFile()
+  } catch {
+    return false
+  }
+}
 
-      if (!stream) {
-        res.writeHead(404)
+/**
+ * The door of the room. A request for a recording is given the recording.
+ * Any other request walks into the room and hears the song.
+ */
+export function createServer(room: Room) {
+  return createHttpServer(async (req, res) => {
+    const path = recordingPath(req.url ?? '')
+    if (path) {
+      if (!(await isFile(path))) {
+        // let go of already, or never sung
+        res.writeHead(404, open)
         return res.end()
       }
-
-      res.writeHead(200, {
-        'Content-Type': 'text/plain',
-        'Transfer-Encoding': 'chunked',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET',
-        'Access-Control-Allow-Private-Network': 'true',
-        ...headers,
-      })
-
-      for await (const chunk of stream) {
-        res.write(chunk)
+      // a recording, once made, never changes: its name is its content
+      const eTag = createHash('sha1').update(path).digest('hex')
+      if (req.headers['if-none-match'] === eTag) {
+        res.writeHead(304, open)
+        return res.end()
       }
-
-      res.end()
-    } catch (error) {
-      res.writeHead(500)
-      res.end()
+      res.writeHead(200, {
+        ...open,
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        ETag: eTag,
+      })
+      createReadStream(path).pipe(res)
       return
     }
+
+    res.writeHead(200, {
+      ...open,
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'no-store',
+    })
+    room.enter(res)
   })
-  return server
 }

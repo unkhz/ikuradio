@@ -7,10 +7,8 @@ import { createServer } from './lib/server.js'
 import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { lineKey, perform, type SungLine } from './lib/perform.js'
-import { createReadStream } from 'node:fs'
-import { TextEncoderStream } from 'node:stream/web'
-import { readdir, rm, stat } from 'node:fs/promises'
-import { createHash } from 'node:crypto'
+import { Room } from './lib/room.js'
+import { readdir, rm } from 'node:fs/promises'
 
 const { SERVER_PORT, ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT } = getEnv()
 
@@ -23,7 +21,7 @@ async function readRandomMusicFile(cat: string) {
   }
 }
 
-const stream = new TextEncoderStream()
+const room = new Room()
 
 const diary = new Diary('memory/diary.jsonl')
 const { wakesAt, compose } = await composer(diary, {
@@ -114,11 +112,7 @@ function pickCategory() {
 }
 
 async function run() {
-  const writer = stream.writable.getWriter()
-  const write = async (line: string) => {
-    await writer.ready
-    await writer.write(line + '\n')
-  }
+  const say = (chunk: string) => room.say(chunk)
 
   let lastMusicTime = 0
   let category = pickCategory()
@@ -137,11 +131,15 @@ async function run() {
         current = next
         const shown = performed.get(current)?.iteration
         category = pickCategory()
+        // the weather this Song grows in, for anyone who walks in from now on
+        const weather = shown
+          ? [`~ ${shown.mood.descriptions.join(' + ')} ~`, '<br>', '<br>']
+          : []
+        room.turnPage(weather)
         if (shown?.beginsSong) {
-          // a new Song: show the weather it grows in
-          write(`~ ${shown.mood.descriptions.join(' + ')} ~`)
-          write('<br>')
-          write('<br>')
+          // a new Song: everyone already here is shown the new weather too
+          weather.forEach(say)
+          room.turnPage(weather)
         }
         console.log(
           `Iteration ${event.content}, ${shown ? `${describe(shown.mood)}, sung by ${introduce(shown.choir)}` : '?'}, ${category.key}`,
@@ -155,60 +153,26 @@ async function run() {
       case 'line': {
         const sung = sungLine(event)
         if (sung) {
-          write(`play:${sung.file}`)
+          say(`play:${sung.file}`)
         }
         if (now - lastMusicTime > category.duration) {
           lastMusicTime = now
           readRandomMusicFile(category.key).then(async (filename) => {
             if (filename) {
-              await write(`play:${filename}` + '\n')
+              say(`play:${filename}`)
             }
           })
         }
         break
       }
       case 'char': {
-        if (event.content === '\n') {
-          writer.ready.then(() => writer.write('<br>' + '\n'))
-        } else {
-          writer.ready.then(() => writer.write(event.content + '\n'))
-        }
+        say(event.content === '\n' ? '<br>' : event.content)
       }
     }
   }
-  await writer.ready
-  writer.close()
 }
 
-let keeper = stream.readable
-function forkStream() {
-  const teed = keeper.tee()
-  keeper = teed[0]
-  return teed[1]
-}
-
-createServer(async (req, res) => {
-  if (req.url?.includes('/audio/')) {
-    const filename = req.url?.split('/').slice(-2).join('/')
-    if ((await stat(`audio/${filename}`)).isFile()) {
-      const eTag = createHash('sha1').update(filename).digest('hex')
-      if (req.headers['if-none-match'] === eTag) {
-        res.statusCode = 304
-        res.end()
-        return { stream: undefined }
-      }
-      return {
-        stream: createReadStream(`audio/${filename}`),
-        headers: {
-          'Cache-Control': 'public, max-age=31536000',
-          'Last-Modified': new Date().toUTCString(),
-          ETag: createHash('sha1').update(filename).digest('hex'),
-        },
-      }
-    }
-  }
-  return { stream: forkStream() }
-}).listen(SERVER_PORT, () => {
+createServer(room).listen(SERVER_PORT, () => {
   console.log(`Server running at http://127.0.0.1:${SERVER_PORT}/`)
 })
 
