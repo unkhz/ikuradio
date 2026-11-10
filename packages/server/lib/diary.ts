@@ -25,6 +25,9 @@ import type { Lyrics } from 'song'
 import type { Choir } from 'vocals'
 import type { Tune } from 'melody'
 
+/** Where a Song stands: which one it is, where it began, and how long it lasts. */
+export type SongPlace = { number: string; began: string; lasts: number }
+
 export type Page = {
   /** The iteration, from 0. Kept as a string, because it will outgrow every other kind of number. */
   iteration: string
@@ -33,6 +36,12 @@ export type Page = {
   choir?: Choir
   /** The Song's tune. Missing on pages written before the tune could change. */
   tune?: Tune
+  /**
+   * Which Song this iteration belongs to: its number, the iteration it
+   * began at, and how many iterations it lasts. Missing on pages written
+   * when every Song lasted the same.
+   */
+  song?: SongPlace
   lyrics: Lyrics
   /** When it was written, as the machine's clock saw it. */
   written: string

@@ -6,12 +6,17 @@
 // it, and the verses of the tune take one small step. Within a Song, the
 // tune's Variations take turns. Everything else the composer needs, it reads
 // from the last page of the diary.
+//
+// A Song lasts as long as its weather holds. Each Song is given its length
+// when it begins: around the length it is asked for, a little shorter or a
+// little longer, decided by the wrongness of its Mood. The same weather
+// would always hold for the same time.
 
 import { firstMood, nextMood, type Mood } from 'mood'
 import { firstLyrics, writeLyrics, type Lyrics } from 'song'
 import { firstChoir, gather, type Choir } from 'vocals'
-import { evolve, firstTune, variations, type Tune } from 'melody'
-import type { Diary, Page } from './diary.js'
+import { evolve, firstTune, variations, wrongness, type Tune } from 'melody'
+import type { Diary, Page, SongPlace } from './diary.js'
 
 export type Iteration = {
   iteration: bigint
@@ -30,7 +35,7 @@ export type Iteration = {
 }
 
 export type ComposerOptions = {
-  /** How many iterations one Song lasts. */
+  /** About how many iterations one Song lasts. Each Song lasts a little more or less. */
   songLength: number
   /** How many descriptions a Mood blends. */
   moodCount: number
@@ -38,6 +43,45 @@ export type ComposerOptions = {
   choirSize: number
   /** How many Variations of the tune take turns within a Song. */
   variationCount: number
+}
+
+/**
+ * How many iterations a Song in this weather lasts: the length asked for,
+ * one shorter, or up to two longer, and never fewer than two.
+ */
+export function lastsFor(mood: Mood, songLength: number): number {
+  const drift = Math.floor(wrongness(`lasts:${mood.descriptions.join('+')}`)() * 4) - 1
+  return Math.max(2, songLength + drift)
+}
+
+/**
+ * Where an iteration stands among the Songs, from the page before it.
+ * Pages written before Songs had their own lengths are read as they were
+ * then: every Song `songLength` long, counted from the very first iteration.
+ * `lasts` is decided only when a new Song begins, from its Mood.
+ */
+export function placeOf(
+  iteration: bigint,
+  last: Page | undefined,
+  songLength: number,
+): { beginsSong: boolean; number: bigint; began: bigint; lasts?: number } {
+  if (!last) return { beginsSong: true, number: 0n, began: iteration }
+  const length = BigInt(songLength)
+  const before: SongPlace = last.song ?? {
+    number: `${BigInt(last.iteration) / length}`,
+    began: `${BigInt(last.iteration) - (BigInt(last.iteration) % length)}`,
+    lasts: songLength,
+  }
+  const began = BigInt(before.began)
+  if (iteration - began < BigInt(before.lasts)) {
+    return {
+      beginsSong: false,
+      number: BigInt(before.number),
+      began,
+      lasts: before.lasts,
+    }
+  }
+  return { beginsSong: true, number: BigInt(before.number) + 1n, began: iteration }
 }
 
 export async function composer(
@@ -50,9 +94,9 @@ export async function composer(
   const wakesAt = last ? BigInt(last.iteration) + 1n : 0n
 
   async function compose(iteration: bigint): Promise<Iteration> {
-    const length = BigInt(songLength)
-    const beginsSong = iteration % length === 0n
-    const song = `${iteration / length}`
+    const place = placeOf(iteration, last, songLength)
+    const { beginsSong } = place
+    const song = `${place.number}`
     let mood: Mood
     let choir: Choir
     let tune: Tune
@@ -77,13 +121,16 @@ export async function composer(
       tune = beginsSong ? evolve(known, song) : known
       lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics)
     }
-    const variation = Number(iteration % length) % Math.max(1, variationCount)
+    const lasts = place.lasts ?? lastsFor(mood, songLength)
+    const variation =
+      Number(iteration - place.began) % Math.max(1, variationCount)
     const sung = variations(tune, variationCount, song)[variation]
     last = {
       iteration: iteration.toString(),
       mood,
       choir,
       tune,
+      song: { number: song, began: `${place.began}`, lasts },
       lyrics,
       written: new Date().toISOString(),
     }
