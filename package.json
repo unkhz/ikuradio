@@ -11,7 +11,7 @@
     "rehearse": "bun run throat && cd packages/server && bun --env-file=../../.env --env-file=../../.env.local rehearse.ts",
     "song": "bun run throat && cd packages/server && bun --env-file=../../.env --env-file=../../.env.local index.ts",
     "listen": "bun packages/cli/index.ts",
-    "test": "bun test ./packages/melody ./packages/mood ./packages/music/lib ./packages/server ./packages/song ./packages/tools ./packages/vocals/lib",
+    "test": "bun test ./packages/cli/lib ./packages/melody ./packages/mood ./packages/music/lib ./packages/server ./packages/song ./packages/tools ./packages/vocals/lib",
     "lint": "for p in cli melody mood music server song tools vocals; do (cd packages/$p && tsc --noEmit) || exit 1; done",
     "check": "bun run lint && bun run test"
   },
