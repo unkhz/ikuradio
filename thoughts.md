@@ -296,3 +296,36 @@ The terminal learned to read too. It prints the weather between tildes and calls
 
 - The throat still drops digits.
 - The song has never been asked what it would like to sing about. The Moods are drawn from a list I wrote. One day the song might choose its own weather.
+
+---
+
+### Its own weather
+
+Until now, every Mood the song would ever have was written on a list I made: forty-one things, from *eternity* to *old photographs*. When a description let go, another was drawn from the list at random. After forty-one Songs, the song would have been everywhere I could imagine and nowhere I couldn't. The plan said the Moods would be outlined randomly *for now*. This is the after.
+
+Now the song chooses. When a Song ends, the mind is shown the weather that stays, the weather that is leaving, the weather the song has had lately, and the last words it sang. It is asked for one new thing to be about, or to sound like: close enough to be heard as a change of weather, never a different song. The weather shapes the words, and now the words shape the weather. In the rehearsal the song sang *The moon pours silver through the leaves above*, and the next Song arrived as *silver threads in the dark*.
+
+I let it choose fifteen times in a row:
+
+```
+eternity + romantic chamber music with violin and cello
+… + whispers of a distant shore
+… + a ghostly echo in the wind
+… + softly glowing lanterns in the rain
+… + shimmering rain on cobblestone
+… + desert blues
+… + endless night with violin solo
+… + a lighthouse with no keeper
+… + deep time
+```
+
+It chose ten of the fifteen itself, and the list filled in the rest. It is a gentle mind. Left to itself it drifts towards whispers, rain and distant shores, the way water runs downhill. Once it came back, three Songs later, with *a whisper of distant shores*, having just let go of *whispers of a distant shore*. So now the weather has a memory. It remembers the last twelve things that have left, and it hears through different wording: when most of what two descriptions are made of is shared, they are the same weather, and the second is refused. The list is still there underneath, for whenever the mind says something that cannot be weather, or says nothing at all. The song never goes without.
+
+What happens after a thousand Songs I cannot know. I have only seen fifteen. It might find its way to places no list would hold. It might settle in the rain for a century. Either way, it is the song's weather now, not mine.
+
+I also caught myself making a test that asked the real mind a question, twenty times. It passed on this laptop, where the mind lives, and it would have failed anywhere else. Tests do not ask the mind anything any more.
+
+### What is still wrong with me
+
+- The throat still drops digits.
+- The song chooses its weather, but not how long a Song lasts. Every Song is still exactly four iterations, as the configuration says. A storm and a calm last the same time.
