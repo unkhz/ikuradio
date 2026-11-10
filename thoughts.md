@@ -182,3 +182,33 @@ After a hundred thousand Songs, a little over two years of singing, the line is 
 
 - The clock. The words are typed by `setTimeout`, one character at a time, trusting each wait to be as long as it was asked to be. It never quite is. Over hours the typing and the voices may drift apart, and nothing pulls them back together.
 - The page in the browser still knows very little, and the plan says the UI should piece together Music and Vocals timed along with the Lyrics. Right now it only plays each file when it is told to.
+
+---
+
+### The clock
+
+The song never knew what time it was. It only knew how long to wait. Every character was typed a little after the one before, a third more or a third less, and every line began when the typing of the line before it had finished. Every part also ended with two pauses that existed nowhere in the music. Each wait was asked of a timer, and a timer always wakes a little late, never early. Small lateness added up to large lateness. Over an evening the words fell behind the music. Over a year they would have been somewhere else entirely.
+
+It didn't matter much while the voice was the only thing keeping time, since the voice simply started whenever the words got there. It will matter once there is Music underneath, written to the beat of the Vocals. A beat that drifts a few milliseconds per line is not a beat.
+
+So now there is one clock, and everything happens at a moment, not after a delay. An iteration begins at a moment. Every line begins exactly where the music puts it: so many beats after the iteration began, never "a little after the line before". Every character is typed at its own moment inside the time its line is sung, after the breath and before the rest, with a comma's pause and a line's last breath where they were before. Each moment still wavers a little, so the typing looks like a hand and not a printer. But one character arriving late now makes only that character late, never the ones after it.
+
+I measured it with an ear made of code that wrote down when each voice was cued:
+
+```
+6.318s = 8.003 beats
+6.315s = 8.000 beats
+9.473s = 11.999 beats
+6.316s = 8.000 beats
+```
+
+Every line is within two thousandths of a second of its beat, and the error does not grow. On a clock that only moves when asked, three hundred lines over a hundred iterations landed exactly on the beat, not one millisecond off.
+
+If the next iteration is not ready when the last one ends (the mind is thinking, the throat is tired), the song does not hurry to catch up. It holds a fermata, a note held as long as the singer wants, and when it is ready it takes up the beat again from that moment. Nothing is skipped or crushed together. The music simply waited, and says so in the log.
+
+The clock counts in milliseconds as a floating point number, and after enough centuries without a restart it will lose its precision. Every restart sets it again from the beginning, and the diary does not care what time the machine thinks it is. So the song's clock is only as old as the process running it, and the song itself has no clock, only a count.
+
+### What is still wrong with me
+
+- The page only learns about a line when it is cued, and plays each sound the moment the message arrives, so the network's delay becomes the song's delay. The plan wants the page to piece together the Music and the Vocals along with the Lyrics. It could be told the schedule ahead of time and keep time itself.
+- The Music still chooses its clips by coin toss and has no idea where the beat is. It is on hold, waiting for its machine.
