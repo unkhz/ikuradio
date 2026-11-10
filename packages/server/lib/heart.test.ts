@@ -61,4 +61,20 @@ describe('Heart', () => {
     heart.beat({ iteration: 8n, seconds: 170, mood: 'dub' })
     expect(heart.pulse().alive).toBe(true)
   })
+
+  it('knows whether the Music is with the song, and why not', () => {
+    const heart = new Heart(clock)
+    heart.beat({ iteration: 1n, seconds: 170, mood: 'dub' })
+    heart.accompanied(2)
+    expect(heart.pulse().music).toEqual({ accompanied: true, grown: 2 })
+    heart.alone('no GPU')
+    minutes(1)
+    heart.alone('still no GPU')
+    expect(heart.pulse()).toMatchObject({
+      alive: true,
+      music: { accompanied: false, grown: 2, leftAgo: 60, because: 'no GPU' },
+    })
+    heart.accompanied(1)
+    expect(heart.pulse().music).toEqual({ accompanied: true, grown: 3 })
+  })
 })

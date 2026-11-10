@@ -25,8 +25,14 @@ const room = new Room()
 // iteration and rests while the Music grows its beds
 const mind = new Sleeper()
 const shelf = new Shelf()
-/** Whether the Music can be grown here. Until it fails once, it is assumed. */
-let accompanied = true
+/**
+ * Whether the Music is with the song. When it cannot come, the song sings
+ * unaccompanied until the next Song begins, and then asks for it again: a
+ * GPU that was busy may be free, a model that was missing may have arrived.
+ */
+let alone = false
+/** Whether the Music is asked for in this iteration. */
+const asksForMusic = (composed: Iteration) => !alone || composed.beginsSong
 const heart = new Heart()
 
 const diary = new Diary('memory/diary.jsonl')
@@ -59,24 +65,32 @@ async function forgetBeds() {
 }
 
 /**
- * The beds under an iteration. If the Music cannot be grown here, the song
- * says so once and sings unaccompanied, and its mind no longer rests
- * between iterations, since nobody else needs the GPU.
+ * The beds under an iteration. If the Music cannot come, the song says so,
+ * and sings unaccompanied until the next Song, when it asks again. While it
+ * is alone, its mind no longer rests between iterations, since nobody else
+ * needs the GPU.
  */
 async function accompany(composed: Iteration, lines: SungLine[]) {
-  if (!accompanied) return []
+  if (!asksForMusic(composed)) return []
   try {
-    const { beds, departed } = await underlay(lines, composed.mood, {
+    const { beds, departed, grown } = await underlay(lines, composed.mood, {
       shelf,
       iteration: composed.iteration,
     })
     for (const file of departed) leaving.add(file)
+    if (alone) console.log('The Music has come back to the song.')
+    alone = false
+    heart.accompanied(grown)
     return beds
   } catch (error) {
-    accompanied = false
-    console.warn(
-      `The Music did not come, and the song sings unaccompanied: ${(error as Error).message}`,
-    )
+    const because = (error as Error).message.split('\n').at(-1) ?? 'unknown'
+    if (!alone) {
+      console.warn(
+        `The Music did not come; the song sings unaccompanied until the next Song: ${(error as Error).message}`,
+      )
+    }
+    alone = true
+    heart.alone(because)
     return []
   }
 }
@@ -92,7 +106,7 @@ async function getSungSong(iteration: bigint): Promise<TimedPart[]> {
   await mind.wake()
   const composed = await compose(iteration)
   // the words are written; the mind rests while the voices are sung, and the Music has the GPU
-  const resting = accompanied ? mind.rest() : Promise.resolve()
+  const resting = asksForMusic(composed) ? mind.rest() : Promise.resolve()
   const sung = await perform(composed)
   await resting
   const beds = await accompany(composed, sung)

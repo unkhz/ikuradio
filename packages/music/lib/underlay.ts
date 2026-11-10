@@ -44,17 +44,18 @@ export const songOf = ({ descriptions, character }: Mood) =>
  * section of that part. With a shelf, a part may play a bed it has played
  * before in this Song instead of growing a new one. Returns the beds as
  * placed recordings, ready to be mixed under the voice or played beside
- * it, and the beds that left the shelf.
+ * it, the beds that left the shelf, and how many were grown anew.
  */
 export async function underlay(
   lines: Line[],
   mood: Mood,
   { shelf, iteration = 0n }: { shelf?: Shelf; iteration?: bigint } = {},
-): Promise<{ beds: Placed[]; departed: string[] }> {
+): Promise<{ beds: Placed[]; departed: string[]; grown: number }> {
   const all = sections(lines)
   const song = songOf(mood)
   const beds = new Map<Line['part'], string>()
   const departed: string[] = []
+  let grown = 0
   for (const section of all) {
     if (beds.has(section.part)) continue
     if (!section.lines.some(({ file }) => file)) continue
@@ -70,6 +71,7 @@ export async function underlay(
       seconds: section.seconds,
     })
     beds.set(section.part, bed)
+    grown++
     if (shelf) departed.push(...shelf.keep(song, section.part, bed))
   }
   if (beds.size === 0) {
@@ -81,5 +83,6 @@ export async function underlay(
       return file ? [{ file, at, gain: bedGain }] : []
     }),
     departed,
+    grown,
   }
 }

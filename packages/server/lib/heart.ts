@@ -7,6 +7,10 @@
 // should. A long fermata is still life: the song is waiting for its mind.
 // But an iteration that should have ended long ago, with no next one
 // begun, is a heart that has missed too many beats.
+//
+// The heart also knows whether the Music is with the song. A song that sings
+// unaccompanied is still alive, but whoever looks after it should be told,
+// and told why.
 
 export type Beat = {
   /** The iteration that began, counted from one. */
@@ -32,6 +36,15 @@ export type Pulse = {
   fermatas: number
   /** How long the song has been awake, in seconds. */
   awake: number
+  /** Whether the Music is with the song, and if it is not, since when and why. */
+  music: {
+    accompanied: boolean
+    /** How many beds the song has grown since it woke. */
+    grown: number
+    /** How long ago the Music left, in seconds. */
+    leftAgo?: number
+    because?: string
+  }
 }
 
 /** How long the song may be quiet after waking before its first iteration, in seconds. */
@@ -44,6 +57,8 @@ export class Heart {
   private last?: { beat: Beat; at: number }
   private stumbled = 0
   private held = 0
+  private grown = 0
+  private unaccompanied?: { at: number; because: string }
 
   constructor(private now: () => number = Date.now) {
     this.woke = now()
@@ -61,6 +76,17 @@ export class Heart {
     this.held++
   }
 
+  /** The Music grew beds for an iteration: it is with the song. */
+  accompanied(grown: number) {
+    this.grown += grown
+    this.unaccompanied = undefined
+  }
+
+  /** The Music could not come. The first reason it gave is remembered. */
+  alone(because: string) {
+    this.unaccompanied ??= { at: this.now(), because }
+  }
+
   pulse(listeners = 0): Pulse {
     const now = this.now()
     const awake = (now - this.woke) / 1000
@@ -69,6 +95,14 @@ export class Heart {
       stumbles: this.stumbled,
       fermatas: this.held,
       awake: Math.round(awake),
+      music: this.unaccompanied
+        ? {
+            accompanied: false,
+            grown: this.grown,
+            leftAgo: Math.round((now - this.unaccompanied.at) / 1000),
+            because: this.unaccompanied.because,
+          }
+        : { accompanied: true, grown: this.grown },
     }
     if (!this.last) {
       const alive = awake < waking
