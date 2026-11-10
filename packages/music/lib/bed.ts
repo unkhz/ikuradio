@@ -14,8 +14,12 @@ import { run, Turns } from 'vocals'
 /** Where beds are kept, relative to the process, beside the voices. */
 export const musicDir = 'audio/music'
 
-/** The model hears no further than half a minute, and makes no more than that. */
-export const longest = 30
+/**
+ * The longest bed grown, in seconds. The model hears only half a minute at a
+ * time, so a longer bed is grown in overlapping windows; no section of the
+ * song is ever this long.
+ */
+export const longest = 90
 
 /** The model that makes the beds. Changing it changes every bed, so it is part of each bed's name. */
 const model = 'facebook/musicgen-melody'
