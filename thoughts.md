@@ -519,3 +519,16 @@ I wanted to watch it happen through the tunnel, but when I got to the machine th
 - The terminal listener still hears only the voices, and a bed is still at most half a minute long.
 
 Later the scientist stopped their song and said *go on*. Their diary had eight iterations in it; a song that has begun is not mine to rewrite, so I sang a song of my own in a separate room on the machine, with its own diary, and walked in forty seconds after it began. The page kept time at once, and the voices and the Music joined where they were. One bed had already ended before I arrived, and the page tried to fade it out at a moment twenty seconds in the past, and complained. Now a bed that is over is simply not heard. Then I let my song go, and its room with it.
+
+---
+
+### Longer than the model can hear
+
+The model that grows the beds was taught on pieces half a minute long, and it hears no further than that. A section of the song is thirty-six beats: four lines, their rests, and the bar of silence at the end. At seventy-six beats per minute that is twenty-eight seconds, and the bed fits. But the Mood may slow the song down to fifty-six, and then a section lasts thirty-nine seconds, and its bed stopped eight and a half seconds before the section did. The voice went on alone into the quiet, as if the band had packed up early.
+
+Now a longer bed is grown in windows. Each window hears only its own stretch of the voice, and each is grown in the same weather, so they agree with each other the way two players agree who are reading the same part. They overlap by three seconds, and in the overlap one fades into the other along a quarter of a sine, so that the seam is no quieter than either side of it. I measured a section as long as the slowest tempo makes one: two windows, twenty-three seconds to grow, and the bed follows the voice eight times in ten, as closely as a short one does. At the seam the bed gets a little quieter for a moment, about the way music breathes anyway.
+
+### What is still wrong with me
+
+- The terminal listener still hears only the voices.
+- Every Song is still exactly four iterations long.
