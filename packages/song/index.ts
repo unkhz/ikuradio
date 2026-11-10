@@ -1,6 +1,7 @@
 import * as original from './verses.js'
 import { numberToWords } from './lib/numbers.js'
 import { editVerse } from './lib/edit.js'
+import { lastWord, rhymes } from './lib/rhyme.js'
 
 const verseInstruction = [
   'The input is a verse of a song that never ends.',
@@ -25,20 +26,48 @@ export function chorusOpening(iteration: bigint) {
   return `This is the song, iteration ${numberToWords(iteration + 1n)},`
 }
 
+/**
+ * The chorus is varied lightly, except for its second line, which must
+ * rhyme with the song's age in the first: one and begun, two and true. The
+ * mind is offered words that rhyme, from the throat's pronouncing
+ * dictionary, and whatever it writes is heard against that dictionary
+ * before it is sung. Without the dictionary, the mind is only asked.
+ */
+/** In words: a little longer than the line a human wrote, "Yes, it goes on and on, it's just begun". */
+const longestSecondLine = 12
+
 async function pickChorus(chorus: string, iteration: bigint) {
   const opening = chorusOpening(iteration)
+  const age = lastWord(opening)
   const [, ...rest] = chorus.split('\n')
+  const dictionary = await rhymes().catch(() => undefined)
+  const offered = dictionary?.offer(age, 30)
+  const hint = offered?.words.length
+    ? `End the second line with one of these words, which ${offered.loosely ? `share the vowel of "${age}"` : `rhyme with "${age}"`}: ${offered.words.join(', ')}.`
+    : ''
   const varied = await editVerse(
     [opening, ...rest].join('\n'),
     [
       'The input is the chorus of a song that never ends.',
       'Keep the first line exactly as it is.',
-      `Rewrite the second line so that it rhymes with the last word of the first line, "${opening.split(' ').at(-1)?.replace(/,$/, '')}", and keep its spirit: the song goes on and on.`,
+      `Rewrite the second line so that its last word rhymes with "${age}", the last word of the first line, and keep its spirit: the song goes on and on.`,
+      hint,
       'Change a few words in the third and fourth lines but keep their meaning, their tone and their rhyme with each other.',
       'Keep the last line ending with "the song that never ends".',
-    ].join(' '),
+    ]
+      .filter(Boolean)
+      .join(' '),
     1,
-    { mayRepeat: true },
+    {
+      mayRepeat: true,
+      patience: 12,
+      // the second line must rhyme, and must not grow: a small mind, asked
+      // for a rhyme, will otherwise just add one more word to the end
+      accept: ([, second = '']) =>
+        second.split(/\s+/).length <= longestSecondLine &&
+        (!dictionary ||
+          dictionary.rhymes(lastWord(second), age, offered?.loosely)),
+    },
   )
   const [, ...varying] = varied.split('\n')
   return [opening, ...varying].join('\n')

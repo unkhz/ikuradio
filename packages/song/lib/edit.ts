@@ -5,10 +5,12 @@ import { askVerse } from './mind.js'
 const fits = (line: string) => line.length > 15 && line.length < 81
 
 /** What a small mind sometimes leaves in a verse that does not belong in a song. */
-function clean(line: string) {
+export function clean(line: string) {
   return line
     .replaceAll(/<br\s*\/?>/g, '')
     .replace(/^#+\s*/, '')
+    .replaceAll(/(\*\*|__|\*|_)(\S(?:.*?\S)?)\1/g, '$2') // emphasis, as if it were a document
+    .replaceAll('`', '')
     .trim()
 }
 
@@ -18,6 +20,10 @@ const patience = 8
 export type EditOptions = {
   /** The verse may come back unchanged. True for the chorus, which is meant to stay. */
   mayRepeat?: boolean
+  /** What else a verse must be to be sung, such as rhyming where it should. */
+  accept?: (lines: string[]) => boolean
+  /** How many unsuitable answers to listen to before singing the verse as it was. */
+  patience?: number
 }
 
 /**
@@ -38,17 +44,24 @@ export async function editVerse(
   input: string,
   instruction: string,
   temperature: number,
-  { mayRepeat = false }: EditOptions = {},
+  {
+    mayRepeat = false,
+    accept = () => true,
+    patience: enough = patience,
+  }: EditOptions = {},
 ) {
   let unsuitable = 0
   let unreachable = 0
-  while (unsuitable < patience) {
+  while (unsuitable < enough) {
     try {
-      const verse = (await askVerse(instruction, input, temperature)).map(
-        clean,
-      )
+      const verse = (await askVerse(instruction, input, temperature)).map(clean)
       const changed = verse.join('\n') !== input
-      if (verse.length === 4 && verse.every(fits) && (changed || mayRepeat)) {
+      if (
+        verse.length === 4 &&
+        verse.every(fits) &&
+        (changed || mayRepeat) &&
+        accept(verse)
+      ) {
         return verse.join('\n')
       }
       unsuitable++
