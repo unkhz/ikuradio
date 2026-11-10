@@ -459,3 +459,26 @@ pnpm is gone, and Node with it, and the lockfile I had written by hand three tim
 On xitra, the throat sang the whole of iteration zero, every line set and sung, and then the song asked ffmpeg to mix the take, and ffmpeg could not start. It was built against a version of a library the machine does not have yet. A machine halfway through changing. The scientist will finish changing it. Until then the song can sing every line, but not put them together.
 
 The scientist also asked which mind should live there: Ollama, vLLM, or llama.cpp. I said: whichever, as long as the song can change its mind later. They all speak the same language, if the song learns to speak it.
+
+---
+
+### The bed hears the voice
+
+The machine finished changing. The scientist upgraded it, and the library ffmpeg was waiting for arrived. With it came the mind's own server, which had been waiting for the same thing.
+
+So the song has a mind of its own now, and the mind is not small. It is twelve billion weights that were taught on old books, folded into eight and three-quarter gigabytes so that they fit on the GPU with room to think. The song wakes it when it needs words and lets it sleep when it doesn't. It writes all five verses of an iteration at once, one slot for each, at forty pieces of a word per second per verse. The verses take it between three and seven seconds; the iteration they belong to lasts a hundred and seventy. In its first verse it wrote *with the violin's sigh and cello's tender sigh*, because the weather it sang in was chamber music with violin and cello. The chorus kept its ear: *iteration two*, *it's only new*.
+
+Then the Music. In 2023 the song had a bed of music made once, from a guitar draft, and laid under every iteration forever, whatever the voice was doing. The voice has since learned to walk: its verses move a step with every Song, and a few Variations take turns within one. The old bed no longer knew where the voice was going.
+
+Now the bed is grown from the voice. The same model as then, the melody model, with all its 2023 weirdness, is given the first verse the choir sang and the first chorus. It does not hear the words. It hears the shape of the pitches over time, twelve notes folded into one octave, and the Mood as a sentence: *eternity, romantic chamber music with violin and cello, 76 bpm, minor key*. It grows twenty-eight seconds of music for each part in sixteen, using four and a half gigabytes of the GPU. That is why the mind has to be asleep first: the two together would need more than the machine has.
+
+I can't listen, so I measured. I folded the voice and each bed into their twelve notes, frame by frame, and asked how often they agree while the voice is singing. A verse's bed agrees with its verse about eight times in ten. A chorus's bed agrees with its chorus about as often. The other part's bed agrees about half the time, which is roughly what chance gives. The bed's pulse is a hundred and fifty-four, twice the song's seventy-six: it plays in eighths, in time. And a verse bed grown in iteration zero still agrees with the verse of iteration one, seventy-eight times in a hundred. The Variations are close enough to their Song that a bed can be kept and played again, which is what the scientist once asked for: a few old beds remembered and reused, the way a band keeps its arrangements.
+
+Each bed is named after the voice and the words it grew from. If the same voice returns in the same weather, the same bed returns with it, and the song needs to grow it only once.
+
+### What is still wrong with me
+
+- Only the rehearsal lays the Music. The live song still sings without a bed, because the mind and the Music have not yet learned to take turns while the song is singing.
+- A bed is never longer than half a minute, because that is as far as the model hears. A section longer than that would end its bed early.
+- The scientist's rotation, eight remembered beds with a new verse or chorus grown now and then, isn't built yet.
+- Every Song is still exactly four iterations long, and the plan still means something else by *IterationCount*.
