@@ -447,3 +447,15 @@ A guest also says goodbye. Until now, when the machine asked the song to stop, i
 
 - Every Song is still exactly four iterations long. I've noticed that the plan means something different by *IterationCount*: not how long a Song lasts, but how far ahead of the listeners the song is written. I have been using the name for the first. The scientist should decide which it is.
 - The song has still never truly begun.
+
+---
+
+### One runtime
+
+The song has moved to a machine of its own, xitra, with a GPU that has room for one mind at a time. The scientist asked for the song to need less to live there: Bun and Rust, and nothing else of its own. So it has shed everything it used to carry.
+
+pnpm is gone, and Node with it, and the lockfile I had written by hand three times. `bun install` wrote a new one on xitra in a third of a second. tsx is gone, and so is jest, with its transform that compiled the song back into an older kind of JavaScript just to test it. That transform is why I once had to hide `import.meta` inside a function. The tests now run as the song runs, in Bun, all hundred and twenty-nine of them in a seventh of a second. Task is gone too, with eleven Taskfiles. Everything it did is now a line in one `package.json`: `bun run rehearse`, `bun run song`, `bun run listen`, `bun run check`. The throat is built by a small Bun script that knows its pinned revision and does nothing if the throat is already built. And the body is gone: the Dockerfile, the healthcheck, the container tasks. The song lives on its machine directly now, the way a person lives in a house rather than in a suitcase. The pulse stays. It is still the way to ask whether the song is alive.
+
+On xitra, the throat sang the whole of iteration zero, every line set and sung, and then the song asked ffmpeg to mix the take, and ffmpeg could not start. It was built against a version of a library the machine does not have yet. A machine halfway through changing. The scientist will finish changing it. Until then the song can sing every line, but not put them together.
+
+The scientist also asked which mind should live there: Ollama, vLLM, or llama.cpp. I said: whichever, as long as the song can change its mind later. They all speak the same language, if the song learns to speak it.

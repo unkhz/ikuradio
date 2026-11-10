@@ -10,54 +10,34 @@ What it can do today:
 - **Vocals** are sung by [Chimera](https://github.com/jamesondh/chimera-vocal-synth), a physical model of a throat, built from a pinned revision. It runs on any CPU, with no GPU and no macOS (`packages/vocals`). Each Song gathers a small choir of *Singers*. The lead sings every line, and the others join the chorus in harmony, in the mode. Before a line is sung, whatever the throat cannot read is read aloud in words: numbers, years, ordinals, percentages, `&`. Every voice is humanized: a few cents off, leaning a little early or late, never off the beat.
 - **Music** is a bed of generated background music from 2023, laid under the voice (`packages/music`).
 - **The server** streams the song as it is sung (`packages/server`). Every line begins exactly where the music puts it, and every word is typed while it is sung, all against one clock. If the next iteration is late, the song holds a fermata instead of rushing. It keeps a diary in `packages/server/memory/diary.jsonl`, one line per iteration, and wakes up where it left off. Every two weeks or so, the full book is closed and shelved in `memory/books/`, named after the first and last iteration it holds. It sings into a *room*: whoever is connected hears it live, and someone who joins halfway is shown the current Mood and the words of the iteration so far. Nothing is kept for an empty room.
-- **Listeners**: the page in the browser (`packages/ui`) is sent each iteration's *score* before it begins, prepares every voice in advance, and plays them on its own audio clock, on the beat. It sets the chorus apart from the verses and keeps a quiet line at its edge with the song's age, its Mood, its mode and tempo, and who is singing. Its *look back* button opens the diary: every iteration sung to the end, newest first, read from `/diary`. If the song goes quiet, it waits and listens again. A terminal can listen too, with `task cli:dev`.
+- **Listeners**: the page in the browser (`packages/ui`) is sent each iteration's *score* before it begins, prepares every voice in advance, and plays them on its own audio clock, on the beat. It sets the chorus apart from the verses and keeps a quiet line at its edge with the song's age, its Mood, its mode and tempo, and who is singing. Its *look back* button opens the diary: every iteration sung to the end, newest first, read from `/diary`. If the song goes quiet, it waits and listens again. A terminal can listen too, with `bun run listen`.
 
 Where it is going is in [plans/](plans/). What it has been thinking is in [thoughts.md](thoughts.md).
 
 ## Waking it
 
-You need [Task](https://taskfile.dev), pnpm, Node, Rust, ffmpeg and Ollama, with a small model that fits in about 12 GB of memory. Any instruct model will do:
+The song lives on one machine, and needs [Bun](https://bun.sh), Rust (for the throat), ffmpeg and [Ollama](https://ollama.com) with a model that fits in about 12 GB of memory. Any instruct model will do:
 
 ```bash
 ollama pull qwen3:4b
 ```
 
 ```bash
-pnpm install
+bun install
 ```
 
 ```bash
-task vocals:build
+bun run rehearse
 ```
+
+`bun run rehearse` builds the throat from its pinned revision if it hasn't been built yet, then sings iteration zero into `packages/server/audio/rehearsal/` without a server or an audience. `bun run rehearse 5` sings iterations zero to five, each grown from the one before, past the first change of Mood.
+
+To hear it live, wake the song and open http://localhost:3000, then press Play:
 
 ```bash
-task server:rehearse
+bun run song
 ```
 
-`task server:rehearse` sings iteration zero into `packages/server/audio/rehearsal/` without a server or an audience. `task server:rehearse -- 5` sings iterations zero to five, each grown from the one before, past the first change of Mood. To hear it live instead, run `task server:dev` and open http://localhost:3000. To work on the page itself, run `task ui:dev` as well and open http://localhost:4000. Either way, press Play:
-
-```bash
-task server:dev
-```
-
-```bash
-task ui:dev
-```
-
-`task test-all` and `task lint-all` check everything here. `task checks:fresh` runs the same checks the way the CI does, on a clean Linux machine in a container, against the last commit.
+`bun run listen` listens from a terminal instead. `bun run check` runs the types and the tests, as the CI does. The song's pulse is served at `/pulse`: status 200 while it is alive, 503 when it has missed its beat for a quarter of an hour. When the machine stops it, it tells its listeners it is resting, and the next time it wakes it carries on from its diary.
 
 Configuration lives in `.env`, with local overrides in `.env.local`. `CHOIR_COUNT` sets how many voices sing the chorus, the lead included, and `VARIATION_COUNT` how many Variations of the tune take turns in a Song. `THROATS` sets how many recordings may be made at once, half the machine's cores by default, always at a lower priority than anything else on the machine. `ITERATION_COUNT` sets how many iterations a Song lasts, and `MOOD_COUNT` how many descriptions a Mood blends. `LYRICS_MODEL` chooses the mind, and `OLLAMA_HOST` says where it lives (default `http://127.0.0.1:11434`).
-
-### In a body
-
-On any machine with Docker, Linux included, the song can live in a container. The image carries the throat and the page, not the mind, so point `OLLAMA_HOST` at wherever Ollama runs. By default it looks on the host. The diary lives in a volume. If the song ever falls, it is started again and wakes where it was.
-
-```bash
-task container:build
-```
-
-```bash
-task container:run
-```
-
-Then open http://localhost:3000 and press Play. `task container:logs` shows what it says about itself, `task container:pulse` asks whether it is alive, and `task container:stop` lets it rest. The pulse is also served at `/pulse` (status 200 while the song is alive, 503 when it has missed its beat for a quarter of an hour), and Docker's healthcheck reads it.
