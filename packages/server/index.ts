@@ -146,19 +146,31 @@ async function run() {
         current = next
         const shown = performed.get(current)?.iteration
         category = pickCategory()
-        // the weather this Song grows in, for anyone who walks in from now on
+        // what is being sung, and the weather it grows in, for everyone here
+        // now and for anyone who walks in from now on
+        const about = shown
+          ? `about:${JSON.stringify({
+              iteration: `${event.content}`,
+              mood: shown.mood.descriptions,
+              mode: shown.mood.character.mode,
+              tempo: shown.mood.character.tempo,
+              choir: introduce(shown.choir),
+              variation: shown.variation,
+            })}`
+          : undefined
         const weather = shown
-          ? [`~ ${shown.mood.descriptions.join(' + ')} ~`, '<br>', '<br>']
-          : []
-        room.turnPage(weather)
+          ? `weather:${shown.mood.descriptions.join(' + ')}`
+          : undefined
+        const prelude = [about, weather].filter((u) => u !== undefined)
+        room.turnPage(prelude)
         // this moment is the iteration's beginning; listeners keep time from here
         say(`begin:${current}`)
-        if (shown?.beginsSong || justWoke) {
-          // a new Song, or the song has just woken: everyone already here is
-          // shown the weather too
-          weather.forEach(say)
-          room.turnPage(weather)
+        if (about) say(about)
+        if (weather && (shown?.beginsSong || justWoke)) {
+          // a new Song, or the song has just woken: everyone here is shown the weather
+          say(weather)
         }
+        room.turnPage(prelude)
         justWoke = false
         console.log(
           `Iteration ${event.content}, ${shown ? `${describe(shown.mood)}, sung by ${introduce(shown.choir)}` : '?'}, ${category.key}`,
@@ -178,7 +190,7 @@ async function run() {
         break
       }
       case 'part': {
-        // TODO
+        say(`part:${event.content}`)
         break
       }
       case 'line': {

@@ -21,7 +21,17 @@ export type Listener = {
 /** A listener this far behind is let go. */
 const patience = 1024 * 1024
 
-/** What the song says to the room is a stream of utterances, one per line. */
+/**
+ * What the song says to the room is a stream of utterances, one per line:
+ *
+ *   a single character, or <br>    the words, as they are typed
+ *   part:verse, part:chorus        a part of the song begins
+ *   about:{...}                    which iteration this is, in which Mood, by whom
+ *   weather:...                    the Mood a Song grows in, to be shown
+ *   score:{...}                    an iteration's recordings and their moments, ahead of time
+ *   begin:<iteration>              this moment is that iteration's beginning
+ *   play:<recording>               play this now
+ */
 const utter = (chunks: readonly string[]) =>
   chunks.map((chunk) => chunk + '\n').join('')
 

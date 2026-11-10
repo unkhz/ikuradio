@@ -1,48 +1,94 @@
-<html>
+<!doctype html>
+<html lang="en">
   <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Song that never ends</title>
     <style>
+      :root {
+        --night: #000;
+        --words: #fff;
+        --chorus: #cfe6ff;
+        --weather: #8a8a8a;
+        --edge: #6b6b6b;
+      }
       body {
-        padding: 1em 2em;
-        background: #000;
-        color: #fff;
-        font-family: monospace;
-        font-size: 2em;
-        line-height: 1.5em;
+        margin: 0;
+        padding: 1em 2em 4em;
+        background: var(--night);
+        color: var(--words);
+        font-family: ui-monospace, Menlo, Consolas, monospace;
+        font-size: clamp(1.1rem, 3.2vw, 2rem);
+        line-height: 1.5;
       }
       #output {
         margin: 0;
         padding: 0;
       }
-      #audio {
-        position: absolute;
-        top: 0;
+      p {
+        margin: 0 0 1em;
+        overflow-wrap: anywhere;
+      }
+      /* the verses walk; the chorus is the anchor, set a little apart */
+      p.chorus {
+        color: var(--chorus);
+        padding-left: 1.5em;
+        border-left: 2px solid #234;
+      }
+      p.weather {
+        color: var(--weather);
+        font-style: italic;
+      }
+      #status {
+        position: fixed;
+        left: 0;
         right: 0;
+        bottom: 0;
+        padding: 0.6em 2em;
+        background: linear-gradient(transparent, var(--night) 40%);
+        color: var(--edge);
+        font-size: 0.55em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #status .age {
+        color: var(--chorus);
       }
       #controls {
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 100%;
+        min-height: 80vh;
       }
       #play {
         margin: auto;
         padding: 0.5em 1em;
+        font: inherit;
         font-size: 1.5em;
         background: #adf;
+        color: #000;
         border: 0 none;
         border-radius: 0.5em;
         cursor: pointer;
+      }
+      @media (max-width: 600px) {
+        body {
+          padding: 1em 1em 4em;
+        }
+        #status {
+          padding: 0.6em 1em;
+        }
       }
     </style>
   </head>
   <body>
     <div id="output"></div>
-    <div id="audio"></div>
     <div id="controls">
       <button id="play">Play</button>
     </div>
-    <script src="./index.js"></script>
+    <div id="status"></div>
     <a id="end"></a>
+    <script src="./index.js"></script>
   </body>
 </html>

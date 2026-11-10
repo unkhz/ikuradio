@@ -21,6 +21,13 @@ function hear(utterance: string) {
     }
   } else if (/^(score|begin):/.test(utterance)) {
     // for listeners who keep their own time
+  } else if (utterance.startsWith('about:')) {
+    const about = JSON.parse(utterance.slice(6))
+    process.title = `Song that never ends, iteration ${about.iteration}`
+  } else if (utterance.startsWith('weather:')) {
+    process.stdout.write(`~ ${utterance.slice(8)} ~\n\n`)
+  } else if (utterance.startsWith('part:')) {
+    // a new part begins; the words already end the last one with a blank line
   } else {
     process.stdout.write(utterance === '<br>' ? '\n' : utterance)
   }

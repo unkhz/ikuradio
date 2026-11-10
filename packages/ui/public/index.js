@@ -177,13 +177,40 @@ function playMusic(audioContext, audioSrc) {
   oldMusicTrack = track
 }
 
+// The words. Every part of the song is its own paragraph, and the words are
+// only ever added as text: whatever the mind writes is shown, never obeyed.
 let el
-switchStoryElement = (parent) => {
+function switchStoryElement(parent, kind = 'verse') {
   el = document.createElement('p')
+  el.className = kind
   parent.appendChild(el)
 }
-appendStoryElement = (text) => {
-  el.innerHTML += text
+function appendStoryElement(text) {
+  const last = el.lastChild
+  if (last && last.nodeType === Node.TEXT_NODE) last.appendData(text)
+  else el.appendChild(document.createTextNode(text))
+}
+function breakLine() {
+  // a line ends; a part that has already ended needs no second break
+  const last = el.lastChild
+  if (last && last.nodeName !== 'BR')
+    el.appendChild(document.createElement('br'))
+}
+
+// A quiet line at the edge of the page: how old the song is, and what it is.
+function describeIteration(about) {
+  const status = document.getElementById('status')
+  const age = BigInt(about.iteration).toLocaleString('en')
+  status.replaceChildren(
+    Object.assign(document.createElement('span'), {
+      className: 'age',
+      textContent: `iteration ${age}`,
+    }),
+    document.createTextNode(
+      ` · ${about.mood.join(' + ')} · ${about.mode}, ${about.tempo} bpm · ${about.choir}`,
+    ),
+  )
+  status.title = `variation ${about.variation + 1}`
 }
 
 let isScrolling = false
@@ -215,7 +242,7 @@ async function listen() {
       // the room went quiet: the server stopped, or the way to it did
     }
     if (output.lastChild?.textContent !== quiet) {
-      switchStoryElement(output)
+      switchStoryElement(output, 'weather')
       appendStoryElement(quiet)
     }
     keptTime = undefined
@@ -231,7 +258,6 @@ async function read(output, audioContext) {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let unfinished = ''
-  let hist = ''
   let isSnapshot = true
   switchStoryElement(output)
 
@@ -249,13 +275,17 @@ async function read(output, audioContext) {
       } else {
         playMusic(audioContext, audioSrc)
       }
+    } else if (utterance.startsWith('about:')) {
+      describeIteration(JSON.parse(utterance.slice(6)))
+    } else if (utterance.startsWith('weather:')) {
+      switchStoryElement(output, 'weather')
+      appendStoryElement(`~ ${utterance.slice(8)} ~`)
+    } else if (utterance.startsWith('part:')) {
+      switchStoryElement(output, utterance.slice(5))
+    } else if (utterance === '<br>') {
+      breakLine()
     } else {
-      hist = `${hist}${utterance}`.slice(-8)
-      if (hist.endsWith('<br><br>')) {
-        switchStoryElement(output)
-      } else {
-        appendStoryElement(utterance)
-      }
+      appendStoryElement(utterance)
     }
   }
 
