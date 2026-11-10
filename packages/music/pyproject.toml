@@ -8,6 +8,8 @@ dependencies = [
   "numpy>=2",
   "soundfile>=0.13",
   "torch>=2.8",
+  # the processor hears the voice as chroma through torchaudio
+  "torchaudio>=2.8",
   "transformers>=4.57",
 ]
 
@@ -16,6 +18,7 @@ package = false
 
 [tool.uv.sources]
 torch = { index = "pytorch-cu128" }
+torchaudio = { index = "pytorch-cu128" }
 
 [[tool.uv.index]]
 name = "pytorch-cu128"
