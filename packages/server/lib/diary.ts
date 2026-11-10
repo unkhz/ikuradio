@@ -28,7 +28,11 @@ export type Page = {
 /** How far back from the end the song looks for its last page, in bytes. */
 const lookback = 256 * 1024
 
-/** How far back anyone may read at one time, in bytes. Further back than this, memory fades. */
+/**
+ * How far back anyone may read at one time, in bytes: about 33,000 pages of
+ * two kilobytes, a little over two months of singing. Further back than
+ * this, memory fades; the pages are still there, but not reached this way.
+ */
 const remembering = 64 * 1024 * 1024
 
 export type ReadingOptions = {
