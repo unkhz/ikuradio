@@ -19,7 +19,8 @@ const {
 } = getEnv()
 
 async function readRandomMusicFile(cat: string) {
-  const files = await readdir(`audio/${cat}`)
+  // a body without its music clips still sings, unaccompanied
+  const files = await readdir(`audio/${cat}`).catch(() => [] as string[])
   const musicFiles = files.filter((file) => file.endsWith('.mp3'))
   const picked = musicFiles[Math.floor(Math.random() * musicFiles.length)]
   if (picked) {
@@ -195,7 +196,7 @@ async function run() {
 }
 
 createServer(room).listen(SERVER_PORT, () => {
-  console.log(`Server running at http://127.0.0.1:${SERVER_PORT}/`)
+  console.log(`The song can be heard at http://127.0.0.1:${SERVER_PORT}/`)
 })
 
 run()

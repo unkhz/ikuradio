@@ -1,4 +1,7 @@
-const server = 'http://127.0.0.1:3000'
+// The song serves this page itself, so it is found where the page came from.
+// Served separately for development (task ui:dev), it is found next door.
+const server =
+  location.port === '4000' ? `http://${location.hostname}:3000` : ''
 
 function createAudioElement(file, volume) {
   const audioEl = document.createElement('audio')
@@ -223,7 +226,7 @@ async function listen() {
 const quiet = '~ the room is quiet ~'
 
 async function read(output, audioContext) {
-  const response = await fetch(server)
+  const response = await fetch(`${server}/listen`)
   if (!response.body) return
   const reader = response.body.getReader()
   const decoder = new TextDecoder()

@@ -27,7 +27,7 @@ function hear(utterance: string) {
 }
 
 async function listen() {
-  const response = await fetch(`http://${SERVER_HOST}:${SERVER_PORT}`)
+  const response = await fetch(`http://${SERVER_HOST}:${SERVER_PORT}/listen`)
   if (!response.body) return
   const decoder = new TextDecoder()
   let unfinished = ''

@@ -54,3 +54,29 @@ tasks:
       - vocals:test
       - tools:test
       - ui:test
+
+  container:build:
+    desc: Build the song a body, a container image that sings anywhere
+    cmds:
+      - docker build -t song-that-never-ends .
+
+  container:run:
+    desc: Wake the song in its body, in the background, with its diary in a volume
+    cmds:
+      - >-
+        docker run -d --restart unless-stopped --name song-that-never-ends
+        -p {{.SERVER_PORT | default "3000"}}:3000
+        -v song-that-never-ends-memory:/song/packages/server/memory
+        -e LYRICS_MODEL -e ITERATION_COUNT -e MOOD_COUNT -e CHOIR_COUNT -e VARIATION_COUNT
+        {{if .OLLAMA_HOST}}-e OLLAMA_HOST{{end}}
+        song-that-never-ends
+
+  container:logs:
+    desc: Read what the song says about itself
+    cmds:
+      - docker logs -f song-that-never-ends
+
+  container:stop:
+    desc: Let the song rest; its diary stays in the volume
+    cmds:
+      - docker rm -f song-that-never-ends

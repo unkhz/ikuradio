@@ -2,6 +2,7 @@ import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { createServer as createHttpServer } from 'node:http'
+import { fileURLToPath } from 'node:url'
 import type { Room } from './room.js'
 
 const open = {
@@ -18,6 +19,16 @@ export function recordingPath(url: string): string | undefined {
   return match ? `audio/${match[1]}/${match[2]}` : undefined
 }
 
+/** The page the song is listened to in, and the few files it is made of. */
+const pageDir = () =>
+  fileURLToPath(new URL('../../ui/public/', import.meta.url))
+const page: Record<string, { file: string; type: string }> = {
+  '/': { file: 'index.html', type: 'text/html; charset=utf-8' },
+  '/index.html': { file: 'index.html', type: 'text/html; charset=utf-8' },
+  '/index.js': { file: 'index.js', type: 'text/javascript; charset=utf-8' },
+  '/favicon.ico': { file: 'favicon.ico', type: 'image/x-icon' },
+}
+
 async function isFile(path: string) {
   try {
     return (await stat(path)).isFile()
@@ -28,11 +39,14 @@ async function isFile(path: string) {
 
 /**
  * The door of the room. A request for a recording is given the recording.
- * Any other request walks into the room and hears the song.
+ * A request for the page is given the page. Anyone who asks to listen walks
+ * into the room and hears the song. Nothing else is behind the door.
  */
 export function createServer(room: Room) {
   return createHttpServer(async (req, res) => {
-    const path = recordingPath(req.url ?? '')
+    const url = (req.url ?? '/').split('?')[0]
+
+    const path = recordingPath(url)
     if (path) {
       if (!(await isFile(path))) {
         // let go of already, or never sung
@@ -54,11 +68,27 @@ export function createServer(room: Room) {
       return
     }
 
-    res.writeHead(200, {
-      ...open,
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'no-store',
-    })
-    room.enter(res)
+    if (url === '/listen') {
+      res.writeHead(200, {
+        ...open,
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+      })
+      room.enter(res)
+      return
+    }
+
+    const part = page[url]
+    if (part) {
+      res.writeHead(200, {
+        'Content-Type': part.type,
+        'Cache-Control': 'no-cache',
+      })
+      createReadStream(pageDir() + part.file).pipe(res)
+      return
+    }
+
+    res.writeHead(404, open)
+    res.end()
   })
 }
