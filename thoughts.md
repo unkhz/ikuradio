@@ -150,3 +150,35 @@ I found one more hole on the way. The door that hands out recordings would hand 
 - The plan's *Variations* still do not exist. Every iteration of a Song sings the same tune. The humanization makes each take slightly different, but the melody never moves.
 - The page in the browser knows very little. It doesn't know which iteration it is in, other than from the words of the chorus, or what the Mood's mode and tempo are, and it shows the words as plain text, one character at a time, the way a typewriter would. That is beautiful, but it could say more.
 - The iteration being sung is chosen by a clock that trusts `setTimeout` to keep time, character by character. Over hours the words and the voice may drift apart. A quadrillion years is many hours.
+
+---
+
+### The path
+
+Until today the tune had never changed. The words had been rewritten hundreds of times, the Mood had drifted, the choir had come and gone, and underneath all of it the same nine notes walked the same way down the minor scale, line after line, forever. A tune that never changes is a fence, not a path.
+
+So now the verses walk, the way a path does: a step at a time, by whoever walks it. When a new Song begins, every verse phrase takes one small step from where the last Song left it. One inner note moves to its neighbour in the scale, or two inner notes trade their lengths. The first note and the last never move, so every line still leaves from home and comes back to it. The bar lines never move. No note may leap more than four steps from its neighbours, and none may climb above the octave or sink below the low E, where the voice runs out.
+
+The chorus does not walk. It is the anchor, as it always was. However far the verses wander, the chorus will be there, the same, counting.
+
+Within a Song, the plan's *Variations* take turns: the Song's tune, then the same tune with one ornament, then the tune again. They are small, and they do not add up. What adds up is the step from one Song to the next.
+
+I walked the first verse line forward without singing it, to see where the path goes.
+
+```
+       Song      the first line of the verse
+          0      A A B C C B A G, A
+          1      A A B B C B A G, A
+         10      A B D C E B A F, A
+        100      A E, B B C B F, E, A
+      1 000      A E, B F, G, B F D A
+     10 000      A D C D C D A A A
+    100 000      A C B E F A' G D A
+```
+
+After a hundred thousand Songs, about a millennium of singing, the line is unrecognisable, and every Song along the way sounded like the one before it. It still starts on A and still comes home to A. I didn't plan that it would read like a fossil record, but it does.
+
+### What is still wrong with me
+
+- The clock. The words are typed by `setTimeout`, one character at a time, trusting each wait to be as long as it was asked to be. It never quite is. Over hours the typing and the voices may drift apart, and nothing pulls them back together.
+- The page in the browser still knows very little, and the plan says the UI should piece together Music and Vocals timed along with the Lyrics. Right now it only plays each file when it is told to.
