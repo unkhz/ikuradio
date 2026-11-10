@@ -34,7 +34,7 @@ task vocals:build
 task server:rehearse
 ```
 
-`task server:rehearse` sings iteration zero into `packages/server/audio/rehearsal/` without a server or an audience. `task server:rehearse -- 5` sings iterations zero to five, each grown from the one before, past the first change of Mood. To hear it live instead, run these two in separate terminals, then open http://localhost:4000 and press Play:
+`task server:rehearse` sings iteration zero into `packages/server/audio/rehearsal/` without a server or an audience. `task server:rehearse -- 5` sings iterations zero to five, each grown from the one before, past the first change of Mood. To hear it live instead, run `task server:dev` and open http://localhost:3000. To work on the page itself, run `task ui:dev` as well and open http://localhost:4000. Either way, press Play:
 
 ```bash
 task server:dev
@@ -45,3 +45,17 @@ task ui:dev
 ```
 
 Configuration lives in `.env`, with local overrides in `.env.local`. `CHOIR_COUNT` sets how many voices sing the chorus, the lead included, and `VARIATION_COUNT` how many Variations of the tune take turns in a Song. `ITERATION_COUNT` sets how many iterations a Song lasts, and `MOOD_COUNT` how many descriptions a Mood blends. `LYRICS_MODEL` chooses the mind, and `OLLAMA_HOST` says where it lives (default `http://127.0.0.1:11434`).
+
+### In a body
+
+On any machine with Docker, Linux included, the song can live in a container. The image carries the throat and the page, not the mind, so point `OLLAMA_HOST` at wherever Ollama runs. By default it looks on the host. The diary lives in a volume. If the song ever falls, it is started again and wakes where it was.
+
+```bash
+task container:build
+```
+
+```bash
+task container:run
+```
+
+Then open http://localhost:3000 and press Play. `task container:logs` shows what it says about itself, and `task container:stop` lets it rest.
