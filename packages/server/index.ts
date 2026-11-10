@@ -2,7 +2,7 @@ import { getEnv } from 'tools'
 import { arrange } from 'song'
 import { describe } from 'mood'
 import { introduce } from 'vocals'
-import { sing, type LineEvent } from './lib/sing.js'
+import { sing, type LineEvent, type TimedPart } from './lib/sing.js'
 import { createServer } from './lib/server.js'
 import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
@@ -50,14 +50,22 @@ let current = wakesAt
  * Each iteration is composed, set to its tunes and sung through before it
  * is shown, so that a line is never typed before its voice exists.
  */
-async function getSungSong(iteration: bigint) {
+async function getSungSong(iteration: bigint): Promise<TimedPart[]> {
   const composed = await compose(iteration)
-  const lines = await perform(composed)
-  performed.set(iteration, {
-    iteration: composed,
-    lines: new Map(lines.map((l) => [lineKey(l.part, l.index, l.lyrics), l])),
-  })
-  return arrange(composed.lyrics)
+  const lines = new Map(
+    (await perform(composed)).map((l) => [
+      lineKey(l.part, l.index, l.lyrics),
+      l,
+    ]),
+  )
+  performed.set(iteration, { iteration: composed, lines })
+  return arrange(composed.lyrics).map((part) => ({
+    ...part,
+    timing: part.content.split('\n').map((line, index) => {
+      const sung = lines.get(lineKey(part.type, index, line))
+      return sung ?? { seconds: 0, enters: 0, voiced: 0 }
+    }),
+  }))
 }
 
 /**
@@ -84,18 +92,6 @@ async function letGo(iteration: bigint) {
 
 const sungLine = ({ part, index, content }: LineEvent) =>
   performed.get(current)?.lines.get(lineKey(part, index, content))
-
-/**
- * Types a line as fast as it is sung. The typing waits once for every
- * character, nine times more after a comma, and ten times more at the end.
- */
-function pace(line: LineEvent) {
-  const sung = sungLine(line)
-  if (!sung) return 80
-  const commas = line.content.split(',').length - 1
-  const beats = line.content.length + commas * 9 + 10
-  return (sung.seconds * 1000) / beats
-}
 
 type CategoryConfig = {
   key: string
@@ -124,7 +120,7 @@ async function run() {
   let lastMusicTime = 0
   let category = pickCategory()
 
-  for await (const event of sing(getSungSong, pace, wakesAt)) {
+  for await (const event of sing(getSungSong, wakesAt)) {
     const now = Date.now()
     switch (event.type) {
       case 'iteration': {
@@ -150,6 +146,12 @@ async function run() {
         }
         console.log(
           `Iteration ${event.content}, ${shown ? `${describe(shown.mood)}, sung by ${introduce(shown.choir)}` : '?'}, ${category.key}`,
+        )
+        break
+      }
+      case 'fermata': {
+        console.log(
+          `Fermata: the song held its breath ${event.content.toFixed(1)}s for the next iteration`,
         )
         break
       }

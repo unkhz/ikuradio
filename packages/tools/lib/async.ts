@@ -4,15 +4,3 @@ export async function wait(delay: number) {
     delay + (Math.round(variance * 2 * Math.random()) - variance)
   await new Promise((resolve) => setTimeout(resolve, naturalDelay))
 }
-
-export async function* typeLine(line: string, delay: number) {
-  for (const char of line) {
-    await wait(delay)
-    yield char
-    if (char === ',') {
-      await wait(delay * 9)
-    }
-  }
-  await wait(delay * 10)
-  yield '\n'
-}

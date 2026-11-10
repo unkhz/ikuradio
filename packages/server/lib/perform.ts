@@ -21,6 +21,10 @@ export type SungLine = {
   recordings: string[]
   /** How long the line lasts, rest included. */
   seconds: number
+  /** When the lead voice begins, after its breath, from the start of the line. */
+  enters: number
+  /** How long the lead voice sings, without the rest. */
+  voiced: number
   /** When the line begins, in seconds from the start of the iteration. */
   at: number
 }
@@ -62,14 +66,18 @@ export async function perform({
           score,
           `${iteration}:${lineKey(part, index, line)}:${v}`,
         )
+        const [lastPitch, lastBeats] = score.notes.at(-1) ?? [0, 0]
+        const rest = lastPitch === 0 ? (lastBeats * 60) / score.bpm : 0
         return {
           file: await record(take, voice.body),
           gain: voice.gain,
           seconds: scoreSeconds(score),
+          enters: take.t0,
+          voiced: scoreSeconds(score) - rest,
         }
       }),
     )
-    const file = await blend(sung)
+    const file = await blend(sung.map(({ file, gain }) => ({ file, gain })))
     const recordings = [...new Set([...sung.map((s) => s.file), file])]
     return {
       part,
@@ -78,6 +86,8 @@ export async function perform({
       file,
       recordings,
       seconds: sung[0].seconds,
+      enters: sung[0].enters,
+      voiced: sung[0].voiced,
     }
   }
 
