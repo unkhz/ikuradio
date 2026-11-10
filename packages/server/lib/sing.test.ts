@@ -106,6 +106,36 @@ describe('sing', () => {
   })
 })
 
+describe('sing, stumbling', () => {
+  it('tries the same iteration again when it cannot be made, and goes on', async () => {
+    const clock = new Metronome()
+    const asked: bigint[] = []
+    let failures = 2
+    const fragile = async (i: bigint): Promise<TimedPart[]> => {
+      asked.push(i)
+      if (i === 1n && failures-- > 0) throw new Error('the throat is sore')
+      return [part('verse', 0, [`line of ${i}`])]
+    }
+    const heard = await listen(
+      fragile,
+      clock,
+      (e) => e.type === 'iteration' && e.content === 3n,
+    )
+    const stumbles = heard.filter(({ event }) => event.type === 'stumble')
+    expect(stumbles.map(({ event }) => event.content)).toEqual([
+      'Error: the throat is sore',
+      'Error: the throat is sore',
+    ])
+    // once iteration two begins, the song is already asking for the third
+    expect(asked).toEqual([0n, 1n, 1n, 1n, 2n, 3n])
+    const sung = heard
+      .filter(({ event }) => event.type === 'line')
+      .map(({ event }) => event.content)
+    expect(sung).toEqual(['line of 0', 'line of 1'])
+    expect(heard.some(({ event }) => event.type === 'fermata')).toBe(true)
+  })
+})
+
 describe('typingMoments', () => {
   it('never lets a character overtake its neighbour', () => {
     for (let i = 0; i < 100; i++) {

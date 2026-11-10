@@ -15,7 +15,7 @@ export type SungLine = {
   /** Which line of its part, from 0. */
   index: number
   lyrics: string
-  /** The recording, where the UI can fetch it. */
+  /** The recording, where the UI can fetch it. Empty if no voice could sing the line. */
   file: string
   /** Every recording made for this line: each voice's take, and their blend. */
   recordings: string[]
@@ -28,6 +28,10 @@ export type SungLine = {
   /** When the line begins, in seconds from the start of the iteration. */
   at: number
 }
+
+/** A hum, one "ooh" for each note: what a singer sings when there are no words. */
+export const hum = (notes: number) =>
+  Array.from({ length: notes }, () => 'ooh').join(' ')
 
 /** Where a line stands in the song and what it says. The same line in the same place is sung the same. */
 export const lineKey = (part: string, index: number, lyrics: string) =>
@@ -43,51 +47,81 @@ export async function perform({
   const takes = new Map<string, Promise<Omit<SungLine, 'at'>>>()
   const order: Promise<Omit<SungLine, 'at'>>[] = []
 
+  /** How many notes a line's tune has, before any words bend it. */
+  const notesOf = (part: SungLine['part'], index: number) => {
+    const phrases = part === 'chorus' ? tune.chorus : tune.verse
+    return phrases[index % phrases.length].notes.length
+  }
+
   const sing = async (
     part: SungLine['part'],
     index: number,
     line: string,
   ): Promise<Omit<SungLine, 'at'>> => {
-    const syllables = await countSyllables(line)
+    // a line with nothing a throat can sing is hummed: one "ooh" for every note of its tune
+    let syllables = await countSyllables(line).catch(() => 0)
+    let words = line
+    let hummed = false
+    if (syllables < 1) {
+      syllables = notesOf(part, index)
+      words = hum(syllables)
+      hummed = true
+    }
+
     const voices = part === 'chorus' ? choir : choir.slice(0, 1)
-    const sung = await Promise.all(
-      voices.map(async (voice, v) => {
-        const score = setLine({
-          part,
-          line: index,
-          lyrics: line,
-          syllables,
-          singer: voice.body,
-          character: mood.character,
-          harmony: voice.harmony,
-          tune,
-        })
-        const take = humanize(
-          score,
-          `${iteration}:${lineKey(part, index, line)}:${v}`,
-        )
-        const [lastPitch, lastBeats] = score.notes.at(-1) ?? [0, 0]
-        const rest = lastPitch === 0 ? (lastBeats * 60) / score.bpm : 0
-        return {
-          file: await record(take, voice.body),
-          gain: voice.gain,
-          seconds: scoreSeconds(score),
-          enters: take.t0,
-          voiced: scoreSeconds(score) - rest,
-        }
-      }),
+    const takes = voices.map((voice, v) => {
+      const score = setLine({
+        part,
+        line: index,
+        lyrics: words,
+        syllables,
+        singer: voice.body,
+        character: mood.character,
+        harmony: voice.harmony,
+        tune,
+      })
+      const take = humanize(
+        score,
+        `${iteration}:${lineKey(part, index, line)}:${v}`,
+      )
+      return { voice, score, take }
+    })
+
+    const sung = (
+      await Promise.all(
+        takes.map(async ({ voice, take }) => {
+          try {
+            return { file: await record(take, voice.body), gain: voice.gain }
+          } catch (error) {
+            // a throat that cannot sing this line falls silent for it; the others go on
+            console.warn(
+              `a ${voice.body} voice could not sing "${line}": ${error}`,
+            )
+            return undefined
+          }
+        }),
+      )
+    ).filter((s) => s !== undefined)
+
+    if (hummed) console.warn(`hummed a line with no words to sing: "${line}"`)
+
+    // the line keeps its place in time even if nobody could sing it
+    const { score, take } = takes[0]
+    const [lastPitch, lastBeats] = score.notes.at(-1) ?? [0, 0]
+    const rest = lastPitch === 0 ? (lastBeats * 60) / score.bpm : 0
+    const file = sung.length > 0 ? await blend(sung).catch(() => '') : ''
+    const recordings = [...new Set([...sung.map((s) => s.file), file])].filter(
+      Boolean,
     )
-    const file = await blend(sung.map(({ file, gain }) => ({ file, gain })))
-    const recordings = [...new Set([...sung.map((s) => s.file), file])]
     return {
       part,
       index,
       lyrics: line,
       file,
       recordings,
-      seconds: sung[0].seconds,
-      enters: sung[0].enters,
-      voiced: sung[0].voiced,
+      seconds: scoreSeconds(score),
+      enters: take.t0,
+      voiced: scoreSeconds(score) - rest,
     }
   }
 

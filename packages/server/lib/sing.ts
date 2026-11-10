@@ -10,6 +10,9 @@
 // If the next iteration is not ready when the last one ends, the song holds
 // its breath, a fermata, for as long as it has to, and then takes up the
 // beat again from that moment. It never hurries to catch up.
+//
+// If the next iteration cannot be made at all, the song stumbles, waits a
+// moment, and tries to make the same iteration again. It does not fall.
 
 import { wrongness } from 'melody'
 import type { SongPart } from 'song'
@@ -44,8 +47,19 @@ export type FermataEvent = {
   content: number
 }
 
+/** The song could not make its next iteration, and will try again. */
+export type StumbleEvent = {
+  type: 'stumble'
+  content: string
+}
+
 export type SingEvent =
-  IterationEvent | PartEvent | LineEvent | CharEvent | FermataEvent
+  | IterationEvent
+  | PartEvent
+  | LineEvent
+  | CharEvent
+  | FermataEvent
+  | StumbleEvent
 
 /** How long a line lasts in the music, and how much of that it is sung. */
 export type LineTiming = {
@@ -76,6 +90,9 @@ export const wallClock: Clock = {
     }
   },
 }
+
+/** How long the song waits after stumbling before it tries again, in milliseconds. */
+const recovery = 10_000
 
 /** A late iteration is only a fermata if it is later than this, in milliseconds. */
 const tolerance = 50
@@ -125,7 +142,15 @@ export async function* sing(
   let due: number | undefined
 
   while (true) {
-    const parts = await next
+    let parts: TimedPart[]
+    try {
+      parts = await next
+    } catch (error) {
+      yield { type: 'stumble', content: String(error) }
+      await clock.until(clock.now() + recovery)
+      next = song(iteration)
+      continue
+    }
     const now = clock.now()
     if (due === undefined || now - due > tolerance) {
       if (due !== undefined) {

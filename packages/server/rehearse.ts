@@ -50,7 +50,10 @@ for (let iteration = 0n; iteration <= last; iteration++) {
     console.log(`${at.toFixed(1).padStart(6)}s  ${part.padEnd(6)} ${lyrics}`)
   }
   const take = `${dir}/${iteration}`
-  await mixdown(lines, `${take}.m4a`)
+  await mixdown(
+    lines.filter(({ file }) => file),
+    `${take}.m4a`,
+  )
   await writeFile(
     `${take}.txt`,
     arrange(composed.lyrics)

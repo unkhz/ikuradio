@@ -64,7 +64,9 @@ async function getSungSong(iteration: bigint): Promise<TimedPart[]> {
   room.announce(
     `score:${JSON.stringify({
       iteration: `${iteration}`,
-      lines: [...lines.values()].map(({ file, at }) => ({ file, at })),
+      lines: [...lines.values()]
+        .filter(({ file }) => file)
+        .map(({ file, at }) => ({ file, at })),
     })}`,
   )
   return arrange(composed.lyrics).map((part) => ({
@@ -163,6 +165,12 @@ async function run() {
         )
         break
       }
+      case 'stumble': {
+        console.warn(
+          `The song stumbled, and will try again in a moment: ${event.content}`,
+        )
+        break
+      }
       case 'fermata': {
         console.log(
           `Fermata: the song held its breath ${event.content.toFixed(1)}s for the next iteration`,
@@ -175,7 +183,7 @@ async function run() {
       }
       case 'line': {
         const sung = sungLine(event)
-        if (sung) {
+        if (sung?.file) {
           say(`play:${sung.file}`)
         }
         if (now - lastMusicTime > category.duration) {
