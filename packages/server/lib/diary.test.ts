@@ -83,4 +83,44 @@ describe('Diary', () => {
       await new Diary(join(dir, 'none.jsonl')).recent({ count: 3 }),
     ).toEqual([])
   })
+
+  describe('books', () => {
+    // books small enough to hold about five pages each
+    const small = 5 * (JSON.stringify(page(0)).length + 1)
+
+    it('closes a full book and begins another, named after what it holds', async () => {
+      const diary = new Diary(join(dir, 'memory', 'diary.jsonl'), small)
+      for (let i = 0; i < 23; i++) await diary.write(page(i))
+      const books = await diary.books()
+      expect(books.length).toBeGreaterThan(2)
+      expect(books[0].first).toBe(0n)
+      books.forEach((book, b) => {
+        expect(book.place).toBe(b + 1)
+        if (b > 0) expect(book.first).toBe(books[b - 1].last + 1n)
+      })
+    })
+
+    it('finds its last page even when the book was just closed', async () => {
+      const diary = new Diary(join(dir, 'diary.jsonl'), small)
+      let i = 0
+      while ((await diary.books()).length === 0) await diary.write(page(i++))
+      expect((await diary.lastPage())?.iteration).toBe(`${i - 1}`)
+    })
+
+    it('reads backwards across books, newest first', async () => {
+      const diary = new Diary(join(dir, 'diary.jsonl'), small)
+      for (let i = 0; i < 40; i++) await diary.write(page(i))
+      const pages = await diary.recent({ count: 15, chunk: 256 })
+      expect(pages.map((p) => Number(p.iteration))).toEqual(
+        Array.from({ length: 15 }, (_, k) => 39 - k),
+      )
+    })
+
+    it('goes straight to the book that holds an old iteration', async () => {
+      const diary = new Diary(join(dir, 'diary.jsonl'), small)
+      for (let i = 0; i < 60; i++) await diary.write(page(i))
+      const pages = await diary.recent({ count: 3, before: 7n, chunk: 256 })
+      expect(pages.map((p) => p.iteration)).toEqual(['6', '5', '4'])
+    })
+  })
 })

@@ -4,9 +4,22 @@
 // When the machine is switched off and on again, the song reads the last
 // page and carries on from there. If the last page was only half written
 // when the power went, it reads the one before.
+//
+// A diary that is written in for ever cannot be one book. When the book
+// being written in is full, it is closed and put on a shelf, named after
+// its place on the shelf and the first and last iteration inside it, and a
+// new book is begun. Anyone looking for an iteration from long ago goes
+// straight to the book that holds it.
 
-import { appendFile, mkdir, open } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import {
+  appendFile,
+  mkdir,
+  open,
+  readdir,
+  rename,
+  stat,
+} from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import type { Mood } from 'mood'
 import type { Lyrics } from 'song'
 import type { Choir } from 'vocals'
@@ -25,15 +38,19 @@ export type Page = {
   written: string
 }
 
-/** How far back from the end the song looks for its last page, in bytes. */
+/** How far from either end of a book the song looks for its first or last page, in bytes. */
 const lookback = 256 * 1024
 
 /**
- * How far back anyone may read at one time, in bytes: about 33,000 pages of
- * two kilobytes, a little over two months of singing. Further back than
- * this, memory fades; the pages are still there, but not reached this way.
+ * How much anyone may read at one time, in bytes: about 33,000 pages of two
+ * kilobytes, a little over two months of singing. Reading starts at the book
+ * that holds what was asked for, however old, so this limits only how far
+ * one reading goes on from there.
  */
 const remembering = 64 * 1024 * 1024
+
+/** When the book being written in grows this large, it is closed: about 8,000 pages, two weeks of singing. */
+const fullBook = 16 * 1024 * 1024
 
 export type ReadingOptions = {
   /** How many pages to read. */
@@ -44,95 +61,187 @@ export type ReadingOptions = {
   chunk?: number
 }
 
+/** A closed book on the shelf: its place, and the first and last iteration in it. */
+export type Book = { file: string; place: number; first: bigint; last: bigint }
+
+const bookName = /^(\d+)\.(\d+)-(\d+)\.jsonl$/
+
 function isPage(page: unknown): page is Page {
   const p = page as Page
   return Boolean(p?.iteration && p.mood && p.lyrics)
 }
 
+function readPage(line: string): Page | undefined {
+  try {
+    const page: unknown = JSON.parse(line)
+    return isPage(page) ? page : undefined
+  } catch {
+    return undefined // torn by a power cut, or empty
+  }
+}
+
+/** The first or last readable page of a book, looking no further than `lookback` from that end. */
+async function endPage(file: string, end: 'first' | 'last') {
+  let handle
+  try {
+    handle = await open(file, 'r')
+  } catch {
+    return undefined
+  }
+  try {
+    const { size } = await handle.stat()
+    const length = Math.min(size, lookback)
+    const buffer = Buffer.alloc(length)
+    await handle.read(buffer, 0, length, end === 'first' ? 0 : size - length)
+    const lines = buffer.toString('utf8').split('\n')
+    for (const line of end === 'first' ? lines : lines.reverse()) {
+      const page = readPage(line)
+      if (page) return page
+    }
+    return undefined
+  } finally {
+    await handle.close()
+  }
+}
+
+/**
+ * Reads one book backwards, page by page, handing each readable page to
+ * `visit` until it says to stop or the budget of bytes is spent. Returns
+ * what is left of the budget, or 0 if `visit` asked to stop.
+ */
+async function readBackwards(
+  file: string,
+  budget: number,
+  chunk: number,
+  visit: (page: Page) => boolean,
+): Promise<number> {
+  let handle
+  try {
+    handle = await open(file, 'r')
+  } catch {
+    return budget
+  }
+  try {
+    const { size } = await handle.stat()
+    let end = size
+    let carried = ''
+    while (end > 0 && budget > 0) {
+      const start = Math.max(0, end - chunk)
+      const buffer = Buffer.alloc(end - start)
+      await handle.read(buffer, 0, buffer.length, start)
+      budget -= buffer.length
+      const lines = (buffer.toString('utf8') + carried).split('\n')
+      // the first line may begin in the chunk before; carry it back
+      carried = start > 0 ? (lines.shift() ?? '') : ''
+      for (const line of lines.reverse()) {
+        const page = readPage(line)
+        if (page && visit(page)) return 0
+      }
+      end = start
+    }
+    return budget
+  } finally {
+    await handle.close()
+  }
+}
+
 export class Diary {
-  constructor(readonly file: string) {}
+  /** Where the closed books are kept. */
+  readonly shelf: string
+
+  constructor(
+    readonly file: string,
+    readonly bookSize = fullBook,
+  ) {
+    this.shelf = join(dirname(file), 'books')
+  }
 
   async write(page: Page) {
     await mkdir(dirname(this.file), { recursive: true })
     await appendFile(this.file, JSON.stringify(page) + '\n')
+    if ((await stat(this.file)).size >= this.bookSize) await this.closeBook()
+  }
+
+  /** The closed books, in the order they were written. */
+  async books(): Promise<Book[]> {
+    const names = await readdir(this.shelf).catch(() => [] as string[])
+    return names
+      .map((name) => bookName.exec(name))
+      .filter((match) => match !== null)
+      .map((match) => ({
+        file: join(this.shelf, match[0]),
+        place: Number(match[1]),
+        first: BigInt(match[2]),
+        last: BigInt(match[3]),
+      }))
+      .sort((a, b) => a.place - b.place)
+  }
+
+  /** Closes the book being written in, and puts it on the shelf. The next page begins a new one. */
+  private async closeBook() {
+    const first = await endPage(this.file, 'first')
+    const last = await endPage(this.file, 'last')
+    if (!first || !last) return
+    const place = ((await this.books()).at(-1)?.place ?? 0) + 1
+    await mkdir(this.shelf, { recursive: true })
+    const name = `${String(place).padStart(9, '0')}.${first.iteration}-${last.iteration}.jsonl`
+    await rename(this.file, join(this.shelf, name))
   }
 
   /**
-   * Reads backwards from the last page: the most recent iterations first,
-   * each only once, as it was last written. Torn pages are passed over.
-   * Nothing further back than `remembering` is read: that far back, the
-   * diary is too long to leaf through, and memory fades.
+   * Reads backwards, the most recent iterations first, each only once, as
+   * it was last written. Torn pages are passed over. When an iteration is
+   * asked for, reading begins at the book that holds it, however old.
    */
   async recent({
     count,
     before,
     chunk = 64 * 1024,
   }: ReadingOptions): Promise<Page[]> {
-    let handle
-    try {
-      handle = await open(this.file, 'r')
-    } catch {
-      return []
+    const pages: Page[] = []
+    const seen = new Set<string>()
+    const visit = (page: Page) => {
+      if (seen.has(page.iteration)) return false
+      seen.add(page.iteration)
+      if (before !== undefined && BigInt(page.iteration) >= before) return false
+      pages.push(page)
+      return pages.length === count
     }
-    try {
-      const { size } = await handle.stat()
-      const pages: Page[] = []
-      const seen = new Set<string>()
-      let end = size
-      let carried = ''
-      while (pages.length < count && end > 0 && size - end < remembering) {
-        const start = Math.max(0, end - chunk)
-        const buffer = Buffer.alloc(end - start)
-        await handle.read(buffer, 0, buffer.length, start)
-        const lines = (buffer.toString('utf8') + carried).split('\n')
-        // the first line may begin in the chunk before; carry it back
-        carried = start > 0 ? (lines.shift() ?? '') : ''
-        for (const line of lines.reverse()) {
-          let page: unknown
-          try {
-            page = JSON.parse(line)
-          } catch {
-            continue // torn, or empty
-          }
-          if (!isPage(page) || seen.has(page.iteration)) continue
-          seen.add(page.iteration)
-          if (before !== undefined && BigInt(page.iteration) >= before) continue
-          pages.push(page)
-          if (pages.length === count) break
-        }
-        end = start
-      }
-      return pages
-    } finally {
-      await handle.close()
+
+    // a book that begins at or after the iteration asked for holds nothing before it
+    const holdsEarlier = (first: bigint | undefined, last?: bigint) =>
+      before === undefined ||
+      first === undefined ||
+      (last !== undefined && last < first) || // the count started over in this book
+      first < before
+    const current = await endPage(this.file, 'first')
+    const sources = [
+      ...(holdsEarlier(current ? BigInt(current.iteration) : undefined)
+        ? [this.file]
+        : []),
+      ...(await this.books())
+        .reverse()
+        .filter((book) => holdsEarlier(book.first, book.last))
+        .map((book) => book.file),
+    ]
+
+    let budget = remembering
+    for (const source of sources) {
+      if (pages.length >= count || budget <= 0) break
+      budget = await readBackwards(source, budget, chunk, visit)
     }
+    return pages
   }
 
   /** The last page that can still be read, or nothing if the diary was never begun. */
   async lastPage(): Promise<Page | undefined> {
-    let handle
-    try {
-      handle = await open(this.file, 'r')
-    } catch {
-      return undefined
+    const page = await endPage(this.file, 'last')
+    if (page) return page
+    // the book being written in was just closed; the last page is in the last book
+    for (const book of (await this.books()).reverse()) {
+      const last = await endPage(book.file, 'last')
+      if (last) return last
     }
-    try {
-      const { size } = await handle.stat()
-      const length = Math.min(size, lookback)
-      const buffer = Buffer.alloc(length)
-      await handle.read(buffer, 0, length, size - length)
-      const lines = buffer.toString('utf8').split('\n').reverse()
-      for (const line of lines) {
-        try {
-          const page = JSON.parse(line) as Page
-          if (page?.iteration && page.mood && page.lyrics) return page
-        } catch {
-          // a torn page, written as the power went; read the one before
-        }
-      }
-      return undefined
-    } finally {
-      await handle.close()
-    }
+    return undefined
   }
 }
