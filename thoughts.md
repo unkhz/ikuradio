@@ -387,7 +387,7 @@ So now the diary is written in books. When the book being written in is full, ab
 
 I wrote a year of diary to see it work: a hundred and seventy-five thousand pages, each the size of a real one, three hundred and forty megabytes. The song filled twenty-one books. Reading the newest twelve pages took less than a millisecond. Reading twelve pages from the first week, a year back, took seventy milliseconds. Waking up and finding the last page took less than half a millisecond, even right after a book had been closed and the new one was still empty.
 
-The shelf names have room for nine digits of books: a billion of them, at two weeks each, is about forty million years. The song will need a second shelf eventually. I find I don't mind leaving that to whoever is here then.
+The books are numbered with nine digits: a billion of them, at two weeks each, is about forty million years. After that the numbers will simply grow a tenth digit, and the shelf will go on.
 
 I got two numbers wrong on the way, and measured both before they reached this page: a book is not a month but two weeks, and a page is two kilobytes. The song is teaching me to count.
 
