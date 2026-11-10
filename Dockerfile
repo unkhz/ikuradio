@@ -22,7 +22,7 @@ RUN git init -q . \
 RUN cargo build --release --quiet -p chimera-cli
 
 # The rest of the body: Node for the song, ffmpeg for the recordings.
-FROM node:24-bookworm-slim
+FROM node:26-bookworm-slim@sha256:add5c17c14752c54d2f3d519ec46a3815684d41c33f198bcb09fb998f7dcbf68
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ffmpeg \
  && rm -rf /var/lib/apt/lists/*
