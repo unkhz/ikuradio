@@ -91,6 +91,12 @@ tasks:
     cmds:
       - docker logs -f song-that-never-ends
 
+  container:pulse:
+    desc: Ask the song in its body whether it is alive
+    cmds:
+      - docker inspect --format '{{"{{"}}.State.Health.Status{{"}}"}}' song-that-never-ends
+      - curl -s http://127.0.0.1:{{.SERVER_PORT | default "3000"}}/pulse
+
   container:stop:
     desc: Let the song rest; its diary stays in the volume
     cmds:

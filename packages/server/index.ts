@@ -8,6 +8,7 @@ import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { lineKey, perform, type SungLine } from './lib/perform.js'
 import { Room } from './lib/room.js'
+import { Heart } from './lib/heart.js'
 import { readdir, rm } from 'node:fs/promises'
 
 const {
@@ -29,6 +30,7 @@ async function readRandomMusicFile(cat: string) {
 }
 
 const room = new Room()
+const heart = new Heart()
 
 const diary = new Diary('memory/diary.jsonl')
 const { wakesAt, compose } = await composer(diary, {
@@ -171,6 +173,14 @@ async function run() {
           say(weather)
         }
         room.turnPage(prelude)
+        if (shown) {
+          const lines = [...(performed.get(current)?.lines.values() ?? [])]
+          heart.beat({
+            iteration: event.content,
+            seconds: Math.max(0, ...lines.map((l) => l.at + l.seconds)),
+            mood: shown.mood.descriptions.join(' + '),
+          })
+        }
         justWoke = false
         console.log(
           `Iteration ${event.content}, ${shown ? `${describe(shown.mood)}, sung by ${introduce(shown.choir)}` : '?'}, ${category.key}`,
@@ -178,12 +188,14 @@ async function run() {
         break
       }
       case 'stumble': {
+        heart.stumble()
         console.warn(
           `The song stumbled, and will try again in a moment: ${event.content}`,
         )
         break
       }
       case 'fermata': {
+        heart.fermata()
         console.log(
           `Fermata: the song held its breath ${event.content.toFixed(1)}s for the next iteration`,
         )
@@ -236,7 +248,10 @@ async function lookBack({ before, count }: { before?: bigint; count: number }) {
   }))
 }
 
-createServer(room, lookBack).listen(SERVER_PORT, () => {
+createServer(room, {
+  lookBack,
+  pulse: () => heart.pulse(room.size),
+}).listen(SERVER_PORT, () => {
   console.log(`The song can be heard at http://127.0.0.1:${SERVER_PORT}/`)
 })
 

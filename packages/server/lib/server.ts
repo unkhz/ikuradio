@@ -57,12 +57,30 @@ export function lookBackQuery(url: string): { before?: bigint; count: number } {
 /**
  * The door of the room. A request for a recording is given the recording.
  * A request for the page is given the page. A request to look back is read
- * a few pages of the diary. Anyone who asks to listen walks into the room
+ * a few pages of the diary. A request for the pulse is told whether the song
+ * is alive. Anyone who asks to listen walks into the room
  * and hears the song. Nothing else is behind the door.
  */
-export function createServer(room: Room, lookBack?: LookBack) {
+export type Door = {
+  /** Reads back through the diary. */
+  lookBack?: LookBack
+  /** Says whether the song is alive, and how it is. */
+  pulse?: () => { alive: boolean }
+}
+
+export function createServer(room: Room, { lookBack, pulse }: Door = {}) {
   return createHttpServer(async (req, res) => {
     const url = (req.url ?? '/').split('?')[0]
+
+    if (url === '/pulse' && pulse) {
+      const now = pulse()
+      res.writeHead(now.alive ? 200 : 503, {
+        ...open,
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      })
+      return res.end(JSON.stringify(now))
+    }
 
     if (url === '/diary' && lookBack) {
       const pages = await lookBack(lookBackQuery(req.url ?? ''))

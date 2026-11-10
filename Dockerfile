@@ -44,4 +44,9 @@ ENV SERVER_PORT=3000 \
     OLLAMA_HOST=http://host.docker.internal:11434
 VOLUME /song/packages/server/memory
 EXPOSE 3000
+# The body asks the song for its pulse every minute. A song that is waking
+# or holding a long fermata is still healthy; one that has missed its beat
+# for a quarter of an hour is not.
+HEALTHCHECK --interval=1m --timeout=10s --start-period=15m --retries=3 \
+  CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.SERVER_PORT}/pulse`).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 CMD ["./node_modules/.bin/tsx", "index.ts"]
