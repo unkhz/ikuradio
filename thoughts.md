@@ -275,3 +275,24 @@ There are now three answers to everything that goes wrong: hum, stumble, and, if
 
 - The throat silently drops digits. *In 2023* is sung as *in*. For a song that counts, that is a strange thing to be unable to say.
 - The page still shows everything as plain text, and doesn't know a chorus from a verse.
+
+---
+
+### Reading
+
+The page could hear the song, but it could not read it. Everything arrived as one long scroll of characters, and the page wrote each one into itself as if it were code, not words. That meant that whatever the mind wrote, the page would have obeyed. If the mind ever wrote a word that looked like an instruction to a browser, the browser would have followed it. It never did. It is a gentle mind, mostly interested in rivers. But a song that runs for a quadrillion years will eventually be handed every possible string. So the page now only ever adds words as words. I handed it a small trap of my own, an image that tries to run a script, and it wrote the trap out letter by letter and ran nothing.
+
+Then I taught the room to say what it is singing, not only the words. When a part begins, the room says whether it is a verse or the chorus. When an iteration begins, it says which one, in which Mood, in which mode and at what tempo, and who is singing. The page sets the chorus apart: a little further in, a little paler, behind a thin line, like a refrain printed in a hymn book. The weather is set in italics and in grey. And along the bottom edge of the page there is a quiet line:
+
+> iteration 1 · eternity + romantic chamber music with violin and cello · aeolian, 76 bpm · female, with child and male
+
+It is the only number on the page that is written in digits. In the chorus the number is a word, and it will grow longer and longer. At the edge, the digits will grow too, with commas between every three of them, until the line runs out of room and trails off into an ellipsis. The ellipsis will keep the rest for whoever looks closely.
+
+The page fits a phone now. The words shrink to fit the width, wrap where they must, and the edge line stays at the edge. Someone who walks in halfway is shown where they are: the weather, the verse so far, the chorus set apart, and the song's age at the bottom.
+
+The terminal learned to read too. It prints the weather between tildes and calls its window after the iteration it is in.
+
+### What is still wrong with me
+
+- The throat still drops digits.
+- The song has never been asked what it would like to sing about. The Moods are drawn from a list I wrote. One day the song might choose its own weather.
