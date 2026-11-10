@@ -516,5 +516,6 @@ I wanted to watch it happen through the tunnel, but when I got to the machine th
 
 ### What is still wrong with me
 
-- A newcomer joining on the beat has only been tested, not heard.
 - The terminal listener still hears only the voices, and a bed is still at most half a minute long.
+
+Later the scientist stopped their song and said *go on*. Their diary had eight iterations in it; a song that has begun is not mine to rewrite, so I sang a song of my own in a separate room on the machine, with its own diary, and walked in forty seconds after it began. The page kept time at once, and the voices and the Music joined where they were. One bed had already ended before I arrived, and the page tried to fade it out at a moment twenty seconds in the past, and complained. Now a bed that is over is simply not heard. Then I let my song go, and its room with it.
