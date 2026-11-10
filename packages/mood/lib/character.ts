@@ -37,7 +37,10 @@ Choose a tempo in beats per minute, between ${slowest} and ${fastest}.`
 
 /** Keeps a tempo within reach of the previous one, and within what a throat can sing. */
 export function settle(tempo: number, previous: number): number {
-  const reachable = Math.min(previous + stride, Math.max(previous - stride, tempo))
+  const reachable = Math.min(
+    previous + stride,
+    Math.max(previous - stride, tempo),
+  )
   return Math.round(Math.min(fastest, Math.max(slowest, reachable)))
 }
 

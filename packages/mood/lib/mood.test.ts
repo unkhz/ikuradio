@@ -1,31 +1,6 @@
-import { drift } from './drift.js'
 import { settle } from './character.js'
-
-const pool = ['a', 'b', 'c', 'd', 'e']
-const first = () => 0
-
-describe('drift', () => {
-  it('lets the oldest description go and one new arrive', () => {
-    expect(drift(['a', 'b'], pool, 2, first)).toEqual(['b', 'c'])
-  })
-
-  it('never brings back a description that is already there', () => {
-    for (let i = 0; i < 50; i++) {
-      const next = drift(['a', 'b', 'c'], pool, 3)
-      expect(new Set(next).size).toBe(3)
-      expect(next.slice(0, 2)).toEqual(['b', 'c'])
-    }
-  })
-
-  it('grows or shrinks to the count it is asked for', () => {
-    expect(drift(['a'], pool, 3, first)).toEqual(['a', 'b', 'c'])
-    expect(drift(['a', 'b', 'c', 'd'], pool, 2, first)).toEqual(['d', 'e'])
-  })
-
-  it('changes completely when a Mood is only one description', () => {
-    expect(drift(['a'], pool, 1, first)).toEqual(['b'])
-  })
-})
+import { isWeather, resembles } from './forecast.js'
+import { nextMood } from '../index.js'
 
 describe('settle', () => {
   it('lets the tempo walk, not leap', () => {
@@ -37,5 +12,80 @@ describe('settle', () => {
   it('keeps the tempo singable', () => {
     expect(settle(200, 130)).toBe(132)
     expect(settle(10, 60)).toBe(56)
+  })
+})
+
+describe('isWeather', () => {
+  it('accepts a few plain words', () => {
+    expect(isWeather('lighthouse at low tide', [])).toBe(true)
+    expect(isWeather("a sailor's lament", [])).toBe(true)
+    expect(isWeather('drömmar om snö', [])).toBe(true)
+  })
+
+  it('refuses sentences, lists, markup and what the song has just had', () => {
+    expect(
+      isWeather('the sea, the sky, and everything we ever lost in them', []),
+    ).toBe(false)
+    expect(isWeather('dub, reggae; and jazz.', [])).toBe(false)
+    expect(isWeather('<b>dub</b>', [])).toBe(false)
+    expect(isWeather('', [])).toBe(false)
+    expect(isWeather('First Snow', ['first snow'])).toBe(false)
+  })
+})
+
+describe('resembles', () => {
+  it('hears the same weather in different words', () => {
+    expect(
+      resembles('whispers of a distant shore', 'a whisper of distant shores'),
+    ).toBe(true)
+    expect(resembles('first snow', 'the first snows')).toBe(true)
+  })
+
+  it('tells different weather apart, even when it shares a word', () => {
+    expect(
+      resembles(
+        'echoes of a distant lullaby',
+        'whispers of a forgotten lullaby',
+      ),
+    ).toBe(false)
+    expect(
+      resembles(
+        'a ghostly echo in the wind',
+        'rain-soaked whispers in the wind',
+      ),
+    ).toBe(false)
+    expect(resembles('dub', 'desert blues')).toBe(false)
+  })
+})
+
+describe('nextMood without the mind', () => {
+  const previous = {
+    descriptions: ['eternity', 'dub'],
+    character: { mode: 'aeolian' as const, tempo: 76 },
+    remembered: ['spring', 'death'],
+  }
+
+  it('lets the oldest go, remembers it, and draws something it has not had lately', async () => {
+    for (let i = 0; i < 20; i++) {
+      const next = await nextMood(previous, 2, {
+        mind: false,
+        random: Math.random,
+      })
+      expect(next.descriptions[0]).toBe('dub')
+      expect(['eternity', 'spring', 'death', 'dub']).not.toContain(
+        next.descriptions[1],
+      )
+      expect(next.remembered).toEqual(['spring', 'death', 'eternity'])
+    }
+  })
+
+  it('remembers only so much', async () => {
+    const long = {
+      ...previous,
+      remembered: Array.from({ length: 12 }, (_, i) => `w${i}`),
+    }
+    const next = await nextMood(long, 2, { mind: false })
+    expect(next.remembered).toHaveLength(12)
+    expect(next.remembered?.at(-1)).toBe('eternity')
   })
 })

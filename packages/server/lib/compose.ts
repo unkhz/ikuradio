@@ -1,10 +1,11 @@
 // The composer writes one iteration at a time, always from the one before.
 //
 // A Song is a run of iterations in the same Mood. When a new Song begins,
-// the Mood drifts: one description lets go, one arrives, a new choir is
-// gathered to sing it, and the verses of the tune take one small step.
-// Within a Song, the tune's Variations take turns. Everything else the composer needs, it reads from the
-// last page of the diary.
+// the Mood drifts: one description lets go, and the song chooses the one
+// that arrives, from the last words it sang. A new choir is gathered to sing
+// it, and the verses of the tune take one small step. Within a Song, the
+// tune's Variations take turns. Everything else the composer needs, it reads
+// from the last page of the diary.
 
 import { firstMood, nextMood, type Mood } from 'mood'
 import { firstLyrics, writeLyrics, type Lyrics } from 'song'
@@ -63,7 +64,11 @@ export async function composer(
       tune = firstTune
       lyrics = firstLyrics
     } else {
-      mood = beginsSong ? await nextMood(last.mood, moodCount) : last.mood
+      // the last words sung shape the weather of the next Song
+      const words = [last.lyrics.thirdVerse, last.lyrics.finalChorus].join('\n')
+      mood = beginsSong
+        ? await nextMood(last.mood, moodCount, { words })
+        : last.mood
       // pages written before there was a choir are sung by the first choir
       const remembered = last.choir ?? firstChoir.slice(0, choirSize)
       choir = beginsSong ? gather(choirSize) : remembered

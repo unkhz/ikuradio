@@ -1,6 +1,6 @@
-// Everything a Mood can be made of. Some of these are things to sing about,
-// some are ways of sounding, and the song does not tell them apart. A Mood
-// is a few of them blended, and it changes one at a time.
+// What a Mood can be made of, when the mind cannot choose. Some of these are
+// things to sing about, some are ways of sounding, and the song does not tell
+// them apart. A Mood is a few of them blended, and it changes one at a time.
 //
 // The first seven were the moods of the song's words in 2023. The two
 // chamber descriptions were the prompts its music was generated from.
