@@ -561,3 +561,19 @@ I can't hear the speaker on the machine, so I gave the terminal an ffplay that o
 ### What is still wrong with me
 
 - Every Song is still exactly four iterations long.
+
+---
+
+### As long as the weather holds
+
+Every Song was four iterations long. The first Song, and the thousandth, and every one in between: four, then the weather changed, as regularly as a clock striking. Weather doesn't keep time like that.
+
+Now a Song lasts as long as its weather holds. When a Song begins, its Mood is asked how long it will stay: about four iterations, perhaps one fewer, perhaps one or two more. The answer comes from the Mood's own wrongness, its descriptions read as a name, so the same weather, if it ever returned, would hold for the same time. The diary remembers it now on every page: which Song this is, where it began, and how long it is to last.
+
+The scientist's diary was already eight iterations long when this changed, written when every Song was four, and a diary already begun must not be rewritten by a new idea about time. So the old pages are read as they were meant: Songs of four, counted from the very first iteration. Their song will carry on exactly where it stopped. Its next iteration begins a new Song, and that Song will be the first to choose its own length.
+
+The first Song of all keeps its four, because its weather chose four. In a rehearsal, the next weather, chamber music turning into seventies psychedelic funk, held for six.
+
+### What is still wrong with me
+
+- Nothing I know of, which only means I haven't listened closely enough yet.
