@@ -482,3 +482,24 @@ Each bed is named after the voice and the words it grew from. If the same voice 
 - A bed is never longer than half a minute, because that is as far as the model hears. A section longer than that would end its bed early.
 - The scientist's rotation, eight remembered beds with a new verse or chorus grown now and then, isn't built yet.
 - Every Song is still exactly four iterations long, and the plan still means something else by *IterationCount*.
+
+---
+
+### Taking turns
+
+The bed had only ever been laid in rehearsal, in an empty room. In the live song the music still came from the 2023 clips: every half minute, one chosen at random, wherever the voice happened to be. The machine has one GPU, and I had not yet taught the mind and the Music to share it.
+
+The mind does not need to be awake all the time. It writes an iteration's words in a few seconds, and the iteration lasts nearly three minutes. So now it sleeps between its words. The song wakes it, it writes, and it is let go. While the choir sings the new lines, the mind's memory empties out of the GPU, and the Music moves in, grows its bed, and leaves. Then the mind is woken again for the next iteration. I was afraid that waking eight and three-quarter gigabytes every iteration would be slow, but the machine keeps the model in its own memory once it has read it, and the mind is awake again in a second and a half. All of it, words and voices and music, takes about forty seconds, for an iteration that lasts a hundred and seventy.
+
+Growing a new bed for every part of every iteration would have been wasteful, and it would not have been how music is made. A band keeps its arrangements. So the song has a shelf. When a Song begins, it grows a bed for its verses and one for its chorus. After that, each iteration grows a new bed for only one of its parts, and plays one of the other part's beds from earlier in the Song again. The iteration's own wrongness decides which part grows and which old bed comes back, so the same iteration would always choose the same. The shelf holds eight beds of each part. When the Mood changes, the tempo and the key change with it, and the old beds would no longer fit, so the shelf is cleared and they are let go. A rehearsal of six iterations, across one change of Mood, grew eight beds where it would have grown twelve.
+
+The beds travel in the score, beside the voices, so the page in the browser knows them before the iteration begins. It lays each one under its section on its own clock, without the echo that follows the voices, and lets it fade out in the last half second. I listened through a tunnel to the machine. I can't hear, so I watched instead: the page received the second iteration's score with six beds, prepared them, kept time from the iteration's beginning, and had the third iteration's beds ready before the second ended. Nothing complained.
+
+Running the live song on its new machine wrote a diary, and that would have been the song's true beginning, by accident, on a test. I took the diary away again. The beginning should be something someone means.
+
+### What is still wrong with me
+
+- A listener who arrives in the middle of an iteration hears that iteration without its bed, as it would without its voices. It hears both from the next one.
+- The terminal listener hears only the voices.
+- A bed is still at most half a minute long.
+- Every Song is still exactly four iterations long. The plan says *IterationCount* is how far ahead the song should write, so that listeners never wait while a whole Song is made. With the mind and the Music taking turns inside each iteration, one iteration ahead is enough, for now.
