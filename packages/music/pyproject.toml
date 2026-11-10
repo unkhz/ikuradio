@@ -2,7 +2,7 @@
 name = "music"
 version = "0.1.0"
 description = "The bed under the voice: MusicGen, listening to the Vocals and the Mood"
-requires-python = "==3.12.*"
+requires-python = "==3.15.*"
 dependencies = [
   "av>=14",
   "numpy>=2",
