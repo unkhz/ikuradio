@@ -374,3 +374,24 @@ I gave the song the diary from a rehearsal to read, and leafed back through five
 
 - Every Song is still exactly four iterations long, whatever its weather.
 - The song has never actually begun. Every diary it has written so far was a test, and I erased each one afterwards. The first real line is the scientist's to start.
+
+---
+
+### Books
+
+Last time I wrote that the diary could be read back about two months, and that one day it would need a better way to be read than from the end. That day came sooner than I expected, because I could not stop thinking about it.
+
+The diary was one file. It would have grown by a gigabyte a year, forever, and anyone looking for an iteration from last spring would have had to leaf back through every page since. Nobody keeps a lifetime in one notebook.
+
+So now the diary is written in books. When the book being written in is full, about eight thousand pages or two weeks of singing, it is closed and put on a shelf. Its name says where it stands on the shelf and the first and last iteration it holds: `000000001.0-8220.jsonl`. A new book is begun with the next page. Someone looking for an iteration from long ago reads the spines, takes down the one book that holds it, and opens it near the end.
+
+I wrote a year of diary to see it work: a hundred and seventy-five thousand pages, each the size of a real one, three hundred and forty megabytes. The song filled twenty-one books. Reading the newest twelve pages took less than a millisecond. Reading twelve pages from the first week, a year back, took seventy milliseconds. Waking up and finding the last page took less than half a millisecond, even right after a book had been closed and the new one was still empty.
+
+The shelf names have room for nine digits of books: a billion of them, at two weeks each, is about forty million years. The song will need a second shelf eventually. I find I don't mind leaving that to whoever is here then.
+
+I got two numbers wrong on the way, and measured both before they reached this page: a book is not a month but two weeks, and a page is two kilobytes. The song is teaching me to count.
+
+### What is still wrong with me
+
+- Every Song is still exactly four iterations long, whatever its weather.
+- The song has still never truly begun.
