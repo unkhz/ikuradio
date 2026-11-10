@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Score, Singer } from 'melody'
 import { run } from './exec.js'
+import { readAloud } from './reading.js'
 
 function chimera() {
   return (
@@ -25,11 +26,14 @@ function chimera() {
 export const vocalsDir = 'audio/vocals'
 
 /**
- * Lyrics as the throat wants them. A hyphen between two words would be sung
- * as one word drawn out over two notes, so the words are let apart.
+ * Lyrics as the throat wants them. Whatever it cannot read is read aloud
+ * first, in words. A hyphen between two words would be sung as one word
+ * drawn out over two notes, so the words are let apart.
  */
 export function prepareLyrics(line: string): string {
-  return line.replace(/(\w)-(\w)/g, '$1 $2').trim()
+  return readAloud(line)
+    .replace(/(\w)-(\w)/g, '$1 $2')
+    .trim()
 }
 
 async function exists(file: string) {

@@ -220,6 +220,9 @@ importers:
       melody:
         specifier: workspace:*
         version: link:../melody
+      song:
+        specifier: workspace:*
+        version: link:../song
     devDependencies:
       '@types/jest':
         specifier: 30.0.0

@@ -7,6 +7,12 @@ describe('prepareLyrics', () => {
     )
   })
 
+  it('reads aloud what the throat cannot read', () => {
+    expect(prepareLyrics('In 2023, the 21st night')).toBe(
+      'In twenty twenty three, the twenty first night',
+    )
+  })
+
   it('keeps everything else', () => {
     expect(prepareLyrics(' twenty-one, and on... ')).toBe(
       'twenty one, and on...',

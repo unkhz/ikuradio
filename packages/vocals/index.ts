@@ -5,6 +5,7 @@ export {
   vocalsDir,
 } from './lib/chimera.js'
 export { play } from './lib/play.js'
+export { readAloud } from './lib/reading.js'
 export { mixdown, blend, type Placed } from './lib/mixdown.js'
 export { humanize, wrongness, type Take } from './lib/humanize.js'
 export {
