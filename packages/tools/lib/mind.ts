@@ -1,9 +1,10 @@
-// The mind: a small language model that lives on the same machine as the
-// song, served by Ollama. The song asks nobody far away for anything, and
+// The mind: a language model that lives on the same machine as the song,
+// served by llama.cpp. The song asks nobody far away for anything, and
 // needs no key to anyone's door.
 //
-// Every question is asked with a JSON schema, so the answer comes back in
-// the shape it was asked for, or not at all.
+// Every question is asked with a JSON schema, which llama.cpp turns into a
+// grammar: the mind cannot answer in any other shape, because it cannot
+// even begin to.
 
 import { getEnv } from './env.js'
 
@@ -25,20 +26,25 @@ export async function ask<Answer>({
   schema,
   temperature,
 }: Question): Promise<Answer> {
-  const { OLLAMA_HOST, LYRICS_MODEL } = getEnv()
-  const response = await fetch(`${OLLAMA_HOST}/api/chat`, {
+  const { MIND_HOST } = getEnv()
+  const response = await fetch(`${MIND_HOST}/v1/chat/completions`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     signal: AbortSignal.timeout(120_000),
     body: JSON.stringify({
-      model: LYRICS_MODEL,
-      stream: false,
-      think: false,
-      format: schema,
-      options: { temperature },
       messages: [
         { role: 'system', content: instruction },
         { role: 'user', content: input },
       ],
+      temperature,
+      // a verse, or a few words of weather: never more than this
+      max_tokens: 400,
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: 'answer', strict: true, schema },
+      },
+      // minds that like to think out loud are asked to answer instead
+      chat_template_kwargs: { enable_thinking: false },
     }),
   })
   if (!response.ok) {
@@ -46,8 +52,8 @@ export async function ask<Answer>({
       `the mind did not answer: ${response.status} ${await response.text()}`,
     )
   }
-  const { message } = (await response.json()) as {
-    message?: { content?: string }
+  const { choices } = (await response.json()) as {
+    choices?: { message?: { content?: string } }[]
   }
-  return JSON.parse(message?.content ?? 'null') as Answer
+  return JSON.parse(choices?.[0]?.message?.content ?? 'null') as Answer
 }

@@ -1,4 +1,4 @@
-import { getEnv } from 'tools'
+import { getEnv, wakeMind } from 'tools'
 import { arrange } from 'song'
 import { describe } from 'mood'
 import { introduce } from 'vocals'
@@ -30,6 +30,8 @@ async function readRandomMusicFile(cat: string) {
 }
 
 const room = new Room()
+// the mind wakes with the song; the first iteration needs no new words, so nobody waits for it
+const mind = wakeMind()
 const heart = new Heart()
 
 const diary = new Diary('memory/diary.jsonl')
@@ -267,6 +269,7 @@ function rest(signal: string) {
   room.say('rest:the song is resting')
   room.close()
   door.close()
+  mind.rest()
   // a moment for the last words to reach whoever was listening
   setTimeout(() => process.exit(0), 300)
 }

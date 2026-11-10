@@ -3,3 +3,4 @@ private/
 .env.local
 .DS_Store
 .arkku/configs/
+/models/

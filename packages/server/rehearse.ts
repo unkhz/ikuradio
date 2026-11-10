@@ -16,7 +16,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { arrange } from 'song'
 import { describe } from 'mood'
 import { introduce, mixdown } from 'vocals'
-import { getEnv } from 'tools'
+import { getEnv, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
 import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
@@ -35,6 +35,12 @@ const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
 })
 
 const seconds = (ms: number) => (ms / 1000).toFixed(1)
+
+// only iterations after the first need new words, and a mind to write them
+const mind = last > 0n ? wakeMind(`${dir}/mind.log`) : undefined
+if (mind && !(await mind.ready)) {
+  console.warn('the mind did not wake; the rehearsal waits for it as the song would')
+}
 
 for (let iteration = 0n; iteration <= last; iteration++) {
   const started = Date.now()
@@ -67,3 +73,5 @@ for (let iteration = 0n; iteration <= last; iteration++) {
       ` sung in ${seconds(Date.now() - written)}s`,
   )
 }
+
+mind?.rest()
