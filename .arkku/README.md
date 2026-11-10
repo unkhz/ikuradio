@@ -28,20 +28,19 @@ then omit `--dry-run` to apply. It never recreates records from pristine templat
 Template modules are executable project code, including during reads and schema
 inspection. Review unfamiliar modules and their imports before running them.
 
-## The dev box
+## Shared and local
 
-The song is built and run on one machine only, `xitra.local` (RTX 4070 Ti, 12 GB).
-It has room for a single mind at a time, so there is one authoritative place for it:
+`templates/`, `sequences/` and this README are shared: they shape the public records.
+`configs/` is ignored, because Git and auth policy hold each developer's own identity,
+secret store and paths. Create them with `arkku git init` and `arkku auth setup`, and keep
+the project ID `song-that-never-ends`.
 
-- Git lives on the main machine, in the arkku workspace `xitra`
-  (`arkku workspace status xitra`). Commit there. Fetch and push only with
-  `arkku git run xitra main -- …` inside `arkku session open`.
-- `~/Work/song` on xitra is a plain copy with no Git and no credentials. Reach it as
-  `ssh xitra-song`. Sync tracked files from the `xitra` workspace with rsync,
-  excluding everything Git ignores, so the song's audio, diary, `node_modules` and
-  builds on xitra are never overwritten.
-- Only one session drives xitra at a time. Do not build or run the song from any
-  other checkout or session while another one is using it.
+## One place to sing
+
+The song is built and run from a single authoritative checkout, by one session at a
+time. A dev box has room for only one mind, so never build or run the song from a second
+checkout or session while another is using it. How a developer reaches their own dev box
+is local, and belongs in `private/`.
 
 This file belongs to the project. Adapt it with project-specific guidance as
 needed; subsequent `arkku init` calls will not overwrite it or other instructions.
