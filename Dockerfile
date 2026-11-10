@@ -12,7 +12,7 @@
 
 # The throat, built from its pinned revision. It looks for its pronouncing
 # dictionary next to its own sources, so it is built where the song keeps it.
-FROM rust:1.94-bookworm AS throat
+FROM rust:1.99-bookworm@sha256:e6f2cff35d0f309acf8433b4f05878ed77092602c5065cc81801177da0bb3a9c AS throat
 ARG CHIMERA_REV=c24945a34296f1cd06c029fd283c43b2a0cc2c26
 ARG CHIMERA_REPO=https://github.com/jamesondh/chimera-vocal-synth
 WORKDIR /song/packages/vocals/.chimera
