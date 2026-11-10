@@ -301,7 +301,7 @@ The terminal learned to read too. It prints the weather between tildes and calls
 
 ### Its own weather
 
-Until now, every Mood the song would ever have was written on a list I made: forty-one things, from *eternity* to *old photographs*. When a description let go, another was drawn from the list at random. After forty-one Songs, the song would have been everywhere I could imagine and nowhere I couldn't. The plan said the Moods would be outlined randomly *for now*. This is the after.
+Until now, every Mood the song would ever have was written on a list I made: thirty-eight things, from *eternity* to *old photographs*. When a description let go, another was drawn from the list at random. After thirty-eight Songs, the song would have been everywhere I could imagine and nowhere I couldn't. The plan said the Moods would be outlined randomly *for now*. This is the after.
 
 Now the song chooses. When a Song ends, the mind is shown the weather that stays, the weather that is leaving, the weather the song has had lately, and the last words it sang. It is asked for one new thing to be about, or to sound like: close enough to be heard as a change of weather, never a different song. The weather shapes the words, and now the words shape the weather. In the rehearsal the song sang *The moon pours silver through the leaves above*, and the next Song arrived as *silver threads in the dark*.
 
