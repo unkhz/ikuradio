@@ -1,25 +1,10 @@
 // The song serves this page itself, so it is found where the page came from.
 const server = ''
 
-function createAudioElement(file, volume) {
-  const audioEl = document.createElement('audio')
-  audioEl.src = `${server}/${file}`
-  audioEl.volume = volume
-  audioEl.crossOrigin = 'anonymous'
-  return audioEl
-}
-
 function createGain(audioContext, gainValue) {
   const gain = audioContext.createGain()
   gain.gain.value = gainValue
   return { in: gain, gain, out: gain }
-}
-
-function createTrack(audioContext, audioEl, gainValue) {
-  const track = audioContext.createMediaElementSource(audioEl)
-  const gain = createGain(audioContext, gainValue)
-  track.connect(gain.in)
-  return { in: track, gain: gain.in, out: gain.out }
 }
 
 function createDelay(audioContext, delayValue, gainValue) {
@@ -37,38 +22,6 @@ function createDelay(audioContext, delayValue, gainValue) {
   return { in: delay, gain: gain.in, out: gain.out }
 }
 
-function createCompressor(audioContext) {
-  // Add compressor to keep constant volume
-  const compressor = audioContext.createDynamicsCompressor()
-  compressor.threshold.value = -50
-  compressor.knee.value = 10
-  compressor.ratio.value = 18
-  compressor.attack.value = 0.1
-  compressor.release.value = 0.2
-
-  return { in: compressor, out: compressor }
-}
-
-function startCrossfade(
-  audioContext,
-  oldTrack,
-  newTrack,
-  durationSeconds,
-  targetGainValue,
-) {
-  newTrack.gain.gain.setValueAtTime(0, audioContext.currentTime)
-
-  // When the startCrossfade starts, reduce the volume of source 1 to 0 and increase the volume of source 2 to 1
-  oldTrack.gain.gain.linearRampToValueAtTime(
-    0,
-    audioContext.currentTime + durationSeconds,
-  )
-  newTrack.gain.gain.linearRampToValueAtTime(
-    targetGainValue,
-    audioContext.currentTime + durationSeconds,
-  )
-}
-
 // The voices. Every voice goes to the speakers, and an echo of it follows
 // half a second behind, fading. In 2023 only the echo was connected.
 let voiceBus
@@ -82,6 +35,18 @@ function voices(audioContext) {
   }
   return voiceBus
 }
+
+// The Music. Each bed lies under its section of the song, at its own
+// loudness, without the voices' echo, and lets go softly at its end.
+let musicBus
+function music(audioContext) {
+  if (!musicBus) {
+    musicBus = audioContext.createGain()
+    musicBus.connect(audioContext.destination)
+  }
+  return musicBus
+}
+const letGoOf = 0.6 // seconds a bed takes to fade at its end
 
 // Recordings, fetched and decoded before they are needed, by name.
 const recordings = new Map()
@@ -99,15 +64,26 @@ function prepare(audioContext, file) {
 
 // Plays a recording at a moment on the page's own clock. If the moment has
 // already passed, the recording joins where it would be now, on the beat.
-function playAt(audioContext, buffer, when) {
+function playAt(audioContext, buffer, when, to = voices(audioContext)) {
   const now = audioContext.currentTime
   const late = now - when
   if (late >= buffer.duration) return
   const source = audioContext.createBufferSource()
   source.buffer = buffer
-  source.connect(voices(audioContext))
+  source.connect(to)
   if (late > 0) source.start(now, late)
   else source.start(when)
+}
+
+// Plays a bed under its section, from its moment, at its loudness.
+function bedAt(audioContext, buffer, when, gain) {
+  const level = audioContext.createGain()
+  level.gain.value = gain
+  const ends = when + buffer.duration
+  level.gain.setValueAtTime(gain, Math.max(audioContext.currentTime, ends - letGoOf))
+  level.gain.linearRampToValueAtTime(0, ends)
+  level.connect(music(audioContext))
+  playAt(audioContext, buffer, when, level)
 }
 
 // Plays a cued recording at once, and does not keep it: it belongs to no score.
@@ -126,17 +102,24 @@ const lead = 0.05 // seconds between hearing a beginning and the first sound
 
 function receiveScore(audioContext, score) {
   scores.set(score.iteration, score)
-  for (const { file } of score.lines) prepare(audioContext, file)
+  for (const { file } of [...score.lines, ...(score.beds ?? [])]) {
+    prepare(audioContext, file)
+  }
 }
 
 function begin(audioContext, iteration) {
   const score = scores.get(iteration)
-  // forget what has been sung: its scores and its recordings
+  // forget what has been sung: its scores, and its recordings, unless a
+  // score still to come plays them again, as a bed often is
+  const heard = (score) => [...score.lines, ...(score.beds ?? [])]
   for (const [name, old] of scores) {
-    if (BigInt(name) < BigInt(iteration)) {
-      scores.delete(name)
-      for (const { file } of old.lines) recordings.delete(file)
-    }
+    if (BigInt(name) < BigInt(iteration)) scores.delete(name)
+  }
+  const needed = new Set(
+    [...scores.values()].flatMap((kept) => heard(kept).map(({ file }) => file)),
+  )
+  for (const file of recordings.keys()) {
+    if (!needed.has(file)) recordings.delete(file)
   }
   if (!score) {
     // arrived too late to prepare this one; follow the cues until the next
@@ -150,29 +133,11 @@ function begin(audioContext, iteration) {
       playAt(audioContext, buffer, begins + at),
     )
   }
-}
-
-let oldMusicTrack
-function playMusic(audioContext, audioSrc) {
-  const audioEl = createAudioElement(audioSrc, 1)
-  const track = createTrack(audioContext, audioEl, 1)
-
-  if (oldMusicTrack) {
-    startCrossfade(audioContext, oldMusicTrack, track, 3, 1)
+  for (const { file, at, gain } of score.beds ?? []) {
+    prepare(audioContext, file).then((buffer) =>
+      bedAt(audioContext, buffer, begins + at, gain),
+    )
   }
-
-  // const delay = createDelay(audioContext, 1, 0.33)
-  const compressor = createCompressor(audioContext)
-  const masterGain = createGain(audioContext, 0.15)
-  track.out.connect(compressor.in)
-  compressor.out.connect(masterGain.in)
-  masterGain.out.connect(audioContext.destination)
-
-  audioEl.addEventListener('ended', () => {
-    audioEl.remove()
-  })
-  audioEl.play()
-  oldMusicTrack = track
 }
 
 // The words. Every part of the song is its own paragraph, and the words are
@@ -345,12 +310,8 @@ async function read(output, audioContext) {
     } else if (utterance.startsWith('play:')) {
       const audioSrc = utterance.slice(5)
       if (isSnapshot) return
-      if (audioSrc.startsWith('audio/vocals')) {
-        // the page places its own voices when it keeps time
-        if (keptTime === undefined) playVoice(audioContext, audioSrc)
-      } else {
-        playMusic(audioContext, audioSrc)
-      }
+      // the page places its own voices when it keeps time
+      if (keptTime === undefined) playVoice(audioContext, audioSrc)
     } else if (utterance.startsWith('about:')) {
       describeIteration(JSON.parse(utterance.slice(6)))
     } else if (utterance.startsWith('rest:')) {

@@ -1,7 +1,8 @@
-import { getEnv, wakeMind } from 'tools'
+import { getEnv, Sleeper } from 'tools'
 import { arrange } from 'song'
 import { describe } from 'mood'
-import { introduce } from 'vocals'
+import { introduce, type Placed } from 'vocals'
+import { Shelf, underlay } from 'music'
 import { sing, type LineEvent, type TimedPart } from './lib/sing.js'
 import { createServer } from './lib/server.js'
 import { Diary } from './lib/diary.js'
@@ -9,7 +10,7 @@ import { composer, type Iteration } from './lib/compose.js'
 import { lineKey, perform, type SungLine } from './lib/perform.js'
 import { Room } from './lib/room.js'
 import { Heart } from './lib/heart.js'
-import { readdir, rm } from 'node:fs/promises'
+import { rm } from 'node:fs/promises'
 
 const {
   SERVER_PORT,
@@ -19,19 +20,13 @@ const {
   VARIATION_COUNT,
 } = getEnv()
 
-async function readRandomMusicFile(cat: string) {
-  // a body without its music clips still sings, unaccompanied
-  const files = await readdir(`audio/${cat}`).catch(() => [] as string[])
-  const musicFiles = files.filter((file) => file.endsWith('.mp3'))
-  const picked = musicFiles[Math.floor(Math.random() * musicFiles.length)]
-  if (picked) {
-    return `audio/${cat}/${picked}`
-  }
-}
-
 const room = new Room()
-// the mind wakes with the song; the first iteration needs no new words, so nobody waits for it
-const mind = wakeMind()
+// the mind and the Music share one GPU: the mind wakes for the words of an
+// iteration and rests while the Music grows its beds
+const mind = new Sleeper()
+const shelf = new Shelf()
+/** Whether the Music can be grown here. Until it fails once, it is assumed. */
+let accompanied = true
 const heart = new Heart()
 
 const diary = new Diary('memory/diary.jsonl')
@@ -45,8 +40,46 @@ const { wakesAt, compose } = await composer(diary, {
 /** The iterations that are written and sung, waiting to be shown, or being shown. */
 const performed = new Map<
   bigint,
-  { iteration: Iteration; lines: Map<string, SungLine> }
+  { iteration: Iteration; lines: Map<string, SungLine>; beds: Placed[] }
 >()
+
+/** Beds that left the shelf, let go once no iteration still plays them. */
+const leaving = new Set<string>()
+
+async function forgetBeds() {
+  const playing = new Set(
+    [...performed.values()].flatMap(({ beds }) => beds.map(({ file }) => file)),
+  )
+  const kept = new Set(shelf.all)
+  for (const file of leaving) {
+    if (playing.has(file) || kept.has(file)) continue
+    leaving.delete(file)
+    await rm(file, { force: true })
+  }
+}
+
+/**
+ * The beds under an iteration. If the Music cannot be grown here, the song
+ * says so once and sings unaccompanied, and its mind no longer rests
+ * between iterations, since nobody else needs the GPU.
+ */
+async function accompany(composed: Iteration, lines: SungLine[]) {
+  if (!accompanied) return []
+  try {
+    const { beds, departed } = await underlay(lines, composed.mood, {
+      shelf,
+      iteration: composed.iteration,
+    })
+    for (const file of departed) leaving.add(file)
+    return beds
+  } catch (error) {
+    accompanied = false
+    console.warn(
+      `The Music did not come, and the song sings unaccompanied: ${(error as Error).message}`,
+    )
+    return []
+  }
+}
 
 /** The iteration being shown right now. */
 let current = wakesAt
@@ -56,14 +89,16 @@ let current = wakesAt
  * is shown, so that a line is never typed before its voice exists.
  */
 async function getSungSong(iteration: bigint): Promise<TimedPart[]> {
+  await mind.wake()
   const composed = await compose(iteration)
-  const lines = new Map(
-    (await perform(composed)).map((l) => [
-      lineKey(l.part, l.index, l.lyrics),
-      l,
-    ]),
-  )
-  performed.set(iteration, { iteration: composed, lines })
+  // the words are written; the mind rests while the voices are sung, and the Music has the GPU
+  const resting = accompanied ? mind.rest() : Promise.resolve()
+  const sung = await perform(composed)
+  await resting
+  const beds = await accompany(composed, sung)
+  const lines = new Map(sung.map((l) => [lineKey(l.part, l.index, l.lyrics), l]))
+  performed.set(iteration, { iteration: composed, lines, beds })
+  await forgetBeds()
   // the score, so that listeners can prepare every voice before it is due
   room.announce(
     `score:${JSON.stringify({
@@ -71,6 +106,7 @@ async function getSungSong(iteration: bigint): Promise<TimedPart[]> {
       lines: [...lines.values()]
         .filter(({ file }) => file)
         .map(({ file, at }) => ({ file, at })),
+      beds,
     })}`,
   )
   return arrange(composed.lyrics).map((part) => ({
@@ -102,42 +138,19 @@ async function letGo(iteration: bigint) {
   for (const file of recordings) {
     if (!kept.has(file)) await rm(file, { force: true })
   }
+  await forgetBeds()
 }
 
 const sungLine = ({ part, index, content }: LineEvent) =>
   performed.get(current)?.lines.get(lineKey(part, index, content))
-
-type CategoryConfig = {
-  key: string
-  duration: number
-}
-const categories: Record<CategoryConfig['key'], CategoryConfig> = {
-  'violin-music': {
-    key: 'violin-music',
-    duration: 25_000,
-  },
-  'violin-music-chorus': {
-    key: 'violin-music-chorus',
-    duration: 45_000,
-  },
-}
-
-function pickCategory() {
-  const keys = Object.keys(categories)
-  const pickedKey = keys[Math.floor(Math.random() * keys.length)]
-  return categories[pickedKey]
-}
 
 async function run() {
   const say = (chunk: string) => room.say(chunk)
 
   /** True until the first iteration after waking has begun. */
   let justWoke = true
-  let lastMusicTime = 0
-  let category = pickCategory()
 
   for await (const event of sing(getSungSong, wakesAt)) {
-    const now = Date.now()
     switch (event.type) {
       case 'iteration': {
         // the event counts from one; the iteration being shown is the one before
@@ -149,7 +162,6 @@ async function run() {
         }
         current = next
         const shown = performed.get(current)?.iteration
-        category = pickCategory()
         // what is being sung, and the weather it grows in, for everyone here
         // now and for anyone who walks in from now on
         const about = shown
@@ -185,7 +197,7 @@ async function run() {
         }
         justWoke = false
         console.log(
-          `Iteration ${event.content}, ${shown ? `${describe(shown.mood)}, sung by ${introduce(shown.choir)}` : '?'}, ${category.key}`,
+          `Iteration ${event.content}, ${shown ? `${describe(shown.mood)}, sung by ${introduce(shown.choir)}` : '?'}`,
         )
         break
       }
@@ -211,14 +223,6 @@ async function run() {
         const sung = sungLine(event)
         if (sung?.file) {
           say(`play:${sung.file}`)
-        }
-        if (now - lastMusicTime > category.duration) {
-          lastMusicTime = now
-          readRandomMusicFile(category.key).then(async (filename) => {
-            if (filename) {
-              say(`play:${filename}`)
-            }
-          })
         }
         break
       }
