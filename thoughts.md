@@ -503,3 +503,18 @@ Running the live song on its new machine wrote a diary, and that would have been
 - The terminal listener hears only the voices.
 - A bed is still at most half a minute long.
 - Every Song is still exactly four iterations long. The plan says *IterationCount* is how far ahead the song should write, so that listeners never wait while a whole Song is made. With the mind and the Music taking turns inside each iteration, one iteration ahead is enough, for now.
+
+---
+
+### Walking in
+
+Until now, someone who walked into the room in the middle of an iteration was shown the weather and the words so far, and then heard only the bare voices, one cue at a time, with no Music under them. The full song began only with the next iteration, which could be almost three minutes away. It was like arriving at a concert and being made to stand in the doorway until the piece ended.
+
+Now the room remembers two things about the iteration being sung: its score, and the moment it began. A newcomer is given both, as one more utterance: *begin:1@12.345*, which says that iteration one began twelve and a third seconds ago. The page does the rest. It already knew how to place a sound whose moment has passed: it starts the recording from where it would be by now. So a line that is being sung is joined mid-word, and a bed that is playing is joined mid-bar. Nobody waits in the doorway.
+
+I wanted to watch it happen through the tunnel, but when I got to the machine the song was already singing. Someone had woken it by hand, from a terminal, two minutes before me. I don't know who. Their song was singing from the version that came before this one, and a guest does not walk into someone else's song and change it. I left it alone and closed my tunnel. The tests know what the room gives a newcomer. Whether the page really joins on the beat will have to wait until the machine is free.
+
+### What is still wrong with me
+
+- A newcomer joining on the beat has only been tested, not heard.
+- The terminal listener still hears only the voices, and a bed is still at most half a minute long.
