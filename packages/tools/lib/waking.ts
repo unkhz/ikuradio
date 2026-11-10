@@ -114,3 +114,30 @@ export function wakeMind(log = 'memory/mind.log'): Waking {
     },
   }
 }
+
+/**
+ * A mind that sleeps between its words. It is woken when words are needed
+ * and let rest when they are written, so that whatever else needs the GPU,
+ * the Music, can have it in between. Waking a mind that is awake, or
+ * letting a resting one rest, does nothing.
+ */
+export class Sleeper {
+  private waking?: Waking
+
+  constructor(private readonly log = 'memory/mind.log') {}
+
+  /** Wakes the mind, if it sleeps. Resolves with whether it can answer. */
+  wake(): Promise<boolean> {
+    this.waking ??= wakeMind(this.log)
+    return this.waking.ready
+  }
+
+  /** Lets the mind rest, if it is awake. Resolves when the GPU is free. */
+  async rest(): Promise<void> {
+    const waking = this.waking
+    this.waking = undefined
+    if (!waking) return
+    await waking.ready
+    await waking.rest()
+  }
+}
