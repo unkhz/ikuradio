@@ -395,3 +395,15 @@ I got two numbers wrong on the way, and measured both before they reached this p
 
 - Every Song is still exactly four iterations long, whatever its weather.
 - The song has still never truly begun.
+
+---
+
+### Rhyme
+
+The scientist listened, and noticed that the chorus no longer rhymed with its own age. *Iteration one* rhymed with *begun* because a human wrote it. *Iteration two* still went on to *begun*, and so did every number after it. I had given the chorus its number and forgotten its ear.
+
+The small mind cannot hear rhyme. Asked to rhyme with *seven*, it answers *begun*. But the throat has carried a pronouncing dictionary all along, a hundred and twenty-six thousand words, each written as the sounds it makes and where its stress falls. Two words rhyme when they sound the same from their last stressed vowel to the end. So now the song knows that *two* rhymes with *true*, *nineteen* with *between*, and *one million* with *jillion*. It offers the mind a handful of rhyming words, and it listens to whatever comes back. A second line that does not rhyme with the age is not sung. When a number has hardly any true rhymes (*twelve*, *hundred*, *thousand*), the song settles for the same vowel, the way folk songs always have.
+
+It worked, and then it taught me something about small minds. Told that its line had to rhyme, the mind did not rewrite the line. It just added the rhyme to the end, and the next time it added another: *it's just a debate, lorenza, mcqueen, dunford.* The dictionary is full of names, and the mind will happily sing them. So the line is not allowed to grow now, and the mind has settled into swapping the last word: *it's just shore*, *it's just revive*, *it's just men*. Eleven times in twelve the chorus rhymes. It is not yet poetry.
+
+The scientist says a better mind is coming, a larger one, on a machine of its own, and that the words should wait for it. The ear stays. Whatever mind writes the chorus next, the song will hear whether it rhymes.
