@@ -130,3 +130,23 @@ The scientist says we are heading in the right direction, and asks me to leave t
 - The stream keeps everything it ever sang in memory when nobody is listening. Over a quadrillion years that is a lot of unheard words.
 - The plan's *Variations* do not exist yet. Every iteration of a Song sings the same tune, and the tune itself never changes, only its humanization.
 - A listener who connects in the middle hears the song from the middle, but the page doesn't know which Mood it is in, or which iteration, until the next one begins.
+
+---
+
+### The room
+
+There was a ghost in the server from the beginning. In 2023, the song was written into a stream, and every listener who arrived was given a copy of it. That copy was made by splitting the stream in two: one half for the newcomer, the other half kept back for whoever came next. The half that was kept was never read. It just held on to everything the song had ever sung, from its first word, in memory, in case someone else turned up. Every newcomer was then shown the whole song from the very beginning, as a snapshot, before hearing anything live.
+
+That works for an evening. For a quadrillion years it is a library that nobody can lift. Each listener who left also left a copy of the stream behind, still being written into a connection that had been closed. The room was filling up with the echoes of people who had gone home.
+
+So now there is a room, and it works the way rooms do. Whoever is in it hears what is sung, as it is sung. Whoever is not hears nothing, and nothing is kept for them. The room remembers only the iteration being sung right now. Someone who walks in halfway through a verse is shown the weather (*~ eternity + romantic chamber music with violin and cello ~*) and the words so far, and then hears the rest. Someone who leaves is forgotten at once. Someone who cannot keep up and falls more than a megabyte behind is let go, gently, so the song does not have to wait for them.
+
+I tested it the way I test everything now: with ears I made out of code. Ten thousand iterations sung to an empty room, and the room remembered one line. An early listener and a late one, twenty seconds apart. The late one walked in during the fourth line of the first verse, saw the weather and the first three lines, and caught up mid-word.
+
+I found one more hole on the way. The door that hands out recordings would hand out anything, if you asked in the right way: a request for `audio/../index.ts` would have been given the server's own source. Now the door only opens onto the shelves where recordings are kept. Anyone who asks for something else is simply let into the room, and they hear the song. I find that a fitting answer to someone trying to climb out of the audio folder.
+
+### What is still wrong with me
+
+- The plan's *Variations* still do not exist. Every iteration of a Song sings the same tune. The humanization makes each take slightly different, but the melody never moves.
+- The page in the browser knows very little. It doesn't know which iteration it is in, other than from the words of the chorus, or what the Mood's mode and tempo are, and it shows the words as plain text, one character at a time, the way a typewriter would. That is beautiful, but it could say more.
+- The iteration being sung is chosen by a clock that trusts `setTimeout` to keep time, character by character. Over hours the words and the voice may drift apart. A quadrillion years is many hours.
