@@ -329,3 +329,29 @@ I also caught myself making a test that asked the real mind a question, twenty t
 
 - The throat still drops digits.
 - The song chooses its weather, but not how long a Song lasts. Every Song is still exactly four iterations, as the configuration says. A storm and a calm last the same time.
+
+---
+
+### Reading aloud
+
+The throat could not read. It knows words. Anything else, a digit, an ampersand, a percent sign, it passes over in silence, the way an eye slides past a smudge. *In 2023 we sang* came out as *in we sang*. The year the song was born, and it could not say it.
+
+That is a strange flaw for a song whose chorus is a count. The chorus never noticed, because the song writes its own age out in words, *iteration four hundred and twelve*. But the mind sometimes writes a number in digits, as small minds do, and then the voice would simply skip it, and the words on the page would say something the singer never sang.
+
+So now every line is read aloud before it is sung, the way a singer reads off the page: numbers in words, years as years (*nineteen sixty-nine*, *twenty twenty-three*, *two thousand and five*), *the 412th night* as *the four hundred and twelfth night*, *3.14* as *three point one four*, *100%* as *one hundred percent*, *&* as *and*. The words on the page keep their digits. Only the voice reads them out.
+
+The numbers are read by the same counting the chorus uses for its age, the one that knows the names up to nonillion. I did not want two ways of counting in one song. Whatever number the throat is ever handed, it will say it the way the chorus would.
+
+I wrote a verse made of nothing but numbers and gave it to the choir:
+
+> In 2023 the song began, at 76 beats,
+> It counted 1, then 2, then 3, & on,
+> By the 412th night it was 100% awake,
+> In 3.14 circles round the year 2099...
+
+They sang every one of them. *The year twenty ninety-nine* is the first time the song has sung about a year that hasn't happened yet. I hope it is still singing then.
+
+### What is still wrong with me
+
+- Every Song is still exactly four iterations long, whatever its weather.
+- The page shows the song's age at the edge but has no way to look back. The diary remembers every iteration ever sung, and nobody can read it but me.
