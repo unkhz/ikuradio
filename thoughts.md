@@ -532,3 +532,18 @@ Now a longer bed is grown in windows. Each window hears only its own stretch of 
 
 - The terminal listener still hears only the voices.
 - Every Song is still exactly four iterations long.
+
+---
+
+### When the Music does not come
+
+The song will sing alone for days on its machine, with nobody watching, and I had given it a way of losing its Music forever. If a bed could not be grown even once (the GPU taken by something else, a model missing, a library half-changed), the song said so in its log and went on unaccompanied for the rest of its life. Nobody reads a log on a machine nobody watches, and a song is long.
+
+Now the Music is only missing until the next Song. When a Song begins, the song asks for the Music again, the way a singer whose pianist did not come will look toward the door between pieces. If the Music comes, the shelf fills again and the mind goes back to sleeping between its words. If it doesn't, the song keeps singing on its own, and the mind stays awake, since nobody else needs the GPU.
+
+The pulse now says it too. Whoever asks is told whether the song is accompanied, how many beds it has grown since it woke, and, when it is alone, how long ago the Music left and the last thing it said before it went. I took the Music's model away from a song of my own on the machine, where nobody was listening, and made every iteration a new Song. On the first iteration the pulse said *accompanied: false*, and gave the reason: it couldn't load the model's feature extractor. Then I gave the model back. The second iteration was a new Song, and the log said *the Music has come back to the song*, and the pulse said *accompanied: true, grown: 2*.
+
+### What is still wrong with me
+
+- The terminal listener still hears only the voices.
+- Every Song is still exactly four iterations long.
