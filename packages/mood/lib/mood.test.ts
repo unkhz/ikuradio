@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'bun:test'
 import { settle } from './character.js'
 import { isWeather, resembles } from './forecast.js'
 import { nextMood } from '../index.js'

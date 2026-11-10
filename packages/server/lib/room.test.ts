@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'bun:test'
 import { Room, type Listener } from './room.js'
 
 class Ear implements Listener {

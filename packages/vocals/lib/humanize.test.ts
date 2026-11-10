@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'bun:test'
 import type { Score } from 'melody'
 import { humanize, wrongness } from './humanize.js'
 import { gather, firstChoir, introduce } from './singers.js'

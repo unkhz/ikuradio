@@ -2,9 +2,9 @@
 // to finish into a single take, without the server, the browser, or an
 // audience, and without touching the server's diary.
 //
-//   task server:rehearse          iteration zero, the words a human wrote
-//   task server:rehearse -- 5     iterations zero to five, each grown from
-//                                 the one before, past the first change of Mood
+//   bun run rehearse          iteration zero, the words a human wrote
+//   bun run rehearse 5        iterations zero to five, each grown from
+//                             the one before, past the first change of Mood
 //
 // Every iteration grows from the previous one, so there is no skipping
 // ahead: to hear the fifth, the song has to live through the first four.

@@ -1,7 +1,5 @@
 // The song serves this page itself, so it is found where the page came from.
-// Served separately for development (task ui:dev), it is found next door.
-const server =
-  location.port === '4000' ? `http://${location.hostname}:3000` : ''
+const server = ''
 
 function createAudioElement(file, volume) {
   const audioEl = document.createElement('audio')

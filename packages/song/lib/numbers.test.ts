@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'bun:test'
 import { numberToWords } from './numbers.js'
 
 describe('song', () => {

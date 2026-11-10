@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'bun:test'
 import { fitPhrase, type Phrase } from './fit.js'
 import { chorusHook, verseWalk } from './hooks.js'
 import { degreeToMidi, aeolian } from './scale.js'

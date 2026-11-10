@@ -6,12 +6,6 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "test": "workspace:*",
-    "@types/node": "24.10.15",
-    "jest": "30.0.5",
-    "typescript": "5.9.3"
-  },
   "dependencies": {
     "zod": "^4.0.0"
   }

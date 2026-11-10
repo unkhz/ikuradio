@@ -5,15 +5,5 @@
   "type": "module",
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@types/jest": "30.0.0",
-    "@types/node": "24.10.15",
-    "jest": "30.0.5",
-    "test": "workspace:*",
-    "typescript": "5.9.3"
-  },
-  "dependencies": {
-    "serve": "^14.2.0"
-  }
+  "license": "ISC"
 }

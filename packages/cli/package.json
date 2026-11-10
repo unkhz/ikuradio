@@ -5,20 +5,10 @@
   "type": "module",
   "author": "",
   "license": "ISC",
-  "devDependencies": {
-    "@types/jest": "30.0.0",
-    "@types/node": "24.10.15",
-    "jest": "30.0.5",
-    "test": "workspace:*",
-    "tsx": "4.20.6",
-    "typescript": "5.9.3",
-    "undici": "7.18.2"
-  },
   "dependencies": {
     "song": "workspace:*",
     "vocals": "workspace:*",
     "tools": "workspace:*",
-    "tsx": "^4.0.0",
     "zod": "^4.0.0"
   }
 }

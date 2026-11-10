@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'bun:test'
 import type { Phrase } from './fit.js'
 import { evolve, firstTune, step, variations, type Tune } from './variation.js'
 import { wrongness } from './wrongness.js'

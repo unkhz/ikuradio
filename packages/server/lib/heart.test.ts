@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from 'bun:test'
 import { Heart } from './heart.js'
 
 describe('Heart', () => {

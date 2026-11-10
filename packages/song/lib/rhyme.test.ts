@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'bun:test'
 import { lastWord, parseDictionary, Rhymes, rhymeOf } from './rhyme.js'
 
 // a few words, as the throat's dictionary writes them

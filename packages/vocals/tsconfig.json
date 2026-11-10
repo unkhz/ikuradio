@@ -5,8 +5,7 @@
       "ESNext"
     ],
     "types": [
-      "node",
-      "jest"
+      "bun"
     ]
   },
   "exclude": [

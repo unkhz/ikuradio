@@ -2,7 +2,7 @@
 // as moving air. It does not sample anyone. Nobody's voice was taken to make
 // it, so nobody's voice is worn out by singing forever.
 //
-// It is built from source, pinned to one revision, by `task vocals:build`.
+// It is built from source, pinned to one revision, by `bun run throat`.
 
 import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'

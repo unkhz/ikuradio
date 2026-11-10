@@ -2,8 +2,21 @@
   "name": "song-that-never-ends",
   "version": "0.0.0",
   "license": "MIT",
-  "packageManager": "pnpm@10.18.3+sha512.bbd16e6d7286fd7e01f6b3c0b3c932cda2965c06a908328f74663f10a9aea51f1129eea615134bf992831b009eabe167ecb7008b597f40ff9bc75946aadfb08d",
   "private": true,
-  "dependencies": {},
-  "devDependencies": {}
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "throat": "bun packages/vocals/build.ts",
+    "rehearse": "bun run throat && cd packages/server && bun --env-file=../../.env --env-file=../../.env.local rehearse.ts",
+    "song": "bun run throat && cd packages/server && bun --env-file=../../.env --env-file=../../.env.local index.ts",
+    "listen": "bun packages/cli/index.ts",
+    "test": "bun test ./packages/melody ./packages/mood ./packages/server ./packages/song ./packages/vocals/lib",
+    "lint": "for p in cli melody mood server song tools vocals; do (cd packages/$p && tsc --noEmit) || exit 1; done",
+    "check": "bun run lint && bun run test"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "typescript": "5.9.3"
+  }
 }

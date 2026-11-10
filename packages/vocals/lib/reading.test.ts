@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'bun:test'
 import { ordinal, readAloud, year } from './reading.js'
 
 describe('readAloud', () => {
