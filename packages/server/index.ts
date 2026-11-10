@@ -1,6 +1,7 @@
 import { getEnv } from 'tools'
 import { arrange } from 'song'
 import { describe } from 'mood'
+import { introduce } from 'vocals'
 import { sing, type LineEvent } from './lib/sing.js'
 import { createServer } from './lib/server.js'
 import { Diary } from './lib/diary.js'
@@ -8,10 +9,10 @@ import { composer, type Iteration } from './lib/compose.js'
 import { lineKey, perform, type SungLine } from './lib/perform.js'
 import { createReadStream } from 'node:fs'
 import { TextEncoderStream } from 'node:stream/web'
-import { readdir, stat } from 'node:fs/promises'
+import { readdir, rm, stat } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 
-const { SERVER_PORT, SINGER, ITERATION_COUNT, MOOD_COUNT } = getEnv()
+const { SERVER_PORT, ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT } = getEnv()
 
 async function readRandomMusicFile(cat: string) {
   const files = await readdir(`audio/${cat}`)
@@ -28,6 +29,7 @@ const diary = new Diary('memory/diary.jsonl')
 const { wakesAt, compose } = await composer(diary, {
   songLength: ITERATION_COUNT,
   moodCount: MOOD_COUNT,
+  choirSize: CHOIR_COUNT,
 })
 
 /** The iterations that are written and sung, waiting to be shown, or being shown. */
@@ -45,12 +47,34 @@ let current = wakesAt
  */
 async function getSungSong(iteration: bigint) {
   const composed = await compose(iteration)
-  const lines = await perform(composed, SINGER)
+  const lines = await perform(composed)
   performed.set(iteration, {
     iteration: composed,
     lines: new Map(lines.map((l) => [lineKey(l.part, l.index, l.lyrics), l])),
   })
   return arrange(composed.lyrics)
+}
+
+/**
+ * Lets go of an iteration once it has been shown. Its recordings are
+ * deleted, unless an iteration still waiting to be shown sings them too.
+ * The diary remembers the words; the voices are let go.
+ */
+async function letGo(iteration: bigint) {
+  const gone = performed.get(iteration)
+  if (!gone) return
+  performed.delete(iteration)
+  const kept = new Set(
+    [...performed.values()].flatMap(({ lines }) =>
+      [...lines.values()].flatMap((line) => line.recordings),
+    ),
+  )
+  const recordings = new Set(
+    [...gone.lines.values()].flatMap((line) => line.recordings),
+  )
+  for (const file of recordings) {
+    if (!kept.has(file)) await rm(file, { force: true })
+  }
 }
 
 const sungLine = ({ part, index, content }: LineEvent) =>
@@ -105,18 +129,22 @@ async function run() {
       case 'iteration': {
         // the event counts from one; the iteration being shown is the one before
         const next = event.content - 1n
-        if (next !== current) performed.delete(current)
+        if (next !== current) {
+          // a listener may still be hearing the last line; let it finish first
+          const shown = current
+          setTimeout(() => letGo(shown), 60_000)
+        }
         current = next
         const shown = performed.get(current)?.iteration
         category = pickCategory()
         if (shown?.beginsSong) {
           // a new Song: show the weather it grows in
-          await write(`~ ${shown.mood.descriptions.join(' + ')} ~`)
-          await write('<br>')
-          await write('<br>')
+          write(`~ ${shown.mood.descriptions.join(' + ')} ~`)
+          write('<br>')
+          write('<br>')
         }
         console.log(
-          `Iteration ${event.content}, ${shown ? describe(shown.mood) : '?'}, ${category.key}`,
+          `Iteration ${event.content}, ${shown ? `${describe(shown.mood)}, sung by ${introduce(shown.choir)}` : '?'}, ${category.key}`,
         )
         break
       }

@@ -1,6 +1,7 @@
 import { fitPhrase, type Phrase } from './fit.js'
 import { chorusHook, verseWalk } from './hooks.js'
 import { degreeToMidi, aeolian } from './scale.js'
+import { setLine } from '../index.js'
 
 const beats = (p: Phrase) => p.notes.reduce((s, [, b]) => s + b, 0) + p.rest
 
@@ -68,5 +69,28 @@ describe('degreeToMidi', () => {
     expect([-1, 0, 1, 2, 7].map((d) => degreeToMidi(d, a))).toEqual([
       55, 57, 59, 60, 69,
     ])
+  })
+})
+
+describe('setLine', () => {
+  const line = {
+    part: 'chorus' as const,
+    line: 0,
+    lyrics: 'This is the song, iteration one,',
+    syllables: 9,
+    singer: 'female' as const,
+  }
+
+  it('lets a voice sing a third below the tune, within the mode', () => {
+    const tune = setLine(line).notes
+    const third = setLine({ ...line, harmony: -2 }).notes
+    // the hook starts on E: a diatonic third below in A minor is C
+    expect(tune[0][0]).toBe(64)
+    expect(third[0][0]).toBe(60)
+    expect(third.map(([, beats]) => beats)).toEqual(tune.map(([, b]) => b))
+  })
+
+  it('keeps silence silent in every voice', () => {
+    expect(setLine({ ...line, harmony: -4 }).notes.at(-1)?.[0]).toBe(0)
   })
 })

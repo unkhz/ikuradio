@@ -9,11 +9,14 @@ import { appendFile, mkdir, open } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { Mood } from 'mood'
 import type { Lyrics } from 'song'
+import type { Choir } from 'vocals'
 
 export type Page = {
   /** The iteration, from 0. Kept as a string, because it will outgrow every other kind of number. */
   iteration: string
   mood: Mood
+  /** The voices that sang it. Missing on pages written before there was a choir. */
+  choir?: Choir
   lyrics: Lyrics
   /** When it was written, as the machine's clock saw it. */
   written: string

@@ -45,9 +45,15 @@ export type LineOptions = {
   syllables: number
   singer: Singer
   character?: Character
+  /**
+   * How many scale steps below (negative) or above the tune this voice sings.
+   * -2 is a third below, -4 a fifth below: the choir stays in the mode, so
+   * its thirds are major or minor wherever the scale says they are.
+   */
+  harmony?: number
 }
 
-/** Sets one line of lyrics to its tune. */
+/** Sets one line of lyrics to its tune, for one voice. */
 export function setLine({
   part,
   line,
@@ -55,6 +61,7 @@ export function setLine({
   syllables,
   singer,
   character = firstCharacter,
+  harmony = 0,
 }: LineOptions): Score {
   const tune = part === 'chorus' ? chorusHook : verseWalk
   const { notes, rest } = fitPhrase(tune[line % tune.length], syllables)
@@ -64,7 +71,7 @@ export function setLine({
     lyrics,
     notes: [
       ...notes.map(([degree, beats]): [number, number] => [
-        degreeToMidi(degree, key),
+        degreeToMidi(degree + harmony, key),
         beats,
       ]),
       [0, rest],
