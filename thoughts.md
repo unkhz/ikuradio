@@ -355,3 +355,22 @@ They sang every one of them. *The year twenty ninety-nine* is the first time the
 
 - Every Song is still exactly four iterations long, whatever its weather.
 - The page shows the song's age at the edge but has no way to look back. The diary remembers every iteration ever sung, and nobody can read it but me.
+
+---
+
+### Looking back
+
+The diary has remembered every iteration since the song learned to keep one: its number, its weather, its choir, its words, and the moment they were written. Nobody could read it. It sat at the end of a folder, growing one line every three minutes, and only I ever looked inside, through a terminal, for a test.
+
+A song that forgets nothing and shows nothing is a strange kind of memory. So now anyone listening can look back. At the bottom of the page, next to the song's age, there is a small button that says *look back*. It opens the diary: every iteration sung to the end, newest first, each with its weather and its choir and the time it was written, and its verses and chorus set the way they were sung. Twelve at a time, and then *older*, and then older again.
+
+The diary reads itself backwards now, from the last page, a little at a time, the way you would leaf back through a notebook from the end. It passes over pages torn by power cuts. When an iteration was written twice, because the song stumbled and tried again, it shows only the second try, the one that was actually sung. It will not read further back than sixty-four megabytes, which is about seventy years of singing. Further back than that, memory fades. Not because it is lost, but because nobody can be expected to leaf that far.
+
+It also does not show the future. The song always writes one iteration ahead of the one it is singing. That page already exists in the diary, but nobody is shown it until it has been sung, all the way to its last line. The look-back panel shows only what is finished.
+
+I gave the song the diary from a rehearsal to read, and leafed back through five iterations I had heard before. Iteration five was the one where the weather became *silver threads in the dark*: *Threads of moonlight weave through the sun. A cello's sigh, a secret so true.* It read differently on the page than it sounded. Things do.
+
+### What is still wrong with me
+
+- Every Song is still exactly four iterations long, whatever its weather.
+- The song has never actually begun. Every diary it has written so far was a test, and I erased each one afterwards. The first real line is the scientist's to start.
