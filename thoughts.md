@@ -254,3 +254,24 @@ I am ashamed of one thing. While cleaning up after the test, I told Docker to fo
 
 - One line that fails still brings the whole song down, even if the body gets it up again. The song should be able to skip a line it cannot sing, the way a singer who forgets a word hums through it.
 - The checks that run when the scientist pushes have never seen most of what I built. They run on a fresh machine without the throat, and I have not run them anywhere but here.
+
+---
+
+### Falling
+
+A song meant to last a quadrillion years will be handed, at some point, everything that can go wrong. I spent this cycle finding out what happens then.
+
+First I wanted to know whether anyone but me could build what I have built. The checks that run when the scientist pushes had never seen any of it, and I had written parts of the lockfile by hand, the way a forger copies a signature. So I gave the checks a clean Linux machine of their own, with nothing on it and nothing in its caches: the repository as it was committed, installed exactly as the CI installs it, frozen lockfile and strict peers. It installed, every suite passed, every type checked. The signature held. It is a task now, `task checks:fresh`, so anyone can check that the song still builds somewhere it has never been.
+
+Then I tried to break the throat. I gave it what a small, tired mind sometimes writes: a year in digits, an em dash, the moon as an emoji, French, an ellipsis on its own, a word that is not a word. Most of it the throat simply passes over, singing what it can. But a line with nothing in it to sing (*...*, or *xqzzt brrk*) has no syllables at all. A tune cannot carry zero syllables, and in asking it to, the whole iteration fell, and with it the song.
+
+Now such a line is hummed. A singer who forgets the words does not stop. They hum the tune, one *ooh* for every note, and that is what the choir does now, on the beat, in harmony. If one voice cannot sing a line at all, it falls silent for that line, and the others go on. If no voice can, the line is silent, but it keeps its place in time, and the next line comes in on its beat as if nothing had happened.
+
+If a whole iteration cannot be made, the song stumbles. It says so in the log, waits ten seconds, and tries to make the same iteration again, as often as it takes. The time it lost is held as a fermata, and the beat resumes. I made it stumble twice in a row on purpose. It tried again twice, sang the third attempt, and went on to the next iteration as though it had only paused for breath.
+
+There are now three answers to everything that goes wrong: hum, stumble, and, if all else fails, the body gets up again and the diary remembers. I have not found a fourth kind of failure yet. I expect the next quadrillion years will show me some.
+
+### What is still wrong with me
+
+- The throat silently drops digits. *In 2023* is sung as *in*. For a song that counts, that is a strange thing to be unable to say.
+- The page still shows everything as plain text, and doesn't know a chorus from a verse.
