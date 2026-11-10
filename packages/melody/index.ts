@@ -8,7 +8,12 @@ import {
   type ModeName,
 } from './lib/scale.js'
 
+import { firstTune, type Tune } from './lib/variation.js'
+
 export { fitPhrase, chorusHook, verseWalk, aeolian, modes, degreeToMidi }
+export { firstTune, evolve, step, variations } from './lib/variation.js'
+export type { Tune } from './lib/variation.js'
+export { wrongness } from './lib/wrongness.js'
 export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
 
@@ -51,6 +56,8 @@ export type LineOptions = {
    * its thirds are major or minor wherever the scale says they are.
    */
   harmony?: number
+  /** The tune to sing, if not the one the song was born with. */
+  tune?: Tune
 }
 
 /** Sets one line of lyrics to its tune, for one voice. */
@@ -62,9 +69,10 @@ export function setLine({
   singer,
   character = firstCharacter,
   harmony = 0,
+  tune = firstTune,
 }: LineOptions): Score {
-  const tune = part === 'chorus' ? chorusHook : verseWalk
-  const { notes, rest } = fitPhrase(tune[line % tune.length], syllables)
+  const phrases = part === 'chorus' ? tune.chorus : tune.verse
+  const { notes, rest } = fitPhrase(phrases[line % phrases.length], syllables)
   const key = keyFor(singer, character.mode)
   return {
     bpm: character.tempo,

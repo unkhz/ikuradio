@@ -10,21 +10,9 @@
 // so a line can be sung again from memory. Only a new name, a new
 // iteration, a new place in the song, gives a new take.
 
-import { createHash } from 'node:crypto'
-import type { Score } from 'melody'
+import { wrongness, type Score } from 'melody'
 
-/** A source of small wrongness: a number in [0, 1) that is always the same for the same name. */
-export function wrongness(name: string): () => number {
-  // mulberry32, seeded from the name
-  let state = createHash('sha256').update(name).digest().readUInt32LE(0)
-  return () => {
-    state = (state + 0x6d2b79f5) | 0
-    let t = state
-    t = Math.imul(t ^ (t >>> 15), t | 1)
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
+export { wrongness }
 
 /** A number between `low` and `high`. */
 const between = (random: () => number, low: number, high: number) =>

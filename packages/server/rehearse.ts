@@ -21,7 +21,7 @@ import { Diary } from './lib/diary.js'
 import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 
-const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT } = getEnv()
+const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT } = getEnv()
 const last = BigInt(process.argv[2] ?? 0)
 const dir = 'audio/rehearsal'
 
@@ -31,6 +31,7 @@ const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
   songLength: ITERATION_COUNT,
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
+  variationCount: VARIATION_COUNT,
 })
 
 const seconds = (ms: number) => (ms / 1000).toFixed(1)
@@ -44,7 +45,7 @@ for (let iteration = 0n; iteration <= last; iteration++) {
     console.log(`\n~ ${describe(composed.mood)} ~`)
     console.log(`  sung by ${introduce(composed.choir)}`)
   }
-  console.log(`\niteration ${iteration}\n`)
+  console.log(`\niteration ${iteration}, variation ${composed.variation}\n`)
   for (const { at, part, lyrics } of lines) {
     console.log(`${at.toFixed(1).padStart(6)}s  ${part.padEnd(6)} ${lyrics}`)
   }

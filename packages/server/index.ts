@@ -10,7 +10,13 @@ import { lineKey, perform, type SungLine } from './lib/perform.js'
 import { Room } from './lib/room.js'
 import { readdir, rm } from 'node:fs/promises'
 
-const { SERVER_PORT, ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT } = getEnv()
+const {
+  SERVER_PORT,
+  ITERATION_COUNT,
+  MOOD_COUNT,
+  CHOIR_COUNT,
+  VARIATION_COUNT,
+} = getEnv()
 
 async function readRandomMusicFile(cat: string) {
   const files = await readdir(`audio/${cat}`)
@@ -28,6 +34,7 @@ const { wakesAt, compose } = await composer(diary, {
   songLength: ITERATION_COUNT,
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
+  variationCount: VARIATION_COUNT,
 })
 
 /** The iterations that are written and sung, waiting to be shown, or being shown. */

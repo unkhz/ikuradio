@@ -10,6 +10,7 @@ import { dirname } from 'node:path'
 import type { Mood } from 'mood'
 import type { Lyrics } from 'song'
 import type { Choir } from 'vocals'
+import type { Tune } from 'melody'
 
 export type Page = {
   /** The iteration, from 0. Kept as a string, because it will outgrow every other kind of number. */
@@ -17,6 +18,8 @@ export type Page = {
   mood: Mood
   /** The voices that sang it. Missing on pages written before there was a choir. */
   choir?: Choir
+  /** The Song's tune. Missing on pages written before the tune could change. */
+  tune?: Tune
   lyrics: Lyrics
   /** When it was written, as the machine's clock saw it. */
   written: string
