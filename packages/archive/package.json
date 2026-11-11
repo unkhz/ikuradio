@@ -1,0 +1,11 @@
+{
+  "name": "archive",
+  "version": "1.0.0",
+  "description": "Where Sessions and Recordings are kept, for Receivers to fetch: a folder and a file server here, cloud storage one day",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "tools": "workspace:*"
+  }
+}
