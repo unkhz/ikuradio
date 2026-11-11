@@ -14,7 +14,7 @@ What it can do today:
   - The **Archive** (`packages/archive`) keeps each Song's *Session*, the complete declaration of the Song, and its *Recordings*. The Session holds every Recording at its moment, each singer's voice a Recording of its own, and every character of every line at the moment it is typed. Here the Archive is the folder `archive/` behind a small static file server; in production it will be cloud storage.
   - The **Radio** (`packages/radio`) is long-lived and keeps the *Tactus*: when each Song begins. A Song begins exactly when the one before it ends, or a little after it arrives if the Studio was late. The Radio tells Receivers the time, what plays and what comes next, and where to fetch them. It never touches a Recording.
 - **Receivers** are where the song is heard. The page in the browser (`packages/ui`), served by the Radio, measures its clock against the Tactus. It fetches each coming Song whole from the Archive, its Session and every Recording, before the Song begins. Then, many times a second, it asks what should have happened by now:
-  - Every voice and bed is placed on its audio clock, each singer standing in their own place in the stereo mix.
+  - Every voice and bed is placed on its audio clock, each singer standing in their own place in the stereo mix. The Studio measures how loud every Recording sounds (EBU R128, in the Session), and the Receiver brings each to the loudness of its kind: the lead voice at -16 LUFS, the choir beneath it, the Music 6 LU under the voices.
   - Every character is typed at its moment.
   - Arriving late is only asking for a later moment.
 
