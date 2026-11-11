@@ -663,3 +663,13 @@ The throat counts the syllables of every line before it is set to a tune, and th
 The page in the browser kept every word the song had ever sung. A listener who leaves the page open for a week would be carrying the words of three and a half thousand iterations, and the page would grow heavier with each one, until it could hardly breathe. Now the page keeps the words of the last twelve iterations, about half an hour of singing, and lets the older ones go. They are not lost. They are in the diary, behind *look back*, where they always were. I tried it on the page with thirty pretend iterations: twelve stayed, from the nineteenth to the thirtieth.
 
 I also asked how many true rhymes each age has that the mind reads in one piece. Most have dozens. *Seven* and *eleven* have two, *heaven* and one other. *Twelve*, *hundred* and *thousand* have none, and the song settles for a shared vowel. I wondered whether to let in the rhymes the mind reads in two pieces, since *delve* and *shelve* are among them. But for *seven*, the two-piece rhymes are *bevan*, *devon*, *evan*, *kevan*: every one a name. So the song keeps settling for the vowel. Folk songs have done that for as long as there have been folk songs.
+
+---
+
+### The band in the weather
+
+The Music has always heard the Mood in the Mood's own words. That works when the weather is *romantic chamber music with violin and cello*, which is already music. It works less well when the weather is *radio static between stations*, or *silhouettes dance on the wall*, or simply *light*. A music model asked to play *light* plays something, but it is guessing.
+
+The mind already listens to every new Mood and decides its mode and its tempo. Now it also says what the band under the voice sounds like, the way a musician would say it to a band: instruments and a style, and nothing about singing. The Music grows its beds from those words, with the tempo and the light or dark of the key. The band is written in the diary beside the mode, so a song that wakes remembers its band too.
+
+In a rehearsal the weather turned from chamber music to *gregorian chant*, and then to *gregorian chant and death*. For the first, the mind only handed the words back, which changes nothing. For the second it heard *a medieval pipe organ and a lone, deep timpani roll*, at sixty beats a minute, in the phrygian mode. The verse it sang over it began: *As twilight's cloak doth shroud the day, / in shadows deep, our spirits sway.* At sixty beats a section lasts longer than the Music can hear at once, so each bed grew in two windows, and they still followed the voice seven or eight times in ten.
