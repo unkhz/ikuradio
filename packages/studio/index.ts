@@ -48,6 +48,15 @@ const seconds = (since: number) => `${((Date.now() - since) / 1000).toFixed(1)}s
 await sweep([vocalsDir, musicDir])
 
 const diary = new Diary('memory/diary.jsonl')
+// a Song written down but never published, by a Studio that fell before the
+// end, is not remembered: its pages are taken back, and it is made again
+const lastWritten = await diary.lastPage()
+if (lastWritten?.song && !(await store.hasSession(lastWritten.song.number))) {
+  const taken = await diary.unwrite(lastWritten.song.number)
+  console.warn(
+    `Song ${BigInt(lastWritten.song.number) + 1n} was written but never published; ${taken} pages are taken back, and it is made again`,
+  )
+}
 const wakesAt = await diary.lastPage().then((page) => (page ? BigInt(page.iteration) + 1n : 0n))
 
 /** Whether an iteration is the last of its Song. */

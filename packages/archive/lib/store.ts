@@ -8,6 +8,8 @@ export interface ArchiveStore {
   putRecording(file: string): Promise<string>
   index(): Promise<ArchiveIndex>
   session(song: string): Promise<Session | undefined>
+  /** Whether a Song's Session is there. Throws if the Archive cannot say. */
+  hasSession(song: string): Promise<boolean>
   /** Puts a Session in, after its Recordings, and only then lists it. */
   putSession(session: Session): Promise<void>
   /**

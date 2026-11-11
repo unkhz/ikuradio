@@ -41,14 +41,35 @@ export class BucketStore implements ArchiveStore {
     this.client = new S3Client({ ...bucketAt(url), accessKeyId, secretAccessKey })
   }
 
+  /** Asks again, a little later each time, before giving up: the bucket is far away. */
+  private async patiently<T>(what: string, work: () => Promise<T>): Promise<T> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await work()
+      } catch (error) {
+        if (attempt >= 6) throw error
+        console.warn(`the Archive did not answer (${what}), asking again: ${String(error).slice(0, 160)}`)
+        await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt))
+      }
+    }
+  }
+
   private async put(key: string, body: Blob | string, type: string) {
-    await this.client.write(key, body, { type, acl: 'public-read' })
+    await this.patiently(`put ${key}`, () => this.client.write(key, body, { type, acl: 'public-read' }))
+  }
+
+  private exists(key: string) {
+    return this.patiently(`look for ${key}`, () => this.client.exists(key))
+  }
+
+  async hasSession(song: string): Promise<boolean> {
+    return this.exists(paths.session(song))
   }
 
   async putRecording(file: string): Promise<string> {
     const id = basename(file)
     const key = paths.recording(id)
-    if (await this.client.exists(key)) return id
+    if (await this.exists(key)) return id
     await this.put(key, Bun.file(file), 'audio/mp4')
     return id
   }
@@ -82,7 +103,7 @@ export class BucketStore implements ArchiveStore {
     let shelved = 0
     for (const file of books) {
       const key = paths.diaryBook(basename(file))
-      if (await this.client.exists(key)) continue
+      if (await this.exists(key)) continue
       await this.put(key, Bun.file(file), 'application/x-ndjson')
       shelved++
     }

@@ -3,6 +3,8 @@ import { mkdtemp, rm, appendFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Diary, type Page } from './diary.js'
+import { firstMood } from 'mood'
+import { firstLyrics } from 'song'
 
 const page = (iteration: number): Page => ({
   iteration: String(iteration),
@@ -123,5 +125,27 @@ describe('Diary', () => {
       const pages = await diary.recent({ count: 3, before: 7n, chunk: 256 })
       expect(pages.map((p) => p.iteration)).toEqual(['6', '5', '4'])
     })
+  })
+})
+
+describe('unwrite', () => {
+  it('takes back the pages of a Song that was never published, and nothing before it', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'song-unwrite-'))
+    try {
+      const diary = new Diary(join(dir, 'diary.jsonl'))
+      const page = (iteration: number, song: string) => ({
+        iteration: `${iteration}`,
+        mood: firstMood,
+        lyrics: firstLyrics,
+        written: '2026-11-11T00:00:00.000Z',
+        song: { number: song, began: '0', lasts: 4 },
+      })
+      for (const [i, s] of [[0, '0'], [1, '0'], [2, '1'], [3, '1']] as const) await diary.write(page(i, s))
+      expect(await diary.unwrite('1')).toBe(2)
+      expect((await diary.lastPage())?.iteration).toBe('1')
+      expect(await diary.unwrite('7')).toBe(0)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   })
 })

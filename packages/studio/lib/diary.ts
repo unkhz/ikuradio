@@ -16,8 +16,10 @@ import {
   mkdir,
   open,
   readdir,
+  readFile,
   rename,
   stat,
+  writeFile,
 } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Mood } from 'mood'
@@ -169,6 +171,34 @@ export class Diary {
     await mkdir(dirname(this.file), { recursive: true })
     await appendFile(this.file, JSON.stringify(page) + '\n')
     if ((await stat(this.file)).size >= this.bookSize) await this.closeBook()
+  }
+
+  /**
+   * Takes back the last pages of the book being written, as long as they
+   * belong to the Song `song`: a Song that was written down but never
+   * reached the Archive is unwritten, to be made again. Returns how many
+   * pages were taken back.
+   */
+  async unwrite(song: string): Promise<number> {
+    let text: string
+    try {
+      text = await readFile(this.file, 'utf8')
+    } catch {
+      return 0
+    }
+    const lines = text.split('\n').filter(Boolean)
+    let taken = 0
+    while (lines.length) {
+      const page = JSON.parse(lines.at(-1)!) as Page
+      if (page.song?.number !== song) break
+      lines.pop()
+      taken++
+    }
+    if (taken === 0) return 0
+    const rewritten = `${this.file}.${process.pid}.rewritten`
+    await writeFile(rewritten, lines.map((line) => `${line}\n`).join(''))
+    await rename(rewritten, this.file)
+    return taken
   }
 
   /** The closed books, in the order they were written. */
