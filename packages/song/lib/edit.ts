@@ -12,6 +12,25 @@ export function clean(line: string) {
     .replaceAll(/(\*\*|__|\*|_)(\S(?:.*?\S)?)\1/g, '$2') // emphasis, as if it were a document
     .replaceAll('`', '')
     .trim()
+    .replace(/^[:;,.\-–—>|]+\s*/, '') // punctuation a line cannot begin with
+}
+
+/** A line as it sounds: its words, without their punctuation or capitals. */
+const sounding = (line: string) =>
+  line
+    .toLowerCase()
+    .replace(/[^a-z0-9' ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+/**
+ * Whether a verse only echoes another: most of its lines sound the same as
+ * the other's, whatever their commas. A mind asked for the next verse will
+ * sometimes hand the last one back with its punctuation moved.
+ */
+export function echoes(verse: readonly string[], other: readonly string[]) {
+  const heard = new Set(other.map(sounding))
+  return verse.filter((line) => heard.has(sounding(line))).length >= 3
 }
 
 /** How many unsuitable answers the song listens to before it gives up on something new. */
@@ -55,7 +74,7 @@ export async function editVerse(
   while (unsuitable < enough) {
     try {
       const verse = (await askVerse(instruction, input, temperature)).map(clean)
-      const changed = verse.join('\n') !== input
+      const changed = !echoes(verse, input.split('\n'))
       if (
         verse.length === 4 &&
         verse.every(fits) &&
