@@ -1,5 +1,88 @@
-// The song serves this page itself, so it is found where the page came from.
-const server = ''
+// The Receiver. It asks the Radio what time it is and which Songs are
+// playing and coming, fetches each coming Song whole from the Archive
+// before it begins, and then plays it: every voice, every bed and every
+// character of every line at its own moment, all against the Tactus, the
+// Radio's clock. It never waits for anything while a Song plays, because
+// everything a Song needs is already here.
+//
+// What the page shows and sounds is decided by one question, asked many
+// times a second: what should have happened by now? Arriving late is only
+// asking it for a later moment.
+
+// The Radio serves this page itself, so it is found where the page came from.
+const radio = ''
+
+// The Tactus, as this page knows it. The Radio says what time it is; the
+// page measures how long the asking took, and believes the answer that came
+// back quickest, since it was the least delayed on its way.
+const samples = []
+let offset = 0 // the Radio's clock, less this page's, in milliseconds
+const here = () => performance.timeOrigin + performance.now()
+const now = () => here() + offset
+
+async function askRadio() {
+  const sent = here()
+  const response = await fetch(`${radio}/tactus`, { cache: 'no-store' })
+  const tactus = await response.json()
+  const got = here()
+  samples.push({ rtt: got - sent, offset: tactus.now - (sent + got) / 2 })
+  if (samples.length > 12) samples.shift()
+  offset = samples.reduce((best, s) => (s.rtt < best.rtt ? s : best)).offset
+  return tactus
+}
+
+// The Songs this page knows: each fetched whole, Session and Recordings,
+// before it begins.
+const songs = new Map()
+
+/** How many Recordings are fetched at once. */
+const fetching = 6
+
+function prepare(airing) {
+  if (songs.has(airing.song)) return songs.get(airing.song)
+  const song = { airing, session: undefined, files: new Map(), ready: false, fetched: 0, needed: 0 }
+  songs.set(airing.song, song)
+  song.preparing = (async () => {
+    song.session = await fetch(airing.session).then((r) => r.json())
+    const ids = [...new Set(song.session.recordings.map(({ id }) => id))]
+    song.needed = ids.length
+    const queue = [...ids]
+    const worker = async () => {
+      while (queue.length) {
+        const id = queue.shift()
+        for (let attempt = 0; ; attempt++) {
+          try {
+            const url = new URL(`recordings/${id}`, airing.archive)
+            const data = await fetch(url).then((r) => {
+              if (!r.ok) throw new Error(`${r.status}`)
+              return r.arrayBuffer()
+            })
+            song.files.set(id, data)
+            song.fetched++
+            break
+          } catch {
+            // the Archive is busy, or the way to it; ask again, a little later
+            await new Promise((resolve) => setTimeout(resolve, Math.min(10_000, 500 * 2 ** attempt)))
+          }
+        }
+      }
+    }
+    await Promise.all(Array.from({ length: fetching }, worker))
+    song.ready = true
+  })().catch(() => {
+    // a Session that cannot be read is forgotten, and asked for again
+    songs.delete(airing.song)
+  })
+  return song
+}
+
+/** Lets go of Songs that have ended. Their words stay on the page; their sounds do not. */
+function forget() {
+  for (const [name, song] of songs) {
+    const ends = song.airing.begins + song.airing.seconds * 1000
+    if (now() - ends > 30_000) songs.delete(name)
+  }
+}
 
 function createGain(audioContext, gainValue) {
   const gain = audioContext.createGain()
@@ -21,6 +104,7 @@ function createDelay(audioContext, delayValue, gainValue) {
 
   return { in: delay, gain: gain.in, out: gain.out }
 }
+
 
 // The voices. Every voice goes to the speakers, and an echo of it follows
 // half a second behind, fading. In 2023 only the echo was connected.
@@ -48,100 +132,56 @@ function music(audioContext) {
 }
 const letGoOf = 0.6 // seconds a bed takes to fade at its end
 
-// Recordings, fetched and decoded before they are needed, by name.
-const recordings = new Map()
-function prepare(audioContext, file) {
-  if (!recordings.has(file)) {
-    recordings.set(
-      file,
-      fetch(`${server}/${file}`)
-        .then((response) => response.arrayBuffer())
-        .then((data) => audioContext.decodeAudioData(data)),
-    )
-  }
-  return recordings.get(file)
-}
+/** How far ahead sounds are placed on the audio clock, in seconds. */
+const ahead = 8
 
-// Plays a recording at a moment on the page's own clock. If the moment has
-// already passed, the recording joins where it would be now, on the beat.
-function playAt(audioContext, buffer, when, to = voices(audioContext)) {
-  const now = audioContext.currentTime
-  const late = now - when
-  if (late >= buffer.duration) return
-  const source = audioContext.createBufferSource()
-  source.buffer = buffer
-  source.connect(to)
-  if (late > 0) source.start(now, late)
-  else source.start(when)
-}
-
-// Plays a bed under its section, from its moment, at its loudness.
-function bedAt(audioContext, buffer, when, gain) {
-  // a bed that ended before the listener arrived is not heard at all
-  if (when + buffer.duration <= audioContext.currentTime) return
-  const level = audioContext.createGain()
-  level.gain.value = gain
-  const ends = when + buffer.duration
-  level.gain.setValueAtTime(gain, Math.max(audioContext.currentTime, ends - letGoOf))
-  level.gain.linearRampToValueAtTime(0, ends)
-  level.connect(music(audioContext))
-  playAt(audioContext, buffer, when, level)
-}
-
-// Plays a cued recording at once, and does not keep it: it belongs to no score.
-function playVoice(audioContext, audioSrc) {
-  prepare(audioContext, audioSrc).then((buffer) => {
-    recordings.delete(audioSrc)
-    playAt(audioContext, buffer, audioContext.currentTime)
-  })
-}
-
-// The page keeps time. Scores arrive long before their iteration begins;
-// when one begins, every line is placed at its moment on the page's clock.
-const scores = new Map()
-let keptTime // the iteration whose voices the page has placed itself
-const lead = 0.05 // seconds between hearing a beginning and the first sound
-
-function receiveScore(audioContext, score) {
-  scores.set(score.iteration, score)
-  for (const { file } of [...score.lines, ...(score.beds ?? [])]) {
-    prepare(audioContext, file)
-  }
-}
-
-// An iteration begins now, or began `since` seconds ago, for a listener who
-// has just walked in. Everything is placed where it would be by now: a voice
-// already singing is joined mid-word, a bed already playing mid-bar.
-function begin(audioContext, iteration, since = 0) {
-  const score = scores.get(iteration)
-  // forget what has been sung: its scores, and its recordings, unless a
-  // score still to come plays them again, as a bed often is
-  const heard = (score) => [...score.lines, ...(score.beds ?? [])]
-  for (const [name, old] of scores) {
-    if (BigInt(name) < BigInt(iteration)) scores.delete(name)
-  }
-  const needed = new Set(
-    [...scores.values()].flatMap((kept) => heard(kept).map(({ file }) => file)),
-  )
-  for (const file of recordings.keys()) {
-    if (!needed.has(file)) recordings.delete(file)
-  }
-  if (!score) {
-    // arrived too late to prepare this one; follow the cues until the next
-    keptTime = undefined
-    return
-  }
-  keptTime = iteration
-  const begins = audioContext.currentTime + lead - since
-  for (const { file, at } of score.lines) {
-    prepare(audioContext, file).then((buffer) =>
-      playAt(audioContext, buffer, begins + at),
-    )
-  }
-  for (const { file, at, gain } of score.beds ?? []) {
-    prepare(audioContext, file).then((buffer) =>
-      bedAt(audioContext, buffer, begins + at, gain),
-    )
+/**
+ * Places every sound that begins soon, or began a moment ago and is still
+ * going, on the audio clock: at the moment the Tactus says, translated into
+ * the audio clock's time just before it is placed, so the two never drift
+ * apart for long. A sound already under way is joined where it would be.
+ */
+function placeSounds(audioContext) {
+  for (const song of songs.values()) {
+    if (!song.ready) continue
+    const { begins } = song.airing
+    song.placed ??= new Set()
+    song.session.recordings.forEach((recording, n) => {
+      if (song.placed.has(n)) return
+      const starts = begins + recording.at * 1000
+      const until = (starts - now()) / 1000
+      if (until > ahead) return
+      // a line whose place is already over is not decoded at all
+      if (recording.seconds !== undefined && until + recording.seconds <= 0) {
+        song.placed.add(n)
+        return
+      }
+      const data = song.files.get(recording.id)
+      if (!data) return
+      song.placed.add(n)
+      // decoding takes the data away, so a copy is decoded
+      audioContext.decodeAudioData(data.slice(0)).then((buffer) => {
+        const since = (now() - starts) / 1000
+        if (since >= buffer.duration) return
+        const when = audioContext.currentTime - since
+        const source = audioContext.createBufferSource()
+        source.buffer = buffer
+        if (recording.kind === 'bed') {
+          const level = audioContext.createGain()
+          const gain = recording.gain ?? 1
+          level.gain.value = gain
+          const ends = when + buffer.duration
+          level.gain.setValueAtTime(gain, Math.max(audioContext.currentTime, ends - letGoOf))
+          level.gain.linearRampToValueAtTime(0, Math.max(audioContext.currentTime, ends))
+          level.connect(music(audioContext))
+          source.connect(level)
+        } else {
+          source.connect(voices(audioContext))
+        }
+        if (since > 0) source.start(audioContext.currentTime, since)
+        else source.start(when)
+      })
+    })
   }
 }
 
@@ -150,7 +190,7 @@ function begin(audioContext, iteration, since = 0) {
 //
 // The page keeps the words of the last few iterations only. A listener may
 // leave it open for weeks, and a page that kept every word ever sung would
-// grow heavy and slow; what has gone is in the diary, a click away.
+// grow heavy and slow; what has gone can be looked back on.
 const keptIterations = 12
 function turnPage(output) {
   const turn = document.createElement('span')
@@ -176,10 +216,95 @@ function appendStoryElement(text) {
   else el.appendChild(document.createTextNode(text))
 }
 function breakLine() {
-  // a line ends; a part that has already ended needs no second break
-  const last = el.lastChild
-  if (last && last.nodeName !== 'BR')
-    el.appendChild(document.createElement('br'))
+  el.appendChild(document.createElement('br'))
+}
+function weather(output, words) {
+  bridgeEnds()
+  switchStoryElement(output, 'weather')
+  appendStoryElement(`~ ${words} ~`)
+}
+
+/**
+ * Where the page has reached in a Song's words: which iteration, part and
+ * line, and how many characters of it are shown. It only ever moves
+ * forward, to wherever the Tactus says the song has reached.
+ */
+function writeUpTo(output, song, t) {
+  const { session } = song
+  if (!song.cursor) {
+    // a listener who arrives late begins with the weather, then the
+    // iteration being sung, its words so far shown at once
+    weather(output, session.mood.join(' + '))
+    const current = Math.max(0, session.iterations.findLastIndex((it) => it.at <= t))
+    song.cursor = { i: current, p: -1, l: 0, c: 0 }
+  }
+  const cursor = song.cursor
+  for (;;) {
+    const iteration = session.iterations[cursor.i]
+    if (!iteration) return
+    if (cursor.p < 0) {
+      if (t < iteration.at) return
+      turnPage(output)
+      describe(session, iteration)
+      cursor.p = 0
+      cursor.l = 0
+      cursor.c = -1
+    }
+    const part = iteration.parts[cursor.p]
+    if (!part) {
+      cursor.i++
+      cursor.p = -1
+      continue
+    }
+    if (cursor.c < 0) {
+      if (t < part.at) return
+      bridgeEnds()
+      switchStoryElement(output, part.type)
+      if (part.type === 'bridge' && t < part.at + part.seconds) bridgeBegins(el)
+      cursor.c = 0
+    }
+    const line = part.lines[cursor.l]
+    if (!line) {
+      cursor.p++
+      cursor.l = 0
+      cursor.c = -1
+      continue
+    }
+    // characters, each at its moment; the last moment is the line's end
+    const since = (t - line.at) * 1000
+    while (cursor.c < line.text.length && line.typing[cursor.c] <= since) {
+      appendStoryElement(line.text[cursor.c])
+      cursor.c++
+    }
+    if (cursor.c < line.text.length || line.typing[line.text.length] > since) return
+    breakLine()
+    cursor.l++
+    cursor.c = 0
+  }
+}
+
+// A quiet line at the edge of the page: how old the song is, and what it is.
+function describe(session, iteration) {
+  const status = document.getElementById('status')
+  const age = (BigInt(iteration.iteration) + 1n).toLocaleString('en')
+  status.replaceChildren(
+    Object.assign(document.createElement('span'), {
+      className: 'age',
+      textContent: `iteration ${age}`,
+    }),
+    document.createTextNode(
+      ` · ${iteration.of.at} of ${iteration.of.of} · ${session.mood.join(' + ')} · ${session.mode}, ${session.tempo} bpm · ${session.choir}`,
+    ),
+  )
+  const sound = session.sound ? ` · ${session.sound}` : ''
+  status.title = `song ${(BigInt(session.song) + 1n).toLocaleString('en')}, ${iteration.of.at} of ${iteration.of.of} · variation ${iteration.variation + 1}${sound}`
+}
+
+/** What the status line says while nothing is being sung. */
+function waiting(words) {
+  const status = document.getElementById('status')
+  status.replaceChildren(document.createTextNode(words))
+  status.title = ''
 }
 
 // Bridges. A bridge has no words, so while the music carries the song
@@ -248,29 +373,9 @@ function bridgeEnds() {
   motion = undefined
 }
 
-// A quiet line at the edge of the page: how old the song is, and what it is.
-function describeIteration(about) {
-  const status = document.getElementById('status')
-  const age = BigInt(about.iteration).toLocaleString('en')
-  status.replaceChildren(
-    Object.assign(document.createElement('span'), {
-      className: 'age',
-      textContent: `iteration ${age}`,
-    }),
-    document.createTextNode(
-      ` · ${about.song ? `${about.song.at} of ${about.song.of} · ` : ''}${about.mood.join(' + ')} · ${about.mode}, ${about.tempo} bpm · ${about.choir}`,
-    ),
-  )
-  const song = about.song
-    ? `song ${BigInt(about.song.number).toLocaleString('en')}, ${about.song.at} of ${about.song.of} · `
-    : ''
-  const sound = about.sound ? ` · ${about.sound}` : ''
-  status.title = `${song}variation ${about.variation + 1}${sound}`
-}
-
-// Looking back. The diary remembers every iteration ever sung; anyone may
-// leaf back through it, a few pages at a time, newest first.
-const pageSize = 12
+// Looking back. Every Song that has aired is in the Archive, with its words;
+// anyone may leaf back through them, a few Songs at a time, newest first.
+const songsPerPage = 3
 
 function textParagraph(kind, lines) {
   const p = document.createElement('p')
@@ -282,20 +387,25 @@ function textParagraph(kind, lines) {
   return p
 }
 
-function renderPage(page) {
+function renderSong(session) {
   const article = document.createElement('article')
   const heading = document.createElement('h2')
-  heading.textContent = `iteration ${BigInt(page.iteration).toLocaleString('en')}`
-  const when = new Date(page.written)
+  heading.textContent = `song ${(BigInt(session.song) + 1n).toLocaleString('en')}`
   const details = [
-    page.mood.join(' + '),
-    `${page.mode}, ${page.tempo} bpm`,
-    page.choir,
-    isNaN(when) ? undefined : when.toLocaleString(),
+    session.mood.join(' + '),
+    `${session.mode}, ${session.tempo} bpm`,
+    session.choir,
+    session.sound,
   ].filter(Boolean)
   article.append(heading, textParagraph('weather', [details.join(' · ')]))
-  for (const part of page.parts) {
-    article.appendChild(textParagraph(part.type, part.content.split('\n')))
+  for (const iteration of [...session.iterations].reverse()) {
+    const title = document.createElement('h3')
+    title.textContent = `iteration ${(BigInt(iteration.iteration) + 1n).toLocaleString('en')}`
+    article.appendChild(title)
+    for (const part of iteration.parts) {
+      if (part.type === 'bridge') continue
+      article.appendChild(textParagraph(part.type, part.lines.map(({ text }) => text)))
+    }
   }
   return article
 }
@@ -304,25 +414,22 @@ async function leafBack(before) {
   const pages = document.getElementById('pages')
   const older = document.getElementById('older')
   older.hidden = true
-  const query = before
-    ? `?before=${before}&count=${pageSize}`
-    : `?count=${pageSize}`
+  const query = before ? `?before=${before}&count=${songsPerPage}` : `?count=${songsPerPage}`
   try {
-    const found = await fetch(`${server}/diary${query}`).then((r) => r.json())
+    const found = await fetch(`${radio}/songs${query}`).then((r) => r.json())
     if (!before && found.length === 0) {
-      pages.appendChild(
-        textParagraph('weather', ['nothing has been sung to the end yet']),
-      )
+      pages.appendChild(textParagraph('weather', ['nothing has been sung to the end yet']))
     }
-    found.forEach((page) => pages.appendChild(renderPage(page)))
-    if (found.length === pageSize) {
+    for (const airing of found) {
+      const session = await fetch(airing.session).then((r) => (r.ok ? r.json() : undefined))
+      if (session) pages.appendChild(renderSong(session))
+    }
+    if (found.length === songsPerPage) {
       older.hidden = false
-      older.onclick = () => leafBack(found.at(-1).iteration)
+      older.onclick = () => leafBack(found.at(-1).song)
     }
   } catch {
-    pages.appendChild(
-      textParagraph('weather', ['~ the diary cannot be reached ~']),
-    )
+    pages.appendChild(textParagraph('weather', ['~ the Archive cannot be reached ~']))
   }
 }
 
@@ -352,99 +459,70 @@ window.addEventListener('scroll', () => {
   }, 3000)
 })
 
-shouldFollowStory = (threshold = 100) => {
+const shouldFollowStory = (threshold = 100) => {
   const el = document.scrollingElement
   const scrollSize = Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop)
-  const isAtBottom = scrollSize < threshold
-  return !isScrolling && isAtBottom
+  return !isScrolling && scrollSize < threshold
 }
 
-// Listens until the song can no longer be heard, then waits for it to be
-// heard again. The page waits for the song the way the song waits for its
-// mind: patiently, asking again every few seconds, forever.
+// Listening, for as long as the page is open. Every few seconds the Radio is
+// asked what plays and what comes; many times a second, the page catches up
+// with the Tactus. If the Radio cannot be reached, the page goes on with
+// what it already has, and asks again.
+const quiet = '~ the radio is quiet ~'
+const breath = '~ the song holds its breath ~'
+
 async function listen() {
   document.getElementById('controls').style.display = 'none'
   const output = document.getElementById('output')
   const audioContext = new AudioContext()
-  for (;;) {
+  let said // the last thing said into the quiet, so it is said only once
+  let heard = false
+
+  const ask = async () => {
     try {
-      await read(output, audioContext)
+      const tactus = await askRadio()
+      heard = true
+      for (const airing of [tactus.playing, tactus.next]) if (airing) prepare(airing)
+      forget()
     } catch {
-      // the room went quiet: the server stopped, or the way to it did
+      if (said !== quiet) weather(output, quiet.slice(2, -2))
+      said = quiet
     }
-    // the song may already have said it was resting; then the quiet is no news
-    const last = output.lastChild?.textContent ?? ''
-    if (last !== quiet && !/^~ the song is resting/.test(last)) {
-      switchStoryElement(output, 'weather')
-      appendStoryElement(quiet)
-    }
-    keptTime = undefined
-    await new Promise((resolve) => setTimeout(resolve, 5000))
   }
-}
+  await ask()
+  setInterval(ask, 5000)
 
-const quiet = '~ the room is quiet ~'
-
-async function read(output, audioContext) {
-  const response = await fetch(`${server}/listen`)
-  if (!response.body) return
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let unfinished = ''
-  let isSnapshot = true
-  switchStoryElement(output)
-
-  function hear(utterance) {
-    if (utterance.startsWith('score:')) {
-      receiveScore(audioContext, JSON.parse(utterance.slice(6)))
-    } else if (utterance.startsWith('begin:')) {
-      const [iteration, since] = utterance.slice(6).split('@')
-      begin(audioContext, iteration, Number(since ?? 0))
-      turnPage(output)
-    } else if (utterance.startsWith('play:')) {
-      const audioSrc = utterance.slice(5)
-      if (isSnapshot) return
-      // the page places its own voices when it keeps time
-      if (keptTime === undefined) playVoice(audioContext, audioSrc)
-    } else if (utterance.startsWith('about:')) {
-      describeIteration(JSON.parse(utterance.slice(6)))
-    } else if (utterance.startsWith('rest:')) {
+  setInterval(() => {
+    placeSounds(audioContext)
+    const moment = now()
+    const playing = [...songs.values()].find(
+      ({ airing }) => airing.begins <= moment && moment < airing.begins + airing.seconds * 1000,
+    )
+    if (playing?.ready) {
+      said = undefined
+      writeUpTo(output, playing, (moment - playing.airing.begins) / 1000)
+    } else if (playing) {
+      // arrived in the middle of a Song that is not yet fetched: it is joined when it is
+      waiting(`fetching the Song being sung: ${playing.fetched} of ${playing.needed || '…'} recordings`)
+    } else if (heard) {
       bridgeEnds()
-      switchStoryElement(output, 'weather')
-      appendStoryElement(`~ ${utterance.slice(5)} ~`)
-    } else if (utterance.startsWith('weather:')) {
-      switchStoryElement(output, 'weather')
-      appendStoryElement(`~ ${utterance.slice(8)} ~`)
-    } else if (utterance.startsWith('part:')) {
-      bridgeEnds()
-      const kind = utterance.slice(5)
-      switchStoryElement(output, kind)
-      if (kind === 'bridge') bridgeBegins(el)
-    } else if (utterance === '<br>') {
-      breakLine()
-    } else {
-      appendStoryElement(utterance)
+      const coming = [...songs.values()].find(({ airing }) => airing.begins > moment)
+      if (coming) {
+        const inSeconds = Math.ceil((coming.airing.begins - moment) / 1000)
+        waiting(
+          coming.ready
+            ? `the next Song begins in ${inSeconds}s`
+            : `fetching the next Song: ${coming.fetched} of ${coming.needed || '…'} recordings`,
+        )
+      } else if (said !== breath) {
+        weather(output, breath.slice(2, -2))
+        said = breath
+        waiting('waiting for the next Song')
+      }
     }
-  }
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    // utterances end with a line break, and may be split across chunks
-    const text = unfinished + decoder.decode(value, { stream: true })
-    const utterances = text.split('\n')
-    unfinished = utterances.pop()
-    utterances.forEach(hear)
-    if (shouldFollowStory()) {
-      document.getElementById('end').scrollIntoView()
-    }
-    if (isSnapshot) {
-      setTimeout(() => {
-        isSnapshot = false
-        document.getElementById('end').scrollIntoView()
-      }, 100)
-    }
-  }
+    if (shouldFollowStory()) document.getElementById('end').scrollIntoView()
+  }, 50)
 }
 
 document.getElementById('play').addEventListener('click', () => listen())

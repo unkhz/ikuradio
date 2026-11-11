@@ -6,9 +6,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "song": "workspace:*",
+    "archive": "workspace:*",
     "vocals": "workspace:*",
-    "tools": "workspace:*",
-    "zod": "^4.0.0"
+    "tools": "workspace:*"
   }
 }

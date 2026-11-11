@@ -1,22 +1,24 @@
-// The terminal keeps time the way the page does. Scores arrive before their
-// iteration begins; when one begins, or began a while ago for a listener who
-// has just arrived, every voice and every bed is placed at its own moment
-// from that beginning. A recording whose moment has passed is joined where
-// it would be by now; one already over asks ffplay to begin past its end,
-// and ffplay simply plays nothing.
+// The terminal keeps time the way the page does: every Recording of a Song
+// is placed at its moment from the Song's beginning, and one whose moment
+// has passed is joined where it would be by now. One already over asks
+// ffplay to begin past its end, and ffplay simply plays nothing.
 
-export type Cue = { file: string; at: number; gain?: number }
-export type Score = { iteration: string; lines: Cue[]; beds?: Cue[] }
+import type { SessionRecording } from 'archive'
 
-/** When to start each recording, from now, in seconds, and from how far into it. */
+/**
+ * When to start each recording, from now, in seconds, and from how far into
+ * it. A recording whose place in the Song is already over is left out.
+ */
 export function placements(
-  score: Score,
+  recordings: readonly SessionRecording[],
   since: number,
-): { cue: Cue; after: number; from: number }[] {
-  return [...score.lines, ...(score.beds ?? [])].map((cue) => {
-    const after = cue.at - since
+): { recording: SessionRecording; after: number; from: number }[] {
+  const over = ({ at, seconds }: SessionRecording) =>
+    seconds !== undefined && at + seconds <= since
+  return recordings.filter((r) => !over(r)).map((recording) => {
+    const after = recording.at - since
     return after >= 0
-      ? { cue, after, from: 0 }
-      : { cue, after: 0, from: -after }
+      ? { recording, after, from: 0 }
+      : { recording, after: 0, from: -after }
   })
 }
