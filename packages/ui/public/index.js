@@ -192,7 +192,7 @@ function placeSounds(audioContext) {
       const until = (starts - now()) / 1000
       if (until > ahead) return
       // a line whose place is already over is not decoded at all
-      if (recording.seconds !== undefined && until + recording.seconds <= 0) {
+      if (recording.seconds !== undefined && until + recording.seconds + (recording.fade ?? 0) <= 0) {
         song.placed.add(n)
         return
       }
@@ -206,13 +206,23 @@ function placeSounds(audioContext) {
         const when = audioContext.currentTime - since
         const source = audioContext.createBufferSource()
         source.buffer = buffer
+        let stopAt
         if (recording.kind === 'bed') {
           const level = audioContext.createGain()
           const gain = levelOf(recording)
           level.gain.value = gain
-          const ends = when + buffer.duration
-          level.gain.setValueAtTime(gain, Math.max(audioContext.currentTime, ends - letGoOf))
-          level.gain.linearRampToValueAtTime(0, Math.max(audioContext.currentTime, ends))
+          // a bed with a tail is held through its place, then fades out under
+          // what follows, which has already begun; one without lets go softly at its end
+          const fade = recording.fade && recording.seconds !== undefined ? recording.fade : letGoOf
+          const fades = recording.fade && recording.seconds !== undefined
+            ? when + recording.seconds
+            : when + buffer.duration - letGoOf
+          const ends = Math.min(when + buffer.duration, fades + fade)
+          const now = audioContext.currentTime
+          if (fades > now) level.gain.setValueAtTime(gain, fades)
+          else level.gain.value = Math.max(0, gain * (1 - (now - fades) / fade))
+          level.gain.linearRampToValueAtTime(0, Math.max(now, ends))
+          stopAt = Math.max(now, ends) + 0.05
           level.connect(music(audioContext))
           source.connect(level)
         } else {
@@ -224,6 +234,7 @@ function placeSounds(audioContext) {
         }
         if (since > 0) source.start(audioContext.currentTime, since)
         else source.start(when)
+        if (stopAt !== undefined) source.stop(stopAt)
       })
     })
   }

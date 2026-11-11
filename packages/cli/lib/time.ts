@@ -13,8 +13,8 @@ export function placements(
   recordings: readonly SessionRecording[],
   since: number,
 ): { recording: SessionRecording; after: number; from: number }[] {
-  const over = ({ at, seconds }: SessionRecording) =>
-    seconds !== undefined && at + seconds <= since
+  const over = ({ at, seconds, fade = 0 }: SessionRecording) =>
+    seconds !== undefined && at + seconds + fade <= since
   return recordings.filter((r) => !over(r)).map((recording) => {
     const after = recording.at - since
     return after >= 0

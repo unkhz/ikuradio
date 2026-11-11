@@ -74,6 +74,10 @@ function place(song: Song) {
           gain: levelOf(recording),
           // each singer where a small choir would stand: the lead in the middle
           ...(recording.kind === 'voice' ? { pan: [0, -0.4, 0.4, -0.7][recording.voice ?? 0] ?? 0 } : {}),
+          // a bed's tail fades out under what follows
+          ...(recording.fade && recording.seconds !== undefined
+            ? { fade: { at: recording.seconds, seconds: recording.fade } }
+            : {}),
         }).catch(() => {
           // a recording that cannot be played is let go; the song goes on
         }),

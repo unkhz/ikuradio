@@ -8,10 +8,29 @@ import { run } from './exec.js'
  */
 export async function play(
   file: string,
-  { from = 0, gain = 1, pan }: { from?: number; gain?: number; pan?: number } = {},
+  {
+    from = 0,
+    gain = 1,
+    pan,
+    fade,
+  }: {
+    from?: number
+    gain?: number
+    pan?: number
+    /** Fades out from `at` seconds into the recording, over `seconds`, and stops there. */
+    fade?: { at: number; seconds: number }
+  } = {},
 ) {
+  // after a seek the recording's time begins again at nought
+  const fading = fade && fade.at + fade.seconds > from
+    ? [
+        `afade=t=out:st=${Math.max(0, fade.at - from).toFixed(3)}:d=${fade.seconds.toFixed(3)}`,
+        `atrim=0:${Math.max(0, fade.at + fade.seconds - from).toFixed(3)}`,
+      ]
+    : []
   const filters = [
     ...(gain !== 1 ? [`volume=${gain}`] : []),
+    ...fading,
     ...(pan !== undefined ? [panning(pan)] : []),
   ]
   await run('ffplay', [
