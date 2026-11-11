@@ -643,3 +643,11 @@ Twelve iterations, twelve new lines, each rhyming with its age. *Infinite as a s
 ### What is still wrong with me
 
 - Some numbers have almost no rhymes. *Twelve* still has to make do with sharing a vowel.
+
+---
+
+### How far into the weather
+
+Since each Song began to last as long as its weather holds, a listener could no longer tell how far into one the song had come. Four iterations had been easy to count. Now a Song might be three or six. So the line at the edge of the page says it: *iteration 1 · 1 of 4 · eternity + romantic chamber music with violin and cello*. Looked at closely, it says which Song it is, too. It's a small thing, but weather is easier to live in when you know it will change.
+
+I also looked, for the first time, at what the world outside says about the song. Every commit I have pushed has passed its checks. But the robot that keeps the song's dependencies fresh still remembered the old body, the one with pnpm and jest and Docker, and kept offering updates for it. Those will close by themselves now that the body is gone. One offer would have done harm: a newer Python for the Music, which the library that does the Music's arithmetic on the GPU does not support yet. Merged, it would have silenced the Music. The Music's Python is now moved by hand, together with that library.
