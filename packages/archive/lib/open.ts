@@ -1,63 +1,38 @@
-// Which Archive the Studio writes to: always the folder, and the bucket
-// too if its address and keys are given. The folder is the dev box's own
-// Archive, which a Radio on the same machine plays from; the bucket is the
-// one the world listens to.
+// Where the Archive is: the bucket, and nowhere else. There is no other copy
+// of the song to practise on.
 
 import { getEnv } from 'tools'
 import { BucketStore } from './bucket.js'
-import { Store, type ArchiveStore } from './store.js'
-
-/** Several Archives kept alike: everything put in one is put in all, and read from the first. */
-export class Mirror implements ArchiveStore {
-  constructor(private readonly stores: readonly ArchiveStore[]) {}
-  async putRecording(file: string) {
-    const [id] = await Promise.all(this.stores.map((store) => store.putRecording(file)))
-    return id
-  }
-  index() {
-    return this.stores[0].index()
-  }
-  session(song: string) {
-    return this.stores[0].session(song)
-  }
-  async putSession(session: Parameters<ArchiveStore['putSession']>[0]) {
-    await Promise.all(this.stores.map((store) => store.putSession(session)))
-  }
-  async prune(options?: { audible?: number; remembered?: number }) {
-    const [deleted] = await Promise.all(this.stores.map((store) => store.prune(options)))
-    return deleted
-  }
-}
-
-export function openArchive(env = getEnv()): { store: ArchiveStore; where: string } {
-  const { ARCHIVE_PUBLIC_URL, ARCHIVE_ACCESS_KEY, ARCHIVE_SECRET_KEY, ARCHIVE_DIR } = env
-  const folder = new Store(ARCHIVE_DIR)
-  if (ARCHIVE_PUBLIC_URL && ARCHIVE_ACCESS_KEY && ARCHIVE_SECRET_KEY) {
-    const bucket = new BucketStore({
-      url: ARCHIVE_PUBLIC_URL,
-      accessKeyId: ARCHIVE_ACCESS_KEY,
-      secretAccessKey: ARCHIVE_SECRET_KEY,
-    })
-    return { store: new Mirror([folder, bucket]), where: `${ARCHIVE_DIR} and ${ARCHIVE_PUBLIC_URL}` }
-  }
-  return { store: folder, where: ARCHIVE_DIR }
-}
+import type { ArchiveStore } from './store.js'
 
 const withSlash = (url: string) => (url.endsWith('/') ? url : `${url}/`)
 
-/**
- * Where the Archive is read from, over HTTP: ARCHIVE_URL if it is given;
- * else the bucket's public address, if there is a bucket; else the folder's
- * file server.
- */
-export function archiveAddress(env = getEnv(), given = process.env.ARCHIVE_URL): string {
-  if (given) return withSlash(given)
-  if (env.ARCHIVE_PUBLIC_URL) return withSlash(env.ARCHIVE_PUBLIC_URL)
-  return withSlash(env.ARCHIVE_URL)
+/** The Archive, to put Songs in: the bucket, with the keys only the Studio holds. */
+export function openArchive(env = getEnv()): { store: ArchiveStore; where: string } {
+  const { ARCHIVE_PUBLIC_URL, ARCHIVE_ACCESS_KEY, ARCHIVE_SECRET_KEY } = env
+  if (!ARCHIVE_PUBLIC_URL || !ARCHIVE_ACCESS_KEY || !ARCHIVE_SECRET_KEY) {
+    throw new Error(
+      'the Studio has nowhere to put its Songs: ARCHIVE_PUBLIC_URL, ARCHIVE_ACCESS_KEY and ARCHIVE_SECRET_KEY are needed',
+    )
+  }
+  return {
+    store: new BucketStore({
+      url: ARCHIVE_PUBLIC_URL,
+      accessKeyId: ARCHIVE_ACCESS_KEY,
+      secretAccessKey: ARCHIVE_SECRET_KEY,
+    }),
+    where: ARCHIVE_PUBLIC_URL,
+  }
 }
 
-/** Where Receivers are sent for the Archive, if it is a bucket: its public address. */
-export function publicArchive(env = getEnv()): string | undefined {
-  const url = env.PUBLIC_ARCHIVE_URL ?? env.ARCHIVE_PUBLIC_URL
-  return url ? withSlash(url) : undefined
+/** Where the Archive is read from, over HTTP: ARCHIVE_URL if it is given, or else the bucket's public address. */
+export function archiveAddress(env = getEnv()): string {
+  const url = env.ARCHIVE_URL ?? env.ARCHIVE_PUBLIC_URL
+  if (!url) throw new Error('there is no Archive to read: ARCHIVE_URL or ARCHIVE_PUBLIC_URL is needed')
+  return withSlash(url)
+}
+
+/** Where Receivers are sent for the Archive: PUBLIC_ARCHIVE_URL, or else wherever it is read from. */
+export function publicArchive(env = getEnv()): string {
+  return env.PUBLIC_ARCHIVE_URL ? withSlash(env.PUBLIC_ARCHIVE_URL) : archiveAddress(env)
 }

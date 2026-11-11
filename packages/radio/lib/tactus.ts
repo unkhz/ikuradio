@@ -52,13 +52,15 @@ export class Tactus {
     return this.aired
   }
 
+  /** The Songs that could be announced next, of those the Archive has, in order. */
+  candidates(songs: readonly string[]): string[] {
+    const last = this.aired.at(-1)
+    return [...songs].sort(order).filter((s) => !last || order(s, last.song) > 0)
+  }
+
   /** Which Song should be announced next, of those the Archive has. */
   candidate(songs: readonly string[]): string | undefined {
-    const last = this.aired.at(-1)
-    const later = [...songs]
-      .sort(order)
-      .filter((s) => !last || order(s, last.song) > 0)
-    return later[0]
+    return this.candidates(songs)[0]
   }
 
   /**

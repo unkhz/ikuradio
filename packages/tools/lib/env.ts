@@ -13,43 +13,23 @@ const envSchema = z.object({
   MIND_CONTEXT: z.coerce.number().int().min(512).default(3072),
   /** How many questions the mind answers at once. */
   MIND_SLOTS: z.coerce.number().int().min(1).default(5),
-  SERVER_HOST: z.string().default('127.0.0.1'),
-  /** Where the Radio answers Receivers. */
+  /** Where the Radio answers Receivers, inside its home. */
   SERVER_PORT: z.coerce.number().default(3000),
-  /** The Archive's folder, while it is one. */
-  ARCHIVE_DIR: z
-    .string()
-    .default(new URL('../../../archive/', import.meta.url).pathname),
-  /** Where the Archive's file server answers, while it is a folder. */
-  ARCHIVE_PORT: z.coerce.number().default(3001),
-  /** Where the Radio reads the Archive from. */
-  ARCHIVE_URL: z.string().url().default('http://127.0.0.1:3001/'),
-  /**
-   * The name the Radio is reached by from elsewhere, such as the dev box's
-   * address on the home network. Only said aloud; the Radio listens everywhere.
-   */
-  RADIO_PUBLIC_HOST: z.string().min(1).optional(),
-  /**
-   * The name the Archive is reached by from elsewhere. The Radio sends
-   * Receivers there. If not given, it uses whatever host each Receiver
-   * reached the Radio at.
-   */
-  ARCHIVE_PUBLIC_HOST: z.string().min(1).optional(),
-  /**
-   * Where Receivers read the Archive from. If not given, the Radio tells
-   * each Receiver the Archive's port on the host it reached the Radio at.
-   */
-  PUBLIC_ARCHIVE_URL: z.string().url().optional(),
+  /** The live Radio: where the Heart and the terminal listen for the Tactus. */
+  RADIO_URL: z.string().url().default('https://songthatneverends.khz.fi/'),
   /**
    * The Archive's bucket, by its public, path-style address
-   * (https://<host>/<bucket>). With its keys given, the Studio publishes
-   * there, and the Radio and Receivers read from there, instead of from
-   * the folder.
+   * (https://<host>/<bucket>). The Studio publishes there, with its keys;
+   * the Radio and Receivers read from there, with none.
    */
   ARCHIVE_PUBLIC_URL: z.string().url().optional(),
   /** The keys the Studio writes to the bucket with. Nothing else needs them. */
   ARCHIVE_ACCESS_KEY: z.string().min(1).optional(),
   ARCHIVE_SECRET_KEY: z.string().min(1).optional(),
+  /** Where the Radio reads the Archive from, if not from the bucket's public address. */
+  ARCHIVE_URL: z.string().url().optional(),
+  /** Where the Radio sends Receivers for the Archive, if not where it reads it from. */
+  PUBLIC_ARCHIVE_URL: z.string().url().optional(),
   /** How many Songs the Studio keeps ready ahead of the one the Radio plays. */
   SONGS_AHEAD: z.coerce.number().int().min(1).default(2),
   /** How many iterations one Song lasts, all in the same Mood. */

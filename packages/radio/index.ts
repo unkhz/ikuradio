@@ -22,12 +22,7 @@ import { getEnv } from 'tools'
 import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 
-const {
-  SERVER_PORT,
-  ARCHIVE_PORT,
-  RADIO_PUBLIC_HOST,
-  ARCHIVE_PUBLIC_HOST,
-} = getEnv()
+const { SERVER_PORT } = getEnv()
 
 const memory = 'memory/tactus.jsonl'
 
@@ -46,8 +41,9 @@ async function remember(): Promise<Airing[]> {
 
 const tactus = new Tactus(await remember())
 
-/** Where the Radio reads the Archive from: the bucket, if there is one, or the folder's door. */
+/** Where the Radio reads the Archive from, and where it sends Receivers to fetch. */
 const reading = archiveAddress()
+const sending = publicArchive()
 
 async function read<T>(path: string): Promise<T | undefined> {
   try {
@@ -60,14 +56,52 @@ async function read<T>(path: string): Promise<T | undefined> {
   }
 }
 
+/** A Session, if the Archive still holds the Recordings it names: a Song it can still play. */
+async function playable(song: string): Promise<Session | undefined> {
+  const session = await read<Session>(paths.session(song))
+  if (!session || session.version !== sessionVersion) return undefined
+  const [first] = session.recordings
+  if (!first) return session
+  try {
+    const response = await fetch(new URL(paths.recording(first.id), reading), {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(10_000),
+    })
+    return response.ok ? session : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Which Song to announce next: the first after the last one aired, if the
+ * Archive can still play it. The Archive keeps the words of many Songs for
+ * looking back, but the Recordings of only the newest few; a Radio that has
+ * fallen far behind, or has forgotten what it aired, takes up the oldest of
+ * the Songs that can still be heard, and lets the others go.
+ */
+async function nextPlayable(songs: readonly string[]) {
+  const later = tactus.candidates(songs)
+  const [first] = later
+  if (first === undefined) return undefined
+  const ready = await playable(first)
+  if (ready) return { song: first, session: ready }
+  let found: { song: string; session: Session } | undefined
+  for (const song of [...later].reverse()) {
+    const session = await playable(song)
+    if (!session) break
+    found = { song, session }
+  }
+  return found
+}
+
 /** Looks in the Archive for the next Song, and announces it when it is there. */
 async function listen() {
   if (tactus.next) return
   const index = await read<ArchiveIndex>(paths.index)
-  const song = index && tactus.candidate(index.songs)
-  if (!song) return
-  const session = await read<Session>(paths.session(song))
-  if (!session || session.version !== sessionVersion) return
+  const found = index && (await nextPlayable(index.songs))
+  if (!found) return
+  const { song, session } = found
   const airing = tactus.announce(song, session.seconds)
   if (!airing) return
   await mkdir('memory', { recursive: true })
@@ -81,15 +115,6 @@ async function listen() {
 await listen()
 setInterval(listen, 2000)
 
-/** Where a Receiver that reached the Radio at `host` finds the Archive. */
-function archiveFor(request: Request) {
-  // a bucket is reached at its own public address, whoever asks
-  const bucket = publicArchive()
-  if (bucket) return bucket
-  const url = new URL(request.url)
-  const host = ARCHIVE_PUBLIC_HOST ?? request.headers.get('host')?.replace(/:\d+$/, '') ?? url.hostname
-  return `${url.protocol}//${host}:${ARCHIVE_PORT}/`
-}
 
 const told = (airing: Airing | undefined, archive: string) =>
   airing && {
@@ -125,7 +150,7 @@ Bun.serve({
   hostname: '0.0.0.0',
   async fetch(request) {
     const url = new URL(request.url)
-    const archive = archiveFor(request)
+    const archive = sending
 
     if (url.pathname === '/tactus') {
       return json({
@@ -173,7 +198,7 @@ Bun.serve({
   },
 })
 
-console.log(`The Radio is on at http://${RADIO_PUBLIC_HOST ?? '127.0.0.1'}:${SERVER_PORT}/`)
+console.log(`The Radio is on, on port ${SERVER_PORT}, reading the Archive at ${reading}`)
 
 function rest(signal: string) {
   console.log(`The Radio rests (${signal}). The Tactus is remembered.`)

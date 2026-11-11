@@ -1,5 +1,5 @@
 export * from './lib/session.js'
-export { Store, type ArchiveStore } from './lib/store.js'
+export type { ArchiveStore } from './lib/store.js'
 export { BucketStore, bucketAt } from './lib/bucket.js'
-export { archiveAddress, Mirror, openArchive, publicArchive } from './lib/open.js'
+export { archiveAddress, openArchive, publicArchive } from './lib/open.js'
 export * from './lib/mix.js'
