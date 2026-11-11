@@ -88,6 +88,23 @@ export class Rhymes {
   }
 
   /**
+   * Every plain word that rhymes with `word`, truly, or, when there are too
+   * few true rhymes, in its vowel only, which `loosely` says.
+   */
+  pool(word: string): { words: string[]; loosely: boolean } {
+    const sounds = this.words.get(word.toLowerCase())
+    if (!sounds) return { words: [], loosely: false }
+    const strict = (this.byRhyme.get(rhymeOf(sounds)) ?? []).filter(
+      (w) => w !== word,
+    )
+    const loosely = strict.length < 8
+    const words = loosely
+      ? (this.byVowel.get(vowelOf(sounds)) ?? []).filter((w) => w !== word)
+      : strict
+    return { words, loosely }
+  }
+
+  /**
    * Plain words that rhyme with `word`, a few of them, chosen by `random`.
    * When there are too few true rhymes, the looser ones are offered, and
    * `loosely` says so.
@@ -97,15 +114,7 @@ export class Rhymes {
     count = 40,
     random: () => number = Math.random,
   ): { words: string[]; loosely: boolean } {
-    const sounds = this.words.get(word.toLowerCase())
-    if (!sounds) return { words: [], loosely: false }
-    const strict = (this.byRhyme.get(rhymeOf(sounds)) ?? []).filter(
-      (w) => w !== word,
-    )
-    const loosely = strict.length < 8
-    const pool = loosely
-      ? (this.byVowel.get(vowelOf(sounds)) ?? []).filter((w) => w !== word)
-      : strict
+    const { words: pool, loosely } = this.pool(word)
     const chosen = [...pool]
     for (let i = chosen.length - 1; i > 0; i--) {
       const j = Math.floor(random() * (i + 1))

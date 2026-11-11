@@ -2,6 +2,7 @@ import * as original from './verses.js'
 import { numberToWords } from './lib/numbers.js'
 import { editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
+import { known } from './lib/known.js'
 
 const verseInstruction = [
   'The input is a verse of a song that never ends.',
@@ -41,7 +42,12 @@ async function pickChorus(chorus: string, iteration: bigint) {
   const age = lastWord(opening)
   const [, ...rest] = chorus.split('\n')
   const dictionary = await rhymes().catch(() => undefined)
-  const offered = dictionary?.offer(age, 30)
+  // the dictionary is full of names; only the words the mind knows well are
+  // offered, and only those are sung
+  const pool = dictionary?.offer(age, 400)
+  const plain = pool ? await known(pool.words) : undefined
+  const offered = pool && { words: [...(plain ?? pool.words)].slice(0, 30), loosely: pool.loosely }
+  const [before = ''] = rest
   const hint = offered?.words.length
     ? `End the second line with one of these words, which ${offered.loosely ? `share the vowel of "${age}"` : `rhyme with "${age}"`}: ${offered.words.join(', ')}.`
     : ''
@@ -50,7 +56,7 @@ async function pickChorus(chorus: string, iteration: bigint) {
     [
       'The input is the chorus of a song that never ends.',
       'Keep the first line exactly as it is.',
-      `Rewrite the second line so that its last word rhymes with "${age}", the last word of the first line, and keep its spirit: the song goes on and on.`,
+      `Write a new second line whose last word rhymes with "${age}", the last word of the first line. Keep its spirit, that the song goes on and on, but say it in new words, not only with a new last word.`,
       hint,
       'Change a few words in the third and fourth lines but keep their meaning, their tone and their rhyme with each other.',
       'Keep the last line ending with "the song that never ends".',
@@ -65,12 +71,26 @@ async function pickChorus(chorus: string, iteration: bigint) {
       // for a rhyme, will otherwise just add one more word to the end
       accept: ([, second = '']) =>
         second.split(/\s+/).length <= longestSecondLine &&
+        // a new line, not the old one with its last word swapped
+        withoutLastWord(second) !== withoutLastWord(before) &&
         (!dictionary ||
-          dictionary.rhymes(lastWord(second), age, offered?.loosely)),
+          (dictionary.rhymes(lastWord(second), age, offered?.loosely) &&
+            (!plain || plain.has(lastWord(second))))),
     },
   )
   const [, ...varying] = varied.split('\n')
   return [opening, ...varying].join('\n')
+}
+
+/** A line without its last word, as it sounds, to hear whether only the rhyme changed. */
+function withoutLastWord(line: string) {
+  return line
+    .toLowerCase()
+    .replace(/[^a-z' ]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .slice(0, -1)
+    .join(' ')
 }
 
 function deIndent(part: string) {

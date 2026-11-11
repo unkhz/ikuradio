@@ -57,3 +57,22 @@ export async function ask<Answer>({
   }
   return JSON.parse(choices?.[0]?.message?.content ?? 'null') as Answer
 }
+
+/**
+ * How many pieces the mind breaks some text into. A word the mind knows
+ * well is one piece; a rare word, or a name, is several. Throws if the mind
+ * cannot be reached.
+ */
+export async function pieces(text: string): Promise<number> {
+  const { MIND_HOST } = getEnv()
+  const response = await fetch(`${MIND_HOST}/tokenize`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(10_000),
+    body: JSON.stringify({ content: text }),
+  })
+  if (!response.ok) throw new Error(`the mind did not count: ${response.status}`)
+  const { tokens } = (await response.json()) as { tokens?: unknown[] }
+  if (!Array.isArray(tokens)) throw new Error('the mind did not count')
+  return tokens.length
+}
