@@ -80,10 +80,13 @@ export async function perform({
   const bridge = async (
     section: number,
     from: 'verse' | 'chorus',
+    to: 'verse' | 'chorus',
   ): Promise<Omit<SungLine, 'at'>> => {
     const [lead] = choir
+    // the hum walks from where the last part ended to where the next begins
     const score = setBridge({
       from,
+      to,
       lyrics: hum,
       singer: lead.body,
       character: mood.character,
@@ -95,7 +98,8 @@ export async function perform({
       ...lead.throat,
     }
     const seconds = scoreSeconds(score)
-    const [, rest] = score.notes.at(-1) ?? [0, 0]
+    const [lastPitch, lastBeats] = score.notes.at(-1) ?? [0, 0]
+    const rest = lastPitch === 0 ? lastBeats : 0
     const heard = wrongness(`hum:${iteration}:${section}`)() < humming
     let file = ''
     const voices: SungLine['voices'] = []
@@ -209,8 +213,9 @@ export async function perform({
   for (const { type: part, content, index: section } of parts) {
     if (part === 'bridge') {
       const from = parts[section - 1]?.type === 'chorus' ? 'chorus' : 'verse'
+      const to = parts[section + 1]?.type === 'chorus' ? 'chorus' : 'verse'
       const key = lineKey('bridge', section, '')
-      if (!takes.has(key)) takes.set(key, bridge(section, from))
+      if (!takes.has(key)) takes.set(key, bridge(section, from, to))
       order.push(takes.get(key)!)
       continue
     }

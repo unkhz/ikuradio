@@ -10,12 +10,14 @@ import {
 
 import { firstTune, type Tune } from './lib/variation.js'
 import { slowSection } from './lib/guide.js'
+import { journey } from './lib/bridge.js'
 
 export { fitPhrase, chorusHook, verseWalk, aeolian, modes, degreeToMidi }
 export { firstTune, evolve, step, variations } from './lib/variation.js'
 export type { Tune } from './lib/variation.js'
 export { wrongness } from './lib/wrongness.js'
 export { guideStep, slowPhrase, slowSection } from './lib/guide.js'
+export { journey, type Pitches } from './lib/bridge.js'
 export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
 
@@ -109,41 +111,51 @@ export function setLine({
 export const bridgeBeats = 16
 
 /**
- * The hum of a bridge, for one voice: the last line of the part that has
- * just ended, without its words, as an echo leaving the room, and then
- * silence until the bridge is over. `lyrics` is what is hummed, one sound
- * for each note.
+ * The hum of a bridge, for one voice, from part `from` to part `to`: the
+ * last line of the part that has just ended, slowed, in its key, and then a
+ * walk through the key of the part to come, arriving on its first note.
+ * Every part of a Song is in the Song's key today; if a part ever has a key
+ * of its own, the bridge already leads from one to the other. `lyrics` is
+ * what is hummed, one sound for each note.
  */
 export function setBridge({
   from,
+  to,
   lyrics,
   singer,
   character = firstCharacter,
   harmony = 0,
   tune = firstTune,
+  beats = bridgeBeats,
 }: {
   from: 'verse' | 'chorus'
+  to: 'verse' | 'chorus'
   lyrics: (notes: number) => string
   singer: Singer
   character?: Character
   harmony?: number
   tune?: Tune
+  beats?: number
 }): Score {
-  const phrases = from === 'chorus' ? tune.chorus : tune.verse
-  const { notes } = phrases[phrases.length - 1]
+  const phrases = (part: 'verse' | 'chorus') => (part === 'chorus' ? tune.chorus : tune.verse)
   const key = keyFor(singer, character.mode)
-  const hummed = notes.reduce((sum, [, beats]) => sum + beats, 0)
-  return {
-    bpm: character.tempo,
-    lyrics: lyrics(notes.length),
-    notes: [
-      ...notes.map(([degree, beats]): [number, number] => [
-        degreeToMidi(degree + harmony, key),
-        beats,
-      ]),
-      [0, Math.max(0, bridgeBeats - hummed)],
-    ],
-  }
+  const notes = journey({
+    from: phrases(from).at(-1)!,
+    fromKey: key,
+    to: phrases(to)[0],
+    toKey: key,
+    beats,
+    harmony,
+  })
+  return { bpm: character.tempo, lyrics: lyrics(notes.length), notes }
+}
+
+/** A score with its last note held `beats` longer: a tail, for the Music to carry on into. */
+export function holdLast(score: Score, beats: number): Score {
+  if (beats <= 0 || score.notes.length === 0) return score
+  const notes = score.notes.map(([midi, b]): [number, number] => [midi, b])
+  notes[notes.length - 1][1] += beats
+  return { ...score, notes }
 }
 
 /** The phrase a line of a part is sung to: lines past the hook wrap around. */
