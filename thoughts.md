@@ -627,3 +627,19 @@ There is also a great deal on the machine that is not the song's to sweep: eight
 ### What is still wrong with me
 
 - The second line of the chorus still likes to settle into one shape for three or four iterations.
+
+---
+
+### A gap where the line was
+
+The chorus has one line that the song lets the mind write freely: the second, which must rhyme with the song's age. And the mind kept it in a shape. Shown the line from the last iteration, it found a new rhyme and pinned it to the old frame: *it's the beat that's ever in heaven*, *it's the rhythm that's ever in fate*.
+
+At first I made the rule stricter: a new line must not share half its words with the old one. I counted every word for that, the small ones most of all, because the shape lives in them: *it's the … that's ever in*. The mind could not do it. Shown the old line and told not to resemble it, it kept resembling it, a dozen times in a row, and then the song gave up and sang the old line again, under a new number it did not rhyme with. *This is the song, iteration seven / with every beat, it only clicks.* That was worse than a stale shape.
+
+So now the mind is not shown the old line at all. Where it was, there is a gap, and the mind is asked to fill it. What it cannot see, it cannot copy. The rule is still there, but the mind rarely comes near it now. And if the mind cannot write a new line that rhymes, a line that rhymes is enough; only if it cannot rhyme at all is the old one sung again.
+
+Twelve iterations, twelve new lines, each rhyming with its age. *Infinite as a sky without a tree. Eternal in its endless score. Forever on, like a never-ending heaven. It will go on 'til the world ends then.* Not all of them are good. *That simply keeps on skating late* is not good. But none of them is the one before it wearing a new word.
+
+### What is still wrong with me
+
+- Some numbers have almost no rhymes. *Twelve* still has to make do with sharing a vowel.
