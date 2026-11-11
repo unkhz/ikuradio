@@ -25,11 +25,16 @@ const envSchema = z.object({
   /** Where the Radio reads the Archive from. */
   ARCHIVE_URL: z.string().url().default('http://127.0.0.1:3001/'),
   /**
-   * The name the song is reached by from elsewhere, such as the dev box's
-   * address on the home network. If not given, the Radio uses whatever host
-   * each Receiver reached it at.
+   * The name the Radio is reached by from elsewhere, such as the dev box's
+   * address on the home network. Only said aloud; the Radio listens everywhere.
    */
-  PUBLIC_HOST: z.string().min(1).optional(),
+  RADIO_PUBLIC_HOST: z.string().min(1).optional(),
+  /**
+   * The name the Archive is reached by from elsewhere. The Radio sends
+   * Receivers there. If not given, it uses whatever host each Receiver
+   * reached the Radio at.
+   */
+  ARCHIVE_PUBLIC_HOST: z.string().min(1).optional(),
   /**
    * Where Receivers read the Archive from. If not given, the Radio tells
    * each Receiver the Archive's port on the host it reached the Radio at.

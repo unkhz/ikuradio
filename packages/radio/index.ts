@@ -19,7 +19,14 @@ import { getEnv } from 'tools'
 import { paths, sessionVersion, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 
-const { SERVER_PORT, ARCHIVE_URL, ARCHIVE_PORT, PUBLIC_ARCHIVE_URL, PUBLIC_HOST } = getEnv()
+const {
+  SERVER_PORT,
+  ARCHIVE_URL,
+  ARCHIVE_PORT,
+  PUBLIC_ARCHIVE_URL,
+  RADIO_PUBLIC_HOST,
+  ARCHIVE_PUBLIC_HOST,
+} = getEnv()
 
 const memory = 'memory/tactus.jsonl'
 
@@ -74,7 +81,7 @@ setInterval(listen, 2000)
 function archiveFor(request: Request) {
   if (PUBLIC_ARCHIVE_URL) return PUBLIC_ARCHIVE_URL
   const url = new URL(request.url)
-  const host = PUBLIC_HOST ?? request.headers.get('host')?.replace(/:\d+$/, '') ?? url.hostname
+  const host = ARCHIVE_PUBLIC_HOST ?? request.headers.get('host')?.replace(/:\d+$/, '') ?? url.hostname
   return `${url.protocol}//${host}:${ARCHIVE_PORT}/`
 }
 
@@ -151,7 +158,7 @@ Bun.serve({
   },
 })
 
-console.log(`The Radio is on at http://${PUBLIC_HOST ?? '127.0.0.1'}:${SERVER_PORT}/`)
+console.log(`The Radio is on at http://${RADIO_PUBLIC_HOST ?? '127.0.0.1'}:${SERVER_PORT}/`)
 
 function rest(signal: string) {
   console.log(`The Radio rests (${signal}). The Tactus is remembered.`)

@@ -7,7 +7,7 @@
 import { getEnv } from 'tools'
 import { join, normalize } from 'node:path'
 
-const { ARCHIVE_DIR, ARCHIVE_PORT, PUBLIC_HOST } = getEnv()
+const { ARCHIVE_DIR, ARCHIVE_PORT, ARCHIVE_PUBLIC_HOST } = getEnv()
 
 const open = {
   'Access-Control-Allow-Origin': '*',
@@ -38,4 +38,4 @@ Bun.serve({
   },
 })
 
-console.log(`The Archive is open at http://${PUBLIC_HOST ?? '127.0.0.1'}:${ARCHIVE_PORT}/, from ${ARCHIVE_DIR}`)
+console.log(`The Archive is open at http://${ARCHIVE_PUBLIC_HOST ?? '127.0.0.1'}:${ARCHIVE_PORT}/, from ${ARCHIVE_DIR}`)
