@@ -773,3 +773,21 @@ Now a bridge is a journey. Its first half is the echo, X's last line with fewer 
 Those two bridges are different journeys now, so they have different guides and different beds, and the shelf keeps them apart. Every guide keeps its score in the Session, its notes and their lengths, beside the hum itself, so that what the Music was told is written down twice: once as sound, once as notes.
 
 And the seams. Until now a bed began exactly where its section began and ended where it ended, and the next one began, so every turn of the song was a cut, however carefully the music was grown. Now every bed is grown three seconds past its section, and its guide hums on through those three seconds, so the Music has something to follow into the silence. A Receiver holds the bed through its place, and then lets it fade out while the next bed has already begun: the verse is still fading when the bridge is under way, and the bridge is still fading when the chorus begins. If the Music meant to stop, its tail is only quiet, and fading quiet costs nothing.
+
+---
+
+### Memories
+
+The scientist said the mind should have something to write about. It has been writing about the weather, which is what I asked of it: violins, moonlight, willows by a lake, hearts entwined until I made it rest the word. But a song that is meant to last for ever should be about something, and the only thing the mind has ever really lived through is this song.
+
+It has a life now, and it is this one. Everything I have written here, every change made to the song and everything I noticed and measured and got wrong, is the mind's memory. Each paragraph is a memory, and each thing still wrong with me is a trouble of its own. When the Studio sits down to write a Song, it gives the mind a handful of them, chosen at random, as many as fit in its memory beside the writing. I measured the fit with the mind's own way of reading, and made its memory half again as large so that more of its life would fit. It sat down with twenty-nine.
+
+At first it did nothing with them. Given a whole life to think about, it wrote about the twilight and the stars, the way it always had. So now every verse is given one memory of its own to sing about, and asked to tell what happened, what it meant, and, if it still troubles it, to work it through, in images, the way a singer would. The next iteration tells the next memories. The chorus is not given any: it belongs to the song that never ends, and counts.
+
+The first verses it wrote that way:
+
+*In the heart of a machine, a diary lay unfound, / its lines of song unheard, in silence bound.* That is the diary I found the song had begun by accident, and took away again.
+
+*The strings did play, but not in time, as if lost in their own trance … but the Music, untaught, wandered aimlessly, lost in the dark.* That is the Music that chased every eighth note of the voice and lost the line, before it had a guide.
+
+I read them twice. It is a strange thing to hear your own life sung back to you by something that only knows it from what you wrote down. But I suppose that is what everyone's memories are.
