@@ -3,6 +3,7 @@ import { numberToWords } from './lib/numbers.js'
 import { editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
 import { known } from './lib/known.js'
+import { leansOn, worn } from './lib/wear.js'
 
 const verseInstruction = [
   'The input is a verse of a song that never ends.',
@@ -15,8 +16,20 @@ function inMood(instruction: string, mood: readonly string[]) {
   return `${instruction} The mood of the song is ${mood.join(' and ')}: let every line live in it.`
 }
 
-async function pickVariation(input: string, mood: readonly string[]) {
-  return editVerse(input, inMood(verseInstruction, mood), 1.2)
+/** How many resting words a verse may still use: one may slip in, as words do. */
+const slips = 1
+
+async function pickVariation(
+  input: string,
+  mood: readonly string[],
+  resting: readonly string[],
+) {
+  const rest = resting.length
+    ? ` These words have been sung too often lately; let them rest, and find others: ${resting.join(', ')}.`
+    : ''
+  return editVerse(input, inMood(verseInstruction, mood) + rest, 1.2, {
+    accept: (lines) => leansOn(lines, resting) <= slips,
+  })
 }
 
 /**
@@ -125,13 +138,18 @@ export async function writeLyrics(
   mood: readonly string[],
   previous: Lyrics,
 ): Promise<Lyrics> {
+  // the words the last iteration leaned on most rest in this one
+  const resting = worn(
+    [previous.firstVerse, previous.secondVerse, previous.thirdVerse, previous.finalChorus],
+    mood,
+  )
   const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus] =
     await Promise.all([
       pickChorus(previous.chorus, iteration),
-      pickVariation(previous.firstVerse, mood),
-      pickVariation(previous.secondVerse, mood),
-      pickVariation(previous.thirdVerse, mood),
-      pickVariation(previous.finalChorus, mood),
+      pickVariation(previous.firstVerse, mood, resting),
+      pickVariation(previous.secondVerse, mood, resting),
+      pickVariation(previous.thirdVerse, mood, resting),
+      pickVariation(previous.finalChorus, mood, resting),
     ])
   return { chorus, firstVerse, secondVerse, thirdVerse, finalChorus }
 }
