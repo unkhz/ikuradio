@@ -89,7 +89,7 @@ console.log(`accompanied in ${seconds(grownAt)}`)
 // into the Archive: the Recordings first, then the Session that names them
 const files = new Set(
   made.flatMap(({ lines, beds }) => [
-    ...lines.filter(({ file, unheard }) => file && !unheard).map(({ file }) => file),
+    ...lines.filter(({ unheard }) => !unheard).flatMap(({ voices }) => voices.map(({ file }) => file)),
     ...beds.map(({ file }) => file),
   ]),
 )

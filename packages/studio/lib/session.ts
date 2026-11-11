@@ -76,14 +76,19 @@ export function toSession(
       },
       parts,
     })
+    // every singer's own recording, so that a Receiver can mix them as it likes
     for (const line of lines) {
-      if (!line.file || line.unheard) continue
-      recordings.push({
-        id: name(line.file),
-        at: seconds(offset + line.at),
-        kind: 'voice',
-        seconds: seconds(line.seconds),
-      })
+      if (line.unheard) continue
+      for (const { file, voice, gain } of line.voices) {
+        recordings.push({
+          id: name(file),
+          at: seconds(offset + line.at),
+          kind: 'voice',
+          voice,
+          ...(gain !== 1 ? { gain } : {}),
+          seconds: seconds(line.seconds),
+        })
+      }
     }
     for (const bed of beds) {
       recordings.push({
@@ -104,6 +109,7 @@ export function toSession(
     tempo: mood.character.tempo,
     ...(mood.character.sound ? { sound: mood.character.sound } : {}),
     choir: introduce(choir),
+    singers: choir.map(({ body, harmony }) => ({ body, harmony })),
     seconds: seconds(offset),
     iterations,
     recordings,

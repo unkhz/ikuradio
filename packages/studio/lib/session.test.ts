@@ -30,6 +30,11 @@ function made(iteration: bigint, began = 0n): Made {
         index: part.type === 'bridge' ? part.index : index,
         lyrics: text,
         file: `${iteration}-${part.index}-${index}.m4a`,
+        voices: (part.type === 'chorus' ? [0, 1, 2] : [0]).map((voice) => ({
+          file: `${iteration}-${part.index}-${index}-${voice}.m4a`,
+          voice,
+          gain: [1, 0.55, 0.45][voice],
+        })),
         recordings: [],
         seconds: 6,
         enters: 0.3,
@@ -70,10 +75,22 @@ describe('toSession', () => {
 
   it('places every Recording that is heard, and none that is not', () => {
     const ids = session.recordings.map(({ id }) => id)
-    expect(ids).not.toContain('id:0-1-0.m4a')
-    expect(ids).toContain('id:0-3-0.m4a')
+    expect(ids).not.toContain('id:0-1-0-0.m4a')
+    expect(ids).toContain('id:0-3-0-0.m4a')
     const bed = session.recordings.find(({ id }) => id === 'id:bed-1.m4a')
     expect(bed).toMatchObject({ kind: 'bed', gain: 0.45, at: session.iterations[1].at })
+  })
+
+  it('gives every singer of the chorus a recording of their own', () => {
+    expect(session.singers.map(({ body }) => body)).toEqual(['female', 'child', 'male'])
+    const chorusLine = session.recordings.filter(({ id }) => id.startsWith('id:0-2-0-'))
+    expect(chorusLine.map(({ voice, gain }) => [voice, gain])).toEqual([
+      [0, undefined],
+      [1, 0.55],
+      [2, 0.45],
+    ])
+    // the blend the Music listens to is not what Receivers are given
+    expect(session.recordings.map(({ id }) => id)).not.toContain('id:0-2-0.m4a')
   })
 
   it('has no words in its bridges', () => {

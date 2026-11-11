@@ -6,7 +6,7 @@ export {
 } from './lib/chimera.js'
 export { play } from './lib/play.js'
 export { readAloud } from './lib/reading.js'
-export { mixdown, blend, type Placed } from './lib/mixdown.js'
+export { mixdown, blend, fullness, type Placed } from './lib/mixdown.js'
 export { humanize, wrongness, type Take, type Throat } from './lib/humanize.js'
 export {
   gather,

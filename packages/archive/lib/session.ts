@@ -21,6 +21,11 @@ export type Session = {
   sound?: string
   /** Who sings it, for anyone watching. */
   choir: string
+  /**
+   * The singers, the lead first: a Receiver places each where it likes in
+   * its mix. A voice Recording names its singer by place in this list.
+   */
+  singers: { body: 'female' | 'male' | 'child'; harmony: number }[]
   /** How long the whole Song lasts. */
   seconds: number
   iterations: SessionIteration[]
@@ -66,6 +71,8 @@ export type SessionRecording = {
   /** How loud it is played, 1 being as recorded. */
   gain?: number
   kind: 'voice' | 'bed'
+  /** Which singer sings it, a place in `singers`: 0 is the lead. Voices only. */
+  voice?: number
   /** How long its place in the Song lasts, if the Studio knows: a Receiver arriving later need not fetch it. */
   seconds?: number
 }

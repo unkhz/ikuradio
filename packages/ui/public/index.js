@@ -132,6 +132,13 @@ function music(audioContext) {
 }
 const letGoOf = 0.6 // seconds a bed takes to fade at its end
 
+// Where each singer stands, as this page hears them: the lead in the middle,
+// the harmonies a little to either side, the way a small choir stands
+// around its lead. Every singer is their own Recording, so the page may
+// place them as it likes.
+const stand = [0, -0.4, 0.4, -0.7]
+const standingOf = (voice = 0) => stand[voice] ?? 0
+
 /** How far ahead sounds are placed on the audio clock, in seconds. */
 const ahead = 8
 
@@ -176,7 +183,11 @@ function placeSounds(audioContext) {
           level.connect(music(audioContext))
           source.connect(level)
         } else {
-          source.connect(voices(audioContext))
+          const level = audioContext.createGain()
+          level.gain.value = recording.gain ?? 1
+          const place = audioContext.createStereoPanner()
+          place.pan.value = standingOf(recording.voice)
+          source.connect(level).connect(place).connect(voices(audioContext))
         }
         if (since > 0) source.start(audioContext.currentTime, since)
         else source.start(when)

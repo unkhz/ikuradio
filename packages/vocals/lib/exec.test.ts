@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 import { throats, Turns } from './exec.js'
+import { panning } from './play.js'
 
 describe('Turns', () => {
   it('lets only so many work at once, and the rest in the order they came', async () => {
@@ -58,5 +59,13 @@ describe('throats', () => {
     expect(throats(undefined)).toBeGreaterThanOrEqual(1)
     expect(throats('0')).toBeGreaterThanOrEqual(1)
     expect(throats('many')).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('panning', () => {
+  it('places a voice between the speakers at equal power', () => {
+    expect(panning(0)).toBe('pan=stereo|c0=0.707*c0|c1=0.707*c0')
+    expect(panning(-1)).toBe('pan=stereo|c0=1.000*c0|c1=0.000*c0')
+    expect(panning(1)).toBe('pan=stereo|c0=0.000*c0|c1=1.000*c0')
   })
 })

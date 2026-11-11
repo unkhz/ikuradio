@@ -50,7 +50,7 @@ async function exists(file: string) {
 }
 
 /** How much louder a whole choir may be than its lead alone. */
-const fullness = 1.5
+export const fullness = 1.5
 
 /**
  * Sings several voices as one: the same line, from several throats, mixed

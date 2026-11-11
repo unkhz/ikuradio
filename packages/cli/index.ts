@@ -68,7 +68,12 @@ function place(song: Song) {
   for (const { recording, after, from } of placements(song.session!.recordings, since)) {
     setTimeout(
       () =>
-        play(join(song.dir, recording.id), { from, gain: recording.gain }).catch(() => {
+        play(join(song.dir, recording.id), {
+          from,
+          gain: recording.gain,
+          // each singer where a small choir would stand: the lead in the middle
+          ...(recording.kind === 'voice' ? { pan: [0, -0.4, 0.4, -0.7][recording.voice ?? 0] ?? 0 } : {}),
+        }).catch(() => {
           // a recording that cannot be played is let go; the song goes on
         }),
       after * 1000,

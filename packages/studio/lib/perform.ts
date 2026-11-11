@@ -7,7 +7,7 @@
 
 import { arrange } from 'song'
 import { scoreSeconds, setBridge, setLine, wrongness } from 'melody'
-import { blend, countSyllables, humanize, record } from 'vocals'
+import { blend, countSyllables, fullness, humanize, record } from 'vocals'
 import type { Iteration } from './compose.js'
 
 export type SungLine = {
@@ -15,8 +15,16 @@ export type SungLine = {
   /** Which line of its part, from 0. */
   index: number
   lyrics: string
-  /** The recording, where the UI can fetch it. Empty if no voice could sing the line. */
+  /**
+   * The whole choir's line as one recording, for the Music to listen to and
+   * the rehearsal to mix. Empty if no voice could sing the line.
+   */
   file: string
+  /**
+   * Each singer's own recording of the line, and how loud it is: what a
+   * Receiver plays, placing each singer where it likes in its mix.
+   */
+  voices: { file: string; voice: number; gain: number }[]
   /** Every recording made for this line: each voice's take, and their blend. */
   recordings: string[]
   /** How long the line lasts, rest included. */
@@ -90,10 +98,12 @@ export async function perform({
     const [, rest] = score.notes.at(-1) ?? [0, 0]
     const heard = wrongness(`hum:${iteration}:${section}`)() < humming
     let file = ''
+    const voices: SungLine['voices'] = []
     const recordings: string[] = []
     try {
       const dry = await record(take, lead.body)
       recordings.push(dry)
+      voices.push({ file: dry, voice: 0, gain: humGain })
       file = await blend([{ file: dry, gain: humGain }])
       recordings.push(file)
     } catch (error) {
@@ -104,6 +114,7 @@ export async function perform({
       index: section,
       lyrics: '',
       file,
+      voices,
       recordings: [...new Set(recordings)],
       seconds,
       enters: take.t0,
@@ -149,9 +160,13 @@ export async function perform({
 
     const sung = (
       await Promise.all(
-        takes.map(async ({ voice, take }) => {
+        takes.map(async ({ voice, take }, v) => {
           try {
-            return { file: await record(take, voice.body), gain: voice.gain }
+            return {
+              file: await record(take, voice.body),
+              gain: voice.gain,
+              voice: v,
+            }
           } catch (error) {
             // a throat that cannot sing this line falls silent for it; the others go on
             console.warn(
@@ -173,11 +188,16 @@ export async function perform({
     const recordings = [...new Set([...sung.map((s) => s.file), file])].filter(
       Boolean,
     )
+    // a whole choir is fuller than one voice, but not louder than a throat can bear
+    const total = sung.reduce((sum, { gain }) => sum + gain, 0)
+    const headroom = Math.min(1, fullness / Math.max(total, 1))
+    const own = sung.map((s) => ({ ...s, gain: Math.round(s.gain * headroom * 1000) / 1000 }))
     return {
       part,
       index,
       lyrics: line,
       file,
+      voices: own,
       recordings,
       seconds: scoreSeconds(score),
       enters: take.t0,
