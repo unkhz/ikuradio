@@ -13,8 +13,11 @@
 //   GET /           the Receiver, for a browser
 
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
-import { join, normalize } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { normalize } from 'node:path'
+import pageHtmlFile from '../ui/public/index.html' with { type: 'file' }
+// @ts-expect-error: the page's script is plain JavaScript, imported only as a file
+import pageJsFile from '../ui/public/index.js' with { type: 'file' }
+import pageIcon from '../ui/public/favicon.ico' with { type: 'file' }
 import { getEnv } from 'tools'
 import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
@@ -106,8 +109,16 @@ const open = {
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: open })
 
-const page = fileURLToPath(new URL('../ui/public/', import.meta.url))
-const pageFiles = new Set(['index.html', 'index.js', 'favicon.ico'])
+// The Receiver's page is carried inside the Radio: from its files here, and
+// inside the executable when the Radio is compiled into one.
+// imported `with { type: 'file' }`, each is the file's path, whatever the types say
+const pageHtml = pageHtmlFile as unknown as string
+const pageJs = pageJsFile as unknown as string
+const pageFiles: Record<string, { file: string; type: string }> = {
+  'index.html': { file: pageHtml, type: 'text/html; charset=utf-8' },
+  'index.js': { file: pageJs, type: 'text/javascript; charset=utf-8' },
+  'favicon.ico': { file: pageIcon, type: 'image/x-icon' },
+}
 
 Bun.serve({
   port: SERVER_PORT,
@@ -152,9 +163,10 @@ Bun.serve({
     }
 
     const name = url.pathname === '/' ? 'index.html' : normalize(url.pathname).slice(1)
-    if (pageFiles.has(name)) {
-      return new Response(Bun.file(join(page, name)), {
-        headers: { 'Cache-Control': 'no-cache' },
+    const part = pageFiles[name]
+    if (part) {
+      return new Response(Bun.file(part.file), {
+        headers: { 'Content-Type': part.type, 'Cache-Control': 'no-cache' },
       })
     }
     return new Response(null, { status: 404 })

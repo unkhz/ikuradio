@@ -55,6 +55,9 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}/radio:${{ github.sha }}
             ghcr.io/${{ github.repository }}/radio:latest
+          # layers that did not change are not built again
+          cache-from: type=gha,scope=radio
+          cache-to: type=gha,scope=radio,mode=max
 
       - name: Tune the cluster to this Radio
         run: |
