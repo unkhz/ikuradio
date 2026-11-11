@@ -1,0 +1,12 @@
+{
+  "name": "radio",
+  "version": "1.0.0",
+  "description": "Keeps the Tactus, and tells Receivers what plays when, and where to fetch it",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "archive": "workspace:*",
+    "tools": "workspace:*"
+  }
+}

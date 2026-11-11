@@ -9,14 +9,20 @@
         "typescript": "5.9.3",
       },
     },
+    "packages/archive": {
+      "name": "archive",
+      "version": "1.0.0",
+      "dependencies": {
+        "tools": "workspace:*",
+      },
+    },
     "packages/cli": {
       "name": "cli",
       "version": "1.0.0",
       "dependencies": {
-        "song": "workspace:*",
+        "archive": "workspace:*",
         "tools": "workspace:*",
         "vocals": "workspace:*",
-        "zod": "^4.0.0",
       },
     },
     "packages/melody": {
@@ -39,17 +45,12 @@
         "vocals": "workspace:*",
       },
     },
-    "packages/server": {
-      "name": "server",
+    "packages/radio": {
+      "name": "radio",
       "version": "1.0.0",
       "dependencies": {
-        "melody": "workspace:*",
-        "mood": "workspace:*",
-        "music": "workspace:*",
-        "song": "workspace:*",
+        "archive": "workspace:*",
         "tools": "workspace:*",
-        "vocals": "workspace:*",
-        "zod": "^4.0.0",
       },
     },
     "packages/song": {
@@ -58,6 +59,19 @@
       "dependencies": {
         "tools": "workspace:*",
         "zod": "^4.0.0",
+      },
+    },
+    "packages/studio": {
+      "name": "studio",
+      "version": "1.0.0",
+      "dependencies": {
+        "archive": "workspace:*",
+        "melody": "workspace:*",
+        "mood": "workspace:*",
+        "music": "workspace:*",
+        "song": "workspace:*",
+        "tools": "workspace:*",
+        "vocals": "workspace:*",
       },
     },
     "packages/tools": {
@@ -85,6 +99,8 @@
 
     "@types/node": ["@types/node@26.6.6", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog=="],
 
+    "archive": ["archive@workspace:packages/archive"],
+
     "bun-types": ["bun-types@1.4.4", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-yjrJh5oGX7mMPKGd19YXyIjmEuj4G4zNC30bs7PM9Az7NQ3ndF3j6hbeRdvJTRQEhJ/FYQwW0a2moweEi2hMxQ=="],
 
     "cli": ["cli@workspace:packages/cli"],
@@ -95,9 +111,11 @@
 
     "music": ["music@workspace:packages/music"],
 
-    "server": ["server@workspace:packages/server"],
+    "radio": ["radio@workspace:packages/radio"],
 
     "song": ["song@workspace:packages/song"],
+
+    "studio": ["studio@workspace:packages/studio"],
 
     "tools": ["tools@workspace:packages/tools"],
 

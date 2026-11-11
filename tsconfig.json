@@ -17,6 +17,7 @@
       "mood": ["packages/mood"],
       "vocals": ["packages/vocals"],
       "music": ["packages/music"],
+      "archive": ["packages/archive"],
       "song": ["packages/song"],
       "song/*": ["packages/song/*"]
     }

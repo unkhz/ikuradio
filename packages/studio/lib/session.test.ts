@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'bun:test'
+import { firstMood } from 'mood'
+import { arrange, firstLyrics } from 'song'
+import { firstChoir } from 'vocals'
+import { firstTune } from 'melody'
+import type { Iteration } from './compose.js'
+import type { SungLine } from './perform.js'
+import { toSession, type Made } from './session.js'
+
+/** An iteration as the Studio would make it, every line six seconds, its file named after it. */
+function made(iteration: bigint, began = 0n): Made {
+  const composed: Iteration = {
+    iteration,
+    mood: firstMood,
+    choir: firstChoir,
+    tune: firstTune,
+    variation: 0,
+    sung: firstTune,
+    beginsSong: iteration === began,
+    song: { number: '0', began: `${began}`, lasts: 4 },
+    lyrics: firstLyrics,
+  }
+  const lines: SungLine[] = []
+  let at = 0
+  for (const part of arrange(firstLyrics)) {
+    const texts = part.type === 'bridge' ? [''] : part.content.split('\n').filter((t) => t.trim())
+    texts.forEach((text, index) => {
+      lines.push({
+        part: part.type,
+        index: part.type === 'bridge' ? part.index : index,
+        lyrics: text,
+        file: `${iteration}-${part.index}-${index}.m4a`,
+        recordings: [],
+        seconds: 6,
+        enters: 0.3,
+        voiced: 5,
+        at,
+        ...(part.type === 'bridge' && part.index === 1 ? { unheard: true } : {}),
+      })
+      at += 6
+    })
+  }
+  return { composed, lines, beds: [{ file: `bed-${iteration}.m4a`, at: 0, gain: 0.45 }] }
+}
+
+describe('toSession', () => {
+  const session = toSession([made(0n), made(1n)], (file) => `id:${file}`)
+
+  it('lays the iterations end to end', () => {
+    const [first, second] = session.iterations
+    expect(first.at).toBe(0)
+    expect(second.at).toBe(first.seconds)
+    expect(session.seconds).toBe(first.seconds + second.seconds)
+    expect(second.of).toEqual({ at: 2, of: 4 })
+  })
+
+  it('gives each chorus its own moment, though they sing the same words', () => {
+    const choruses = session.iterations[0].parts.filter(({ type }) => type === 'chorus')
+    expect(choruses).toHaveLength(2)
+    expect(choruses[0].lines[0].text).toBe(choruses[1].lines[0].text)
+    expect(choruses[1].lines[0].at).toBeGreaterThan(choruses[0].lines[0].at)
+  })
+
+  it('types every line while it is sung, and ends it when the voice ends', () => {
+    const line = session.iterations[1].parts[0].lines[0]
+    expect(line.typing).toHaveLength(line.text.length + 1)
+    expect(line.typing.at(-1)).toBe(5300)
+    expect(line.at).toBe(session.iterations[1].at)
+  })
+
+  it('places every Recording that is heard, and none that is not', () => {
+    const ids = session.recordings.map(({ id }) => id)
+    expect(ids).not.toContain('id:0-1-0.m4a')
+    expect(ids).toContain('id:0-3-0.m4a')
+    const bed = session.recordings.find(({ id }) => id === 'id:bed-1.m4a')
+    expect(bed).toMatchObject({ kind: 'bed', gain: 0.45, at: session.iterations[1].at })
+  })
+
+  it('has no words in its bridges', () => {
+    const bridges = session.iterations[0].parts.filter(({ type }) => type === 'bridge')
+    expect(bridges).toHaveLength(4)
+    expect(bridges.every(({ lines }) => lines.length === 0)).toBe(true)
+  })
+})

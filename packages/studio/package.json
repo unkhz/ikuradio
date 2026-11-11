@@ -1,17 +1,17 @@
 {
-  "name": "server",
+  "name": "studio",
   "version": "1.0.0",
-  "description": "",
+  "description": "Makes one Song whole, leaves it in the Archive, and ends",
   "type": "module",
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "song": "workspace:*",
+    "archive": "workspace:*",
     "melody": "workspace:*",
     "mood": "workspace:*",
     "music": "workspace:*",
-    "vocals": "workspace:*",
+    "song": "workspace:*",
     "tools": "workspace:*",
-    "zod": "^4.0.0"
+    "vocals": "workspace:*"
   }
 }
