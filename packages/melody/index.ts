@@ -9,11 +9,13 @@ import {
 } from './lib/scale.js'
 
 import { firstTune, type Tune } from './lib/variation.js'
+import { slowSection } from './lib/guide.js'
 
 export { fitPhrase, chorusHook, verseWalk, aeolian, modes, degreeToMidi }
 export { firstTune, evolve, step, variations } from './lib/variation.js'
 export type { Tune } from './lib/variation.js'
 export { wrongness } from './lib/wrongness.js'
+export { guideStep, slowPhrase, slowSection } from './lib/guide.js'
 export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
 
@@ -141,6 +143,42 @@ export function setBridge({
       ]),
       [0, Math.max(0, bridgeBeats - hummed)],
     ],
+  }
+}
+
+/** The phrase a line of a part is sung to: lines past the hook wrap around. */
+export function phraseOf(tune: Tune, part: 'verse' | 'chorus', line: number): Phrase {
+  const phrases = part === 'chorus' ? tune.chorus : tune.verse
+  return phrases[line % phrases.length]
+}
+
+/**
+ * The guide hum of a section, for one voice: its lines' phrases slowed to
+ * their skeleton, each lasting as long as its line, in the singer's key.
+ * `lyrics` is what is hummed, one sound for each note.
+ */
+export function setGuide({
+  lines,
+  lyrics,
+  singer,
+  character = firstCharacter,
+  harmony = 0,
+}: {
+  lines: { phrase: Phrase; beats: number }[]
+  lyrics: (notes: number) => string
+  singer: Singer
+  character?: Character
+  harmony?: number
+}): Score {
+  const key = keyFor(singer, character.mode)
+  const notes = slowSection(lines)
+  return {
+    bpm: character.tempo,
+    lyrics: lyrics(notes.length),
+    notes: notes.map(([degree, beats]): [number, number] => [
+      degreeToMidi(degree + harmony, key),
+      beats,
+    ]),
   }
 }
 
