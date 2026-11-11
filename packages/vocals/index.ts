@@ -17,3 +17,4 @@ export {
   type Voice,
 } from './lib/singers.js'
 export { run, Turns } from './lib/exec.js'
+export { loudnessOf, parseLoudness, silence, type Loudness } from './lib/loudness.js'

@@ -49,7 +49,11 @@ function made(iteration: bigint, began = 0n): Made {
 }
 
 describe('toSession', () => {
-  const session = toSession([made(0n), made(1n)], (file) => `id:${file}`)
+  const session = toSession(
+    [made(0n), made(1n)],
+    (file) => `id:${file}`,
+    (file) => (file.startsWith('bed-') ? { lufs: -14.2, peak: -1.1 } : { lufs: -19.5, peak: -6 }),
+  )
 
   it('lays the iterations end to end', () => {
     const [first, second] = session.iterations
@@ -91,6 +95,12 @@ describe('toSession', () => {
     ])
     // the blend the Music listens to is not what Receivers are given
     expect(session.recordings.map(({ id }) => id)).not.toContain('id:0-2-0.m4a')
+  })
+
+  it('says how loud every Recording sounds', () => {
+    expect(session.recordings.every(({ loudness }) => loudness !== undefined)).toBe(true)
+    const bed = session.recordings.find(({ kind }) => kind === 'bed')
+    expect(bed?.loudness).toEqual({ lufs: -14.2, peak: -1.1 })
   })
 
   it('has no words in its bridges', () => {

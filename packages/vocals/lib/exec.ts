@@ -7,12 +7,16 @@ const gentleness = 10
 /**
  * Runs a program to its end. Resolves with what it said, rejects with what
  * it complained. A `gentle` program runs at a lower priority than anything
- * else on the machine.
+ * else on the machine. Some programs say what they found where others
+ * complain; `heard: 'complaint'` resolves with that instead.
  */
 export function run(
   command: string,
   args: string[],
-  { gentle = false } = {},
+  {
+    gentle = false,
+    heard = 'output',
+  }: { gentle?: boolean; heard?: 'output' | 'complaint' } = {},
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args)
@@ -22,7 +26,7 @@ export function run(
     child.stderr.on('data', (data) => (complaint += data))
     child.on('error', reject)
     child.on('close', (code) => {
-      if (code === 0) resolve(output)
+      if (code === 0) resolve(heard === 'output' ? output : complaint)
       else
         reject(new Error(complaint.trim() || `${command} exited with ${code}`))
     })

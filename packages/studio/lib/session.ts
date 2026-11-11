@@ -2,7 +2,7 @@
 // line at its moment with its typing decided, every Recording at its place.
 
 import { arrange } from 'song'
-import { introduce, type Placed } from 'vocals'
+import { introduce, type Loudness, type Placed } from 'vocals'
 import { sessionVersion, type Session, type SessionIteration } from 'archive'
 import type { Iteration } from './compose.js'
 import type { SungLine } from './perform.js'
@@ -25,12 +25,18 @@ export function lengthOf(lines: readonly SungLine[]) {
 /**
  * The Session of a Song, from its iterations as the Studio made them. Every
  * moment is counted from the Song's beginning; `name` maps a recording's
- * file to its id in the Archive.
+ * file to its id in the Archive, and `loudness` to how loud it was measured
+ * to sound, if it was.
  */
 export function toSession(
   made: readonly Made[],
   name: (file: string) => string,
+  loudness: (file: string) => Loudness | undefined = () => undefined,
 ): Session {
+  const heard = (file: string) => {
+    const measured = loudness(file)
+    return measured ? { loudness: measured } : {}
+  }
   const [{ composed: first }] = made
   const { mood, choir, song } = first
   let offset = 0
@@ -87,6 +93,7 @@ export function toSession(
           voice,
           ...(gain !== 1 ? { gain } : {}),
           seconds: seconds(line.seconds),
+          ...heard(file),
         })
       }
     }
@@ -96,6 +103,7 @@ export function toSession(
         at: seconds(offset + bed.at),
         gain: bed.gain,
         kind: 'bed',
+        ...heard(bed.file),
       })
     }
     offset += length

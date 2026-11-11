@@ -75,6 +75,12 @@ export type SessionRecording = {
   voice?: number
   /** How long its place in the Song lasts, if the Studio knows: a Receiver arriving later need not fetch it. */
   seconds?: number
+  /**
+   * How loud it sounds, measured from the Recording itself after it was
+   * made (EBU R128): integrated loudness in LUFS, true peak in dBTP. A
+   * Receiver brings every Recording to the loudness it wants from this.
+   */
+  loudness?: { lufs: number; peak: number }
 }
 
 /** What the Archive holds: the Songs it has, oldest first. */

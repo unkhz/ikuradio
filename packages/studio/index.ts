@@ -12,7 +12,7 @@
 
 import { getEnv, Sleeper } from 'tools'
 import { describe } from 'mood'
-import { introduce, vocalsDir } from 'vocals'
+import { introduce, loudnessOf, vocalsDir, type Loudness } from 'vocals'
 import { musicDir, Shelf, underlay } from 'music'
 import { Store } from 'archive'
 import { Diary } from './lib/diary.js'
@@ -93,9 +93,23 @@ const files = new Set(
     ...beds.map(({ file }) => file),
   ]),
 )
+// how loud each Recording sounds, heard from the Recording itself, now that it is made
+const heardAt = Date.now()
+const loudness = new Map<string, Loudness>()
+await Promise.all(
+  [...files].map(async (file) => {
+    const measured = await loudnessOf(file)
+    if (measured) loudness.set(file, measured)
+  }),
+)
+console.log(`${loudness.size} of ${files.size} recordings measured in ${seconds(heardAt)}`)
 const ids = new Map<string, string>()
 for (const file of files) ids.set(file, await store.putRecording(file))
-const session = toSession(made, (file) => ids.get(file)!)
+const session = toSession(
+  made,
+  (file) => ids.get(file)!,
+  (file) => loudness.get(file),
+)
 await store.putSession(session)
 const pruned = await store.prune()
 console.log(
