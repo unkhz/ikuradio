@@ -7,4 +7,4 @@ resources:
   - radio.yaml
 images:
   - name: ghcr.io/unkhz/song-that-never-ends/radio
-    newTag: "96493774cf0ec21cd93404635657008aab4aec45"
+    newTag: "c639210b9ebc50d8741dd54c7b1991de99da475c"
