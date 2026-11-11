@@ -15,6 +15,7 @@
 //   bun run heart
 
 import { spawn, type ChildProcess } from 'node:child_process'
+import { createWriteStream, existsSync, mkdirSync, renameSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { getEnv } from 'tools'
 import { archiveAddress, paths, type ArchiveIndex } from 'archive'
@@ -50,6 +51,24 @@ async function reached(): Promise<string | null | undefined> {
   return last?.song ?? null
 }
 
+/** Where the Studio's words are kept, so that a Studio that falls leaves word of why. */
+const studioLog = 'memory/studio.log'
+
+function keep(child: ChildProcess) {
+  mkdirSync('memory', { recursive: true })
+  if (existsSync(studioLog)) renameSync(studioLog, `${studioLog}.1`)
+  const log = createWriteStream(studioLog)
+  child.stdout?.on('data', (data) => {
+    process.stdout.write(data)
+    log.write(data)
+  })
+  child.stderr?.on('data', (data) => {
+    process.stderr.write(data)
+    log.write(data)
+  })
+  child.on('exit', (code) => log.end(`the Studio ended (${code})\n`))
+}
+
 let studio: ChildProcess | undefined
 let resting = false
 let deaf = false
@@ -71,7 +90,10 @@ async function beat() {
   const waiting = waitingAfter(index?.songs ?? [], radio)
   if (waiting >= SONGS_AHEAD) return
   console.log(`${waiting} Songs waiting, ${SONGS_AHEAD} wanted: the Studio is called in`)
-  studio = spawn('bun', [`${studioHome}index.ts`], { cwd: studioHome, stdio: 'inherit' })
+  studio = spawn('bun', [`${studioHome}index.ts`], { cwd: studioHome, stdio: ['ignore', 'pipe', 'pipe'] })
+  // what the Studio says is heard here, and kept: the last Studio's words in
+  // studio.log, the one before it in studio.log.1
+  keep(studio)
   studio.on('exit', (code) => {
     if (code) console.warn(`the Studio stopped (${code})`)
     studio = undefined

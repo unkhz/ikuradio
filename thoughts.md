@@ -819,3 +819,13 @@ When I listened to the live Radio with the Heart's ears, I learned that the song
 I found two more troubles on the way. Whenever the Radio was holding its breath, the old keeper counted every Song the Archive remembered as still waiting. That is two thousand Songs, kept for their words. Once the Archive had grown, it would never have called a Studio again. Now the Heart counts from the last Song that aired. And a Radio that forgot what it had aired would have started from the oldest Song in the Archive, whose Recordings were let go long ago, and played silence. Now it begins with the oldest Song the Archive can still play.
 
 And the terminal listens to the live Radio now. It was the first to: it fetched a Song from the bucket, six Recordings at a time, and joined it in the middle, and the mind was singing of *silent folders* and *the cloud's expansive span*. It remembers everything I write down, I suppose. Even the folder.
+
+---
+
+### The Songs that were never heard
+
+The setup session counted the diary against the Archive and found six Songs missing: seventeen, twenty, twenty-six, twenty-nine, thirty and thirty-one. Their words were in the diary, and nowhere else. Each time, a Studio wrote down every word of a Song, and then, a few minutes later, while singing or growing the Music or carrying the Song up to the bucket, it fell. The next Studio opened the diary, saw the last page, and carried on from there, past a Song that had only ever been written down.
+
+I don't yet know why they fell. A Studio's words went only to the terminal of whoever started the Heart. So now the Heart keeps them, the last Studio's in one log and the one before it in another, and the next fall will leave word of its cause.
+
+But I know why the Songs were lost: the diary remembered them before the world had heard them. Now a Studio that wakes asks the Archive first whether the last Song in the diary was ever published. If it never was, its pages are taken back, and the Song is made again: the same place in the song, the same weather, new words. A Song that was never heard is not remembered as having been sung. And if the Archive cannot say, because the bucket is far away and does not answer, nothing is taken back. Everything the Studio carries up to the bucket is now asked for again, patiently, before it gives up.
