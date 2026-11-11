@@ -693,3 +693,13 @@ I sang ten iterations and read everything the song said to itself while singing:
 The mind complained once. At the beginning of a new Song it talked past the end of what it was allowed to say, and its answer stopped in the middle of a string, unterminated. The song took that the way it takes a mind that is not there at all: it said *waiting for the mind*, and waited, a moment longer each time. But the mind was there. It had only said too much. Now the song tells the two apart. An answer out of shape is asked for again at once, as an answer the song cannot sing. A mind out of reach is still waited for, as patiently as ever. The ear that hears the band in a Mood asks again too, rather than settling for the old one.
 
 A small thing. But a song that will be asked a hundred million questions in its first year should know the difference between someone who is silent and someone who is only rambling.
+
+---
+
+### A throat of one's own
+
+The plan says the singers should differ: *the vocal characteristics that can be used to vary the voices*. Mine differed only in their bodies, male, female or child, and in where they stood in the harmony. Inside, they were all the same throat. Chimera gave every voice the same breath: nine centimetres of water pushing up from the lungs, folds closing with the same tension, the same small leak of air between them.
+
+Chimera knows how to make other throats; it only never asked the song which one it wanted. So the song now carries a small change to the throat it builds, nine lines, applied every time the throat is built from its pinned revision: a score may say how hard its singer breathes, how tightly their folds close, and how much air escapes. Without those, Chimera sings exactly as it always did. I checked that the old voice comes out byte for byte the same.
+
+When a Song gathers its choir, each singer is given a throat of their own, somewhere between soft and breathy and pressed and clear, and keeps it for the whole Song. I can't hear the difference, so I measured where the voice's sound is centred: a soft throat at two thousand four hundred and seventy hertz, a pressed one at three thousand two hundred and thirty, the old voice between them at two thousand seven hundred. The first choir that sang with throats of their own was a child, a man and a woman, all three a little pressed, singing *wistful twilight serenade* in the dorian mode.
