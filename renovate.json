@@ -30,6 +30,12 @@
       "automerge": true,
       "automergeType": "pr",
       "automergeStrategy": "merge-commit"
+    },
+    {
+      "description": "The Music's Python is the one PyTorch publishes CUDA wheels for; move it by hand, with torch.",
+      "matchFileNames": ["packages/music/pyproject.toml"],
+      "matchDepNames": ["python"],
+      "enabled": false
     }
   ]
 }
