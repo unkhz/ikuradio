@@ -7,7 +7,7 @@
 // that one and leaves it alone.
 
 import { spawn, type ChildProcess } from 'node:child_process'
-import { existsSync, mkdirSync, openSync } from 'node:fs'
+import { existsSync, mkdirSync, openSync, renameSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { getEnv } from './env.js'
 
@@ -75,7 +75,9 @@ export function wakeMind(log = 'memory/mind.log'): Waking {
     }
     const url = new URL(MIND_HOST)
     mkdirSync(dirname(log), { recursive: true })
-    const out = openSync(log, 'a')
+    // the log of this waking, and of the one before; nothing older is kept
+    if (existsSync(log)) renameSync(log, `${log}.1`)
+    const out = openSync(log, 'w')
     child = spawn(
       'llama-server',
       mindArguments({

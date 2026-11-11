@@ -4,7 +4,7 @@
 // verses share a tune, and so they share a bed, though their words differ.
 
 import { createHash } from 'node:crypto'
-import { mkdir, stat } from 'node:fs/promises'
+import { mkdir, rm, stat } from 'node:fs/promises'
 import { describe, type Mood } from 'mood'
 import { mixdown, type Placed } from 'vocals'
 import { accompany, musicDir, words } from './bed.js'
@@ -65,11 +65,12 @@ export async function underlay(
       continue
     }
     const vocals = await voiceOf(section.lines, section.at)
+    // the section's voice is only what the Music listens to; once heard, it is let go
     const bed = await accompany({
       vocals,
       mood: words(mood),
       seconds: section.seconds,
-    })
+    }).finally(() => rm(vocals, { force: true }))
     beds.set(section.part, bed)
     grown++
     if (shelf) departed.push(...shelf.keep(song, section.part, bed))

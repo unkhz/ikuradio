@@ -1,8 +1,9 @@
 import { getEnv, Sleeper } from 'tools'
 import { arrange } from 'song'
 import { describe } from 'mood'
-import { introduce, type Placed } from 'vocals'
-import { Shelf, underlay } from 'music'
+import { introduce, vocalsDir, type Placed } from 'vocals'
+import { musicDir, Shelf, underlay } from 'music'
+import { sweep } from './lib/sweep.js'
 import { sing, type LineEvent, type TimedPart } from './lib/sing.js'
 import { createServer } from './lib/server.js'
 import { Diary } from './lib/diary.js'
@@ -19,6 +20,10 @@ const {
   CHOIR_COUNT,
   VARIATION_COUNT,
 } = getEnv()
+
+// recordings left behind by a song that was stopped are let go before it sings again
+const swept = await sweep([vocalsDir, musicDir])
+if (swept) console.log(`Swept up ${swept} recordings left behind when the song last stopped.`)
 
 const room = new Room()
 // the mind and the Music share one GPU: the mind wakes for the words of an
