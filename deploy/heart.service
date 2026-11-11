@@ -1,0 +1,27 @@
+# The Heart, beside the Studio on its machine: the loop that keeps the song
+# breathing. If it stops, the Radio plays what it has and then holds its
+# breath, until the Heart is started again.
+#
+#   cp deploy/heart.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now heart.service
+#   sudo loginctl enable-linger $USER    # to beat with nobody logged in
+
+[Unit]
+Description=The Heart of the song that never ends
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/Work/song
+ExecStart=/usr/bin/bun run heart
+# the Music's model is already on the shelf; nothing needs to be fetched
+Environment=HF_HUB_OFFLINE=1
+Nice=5
+Restart=on-failure
+RestartSec=30
+# asked to rest, the Heart lets the Studio at work finish its Song first
+KillMode=mixed
+TimeoutStopSec=600
+
+[Install]
+WantedBy=default.target

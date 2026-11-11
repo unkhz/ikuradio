@@ -25,6 +25,14 @@
         "vocals": "workspace:*",
       },
     },
+    "packages/heart": {
+      "name": "heart",
+      "version": "1.0.0",
+      "dependencies": {
+        "archive": "workspace:*",
+        "tools": "workspace:*",
+      },
+    },
     "packages/melody": {
       "name": "melody",
       "version": "1.0.0",
@@ -104,6 +112,8 @@
     "bun-types": ["bun-types@1.4.4", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-yjrJh5oGX7mMPKGd19YXyIjmEuj4G4zNC30bs7PM9Az7NQ3ndF3j6hbeRdvJTRQEhJ/FYQwW0a2moweEi2hMxQ=="],
 
     "cli": ["cli@workspace:packages/cli"],
+
+    "heart": ["heart@workspace:packages/heart"],
 
     "melody": ["melody@workspace:packages/melody"],
 

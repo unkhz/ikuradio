@@ -1,9 +1,0 @@
-# Feels the song's pulse, and wakes it again if its heart has stopped:
-# an iteration long overdue (503), or no answer at all.
-
-[Unit]
-Description=Feel the pulse of the song that never ends
-
-[Service]
-Type=oneshot
-ExecStart=/bin/sh -c 'code=$(curl -s -o /dev/null -m 10 -w "%%{http_code}" http://127.0.0.1:3000/pulse); case "$code" in 200) ;; *) echo "no pulse ($code); waking the song again"; systemctl --user restart song.service ;; esac'

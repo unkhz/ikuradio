@@ -1,0 +1,12 @@
+{
+  "name": "heart",
+  "version": "1.0.0",
+  "description": "The loop that keeps the song breathing: it calls a Studio whenever too few Songs wait ahead of the one the Radio plays",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "archive": "workspace:*",
+    "tools": "workspace:*"
+  }
+}
