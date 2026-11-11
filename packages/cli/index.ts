@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { play } from 'vocals'
 import { getEnv } from 'tools'
-import { paths, type Session } from 'archive'
+import { levelOf, paths, type Session } from 'archive'
 import { placements } from './lib/time.js'
 
 const { SERVER_HOST, SERVER_PORT } = getEnv()
@@ -70,7 +70,8 @@ function place(song: Song) {
       () =>
         play(join(song.dir, recording.id), {
           from,
-          gain: recording.gain,
+          // every Recording brought to the loudness its kind should sound at
+          gain: levelOf(recording),
           // each singer where a small choir would stand: the lead in the middle
           ...(recording.kind === 'voice' ? { pan: [0, -0.4, 0.4, -0.7][recording.voice ?? 0] ?? 0 } : {}),
         }).catch(() => {

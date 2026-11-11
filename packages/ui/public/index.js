@@ -106,6 +106,39 @@ function createDelay(audioContext, delayValue, gainValue) {
 }
 
 
+// The mix by ear: every Recording says how loud it sounds, and is brought
+// to the loudness this page wants for its kind. The lead voice sounds at
+// -16 LUFS, the choir keeps its balance beneath it, the Music lies 6 LU
+// under the voices; nothing is raised more than 12 dB, nor past -1 dBTP.
+// (The same choice the terminal makes; see packages/archive/lib/mix.ts.)
+const voiceLoudness = -16
+const bedsUnder = 6
+const mostRaised = 12
+const ceiling = -1
+function levelOf({ kind, gain, loudness }) {
+  if (!loudness) return gain ?? 1
+  const wanted =
+    kind === 'voice' ? voiceLoudness + 20 * Math.log10(gain ?? 1) : voiceLoudness - bedsUnder
+  const raise = Math.min(mostRaised, wanted - loudness.lufs, ceiling - loudness.peak)
+  return 10 ** (raise / 20)
+}
+
+// Everything goes out through a gentle limiter, so that the moments when
+// the whole choir and the Music swell together are held, not clipped.
+let out
+function speakers(audioContext) {
+  if (!out) {
+    out = audioContext.createDynamicsCompressor()
+    out.threshold.value = -6
+    out.knee.value = 6
+    out.ratio.value = 12
+    out.attack.value = 0.003
+    out.release.value = 0.25
+    out.connect(audioContext.destination)
+  }
+  return out
+}
+
 // The voices. Every voice goes to the speakers, and an echo of it follows
 // half a second behind, fading. In 2023 only the echo was connected.
 let voiceBus
@@ -113,9 +146,9 @@ function voices(audioContext) {
   if (!voiceBus) {
     voiceBus = audioContext.createGain()
     const echo = createDelay(audioContext, 0.5, 0.22)
-    voiceBus.connect(audioContext.destination)
+    voiceBus.connect(speakers(audioContext))
     voiceBus.connect(echo.in)
-    echo.out.connect(audioContext.destination)
+    echo.out.connect(speakers(audioContext))
   }
   return voiceBus
 }
@@ -126,7 +159,7 @@ let musicBus
 function music(audioContext) {
   if (!musicBus) {
     musicBus = audioContext.createGain()
-    musicBus.connect(audioContext.destination)
+    musicBus.connect(speakers(audioContext))
   }
   return musicBus
 }
@@ -175,7 +208,7 @@ function placeSounds(audioContext) {
         source.buffer = buffer
         if (recording.kind === 'bed') {
           const level = audioContext.createGain()
-          const gain = recording.gain ?? 1
+          const gain = levelOf(recording)
           level.gain.value = gain
           const ends = when + buffer.duration
           level.gain.setValueAtTime(gain, Math.max(audioContext.currentTime, ends - letGoOf))
@@ -184,7 +217,7 @@ function placeSounds(audioContext) {
           source.connect(level)
         } else {
           const level = audioContext.createGain()
-          level.gain.value = recording.gain ?? 1
+          level.gain.value = levelOf(recording)
           const place = audioContext.createStereoPanner()
           place.pan.value = standingOf(recording.voice)
           source.connect(level).connect(place).connect(voices(audioContext))
