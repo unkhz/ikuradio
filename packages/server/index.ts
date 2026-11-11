@@ -191,6 +191,12 @@ async function run() {
               tempo: shown.mood.character.tempo,
               choir: introduce(shown.choir),
               variation: shown.variation,
+              // where in its Song this iteration is, counted from one, as the chorus counts
+              song: {
+                number: `${BigInt(shown.song.number) + 1n}`,
+                at: Number(shown.iteration - BigInt(shown.song.began)) + 1,
+                of: shown.song.lasts,
+              },
             })}`
           : undefined
         const weather = shown

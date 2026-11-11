@@ -31,6 +31,8 @@ export type Iteration = {
   sung: Tune
   /** True for the first iteration of a Song, when the Mood has just changed. */
   beginsSong: boolean
+  /** Which Song this is, where it began, and how long it lasts. */
+  song: SongPlace
   lyrics: Lyrics
 }
 
@@ -122,6 +124,7 @@ export async function composer(
       lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics)
     }
     const lasts = place.lasts ?? lastsFor(mood, songLength)
+    const where: SongPlace = { number: song, began: `${place.began}`, lasts }
     const variation =
       Number(iteration - place.began) % Math.max(1, variationCount)
     const sung = variations(tune, variationCount, song)[variation]
@@ -130,12 +133,22 @@ export async function composer(
       mood,
       choir,
       tune,
-      song: { number: song, began: `${place.began}`, lasts },
+      song: where,
       lyrics,
       written: new Date().toISOString(),
     }
     await diary.write(last)
-    return { iteration, mood, choir, tune, variation, sung, beginsSong, lyrics }
+    return {
+      iteration,
+      mood,
+      choir,
+      tune,
+      variation,
+      sung,
+      beginsSong,
+      song: where,
+      lyrics,
+    }
   }
 
   return { wakesAt, compose }

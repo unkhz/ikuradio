@@ -175,10 +175,13 @@ function describeIteration(about) {
       textContent: `iteration ${age}`,
     }),
     document.createTextNode(
-      ` · ${about.mood.join(' + ')} · ${about.mode}, ${about.tempo} bpm · ${about.choir}`,
+      ` · ${about.song ? `${about.song.at} of ${about.song.of} · ` : ''}${about.mood.join(' + ')} · ${about.mode}, ${about.tempo} bpm · ${about.choir}`,
     ),
   )
-  status.title = `variation ${about.variation + 1}`
+  const song = about.song
+    ? `song ${BigInt(about.song.number).toLocaleString('en')}, ${about.song.at} of ${about.song.of} · `
+    : ''
+  status.title = `${song}variation ${about.variation + 1}`
 }
 
 // Looking back. The diary remembers every iteration ever sung; anyone may
