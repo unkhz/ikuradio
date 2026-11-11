@@ -19,7 +19,18 @@ export type Question = {
   temperature: number
 }
 
-/** Asks once. Throws if the mind is unreachable or does not answer in the shape asked for. */
+/**
+ * The mind answered, but its answer was cut off or out of shape: it was
+ * there, and it will answer again if asked. Not the same as a mind that
+ * cannot be reached, which is waited for.
+ */
+export class Unshapely extends Error {
+  constructor(answer: string) {
+    super(`the mind's answer was out of shape: ${answer.slice(0, 120)}`)
+  }
+}
+
+/** Asks once. Throws if the mind is unreachable, or Unshapely if it does not answer in the shape asked for. */
 export async function ask<Answer>({
   instruction,
   input,
@@ -55,7 +66,13 @@ export async function ask<Answer>({
   const { choices } = (await response.json()) as {
     choices?: { message?: { content?: string } }[]
   }
-  return JSON.parse(choices?.[0]?.message?.content ?? 'null') as Answer
+  const content = choices?.[0]?.message?.content ?? 'null'
+  try {
+    return JSON.parse(content) as Answer
+  } catch {
+    // most often a mind that talked past the end of what it was allowed to say
+    throw new Unshapely(content)
+  }
 }
 
 /**

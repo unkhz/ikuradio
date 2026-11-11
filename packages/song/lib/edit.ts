@@ -1,4 +1,4 @@
-import { wait } from 'tools'
+import { Unshapely, wait } from 'tools'
 import { askVerse } from './mind.js'
 
 /** A line the throat can carry in two bars without losing its breath. */
@@ -85,6 +85,11 @@ export async function editVerse(
       }
       unsuitable++
     } catch (error) {
+      if (error instanceof Unshapely) {
+        // the mind is there, and only said too much; it is asked again at once
+        unsuitable++
+        continue
+      }
       if (unreachable % 10 === 0) {
         console.warn(`waiting for the mind (${unreachable + 1}): ${error}`)
       }

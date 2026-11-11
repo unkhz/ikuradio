@@ -6,7 +6,7 @@
 // pace, not the way a radio changes station.
 
 import { modes, type Character, type ModeName } from 'melody'
-import { ask } from 'tools'
+import { ask, Unshapely } from 'tools'
 
 const slowest = 56
 const fastest = 132
@@ -117,6 +117,8 @@ export async function hear(
       heard = { mode: answer.mode as ModeName, tempo }
       if (sound && !echoesMood(sound, descriptions)) return { ...heard, sound }
     } catch (error) {
+      // an answer out of shape is asked for again; a mind out of reach is not
+      if (error instanceof Unshapely) continue
       console.warn(`the mind did not hear the mood: ${error}`)
       return heard ?? previous
     }

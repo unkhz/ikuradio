@@ -1,4 +1,4 @@
-import { ask } from 'tools'
+import { ask, Unshapely } from 'tools'
 
 /** Four lines, no more, no fewer. The mind is told so in a schema, not only in words. */
 const verseSchema = {
@@ -14,7 +14,7 @@ const verseSchema = {
   required: ['lines'],
 }
 
-/** Asks the mind for a verse. Throws if it answers in a shape that is not a verse. */
+/** Asks the mind for a verse. Throws Unshapely if it answers in a shape that is not a verse. */
 export async function askVerse(
   instruction: string,
   verse: string,
@@ -31,9 +31,7 @@ export async function askVerse(
     !Array.isArray(lines) ||
     !lines.every((line) => typeof line === 'string')
   ) {
-    throw new Error(
-      `the mind answered something that is not a verse: ${JSON.stringify(answer)}`,
-    )
+    throw new Unshapely(JSON.stringify(answer))
   }
   return lines.map((line: string) => line.trim())
 }
