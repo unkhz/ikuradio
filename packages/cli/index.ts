@@ -14,8 +14,8 @@ import { getEnv } from 'tools'
 import { levelOf, paths, type Session } from 'archive'
 import { placements } from './lib/time.js'
 
-const { SERVER_HOST, SERVER_PORT } = getEnv()
-const radio = `http://${SERVER_HOST}:${SERVER_PORT}/`
+// the live Radio, wherever it is: RADIO_URL
+const { RADIO_URL: radio } = getEnv()
 
 type Airing = { song: string; session: string; archive: string; begins: number; seconds: number }
 
@@ -42,23 +42,40 @@ const shelf = await mkdtemp(join(tmpdir(), 'song-receiver-'))
 type Song = { airing: Airing; session?: Session; dir: string; ready: boolean; placed: boolean; cursor?: Cursor }
 const songs = new Map<string, Song>()
 
+/** How many Recordings are fetched at once. */
+const fetching = 6
+
 async function prepare(airing: Airing) {
   if (songs.has(airing.song)) return
   const song: Song = { airing, dir: join(shelf, airing.song), ready: false, placed: false }
   songs.set(airing.song, song)
   try {
     song.session = (await fetch(airing.session).then((r) => r.json())) as Session
-    await mkdir(song.dir, { recursive: true })
-    for (const id of new Set(song.session.recordings.map(({ id }) => id))) {
-      const response = await fetch(new URL(paths.recording(id), airing.archive))
-      if (!response.ok) throw new Error(`${id}: ${response.status}`)
-      await writeFile(join(song.dir, id), new Uint8Array(await response.arrayBuffer()))
-    }
-    song.ready = true
   } catch {
     // asked for again with the next Tactus
     songs.delete(airing.song)
+    return
   }
+  await mkdir(song.dir, { recursive: true })
+  const queue = [...new Set(song.session.recordings.map(({ id }) => id))]
+  // a few at a time, each asked for again, patiently, until it comes
+  const worker = async () => {
+    while (queue.length) {
+      const id = queue.shift()!
+      for (let attempt = 0; songs.get(airing.song) === song; attempt++) {
+        try {
+          const response = await fetch(new URL(paths.recording(id), airing.archive))
+          if (!response.ok) throw new Error(`${id}: ${response.status}`)
+          await writeFile(join(song.dir, id), new Uint8Array(await response.arrayBuffer()))
+          break
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, Math.min(10_000, 500 * 2 ** attempt)))
+        }
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: fetching }, worker))
+  song.ready = songs.get(airing.song) === song
 }
 
 /** Starts every Recording of a Song at its moment, or where it would be by now. */
