@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test'
 import type { Score } from 'melody'
 import { humanize, wrongness } from './humanize.js'
-import { gather, firstChoir, introduce } from './singers.js'
+import { gather, firstChoir, introduce, throatOf } from './singers.js'
 
 const score: Score = {
   bpm: 76,
@@ -74,5 +74,26 @@ describe('gather', () => {
 
   it('introduces itself', () => {
     expect(introduce(firstChoir)).toBe('female, with child and male')
+  })
+})
+
+describe('throatOf', () => {
+  it('gives every singer a throat near how Chimera sings by default', () => {
+    const random = wrongness('throats')
+    for (let i = 0; i < 200; i++) {
+      const { pressure, tension, breathiness } = throatOf(random)
+      expect(pressure).toBeGreaterThanOrEqual(7.5)
+      expect(pressure).toBeLessThanOrEqual(10.5)
+      expect(tension).toBeGreaterThanOrEqual(0.45)
+      expect(tension).toBeLessThanOrEqual(0.65)
+      expect(breathiness).toBeGreaterThanOrEqual(0.08)
+      expect(breathiness).toBeLessThanOrEqual(0.25)
+    }
+  })
+
+  it('gives each singer in a new choir a throat of their own', () => {
+    const choir = gather(3, wrongness('choir'))
+    expect(choir.every(({ throat }) => throat !== undefined)).toBe(true)
+    expect(new Set(choir.map(({ throat }) => JSON.stringify(throat))).size).toBe(3)
   })
 })

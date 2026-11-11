@@ -1,0 +1,26 @@
+diff --git a/crates/chimera-cli/src/render.rs b/crates/chimera-cli/src/render.rs
+index 9e105a2..2d34856 100644
+--- a/crates/chimera-cli/src/render.rs
++++ b/crates/chimera-cli/src/render.rs
+@@ -517,14 +517,19 @@ pub fn notes(ctx: &Ctx, a: &[String]) -> Result<(), String> {
+             syl.iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(" ")));
+     }
+     let t0 = j["t0"].as_f64().unwrap_or(0.3);
++    // the song's own: how hard each singer breathes, and how tightly their folds close
++    let pressure = j["pressure"].as_f64().unwrap_or(9.0);
++    let tension = j["tension"].as_f64().unwrap_or(0.55);
++    let breathiness = j["breathiness"].as_f64();
+     let beat = 60.0 / bpm;
+     let mut v = HumanVoice::new(FS, b, 2);
+     let first = raw.iter().find(|n| n[0] > 0.0).ok_or("no notes")?;
+     v.set_source(&SourcePatch {
+         f0: Some(midi_to_hz(first[0])),
+         voiced: Some(true),
+-        pressure: Some(9.0),
+-        tension: Some(0.55),
++        pressure: Some(pressure),
++        tension: Some(tension),
++        breathiness,
+         ..Default::default()
+     });
+     let (mut t, mut k, mut end) = (t0, 0usize, 0.0f64);

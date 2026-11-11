@@ -30,6 +30,20 @@ export type Take = Score & {
   t0: number
   /** Vibrato depth in cents on held vowels. */
   vibrato: number
+} & Partial<Throat>
+
+/**
+ * A throat of one's own: how hard a singer breathes, how tightly their folds
+ * close, and how much air escapes between them. Missing, the throat sings as
+ * Chimera does by default: 9, 0.55 and 0.15.
+ */
+export type Throat = {
+  /** Lung pressure, in cmH2O. */
+  pressure: number
+  /** 0 slack … 1 pressed. */
+  tension: number
+  /** 0 clear … 1 all breath. */
+  breathiness: number
 }
 
 /** One human take of a score. `name` decides which wrongness it gets. */

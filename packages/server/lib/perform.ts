@@ -80,10 +80,11 @@ export async function perform({
         harmony: voice.harmony,
         tune,
       })
-      const take = humanize(
-        score,
-        `${iteration}:${lineKey(part, index, line)}:${v}`,
-      )
+      const take = {
+        ...humanize(score, `${iteration}:${lineKey(part, index, line)}:${v}`),
+        // each singer breathes through a throat of their own
+        ...voice.throat,
+      }
       return { voice, score, take }
     })
 
