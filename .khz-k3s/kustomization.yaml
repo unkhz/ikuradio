@@ -1,0 +1,10 @@
+# The Radio in khz-k3s, carried by Argo CD from unkhz/apps.
+# The Radio workflow sets newTag to each image it builds.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: apps
+resources:
+  - radio.yaml
+images:
+  - name: ghcr.io/unkhz/song-that-never-ends/radio
+    newTag: latest

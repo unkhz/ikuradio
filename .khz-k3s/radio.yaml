@@ -1,0 +1,121 @@
+# The Radio at songthatneverends.khz.fi. It reads the Archive from the
+# songthatneverends bucket, and sends Receivers there for Sessions and
+# Recordings. The Studio stays on the dev box, writing to the same bucket.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: song-radio
+  labels:
+    app: song-radio
+spec:
+  replicas: 1
+  # One Radio keeps one Tactus; two would argue about the time
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: song-radio
+  template:
+    metadata:
+      labels:
+        app: song-radio
+    spec:
+      imagePullSecrets:
+        - name: github-registry-secret
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: radio
+          image: ghcr.io/unkhz/song-that-never-ends/radio:latest
+          env:
+            - name: SERVER_PORT
+              value: "3000"
+            - name: ARCHIVE_URL
+              value: https://hel1.your-objectstorage.com/songthatneverends/
+            - name: PUBLIC_ARCHIVE_URL
+              value: https://hel1.your-objectstorage.com/songthatneverends/
+          ports:
+            - name: http
+              containerPort: 3000
+          volumeMounts:
+            - name: memory
+              mountPath: /song/packages/radio/memory
+          resources:
+            requests:
+              cpu: 25m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          # /tactus answers whenever the Radio is on; /pulse is 503 while
+          # the Studio is silent, which is the song's trouble, not the pod's
+          readinessProbe:
+            httpGet:
+              path: /tactus
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /tactus
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 60
+            timeoutSeconds: 10
+      volumes:
+        - name: memory
+          persistentVolumeClaim:
+            claimName: song-radio-memory
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: song-radio-memory
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: longhorn
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: song-radio
+spec:
+  type: ClusterIP
+  selector:
+    app: song-radio
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: song-radio
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: "apps-cloudflare-only@kubernetescrd"
+spec:
+  tls:
+    - hosts:
+        - songthatneverends.khz.fi
+      secretName: song-radio-tls
+  rules:
+    - host: songthatneverends.khz.fi
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: song-radio
+                port:
+                  name: http

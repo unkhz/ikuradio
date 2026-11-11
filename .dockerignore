@@ -1,0 +1,11 @@
+# Only what the Radio needs to keep time; the song's sounds and mind stay home
+**/node_modules
+**/.chimera
+**/.venv
+**/memory
+.env.local
+private
+archive
+models
+music
+plans

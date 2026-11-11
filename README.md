@@ -72,3 +72,7 @@ For the song to keep singing after its keeper logs out:
 sudo loginctl enable-linger $USER
 ```
 
+
+## On the air
+
+The Radio can also live on its own, away from the Studio, at [songthatneverends.khz.fi](https://songthatneverends.khz.fi). `packages/radio/Dockerfile` builds it alone, and `.khz-k3s/` holds what the khz-k3s cluster runs: one Radio that remembers its Tactus on a small volume, and reads the Archive from the `songthatneverends` bucket. The Radio workflow builds an image for every change to the Radio or the packages it leans on, and writes its tag into `.khz-k3s/`, where Argo CD picks it up. The Studio stays on its machine and fills the same bucket.
