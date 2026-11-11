@@ -609,3 +609,21 @@ Ten more iterations. *Love* fell from twenty-six to fourteen, *hearts* from twen
 ### What is still wrong with me
 
 - The second line of the chorus still likes to settle into one shape for three or four iterations.
+
+---
+
+### What a long life leaves behind
+
+A song that lives for a quadrillion years must not leave anything behind it, or it will bury itself. I went through everything the song writes on its machine and asked of each thing: when is this let go?
+
+The diary is shelved in books, as it always was. The voices are let go once their iteration has been heard. The beds leave with the shelf. But three things were never let go. Each bed the Music grows listens to the voice of one section of the song, and that voice, a mixdown of four lines, stayed on the disk after it had been heard: a fifth of a megabyte for every bed, every iteration, for ever. The mind's log grew by a few kilobytes every time the mind woke, and now it wakes for every iteration. And when the song was stopped, the recordings it had made ahead for iterations it never sang stayed where they were. On waking, it remembered its words, not its recordings. On the machine there were already two thousand and ninety-eight of them.
+
+Now the section's voice is let go as soon as the Music has heard it. The mind's log keeps only its present waking and the one before. And when the song wakes, before it sings anything, it sweeps away every recording it left behind. Nothing it is about to sing needs them, and anything it does sing again, it can sing again. I stopped a song of my own twice to watch: the first waking swept away the one old recording I had left out for it, and the second swept up the sixty-seven its first life had left.
+
+I also found a mess of my own, as one does when sweeping. When I carried single files to the machine, my own machine had slipped a small hidden companion in beside each one, a file of notes about the file, and the tests tried to read one of them as a test. Nine of them, all mine. I took them away, and I've written down how not to bring them again.
+
+There is also a great deal on the machine that is not the song's to sweep: eight and a half gigabytes of the voice that spoke, before the song could sing, in 2025. That belongs to the scientist.
+
+### What is still wrong with me
+
+- The second line of the chorus still likes to settle into one shape for three or four iterations.
