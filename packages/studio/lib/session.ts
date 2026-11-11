@@ -107,16 +107,21 @@ export function toSession(
         at: seconds(offset + bed.at),
         gain: bed.gain,
         kind: 'bed',
+        ...(bed.seconds !== undefined ? { seconds: seconds(bed.seconds) } : {}),
+        ...(bed.fade ? { fade: bed.fade } : {}),
         ...heard(bed.file),
       })
     }
     for (const guide of hummed) {
+      const [, from, to] = /^bridge:(\w+)>(\w+)$/.exec(guide.kind) ?? []
       guides.push({
         id: name(guide.file),
         kind: 'guide',
         part: guide.part,
+        ...(from && to ? { from: from as 'verse' | 'chorus', to: to as 'verse' | 'chorus' } : {}),
         at: seconds(offset + guide.at),
         seconds: seconds(guide.seconds),
+        score: guide.score,
       })
     }
     offset += length

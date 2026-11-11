@@ -74,12 +74,12 @@ describe('the shelf', () => {
     const shelf = new Shelf()
     shelf.keep('a', 'verse', 'v0')
     shelf.keep('a', 'chorus', 'c0')
-    shelf.keep('a', 'bridge', 'b0')
+    shelf.keep('a', 'bridge:verse>chorus', 'b0')
     const grown = new Set<string>()
     for (let iteration = 1n; iteration < 40n; iteration++) {
-      const choices = (['verse', 'chorus', 'bridge'] as const).map((part) => ({
+      const choices = (['verse', 'chorus', 'bridge:verse>chorus'] as const).map((part) => ({
         part,
-        ...shelf.choose(iteration, 'a', part),
+        ...shelf.choose(iteration, 'a', part, ['verse', 'chorus', 'bridge:verse>chorus']),
       }))
       const growing = choices.filter(({ grow }) => grow)
       expect(growing).toHaveLength(1)
@@ -108,5 +108,25 @@ describe('the shelf', () => {
     ).flat()
     expect(departed).toEqual(['v0', 'v1'])
     expect(shelf.all).toHaveLength(shelfSize)
+  })
+})
+
+describe('sections, and the beds that lie under them', () => {
+  it('knows a bridge by the parts it leaves and leads to', () => {
+    const found = sections([
+      line('verse', 0, 0),
+      line('bridge', 1, 6.3),
+      line('chorus', 0, 12.6),
+      line('bridge', 3, 18.9),
+      line('verse', 0, 25.2),
+    ])
+    expect(found.map(({ kind }) => kind)).toEqual([
+      'verse',
+      'bridge:verse>chorus',
+      'chorus',
+      'bridge:chorus>verse',
+      'verse',
+    ])
+    expect(found[1]).toMatchObject({ from: 'verse', to: 'chorus' })
   })
 })

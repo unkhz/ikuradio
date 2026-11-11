@@ -7,8 +7,8 @@ import { createHash } from 'node:crypto'
 import { mkdir, rm, stat } from 'node:fs/promises'
 import { describe, type Mood } from 'mood'
 import { mixdown, type Placed } from 'vocals'
-import { accompany, musicDir, words } from './bed.js'
-import { sections, type Line } from './sections.js'
+import { accompany, musicDir, tail, words } from './bed.js'
+import { sections, type Kind, type Line } from './sections.js'
 import type { Shelf } from './shelf.js'
 
 /** How loud the bed lies under the voice. Under it, never over it. */
@@ -57,45 +57,47 @@ export async function underlay(
     shelf?: Shelf
     iteration?: bigint
     /**
-     * A guide hum for each part, the lead's slow reading of its melody: what
-     * the Music listens to, if given, instead of the sung voice.
+     * A guide hum for each kind of bed, the lead's slow reading of its
+     * melody: what the Music listens to, if given, instead of the sung voice.
      */
-    guides?: ReadonlyMap<Line['part'], string>
+    guides?: ReadonlyMap<Kind, string>
   } = {},
 ): Promise<{ beds: Placed[]; departed: string[]; grown: number }> {
   const all = sections(lines)
   const song = songOf(mood)
-  const beds = new Map<Line['part'], string>()
+  const beds = new Map<Kind, string>()
+  const kinds = [...new Set(all.map(({ kind }) => kind))]
   const departed: string[] = []
   let grown = 0
   for (const section of all) {
-    if (beds.has(section.part)) continue
-    if (!section.lines.some(({ file }) => file)) continue
-    const choice = shelf?.choose(iteration, song, section.part)
+    if (beds.has(section.kind)) continue
+    const guide = guides?.get(section.kind)
+    if (!guide && !section.lines.some(({ file }) => file)) continue
+    const choice = shelf?.choose(iteration, song, section.kind, kinds)
     if (choice && !choice.grow) {
-      beds.set(section.part, choice.bed)
+      beds.set(section.kind, choice.bed)
       continue
     }
     // the Music follows the guide if there is one: a melody moving too fast distracts it
-    const guide = guides?.get(section.part)
     const vocals = guide ?? (await voiceOf(section.lines, section.at))
     // a section's sung voice is only what the Music listens to; once heard, it is let go
     const bed = await accompany({
       vocals,
       mood: words(mood),
-      seconds: section.seconds,
+      // grown a little longer than its place, to fade under what follows
+      seconds: section.seconds + tail,
     }).finally(() => (guide ? undefined : rm(vocals, { force: true })))
-    beds.set(section.part, bed)
+    beds.set(section.kind, bed)
     grown++
-    if (shelf) departed.push(...shelf.keep(song, section.part, bed))
+    if (shelf) departed.push(...shelf.keep(song, section.kind, bed))
   }
   if (beds.size === 0) {
     console.warn(`no bed grew under ${describe(mood)}: nothing was sung`)
   }
   return {
-    beds: all.flatMap(({ part, at }) => {
-      const file = beds.get(part)
-      return file ? [{ file, at, gain: bedGain }] : []
+    beds: all.flatMap(({ kind, at, seconds }) => {
+      const file = beds.get(kind)
+      return file ? [{ file, at, gain: bedGain, seconds, fade: tail }] : []
     }),
     departed,
     grown,

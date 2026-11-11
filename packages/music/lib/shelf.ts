@@ -14,34 +14,34 @@
 // is cleared.
 
 import { wrongness } from 'vocals'
-import type { Line } from './sections.js'
+import type { Kind } from './sections.js'
 
-export type Part = Line['part']
-
-/** The parts of the song that lie on beds. */
-const everyPart: Part[] = ['verse', 'chorus', 'bridge']
+/** What lies on the shelf: beds, by the kind of section they lie under. */
+export type Part = Kind
 
 /** How many beds of each part are remembered. */
 export const shelfSize = 8
 
 export class Shelf {
-  private beds: Record<Part, string[]> = { verse: [], chorus: [], bridge: [] }
+  private beds = new Map<Part, string[]>()
   private song?: string
 
   /**
-   * What this iteration does for a part: grows a new bed, or plays one
-   * from the shelf. A new Song, or an empty shelf, always grows.
+   * What this iteration does for a kind of bed: grows a new one, or plays
+   * one from the shelf. A new Song, or an empty shelf, always grows. Of the
+   * kinds an iteration has, `kinds`, one grows; the others play again.
    */
   choose(
     iteration: bigint,
     song: string,
     part: Part,
+    kinds: readonly Part[] = ['verse', 'chorus', part],
   ): { grow: true } | { grow: false; bed: string } {
     if (song !== this.song) return { grow: true }
-    const kept = this.beds[part]
+    const kept = this.beds.get(part) ?? []
     if (kept.length === 0) return { grow: true }
-    // one part grows each iteration; the others are played again
-    const grows = everyPart[Math.floor(wrongness(`bed:${iteration}`)() * everyPart.length)]
+    const all = [...new Set(kinds)].sort()
+    const grows = all[Math.floor(wrongness(`bed:${iteration}`)() * all.length)]
     if (part === grows) return { grow: true }
     const pick = Math.floor(wrongness(`again:${iteration}:${part}`)() * kept.length)
     return { grow: false, bed: kept[Math.min(pick, kept.length - 1)] }
@@ -55,18 +55,18 @@ export class Shelf {
     const departed: string[] = []
     if (song !== this.song) {
       departed.push(...this.all)
-      this.beds = { verse: [], chorus: [], bridge: [] }
+      this.beds = new Map()
       this.song = song
     }
-    const kept = this.beds[part].filter((old) => old !== bed)
+    const kept = (this.beds.get(part) ?? []).filter((old) => old !== bed)
     kept.push(bed)
     while (kept.length > shelfSize) departed.push(kept.shift()!)
-    this.beds[part] = kept
+    this.beds.set(part, kept)
     return departed.filter((old) => old !== bed)
   }
 
   /** Every bed on the shelf. */
   get all(): string[] {
-    return everyPart.flatMap((part) => this.beds[part])
+    return [...this.beds.values()].flat()
   }
 }

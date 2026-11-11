@@ -47,9 +47,14 @@ export type SessionGuide = {
   kind: 'guide'
   /** The part it guided the Music for. */
   part: 'verse' | 'chorus' | 'bridge'
-  /** The section it was hummed against, from the Song's beginning. */
+  /** For a bridge: the part it leaves, and the part it leads to. */
+  from?: 'verse' | 'chorus'
+  to?: 'verse' | 'chorus'
+  /** The section it was hummed against, from the Song's beginning; it goes on through the tail after. */
   at: number
   seconds: number
+  /** What was hummed: its notes in MIDI and beats, at its tempo. */
+  score: { bpm: number; notes: [number, number][] }
 }
 
 export type SessionIteration = {
@@ -94,6 +99,12 @@ export type SessionRecording = {
   voice?: number
   /** How long its place in the Song lasts, if the Studio knows: a Receiver arriving later need not fetch it. */
   seconds?: number
+  /**
+   * For a Recording that goes on past its place: how many seconds of tail
+   * it has, to be faded out while what follows has already begun. Music
+   * that goes on is never cut off; music that stops has a silent tail.
+   */
+  fade?: number
   /**
    * How loud it sounds, measured from the Recording itself after it was
    * made (EBU R128): integrated loudness in LUFS, true peak in dBTP. A

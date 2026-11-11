@@ -85,7 +85,7 @@ for (const [i, one] of composed.entries()) {
   const beds = await underlay(lines, one.mood, {
     shelf,
     iteration: one.iteration,
-    guides: new Map(hummed.map(({ part, file }) => [part, file])),
+    guides: new Map(hummed.map(({ kind, file }) => [kind, file])),
   })
     .then(({ beds }) => beds)
     .catch((error) => {

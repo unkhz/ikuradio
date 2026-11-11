@@ -48,8 +48,25 @@ function made(iteration: bigint, began = 0n): Made {
   return {
     composed,
     lines,
-    beds: [{ file: `bed-${iteration}.m4a`, at: 0, gain: 0.45 }],
-    guides: [{ part: 'verse', at: 0, seconds: 36, file: `guide-${iteration}.m4a` }],
+    beds: [{ file: `bed-${iteration}.m4a`, at: 0, gain: 0.45, seconds: 36, fade: 3 }],
+    guides: [
+      {
+        kind: 'verse',
+        part: 'verse',
+        at: 0,
+        seconds: 36,
+        file: `guide-${iteration}.m4a`,
+        score: { bpm: 76, notes: [[57, 4], [59, 4]] },
+      },
+      {
+        kind: 'bridge:verse>chorus',
+        part: 'bridge',
+        at: 36,
+        seconds: 12,
+        file: `bridge-guide-${iteration}.m4a`,
+        score: { bpm: 76, notes: [[57, 8], [60, 8]] },
+      },
+    ],
   }
 }
 
@@ -111,8 +128,15 @@ describe('toSession', () => {
   it('keeps the guides apart, never among what is played', () => {
     expect(session.guides?.map(({ id, kind, at }) => [id, kind, at])).toEqual([
       ['id:guide-0.m4a', 'guide', 0],
+      ['id:bridge-guide-0.m4a', 'guide', 36],
       ['id:guide-1.m4a', 'guide', session.iterations[1].at],
+      ['id:bridge-guide-1.m4a', 'guide', session.iterations[1].at + 36],
     ])
+    const bridge = session.guides?.[1]
+    expect(bridge).toMatchObject({ part: 'bridge', from: 'verse', to: 'chorus' })
+    expect(bridge?.score.notes).toEqual([[57, 8], [60, 8]])
+    const bed = session.recordings.find(({ kind }) => kind === 'bed')
+    expect(bed).toMatchObject({ seconds: 36, fade: 3 })
     expect(session.recordings.some(({ id }) => id.includes('guide'))).toBe(false)
   })
 

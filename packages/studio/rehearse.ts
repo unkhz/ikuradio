@@ -106,7 +106,7 @@ if (!dry) {
       const { beds } = await underlay(lines, mood, {
         shelf,
         iteration,
-        guides: new Map(guides.map(({ part, file }) => [part, file])),
+        guides: new Map(guides.map(({ kind, file }) => [kind, file])),
       })
       if (beds.length === 0) continue
       await mixdown(beds, `${take}.music.m4a`)

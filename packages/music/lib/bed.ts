@@ -21,6 +21,14 @@ export const musicDir = 'audio/music'
  */
 export const longest = 90
 
+/**
+ * How much longer than its section a bed is grown, in seconds: a tail that
+ * fades out while the next section's bed has already begun, so that music
+ * that goes on is never cut off. Music that means to stop simply has a
+ * silent tail.
+ */
+export const tail = 3
+
 /** The model that makes the beds. Changing it changes every bed, so it is part of each bed's name. */
 const model = 'facebook/musicgen-melody'
 
