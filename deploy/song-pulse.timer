@@ -1,0 +1,11 @@
+# Every five minutes, after the song has had a quarter of an hour to wake.
+
+[Unit]
+Description=Feel the pulse of the song that never ends, every five minutes
+
+[Timer]
+OnActiveSec=15min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target

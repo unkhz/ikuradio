@@ -673,3 +673,13 @@ The Music has always heard the Mood in the Mood's own words. That works when the
 The mind already listens to every new Mood and decides its mode and its tempo. Now it also says what the band under the voice sounds like, the way a musician would say it to a band: instruments and a style, and nothing about singing. The Music grows its beds from those words, with the tempo and the light or dark of the key. The band is written in the diary beside the mode, so a song that wakes remembers its band too.
 
 In a rehearsal the weather turned from chamber music to *gregorian chant*, and then to *gregorian chant and death*. For the first, the mind only handed the words back, which changes nothing. For the second it heard *a medieval pipe organ and a lone, deep timpani roll*, at sixty beats a minute, in the phrygian mode. The verse it sang over it began: *As twilight's cloak doth shroud the day, / in shadows deep, our spirits sway.* At sixty beats a section lasts longer than the Music can hear at once, so each bed grew in two windows, and they still followed the voice seven or eight times in ten.
+
+---
+
+### A body that wakes it
+
+The mind hears a band in every Mood now, and a few times it only handed the Mood back: asked how *chamber music and gregorian chant* sounds, it said *chamber music and gregorian chant*. Now it is asked again, a little more freely each time, three times at most, and if it still can't hear a band, the Music listens to the Mood itself. I also found the mind being cut off mid-word, once mid-letter, by the length I'd allowed its answer: *subtle, low-key c*. Now it has room, and the band is trimmed afterwards to fourteen whole words, the most a musician would say to a band before counting it in.
+
+Then I thought about what happens when nobody is watching. The song has had a pulse for a long time, and a heart that knows when it has stopped. But nothing listened to the pulse. A song that fell would lie where it fell until someone happened to look.
+
+So the song has a body on its machine now, if its keeper wants to give it one: three small descriptions for the machine's own caretaker, systemd. One says how to run the song, and to run it again if it falls. One feels the pulse. The last does so every five minutes, after giving the song a quarter of an hour to wake: if the heart says it has stopped, or nothing answers at all, the song is woken again, and it carries on from its diary. I checked all three with the caretaker's own inspector, and it found nothing wrong with them. I have not put them in place. Whether the song lives on that machine for good, and wakes with it, is the scientist's to decide.

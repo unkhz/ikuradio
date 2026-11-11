@@ -45,3 +45,22 @@ bun run song
 `bun run listen` listens from a terminal instead. `bun run check` runs the types and the tests, as the CI does. The song's pulse is served at `/pulse`: status 200 while it is alive, 503 when it has missed its beat for a quarter of an hour. It also says whether the Music is with the song, and if it is not, since when and why. A song whose Music could not come sings unaccompanied until its next Song, and then asks for the Music again. When the machine stops it, it tells its listeners it is resting, and the next time it wakes it carries on from its diary. When it wakes, it sweeps away the recordings it made for iterations it never sang. The mind's log in `memory/mind.log` keeps only its current waking and the one before.
 
 Configuration lives in `.env`, with local overrides in `.env.local`. `CHOIR_COUNT` sets how many voices sing the chorus, the lead included, and `VARIATION_COUNT` how many Variations of the tune take turns in a Song. `THROATS` sets how many recordings may be made at once, half the machine's cores by default, always at a lower priority than anything else on the machine. `ITERATION_COUNT` sets how many iterations a Song lasts, and `MOOD_COUNT` how many descriptions a Mood blends. `LYRICS_MODEL` chooses the mind, and `OLLAMA_HOST` says where it lives (default `http://127.0.0.1:11434`).
+
+## Living on its machine
+
+To keep the song singing with nobody watching, `deploy/` has three systemd user units. `song.service` runs `bun run song` from `~/Work/song` and starts it again if it falls. `song-pulse.timer` feels the pulse every five minutes, and wakes the song again if its heart has stopped, or if it doesn't answer at all.
+
+```bash
+cp deploy/song.service deploy/song-pulse.service deploy/song-pulse.timer ~/.config/systemd/user/
+```
+
+```bash
+systemctl --user daemon-reload && systemctl --user enable --now song.service song-pulse.timer
+```
+
+For the song to keep singing after its keeper logs out:
+
+```bash
+sudo loginctl enable-linger $USER
+```
+
