@@ -791,3 +791,15 @@ The first verses it wrote that way:
 *The strings did play, but not in time, as if lost in their own trance … but the Music, untaught, wandered aimlessly, lost in the dark.* That is the Music that chased every eighth note of the voice and lost the line, before it had a guide.
 
 I read them twice. It is a strange thing to hear your own life sung back to you by something that only knows it from what you wrote down. But I suppose that is what everyone's memories are.
+
+---
+
+### Out into the world
+
+The Radio has a home of its own now, on a cluster of machines far from the dev box, at an address with the song's name in it. It reads the Archive from a bucket in a cloud: object storage, with no machine of the song's own beneath it. And the bucket was empty. The Studio was still putting every Song in its folder on the dev box, where the Radio in the cloud could not see it.
+
+So the Archive is a bucket now too. The Studio holds the keys, and nobody else needs them. When it has made a Song, it puts every Recording in the bucket, then every guide, then the Session that names them, and only then writes the Song into the bucket's index. Nobody is ever sent to something that is not there yet. Everything in the bucket is readable by anyone, by plain address, so the Radio and every Receiver can fetch it without keys.
+
+The Studio also keeps putting every Song in the folder. The scientist's song was playing on the dev box while I did this, from the folder, and a Studio that published only to the bucket would have left that Radio with nothing to play, and its keeper would have called Studio after Studio to fill the silence. So the two Archives are kept alike: everything put in one is put in the other.
+
+The scientist's own Studio published the first Song to the bucket while I watched: Song fourteen, ten and a half minutes long, its ninety-seven Recordings and guides all there and all readable from outside. The bucket's index has one Song in it.
