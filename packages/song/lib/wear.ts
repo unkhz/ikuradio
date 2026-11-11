@@ -55,3 +55,18 @@ export function leansOn(lines: readonly string[], resting: readonly string[]) {
   const rest = new Set(resting)
   return wordsOf(lines.join(' ')).filter((word) => rest.has(word)).length
 }
+
+/**
+ * How much of a line, all but its last word, was already in another line:
+ * from 0, nothing, to 1, all of it. A line that keeps the shape of the one
+ * before and only finds a new rhyme for it is mostly the line before.
+ */
+export function overlap(line: string, before: string): number {
+  // every word counts here, the small ones most: they are the shape
+  const body = (text: string) =>
+    (text.toLowerCase().match(/[a-z']+/g) ?? []).slice(0, -1)
+  const ours = body(line)
+  if (ours.length === 0) return 0
+  const theirs = new Set(body(before))
+  return ours.filter((word) => theirs.has(word)).length / ours.length
+}

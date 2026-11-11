@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { leansOn, worn } from './wear.js'
+import { leansOn, overlap, worn } from './wear.js'
 
 const verses = [
   "Beneath the moon's soft glow, our hearts entwine,\nIn love's embrace, a love divine.",
@@ -30,5 +30,17 @@ describe('leansOn', () => {
   it('counts the resting words a verse uses anyway', () => {
     expect(leansOn(['Our hearts, our love,', 'a love supreme'], ['love', 'hearts'])).toBe(3)
     expect(leansOn(['Radio static between stations'], ['love'])).toBe(0)
+  })
+})
+
+describe('overlap', () => {
+  it('hears a line that only found a new rhyme for the old shape', () => {
+    expect(
+      overlap("It's the rhythm that's ever in fate,", "It's the beat that's ever in heaven,"),
+    ).toBeGreaterThanOrEqual(0.5)
+  })
+
+  it('lets a new line through', () => {
+    expect(overlap('Infinite refrain, forever again,', 'Echoing on, in its divine line,')).toBe(0)
   })
 })

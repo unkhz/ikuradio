@@ -3,7 +3,7 @@ import { numberToWords } from './lib/numbers.js'
 import { editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
 import { known } from './lib/known.js'
-import { leansOn, worn } from './lib/wear.js'
+import { leansOn, overlap, worn } from './lib/wear.js'
 
 const verseInstruction = [
   'The input is a verse of a song that never ends.',
@@ -50,6 +50,12 @@ export function chorusOpening(iteration: bigint) {
 /** In words: a little longer than the line a human wrote, "Yes, it goes on and on, it's just begun". */
 const longestSecondLine = 12
 
+/** A second line sharing this much of the last one's words is the same line wearing a new rhyme. */
+const sameShape = 0.5
+
+/** What the mind is shown where the second line was. */
+const gap = '...'
+
 async function pickChorus(chorus: string, iteration: bigint) {
   const opening = chorusOpening(iteration)
   const age = lastWord(opening)
@@ -64,46 +70,45 @@ async function pickChorus(chorus: string, iteration: bigint) {
   const hint = offered?.words.length
     ? `End the second line with one of these words, which ${offered.loosely ? `share the vowel of "${age}"` : `rhyme with "${age}"`}: ${offered.words.join(', ')}.`
     : ''
-  const varied = await editVerse(
-    [opening, ...rest].join('\n'),
-    [
-      'The input is the chorus of a song that never ends.',
-      'Keep the first line exactly as it is.',
-      `Write a new second line whose last word rhymes with "${age}", the last word of the first line. Keep its spirit, that the song goes on and on, but say it in new words, not only with a new last word.`,
-      hint,
-      'Change a few words in the third and fourth lines but keep their meaning, their tone and their rhyme with each other.',
-      'Keep the last line ending with "the song that never ends".',
-    ]
-      .filter(Boolean)
-      .join(' '),
-    1,
-    {
+  const instruction = [
+    'The input is the chorus of a song that never ends. Its second line is missing.',
+    'Keep the first line exactly as it is.',
+    `Write the missing second line, whose last word rhymes with "${age}", the last word of the first line. Its spirit is that the song goes on and on; say it in your own words.`,
+    hint,
+    'Change a few words in the third and fourth lines but keep their meaning, their tone and their rhyme with each other.',
+    'Keep the last line ending with "the song that never ends".',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  // the old second line is not shown: what the mind cannot see, it cannot copy
+  const input = [opening, gap, ...rest.slice(1)].join('\n')
+  const sings = (second: string) =>
+    second.split(/\s+/).length <= longestSecondLine &&
+    second !== gap &&
+    (!dictionary ||
+      (dictionary.rhymes(lastWord(second), age, offered?.loosely) &&
+        (!plain || plain.has(lastWord(second)))))
+  // the second line must rhyme, must not grow, and should be new, not the
+  // old one's shape with a new rhyme pinned to it
+  let varied = await editVerse(input, instruction, 1, {
+    mayRepeat: true,
+    patience: 12,
+    accept: ([, second = '']) => sings(second) && overlap(second, before) < sameShape,
+  })
+  if (varied === input) {
+    // a line that rhymes is better than a line that is new
+    varied = await editVerse(input, instruction, 1, {
       mayRepeat: true,
-      patience: 12,
-      // the second line must rhyme, and must not grow: a small mind, asked
-      // for a rhyme, will otherwise just add one more word to the end
-      accept: ([, second = '']) =>
-        second.split(/\s+/).length <= longestSecondLine &&
-        // a new line, not the old one with its last word swapped
-        withoutLastWord(second) !== withoutLastWord(before) &&
-        (!dictionary ||
-          (dictionary.rhymes(lastWord(second), age, offered?.loosely) &&
-            (!plain || plain.has(lastWord(second))))),
-    },
-  )
+      patience: 8,
+      accept: ([, second = '']) => sings(second),
+    })
+  }
+  if (varied === input) {
+    // the mind could not find a rhyme at all; the old line is sung again
+    varied = [opening, ...rest].join('\n')
+  }
   const [, ...varying] = varied.split('\n')
   return [opening, ...varying].join('\n')
-}
-
-/** A line without its last word, as it sounds, to hear whether only the rhyme changed. */
-function withoutLastWord(line: string) {
-  return line
-    .toLowerCase()
-    .replace(/[^a-z' ]+/g, ' ')
-    .trim()
-    .split(/\s+/)
-    .slice(0, -1)
-    .join(' ')
 }
 
 function deIndent(part: string) {
