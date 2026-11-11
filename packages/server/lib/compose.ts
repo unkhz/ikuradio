@@ -117,7 +117,10 @@ export async function composer(
         : last.mood
       // pages written before there was a choir are sung by the first choir
       const remembered = last.choir ?? firstChoir.slice(0, choirSize)
-      choir = beginsSong ? gather(choirSize) : remembered
+      // the Mood names who leads and how the choir breathes, if the mind heard it
+      choir = beginsSong
+        ? gather(choirSize, Math.random, mood.character.voice)
+        : remembered
       // pages written before the tune could change remember the tune it was born with
       const known = last.tune ?? firstTune
       tune = beginsSong ? evolve(known, song) : known

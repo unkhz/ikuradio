@@ -38,7 +38,17 @@ export type Character = {
    * was asked, and then the Music hears the Mood's own words.
    */
   sound?: string
+  /**
+   * Who the mind heard leading the singing in this Mood, and how the choir
+   * sings: soft and breathy, plain, or pressed and clear. Missing in
+   * characters heard before the mind was asked, and then the choir is
+   * gathered by chance alone.
+   */
+  voice?: { lead: Singer; breath: Breath }
 }
+
+/** How a choir sings: soft and breathy, plain, or pressed and clear. */
+export type Breath = 'soft' | 'plain' | 'pressed'
 
 /** The character the song was born with: A minor, slow enough to be mournful, quick enough to keep walking. */
 export const firstCharacter: Character = { mode: 'aeolian', tempo: 76 }

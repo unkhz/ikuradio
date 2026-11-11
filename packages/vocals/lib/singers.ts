@@ -3,7 +3,7 @@
 // every line. The others only join in the chorus, the way a congregation
 // knows the refrain but not the verses.
 
-import type { Singer } from 'melody'
+import type { Breath, Singer } from 'melody'
 import type { Throat } from './humanize.js'
 
 export type Voice = {
@@ -40,8 +40,11 @@ export const firstChoir: Choir = [
  * clear, never far from how Chimera sings by default. The softer a throat
  * breathes, the more air escapes it.
  */
-export function throatOf(random: () => number): Throat {
-  const press = random()
+export function throatOf(random: () => number, breath?: Breath): Throat {
+  // the Mood's breath, if it has one, give or take a little; otherwise anywhere
+  const press = breath
+    ? Math.min(1, Math.max(0, centres[breath] + (random() - 0.5) * 0.3))
+    : random()
   const round = (n: number) => Math.round(n * 100) / 100
   return {
     pressure: round(7.5 + 3 * press),
@@ -50,17 +53,32 @@ export function throatOf(random: () => number): Throat {
   }
 }
 
-/** Gathers a choir of `size` voices for a new Song. `random` returns a number in [0, 1). */
+/** Where each breath sits between soft (0) and pressed (1). */
+const centres: Record<Breath, number> = { soft: 0.15, plain: 0.5, pressed: 0.85 }
+
+/**
+ * Gathers a choir of `size` voices for a new Song. `random` returns a number
+ * in [0, 1). If the Mood named a lead and a breath, the lead is that voice
+ * and the whole choir breathes that way; the others are gathered by chance.
+ */
 export function gather(
   size: number,
   random: () => number = Math.random,
+  guide?: { lead: Singer; breath: Breath },
 ): Choir {
   const pick = () => bodies[Math.floor(random() * bodies.length)]
   return [
-    { body: pick(), harmony: 0, gain: 1, throat: throatOf(random) },
-    ...parts
-      .slice(0, Math.max(0, size - 1))
-      .map((part) => ({ body: pick(), ...part, throat: throatOf(random) })),
+    {
+      body: guide?.lead ?? pick(),
+      harmony: 0,
+      gain: 1,
+      throat: throatOf(random, guide?.breath),
+    },
+    ...parts.slice(0, Math.max(0, size - 1)).map((part) => ({
+      body: pick(),
+      ...part,
+      throat: throatOf(random, guide?.breath),
+    })),
   ]
 }
 

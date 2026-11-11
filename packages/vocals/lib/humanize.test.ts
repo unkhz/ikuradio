@@ -97,3 +97,17 @@ describe('throatOf', () => {
     expect(new Set(choir.map(({ throat }) => JSON.stringify(throat))).size).toBe(3)
   })
 })
+
+describe('a choir the Mood guides', () => {
+  it('is led by the voice the Mood named, and breathes as it said', () => {
+    const random = wrongness('guided')
+    for (let i = 0; i < 50; i++) {
+      const soft = gather(3, random, { lead: 'child', breath: 'soft' })
+      expect(soft[0].body).toBe('child')
+      expect(soft.every(({ throat }) => throat!.pressure <= 8.4)).toBe(true)
+      const pressed = gather(3, random, { lead: 'male', breath: 'pressed' })
+      expect(pressed[0].body).toBe('male')
+      expect(pressed.every(({ throat }) => throat!.pressure >= 9.6)).toBe(true)
+    }
+  })
+})

@@ -5,7 +5,7 @@
 // at most a few beats per minute from where it was, the way a walker changes
 // pace, not the way a radio changes station.
 
-import { modes, type Character, type ModeName } from 'melody'
+import { modes, type Breath, type Character, type ModeName, type Singer } from 'melody'
 import { ask, Unshapely } from 'tools'
 
 const slowest = 56
@@ -20,8 +20,10 @@ const schema = {
     tempo: { type: 'integer', minimum: slowest, maximum: fastest },
     // room enough that the mind is never cut off mid-word; the band is trimmed after
     sound: { type: 'string', minLength: 8, maxLength: 240 },
+    lead: { type: 'string', enum: ['female', 'male', 'child'] },
+    breath: { type: 'string', enum: ['soft', 'plain', 'pressed'] },
   },
-  required: ['mode', 'tempo', 'sound'],
+  required: ['mode', 'tempo', 'sound', 'lead', 'breath'],
 }
 
 const instruction = `You are the ear of a song that never ends. You are given the mood of the song: a few words, blended. Decide how the song's melody should sound in that mood.
@@ -37,7 +39,9 @@ Choose a mode:
 
 Choose a tempo in beats per minute, between ${slowest} and ${fastest}.
 
-Describe the sound of the band that plays under the voice in that mood, in at most twelve words, the way a musician would say it to the band: its instruments and its style, for example "slow string quartet with a cello drone" or "dusty desert blues guitar and hand drums". The mood may be a feeling, a place or a picture; say how it sounds. Do not mention singing, a voice or words.`
+Describe the sound of the band that plays under the voice in that mood, in at most twelve words, the way a musician would say it to the band: its instruments and its style, for example "slow string quartet with a cello drone" or "dusty desert blues guitar and hand drums". The mood may be a feeling, a place or a picture; say how it sounds. Do not mention singing, a voice or words.
+
+Choose who leads the singing in that mood: a female, a male or a child voice. And choose how the choir sings: soft (breathy, close, intimate), plain, or pressed (strong, clear, carrying far).`
 
 /** Keeps a tempo within reach of the previous one, and within what a throat can sing. */
 export function settle(tempo: number, previous: number): number {
@@ -62,6 +66,17 @@ export function echoesMood(sound: string, descriptions: readonly string[]) {
   if (ours.length === 0) return true
   const theirs = new Set(descriptions.flatMap(meaningful))
   return ours.filter((w) => theirs.has(w)).length / ours.length >= 0.6
+}
+
+/** The voice the mind heard, if it named one the song has. */
+function voiceOf(
+  lead: string | undefined,
+  breath: string | undefined,
+): Character['voice'] {
+  const leads: Singer[] = ['female', 'male', 'child']
+  const breaths: Breath[] = ['soft', 'plain', 'pressed']
+  if (!leads.includes(lead as Singer) || !breaths.includes(breath as Breath)) return undefined
+  return { lead: lead as Singer, breath: breath as Breath }
 }
 
 /** How many words of a band the Music is told. */
@@ -102,7 +117,13 @@ export async function hear(
   let heard: Character | undefined
   for (let attempt = 0; attempt < tries; attempt++) {
     try {
-      const answer = await ask<{ mode?: string; tempo?: number; sound?: string }>({
+      const answer = await ask<{
+        mode?: string
+        tempo?: number
+        sound?: string
+        lead?: string
+        breath?: string
+      }>({
         instruction,
         input: descriptions.join(' + '),
         schema,
@@ -114,7 +135,8 @@ export async function hear(
         : previous.tempo
       const sound = typeof answer.sound === 'string' ? band(answer.sound) : ''
 ''
-      heard = { mode: answer.mode as ModeName, tempo }
+      const voice = voiceOf(answer.lead, answer.breath)
+      heard = { mode: answer.mode as ModeName, tempo, ...(voice ? { voice } : {}) }
       if (sound && !echoesMood(sound, descriptions)) return { ...heard, sound }
     } catch (error) {
       // an answer out of shape is asked for again; a mind out of reach is not
