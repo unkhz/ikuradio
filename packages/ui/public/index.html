@@ -2,32 +2,54 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--meta-->
     <title>Song that never ends</title>
+    <!--/meta-->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/receiver.svg" type="image/svg+xml" />
     <style>
       :root {
-        --night: #000;
+        --night: #05070b;
         --words: #fff;
         --chorus: #cfe6ff;
-        --weather: #8a8a8a;
-        --edge: #6b6b6b;
+        --weather: #8a9a94;
+        --edge: #5d6b66;
+        --glow: #ffb347;
+        --hull: #0b1016;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--night);
       }
       body {
-        margin: 0;
-        padding: 1em 2em 4em;
-        background: var(--night);
+        display: flex;
+        flex-direction: column;
         color: var(--words);
         font-family: ui-monospace, Menlo, Consolas, monospace;
         font-size: clamp(1.1rem, 3.2vw, 2rem);
         line-height: 1.5;
       }
+      /* only the Song being received: its newest words at the bottom, the
+         older ones fading out of the top, never scrolled to */
       #output {
-        margin: 0;
-        padding: 0;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        overflow: hidden;
+        padding: 3.5rem 2em 0.5em;
+        -webkit-mask-image: linear-gradient(transparent, #000 35%);
+        mask-image: linear-gradient(transparent, #000 35%);
       }
       p {
         margin: 0 0 1em;
         overflow-wrap: anywhere;
+        flex-shrink: 0;
       }
       /* the verses walk; the chorus is the anchor, set a little apart */
       p.chorus {
@@ -45,139 +67,249 @@
         color: var(--weather);
         font-style: italic;
       }
+      /* the edge of the page: the Song, and the iteration as a side note */
       #status {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        padding: 0.6em 2em;
-        background: linear-gradient(transparent, var(--night) 40%);
+        flex-shrink: 0;
+        padding: 0.5rem 2rem calc(0.6rem + env(safe-area-inset-bottom));
         color: var(--edge);
-        font-size: 0.55em;
+        font-size: 0.8rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      #status .age {
+      #status .song {
         color: var(--chorus);
       }
+      #status .side {
+        font-size: 0.85em;
+        opacity: 0.8;
+      }
       #controls {
+        position: fixed;
+        inset: 0;
         display: flex;
+        flex-direction: column;
         justify-content: center;
         align-items: center;
-        min-height: 80vh;
+        gap: 1.2em;
+      }
+      #controls img {
+        width: min(40vw, 14rem);
+        transform: rotate(-9deg);
       }
       #play {
-        margin: auto;
-        padding: 0.5em 1em;
+        padding: 0.4em 1em;
         font: inherit;
-        font-size: 1.5em;
-        background: #adf;
+        font-size: 0.9em;
+        background: var(--glow);
         color: #000;
         border: 0 none;
         border-radius: 0.5em;
         cursor: pointer;
       }
-      #look-back {
+      /* the tuning knob, at the corner: it opens what the receiver knows */
+      #knob {
         position: fixed;
-        right: 1em;
-        bottom: 0.4em;
-        z-index: 2;
-        font: inherit;
-        font-size: 0.55em;
-        color: var(--edge);
-        background: var(--night);
-        border: 1px solid #333;
-        border-radius: 0.4em;
-        padding: 0.2em 0.6em;
-        cursor: pointer;
-      }
-      #look-back:hover,
-      #look-back:focus-visible {
-        color: var(--words);
-      }
-      #status {
-        padding-right: 8em;
-      }
-      /* the diary: every iteration ever sung, newest first */
-      #diary {
-        position: fixed;
-        inset: 0;
+        top: 0.7rem;
+        right: 0.9rem;
         z-index: 3;
-        overflow-y: auto;
-        background: rgba(0, 0, 0, 0.96);
-        padding: 1em 2em 3em;
-        font-size: 0.7em;
-      }
-      #diary[hidden] {
-        display: none;
-      }
-      body.looking-back {
-        overflow: hidden;
-      }
-      #diary h2 {
-        font-size: 1em;
-        font-weight: normal;
-        color: var(--chorus);
-        margin: 2em 0 0.3em;
-        border-top: 1px solid #222;
-        padding-top: 1em;
-      }
-      #diary h3 {
-        font-size: 0.75em;
-        font-weight: normal;
-        opacity: 0.6;
-        margin: 1.5em 0 0.5em;
-      }
-      #diary header {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
+        width: 2.6rem;
+        height: 2.6rem;
+        padding: 0;
+        background: none;
+        border: 0 none;
+        cursor: pointer;
         color: var(--weather);
       }
-      #diary button {
+      #knob svg {
+        width: 100%;
+        height: 100%;
+        transition: transform 0.4s;
+      }
+      #knob[aria-expanded='true'] svg {
+        transform: rotate(70deg);
+      }
+      #knob:hover,
+      #knob:focus-visible {
+        color: var(--glow);
+      }
+      #panel {
+        position: fixed;
+        top: 3.6rem;
+        right: 0.9rem;
+        z-index: 3;
+        width: min(24rem, calc(100vw - 1.8rem));
+        box-sizing: border-box;
+        padding: 1rem 1.1rem;
+        background: var(--hull);
+        border: 1px solid #1f2a33;
+        border-radius: 0.8rem 0.2rem 0.8rem 0.8rem;
+        font-size: 0.8rem;
+        color: var(--weather);
+      }
+      #panel[hidden] {
+        display: none;
+      }
+      #details {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.25rem 0.9rem;
+        margin: 0 0 1rem;
+      }
+      #details dt {
+        color: var(--edge);
+      }
+      #details dd {
+        margin: 0;
+        color: var(--chorus);
+        overflow-wrap: anywhere;
+      }
+      #panel nav {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+      }
+      #panel nav a,
+      #panel nav button,
+      #songs button {
         font: inherit;
         color: var(--words);
         background: none;
-        border: 1px solid #333;
-        border-radius: 0.4em;
-        padding: 0.2em 0.8em;
+        border: 1px solid #2a3640;
+        border-radius: 0.4rem;
+        padding: 0.25rem 0.8rem;
         cursor: pointer;
+        text-decoration: none;
       }
-      #older {
-        margin-top: 2em;
+      #panel nav a[hidden] {
+        display: none;
+      }
+      /* every Song received, newest first, opened over the receiver */
+      #songs {
+        width: min(40rem, calc(100vw - 2rem));
+        max-height: min(40rem, calc(100dvh - 4rem));
+        box-sizing: border-box;
+        padding: 1rem 1.2rem;
+        background: var(--hull);
+        color: var(--weather);
+        border: 1px solid #1f2a33;
+        border-radius: 0.8rem;
+        font-size: 0.8rem;
+        overflow: hidden;
+      }
+      #songs::backdrop {
+        background: rgba(0, 0, 0, 0.75);
+      }
+      #songs header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.6rem;
+      }
+      /* a window onto the Songs: never scrolled, only moved, a slice at a time */
+      #song-window {
+        position: relative;
+        overflow: hidden;
+        touch-action: none;
+        overscroll-behavior: contain;
+      }
+      #song-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      #song-list li {
+        height: 52px;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+      #song-list li.unknown {
+        color: var(--edge);
+        padding: 0.5rem 0.2rem;
+        border-top: 1px solid #161f27;
+      }
+      #song-list a {
+        display: block;
+        height: 100%;
+        box-sizing: border-box;
+        padding: 0.5rem 2.6rem 0.5rem 0.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        border-top: 1px solid #161f27;
+        color: var(--chorus);
+        text-decoration: none;
+      }
+      #song-list a:hover,
+      #song-list a:focus-visible {
+        background: #111921;
+      }
+      #song-list .mood {
+        display: block;
+        color: var(--weather);
+        font-size: 0.9em;
+      }
+      #songs .pager {
+        position: absolute;
+        right: 0.2rem;
+        width: 2rem;
+        height: 2rem;
+        padding: 0;
+        background: var(--hull);
+        opacity: 0.85;
+      }
+      #songs .pager:disabled {
+        opacity: 0.25;
+        cursor: default;
+      }
+      #page-up {
+        top: 0.3rem;
+      }
+      #page-down {
+        bottom: 0.3rem;
       }
       @media (max-width: 600px) {
-        body {
-          padding: 1em 1em 4em;
+        #output {
+          padding: 3.5rem 1em 0.5em;
         }
         #status {
-          padding: 0.6em 7em 0.6em 1em;
-        }
-        #diary {
-          padding: 1em 1em 3em;
+          padding: 0.5rem 1rem calc(0.6rem + env(safe-area-inset-bottom));
         }
       }
     </style>
   </head>
   <body>
     <div id="output"></div>
-    <div id="controls">
-      <button id="play">Play</button>
-    </div>
     <div id="status"></div>
-    <button id="look-back" type="button">look back</button>
-    <section id="diary" hidden aria-label="The diary">
-      <header>
-        <span>looking back: every Song sung to the end, newest first</span>
-        <button id="close-diary" type="button" aria-label="Close the diary">
-          ×
-        </button>
-      </header>
-      <div id="pages"></div>
-      <button id="older" type="button" hidden>older</button>
+    <div id="controls">
+      <img src="/receiver.svg" alt="A lost receiver, a little broken" />
+      <button id="play" type="button">switch on</button>
+    </div>
+    <button id="knob" type="button" aria-label="What the receiver knows" aria-expanded="false" aria-controls="panel">
+      <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <path d="M6 30 L3 32 M5 20 L2 20 M8 10 L5 8 M17 5 L16 2 M27 6 L29 3" />
+        <circle cx="21" cy="22" r="11" />
+        <path d="M21 22 L28 15" stroke="var(--glow)" />
+      </svg>
+    </button>
+    <section id="panel" hidden aria-label="What the receiver knows">
+      <dl id="details"></dl>
+      <nav>
+        <button id="open-songs" type="button">songs</button>
+        <a id="live" href="/" hidden>tune to live</a>
+      </nav>
     </section>
-    <a id="end"></a>
-    <script src="./index.js"></script>
+    <dialog id="songs" aria-label="Songs received">
+      <header>
+        <span>every Song received, newest first</span>
+        <button id="close-songs" type="button" aria-label="Close">×</button>
+      </header>
+      <div id="song-window">
+        <ul id="song-list"></ul>
+        <button id="page-up" class="pager" type="button" aria-label="Newer Songs">▲</button>
+        <button id="page-down" class="pager" type="button" aria-label="Older Songs">▼</button>
+      </div>
+    </dialog>
+    <script src="/index.js"></script>
   </body>
 </html>

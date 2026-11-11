@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- A sketch of the receiver: lost, from another world, a little broken. To be replaced. -->
+  <g fill="none" stroke="#9fb8a8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M118 62 L131 27 L141 33 L151 11" stroke-width="4"/>
+    <path d="M80 60 Q72 42 54 47" stroke-width="3"/>
+    <path d="M62 164 L56 186 M104 172 L106 194 M146 160 L152 172" stroke-width="4"/>
+  </g>
+  <circle cx="151" cy="11" r="7" fill="#ffb347"/>
+  <circle cx="54" cy="47" r="3" fill="#596b63"/>
+  <path d="M38 80 Q46 56 98 58 Q162 54 171 94 Q182 150 128 168 Q70 184 40 150 Q22 118 38 80Z" fill="#253342" stroke="#9fb8a8" stroke-width="4"/>
+  <g fill="#0d141b">
+    <circle cx="58" cy="96" r="4"/><circle cx="72" cy="92" r="3"/><circle cx="85" cy="99" r="4.5"/>
+    <circle cx="55" cy="112" r="3.5"/><circle cx="70" cy="108" r="5"/><circle cx="86" cy="116" r="3"/>
+    <circle cx="60" cy="128" r="4.5"/><circle cx="76" cy="126" r="3"/><circle cx="70" cy="142" r="3.5"/>
+  </g>
+  <circle cx="128" cy="100" r="19" fill="#0d141b" stroke="#9fb8a8" stroke-width="3"/>
+  <path d="M128 100 L141 89" stroke="#ffb347" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="145" cy="138" r="8" fill="#0d141b" stroke="#9fb8a8" stroke-width="2.5"/>
+  <circle cx="145" cy="138" r="2.5" fill="#c77dff"/>
+  <circle cx="118" cy="142" r="5" fill="#0d141b" stroke="#596b63" stroke-width="2"/>
+  <path d="M100 60 L108 76 L101 84 L110 96" fill="none" stroke="#0d141b" stroke-width="2.5"/>
+  <path d="M42 148 Q26 172 46 178 Q62 182 54 196" fill="none" stroke="#c77dff" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

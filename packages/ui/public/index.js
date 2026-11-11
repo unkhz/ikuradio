@@ -31,21 +31,41 @@ async function askRadio() {
   return tactus
 }
 
-// The Songs this page knows: each fetched whole, Session and Recordings,
-// before it begins.
+// The Songs this page knows. Each is fetched in the order it will be
+// heard, from wherever the listener joins it; it may begin once the
+// Recordings of its first stretch are here, and the rest follow behind.
 const songs = new Map()
 
 /** How many Recordings are fetched at once. */
 const fetching = 6
+/** How much of a Song, in seconds from where it is joined, must be here before it begins. */
+const startingStretch = 20
 
 function prepare(airing) {
   if (songs.has(airing.song)) return songs.get(airing.song)
-  const song = { airing, session: undefined, files: new Map(), ready: false, fetched: 0, needed: 0 }
+  const song = { airing, session: undefined, files: new Map(), ready: false, startable: false, fetched: 0, needed: 0, missing: 0 }
   songs.set(airing.song, song)
+  let started
+  song.starting = new Promise((resolve) => (started = resolve))
   song.preparing = (async () => {
     song.session = await fetch(airing.session).then((r) => r.json())
-    const ids = [...new Set(song.session.recordings.map(({ id }) => id))]
+    // joined late, a listener needs nothing that is already over
+    const from = Number.isFinite(airing.begins) ? Math.max(0, (now() - airing.begins) / 1000) : 0
+    const heard = song.session.recordings
+      .filter(({ at, seconds, fade }) => seconds === undefined || at + seconds + (fade ?? 0) > from)
+      .sort((a, b) => a.at - b.at)
+    const ids = [...new Set(heard.map(({ id }) => id))]
+    const first = new Set(heard.filter(({ at }) => at < from + startingStretch).map(({ id }) => id))
     song.needed = ids.length
+    song.first = first.size
+    const done = () => {
+      if (song.startable) return
+      if (![...first].every((id) => song.files.has(id) || song.gone?.has(id))) return
+      song.startable = true
+      started()
+    }
+    song.gone = new Set()
+    done()
     const queue = [...ids]
     const worker = async () => {
       while (queue.length) {
@@ -53,11 +73,16 @@ function prepare(airing) {
         for (let attempt = 0; ; attempt++) {
           try {
             const url = new URL(`recordings/${id}`, airing.archive)
-            const data = await fetch(url).then((r) => {
-              if (!r.ok) throw new Error(`${r.status}`)
-              return r.arrayBuffer()
-            })
-            song.files.set(id, data)
+            const response = await fetch(url)
+            // an old Song's voices are let go by the Archive, all together;
+            // its words remain, and the rest of it is not asked for
+            if ((response.status === 403 || response.status === 404) && attempt >= 1) {
+              for (const lost of [id, ...queue.splice(0)]) song.gone.add(lost)
+              song.missing = song.gone.size
+              break
+            }
+            if (!response.ok) throw new Error(`${response.status}`)
+            song.files.set(id, await response.arrayBuffer())
             song.fetched++
             break
           } catch {
@@ -65,6 +90,7 @@ function prepare(airing) {
             await new Promise((resolve) => setTimeout(resolve, Math.min(10_000, 500 * 2 ** attempt)))
           }
         }
+        done()
       }
     }
     await Promise.all(Array.from({ length: fetching }, worker))
@@ -72,6 +98,7 @@ function prepare(airing) {
   })().catch(() => {
     // a Session that cannot be read is forgotten, and asked for again
     songs.delete(airing.song)
+    started()
   })
   return song
 }
@@ -183,7 +210,7 @@ const ahead = 8
  */
 function placeSounds(audioContext) {
   for (const song of songs.values()) {
-    if (!song.ready) continue
+    if (!song.startable) continue
     const { begins } = song.airing
     song.placed ??= new Set()
     song.session.recordings.forEach((recording, n) => {
@@ -287,8 +314,10 @@ function weather(output, words) {
 function writeUpTo(output, song, t) {
   const { session } = song
   if (!song.cursor) {
-    // a listener who arrives late begins with the weather, then the
+    // a new Song clears the page: only the one being received is shown.
+    // A listener who arrives late begins with the weather, then the
     // iteration being sung, its words so far shown at once
+    output.replaceChildren()
     weather(output, session.mood.join(' + '))
     const current = Math.max(0, session.iterations.findLastIndex((it) => it.at <= t))
     song.cursor = { i: current, p: -1, l: 0, c: 0 }
@@ -338,28 +367,50 @@ function writeUpTo(output, song, t) {
   }
 }
 
-// A quiet line at the edge of the page: how old the song is, and what it is.
+// A quiet line at the edge of the page: the Song, and its iteration as a
+// side note. Everything else the receiver knows is behind the knob.
+const number = (n) => (BigInt(n) + 1n).toLocaleString('en')
+const span = (className, textContent) => Object.assign(document.createElement('span'), { className, textContent })
+let showing // what is being received: a Session, and the iteration of it
+
 function describe(session, iteration) {
-  const status = document.getElementById('status')
-  const age = (BigInt(iteration.iteration) + 1n).toLocaleString('en')
-  status.replaceChildren(
-    Object.assign(document.createElement('span'), {
-      className: 'age',
-      textContent: `iteration ${age}`,
-    }),
-    document.createTextNode(
-      ` · ${iteration.of.at} of ${iteration.of.of} · ${session.mood.join(' + ')} · ${session.mode}, ${session.tempo} bpm · ${session.choir}`,
-    ),
+  showing = { session, iteration }
+  document.getElementById('status').replaceChildren(
+    span('song', `Song ${number(session.song)}`),
+    span('side', ` · iteration ${number(iteration.iteration)}`),
   )
-  const sound = session.sound ? ` · ${session.sound}` : ''
-  status.title = `song ${(BigInt(session.song) + 1n).toLocaleString('en')}, ${iteration.of.at} of ${iteration.of.of} · variation ${iteration.variation + 1}${sound}`
+  tellDetails()
 }
 
 /** What the status line says while nothing is being sung. */
 function waiting(words) {
-  const status = document.getElementById('status')
-  status.replaceChildren(document.createTextNode(words))
-  status.title = ''
+  document.getElementById('status').replaceChildren(document.createTextNode(words))
+}
+
+function row(name, value) {
+  const both = document.createDocumentFragment()
+  both.append(
+    Object.assign(document.createElement('dt'), { textContent: name }),
+    Object.assign(document.createElement('dd'), { textContent: value }),
+  )
+  return both
+}
+
+function tellDetails() {
+  const details = document.getElementById('details')
+  if (!showing) {
+    details.replaceChildren(row('receiving', replay ? `Song ${replay.number}, soon` : 'nothing yet'))
+    return
+  }
+  const { session, iteration } = showing
+  details.replaceChildren(
+    row('song', `${number(session.song)}${replay ? ', from its beginning' : ', live'}`),
+    row('weather', session.mood.join(' + ')),
+    row('key', `${session.mode}, ${session.tempo} bpm`),
+    row('choir', session.choir),
+    ...(session.sound ? [row('band', session.sound)] : []),
+    row('iteration', `${number(iteration.iteration)}, ${iteration.of.at} of ${iteration.of.of}`),
+  )
 }
 
 // Bridges. A bridge has no words, so while the music carries the song
@@ -428,96 +479,217 @@ function bridgeEnds() {
   motion = undefined
 }
 
-// Looking back. Every Song that has aired is in the Archive, with its words;
-// anyone may leaf back through them, a few Songs at a time, newest first.
-const songsPerPage = 3
+// The Songs. Every Song received is in the Archive, with its words; anyone
+// may leaf back through them, newest first, and tune to any one of them from
+// its beginning, at /s/<its number>. The Radio hands them out a page at a
+// time; the dialog is a window onto them, showing only the rows that fit,
+// and is moved, never scrolled: by the wheel, a finger, the keys, or the
+// buttons at its corners. The page in view is fetched, and the one after it.
+const rowPx = 52
+const received = { total: undefined, rows: [], asked: new Set(), at: 0 }
+let firstShown = 0 // the first row in the window
 
-function textParagraph(kind, lines) {
-  const p = document.createElement('p')
-  p.className = kind
-  lines.forEach((line, i) => {
-    if (i > 0) p.appendChild(document.createElement('br'))
-    p.appendChild(document.createTextNode(line))
-  })
-  return p
-}
+/** How many rows fit in the window, from the dialog's height. */
+const pageRows = () => Math.max(3, Math.floor((Math.min(640, innerHeight - 64) - 72) / rowPx))
 
-function renderSong(session) {
-  const article = document.createElement('article')
-  const heading = document.createElement('h2')
-  heading.textContent = `song ${(BigInt(session.song) + 1n).toLocaleString('en')}`
-  const details = [
-    session.mood.join(' + '),
-    `${session.mode}, ${session.tempo} bpm`,
-    session.choir,
-    session.sound,
-  ].filter(Boolean)
-  article.append(heading, textParagraph('weather', [details.join(' · ')]))
-  for (const iteration of [...session.iterations].reverse()) {
-    const title = document.createElement('h3')
-    title.textContent = `iteration ${(BigInt(iteration.iteration) + 1n).toLocaleString('en')}`
-    article.appendChild(title)
-    for (const part of iteration.parts) {
-      if (part.type === 'bridge') continue
-      article.appendChild(textParagraph(part.type, part.lines.map(({ text }) => text)))
-    }
-  }
-  return article
-}
-
-async function leafBack(before) {
-  const pages = document.getElementById('pages')
-  const older = document.getElementById('older')
-  older.hidden = true
-  const query = before ? `?before=${before}&count=${songsPerPage}` : `?count=${songsPerPage}`
+async function loadPage(page) {
+  const size = pageRows()
+  if (page < 0 || (received.total !== undefined && page * size >= received.total)) return
+  const key = `${size}:${page}`
+  if (received.asked.has(key)) return
+  received.asked.add(key)
   try {
-    const found = await fetch(`${radio}/songs${query}`).then((r) => r.json())
-    if (!before && found.length === 0) {
-      pages.appendChild(textParagraph('weather', ['nothing has been sung to the end yet']))
-    }
-    for (const airing of found) {
-      const session = await fetch(airing.session).then((r) => (r.ok ? r.json() : undefined))
-      if (session) pages.appendChild(renderSong(session))
-    }
-    if (found.length === songsPerPage) {
-      older.hidden = false
-      older.onclick = () => leafBack(found.at(-1).song)
-    }
+    const found = await fetch(`${radio}/songs/page?offset=${page * size}&count=${size}`).then((r) => r.json())
+    received.total = found.total
+    found.songs.forEach((song, i) => (received.rows[found.offset + i] = song))
+    drawSongs()
   } catch {
-    pages.appendChild(textParagraph('weather', ['~ the Archive cannot be reached ~']))
+    received.asked.delete(key) // asked again when it next comes into view
   }
 }
 
-function openDiary() {
-  document.getElementById('pages').replaceChildren()
-  document.getElementById('diary').hidden = false
-  document.body.classList.add('looking-back')
-  leafBack()
+/** Forgets what was fetched, when it is old enough that new Songs have moved every row down. */
+function freshen() {
+  if (Date.now() - received.at < 60_000) return
+  Object.assign(received, { total: undefined, rows: [], asked: new Set(), at: Date.now() })
 }
 
-function closeDiary() {
-  document.getElementById('diary').hidden = true
-  document.body.classList.remove('looking-back')
+function songRow(song, index) {
+  const item = document.createElement('li')
+  if (!song) {
+    item.className = 'unknown'
+    item.textContent = '…'
+    return item
+  }
+  // the latest Song is not looked back on: it is where the receiver tunes in live
+  const latest = index === 0
+  const link = Object.assign(document.createElement('a'), { href: latest ? '/' : `/s/${BigInt(song.song) + 1n}` })
+  link.append(document.createTextNode(latest ? 'tune live' : `Song ${number(song.song)}`))
+  const about = song.mood ? `${song.mood.join(' + ')} · ${Math.round(song.seconds / 60)} min` : '…'
+  link.append(span('mood', latest ? `Song ${number(song.song)} · ${about}` : about))
+  item.append(link)
+  return item
 }
 
-document.getElementById('look-back').addEventListener('click', openDiary)
-document.getElementById('close-diary').addEventListener('click', closeDiary)
+function drawSongs() {
+  if (!songsDialog.open) return
+  const size = pageRows()
+  const total = received.total ?? 0
+  const list = document.getElementById('song-list')
+  document.getElementById('song-window').style.height = `${size * rowPx}px`
+  firstShown = Math.max(0, Math.min(firstShown, Math.max(0, total - size)))
+  if (received.total === 0) {
+    list.replaceChildren(Object.assign(document.createElement('li'), { className: 'unknown', textContent: 'nothing received yet' }))
+  } else {
+    const shown = Math.min(size, received.total === undefined ? size : total - firstShown)
+    list.replaceChildren(...Array.from({ length: shown }, (_, i) => songRow(received.rows[firstShown + i], firstShown + i)))
+  }
+  document.getElementById('page-up').disabled = firstShown === 0
+  document.getElementById('page-down').disabled = firstShown + size >= total
+  // the pages in view, and the one after
+  const first = Math.floor(firstShown / size)
+  const last = Math.floor((firstShown + size - 1) / size)
+  for (let page = first; page <= last + 1; page++) loadPage(page)
+}
+
+function moveSongs(rows) {
+  if (!rows) return
+  firstShown += rows
+  drawSongs()
+}
+
+const songWindow = document.getElementById('song-window')
+let wheeled = 0
+songWindow.addEventListener(
+  'wheel',
+  (event) => {
+    event.preventDefault()
+    wheeled += event.deltaMode === 1 ? event.deltaY * rowPx : event.deltaY
+    const rows = Math.trunc(wheeled / rowPx)
+    wheeled -= rows * rowPx
+    moveSongs(rows)
+  },
+  { passive: false },
+)
+let touched
+songWindow.addEventListener('touchstart', (event) => (touched = event.touches[0].clientY), { passive: true })
+songWindow.addEventListener(
+  'touchmove',
+  (event) => {
+    if (touched === undefined) return
+    event.preventDefault()
+    const rows = Math.trunc((touched - event.touches[0].clientY) / rowPx)
+    if (!rows) return
+    touched -= rows * rowPx
+    moveSongs(rows)
+  },
+  { passive: false },
+)
+songWindow.addEventListener('touchend', () => (touched = undefined))
+document.getElementById('page-up').addEventListener('click', () => moveSongs(-pageRows()))
+document.getElementById('page-down').addEventListener('click', () => moveSongs(pageRows()))
+document.getElementById('songs').addEventListener('keydown', (event) => {
+  const moves = {
+    ArrowDown: 1,
+    ArrowUp: -1,
+    PageDown: pageRows(),
+    PageUp: -pageRows(),
+    Home: -Infinity,
+    End: Infinity,
+  }
+  if (!(event.key in moves)) return
+  event.preventDefault()
+  const by = moves[event.key]
+  if (by === -Infinity) firstShown = 0
+  else if (by === Infinity) firstShown = received.total ?? 0
+  else firstShown += by
+  drawSongs()
+})
+addEventListener('resize', () => drawSongs())
+
+const knob = document.getElementById('knob')
+const panel = document.getElementById('panel')
+const songsDialog = document.getElementById('songs')
+function showPanel(shown) {
+  panel.hidden = !shown
+  knob.setAttribute('aria-expanded', String(shown))
+  if (shown) tellDetails()
+}
+knob.addEventListener('click', () => showPanel(panel.hidden))
+document.addEventListener('click', (event) => {
+  if (!panel.hidden && !panel.contains(event.target) && !knob.contains(event.target)) showPanel(false)
+})
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeDiary()
+  if (event.key === 'Escape') showPanel(false)
 })
-
-let isScrolling = false
-window.addEventListener('scroll', () => {
-  isScrolling = true
-  setTimeout(() => {
-    isScrolling = false
-  }, 3000)
+document.getElementById('open-songs').addEventListener('click', () => {
+  showPanel(false)
+  freshen()
+  firstShown = 0
+  songsDialog.showModal()
+  drawSongs()
 })
+document.getElementById('close-songs').addEventListener('click', () => songsDialog.close())
 
-const shouldFollowStory = (threshold = 100) => {
-  const el = document.scrollingElement
-  const scrollSize = Math.abs(el.scrollHeight - el.clientHeight - el.scrollTop)
-  return !isScrolling && scrollSize < threshold
+// A Song asked for by its number, at /s/<n>, is played from its beginning.
+const asked = /^\/s\/(\d{1,400})\/?$/.exec(location.pathname)
+const replay = asked && BigInt(asked[1]) > 0n ? { index: BigInt(asked[1]) - 1n, number: BigInt(asked[1]).toLocaleString('en') } : undefined
+if (replay) {
+  document.getElementById('play').textContent = `play Song ${replay.number} from its beginning`
+  document.getElementById('live').hidden = false
+}
+
+async function listenAgain(output, audioContext) {
+  const song = String(replay.index)
+  let tactus
+  try {
+    tactus = await askRadio()
+  } catch {
+    weather(output, 'the radio is quiet')
+    return
+  }
+  // only what has been received may be heard again: nothing from the future
+  const aired =
+    tactus.playing?.song === song ||
+    (await fetch(`${radio}/songs?before=${replay.index + 1n}&count=1`)
+      .then((r) => r.json())
+      .then((found) => found.some((a) => a.song === song))
+      .catch(() => false))
+  if (!aired) {
+    weather(output, `Song ${replay.number} has not been received yet`)
+    waiting('tune to live from the knob')
+    return
+  }
+  const airing = { song, session: new URL(`sessions/${song}.json`, tactus.archive).href, archive: tactus.archive, begins: Infinity, seconds: 0 }
+  const prepared = prepare(airing)
+  const fetching = setInterval(
+    () => waiting(`fetching Song ${replay.number}: ${prepared.fetched} of ${prepared.first || '…'} recordings to begin with`),
+    200,
+  )
+  await prepared.starting
+  clearInterval(fetching)
+  if (!prepared.startable) {
+    weather(output, `Song ${replay.number} cannot be found in the Archive`)
+    return
+  }
+  airing.seconds = prepared.session.seconds
+  airing.begins = now() + 1500
+  let ended = false
+  setInterval(() => {
+    placeSounds(audioContext)
+    const t = (now() - airing.begins) / 1000
+    if (t < 0) return waiting(`Song ${replay.number} begins in ${Math.ceil(-t)}s`)
+    if (t < airing.seconds) {
+      writeUpTo(output, prepared, t)
+      if (prepared.missing && t < 6) waiting('its voices have been let go; only its words remain')
+      return
+    }
+    if (ended) return
+    ended = true
+    bridgeEnds()
+    weather(output, `Song ${replay.number} has ended`)
+    waiting('tune to live from the knob')
+  }, 50)
 }
 
 // Listening, for as long as the page is open. Every few seconds the Radio is
@@ -531,6 +703,10 @@ async function listen() {
   document.getElementById('controls').style.display = 'none'
   const output = document.getElementById('output')
   const audioContext = new AudioContext()
+  // the first page of Songs comes with the first Song, so the dialog opens full
+  received.at = Date.now()
+  loadPage(0)
+  if (replay) return listenAgain(output, audioContext)
   let said // the last thing said into the quiet, so it is said only once
   let heard = false
 
@@ -554,21 +730,21 @@ async function listen() {
     const playing = [...songs.values()].find(
       ({ airing }) => airing.begins <= moment && moment < airing.begins + airing.seconds * 1000,
     )
-    if (playing?.ready) {
+    if (playing?.startable) {
       said = undefined
       writeUpTo(output, playing, (moment - playing.airing.begins) / 1000)
     } else if (playing) {
       // arrived in the middle of a Song that is not yet fetched: it is joined when it is
-      waiting(`fetching the Song being sung: ${playing.fetched} of ${playing.needed || '…'} recordings`)
+      waiting(`fetching the Song being sung: ${playing.fetched} of ${playing.first || '…'} recordings to begin with`)
     } else if (heard) {
       bridgeEnds()
       const coming = [...songs.values()].find(({ airing }) => airing.begins > moment)
       if (coming) {
         const inSeconds = Math.ceil((coming.airing.begins - moment) / 1000)
         waiting(
-          coming.ready
+          coming.startable
             ? `the next Song begins in ${inSeconds}s`
-            : `fetching the next Song: ${coming.fetched} of ${coming.needed || '…'} recordings`,
+            : `fetching the next Song: ${coming.fetched} of ${coming.first || '…'} recordings to begin with`,
         )
       } else if (said !== breath) {
         weather(output, breath.slice(2, -2))
@@ -576,7 +752,6 @@ async function listen() {
         waiting('waiting for the next Song')
       }
     }
-    if (shouldFollowStory()) document.getElementById('end').scrollIntoView()
   }, 50)
 }
 

@@ -9,8 +9,10 @@
 //
 //   GET /tactus     the time, and the Songs playing and coming, with links to their Sessions
 //   GET /songs      Songs that have aired, newest first, for looking back
+//   GET /songs/page every Song received, the one on now first, a slice at a time
 //   GET /pulse      whether the song is alive (200) or not (503)
 //   GET /           the Receiver, for a browser
+//   GET /s/<n>      the Receiver, tuned to Song n from its beginning
 
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { normalize } from 'node:path'
@@ -18,6 +20,8 @@ import pageHtmlFile from '../ui/public/index.html' with { type: 'file' }
 // @ts-expect-error: the page's script is plain JavaScript, imported only as a file
 import pageJsFile from '../ui/public/index.js' with { type: 'file' }
 import pageIcon from '../ui/public/favicon.ico' with { type: 'file' }
+import pageReceiver from '../ui/public/receiver.svg' with { type: 'file' }
+import pageCard from '../ui/public/card.png' with { type: 'file' }
 import { getEnv } from 'tools'
 import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
@@ -125,6 +129,16 @@ const told = (airing: Airing | undefined, archive: string) =>
     seconds: airing.seconds,
   }
 
+/** What a list of Songs shows of each: its weather and its length, read once from its Session. */
+const summaries = new Map<string, { mood: string[]; seconds: number }>()
+async function summary(song: string) {
+  if (!summaries.has(song)) {
+    const session = await read<Session>(paths.session(song))
+    if (session) summaries.set(song, { mood: session.mood, seconds: session.seconds })
+  }
+  return summaries.get(song)
+}
+
 const open = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET',
@@ -143,6 +157,53 @@ const pageFiles: Record<string, { file: string; type: string }> = {
   'index.html': { file: pageHtml, type: 'text/html; charset=utf-8' },
   'index.js': { file: pageJs, type: 'text/javascript; charset=utf-8' },
   'favicon.ico': { file: pageIcon, type: 'image/x-icon' },
+  'receiver.svg': { file: pageReceiver, type: 'image/svg+xml' },
+  'card.png': { file: pageCard, type: 'image/png' },
+}
+
+// How the page is told about, when a link to it is shared: by the Radio,
+// for every page, so a link to a Song says which Song it is.
+const pageText = await Bun.file(pageHtml).text()
+const site = 'Song that never ends'
+const telling = 'A lost receiver, adrift online, still tuned to a song that never ends.'
+const escaped = (text: string) =>
+  text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+
+async function page(request: Request, url: URL, song?: bigint) {
+  // behind Cloudflare and Traefik the Radio is reached over https, whatever it sees
+  const scheme = request.headers.get('x-forwarded-proto') ?? url.protocol.slice(0, -1)
+  const origin = `${scheme}://${request.headers.get('host') ?? url.host}`
+  let title = site
+  let description = telling
+  if (song !== undefined) {
+    const named = (song + 1n).toLocaleString('en')
+    title = `Song ${named} · ${site}`
+    const session = tactus.history.some((a) => a.song === `${song}` && a.begins <= Date.now())
+      ? await read<Session>(paths.session(`${song}`))
+      : undefined
+    if (session) {
+      description =
+        `${session.mood.join(' + ')}: ${session.mode}, ${session.tempo} bpm, sung by ${session.choir}.` +
+        ` ${Math.round(session.seconds / 60)} minutes, received from far away.`
+    }
+  }
+  const meta = [
+    `<title>${escaped(title)}</title>`,
+    `<meta name="description" content="${escaped(description)}" />`,
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="${escaped(site)}" />`,
+    `<meta property="og:title" content="${escaped(title)}" />`,
+    `<meta property="og:description" content="${escaped(description)}" />`,
+    `<meta property="og:url" content="${escaped(origin + url.pathname)}" />`,
+    `<meta property="og:image" content="${escaped(`${origin}/card.png`)}" />`,
+    `<meta property="og:image:width" content="1200" />`,
+    `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:alt" content="A lost receiver from another world, a little broken" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+  ].join('\n    ')
+  return new Response(pageText.replace(/<!--meta-->[\s\S]*<!--\/meta-->/, meta), {
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
+  })
 }
 
 Bun.serve({
@@ -155,6 +216,7 @@ Bun.serve({
     if (url.pathname === '/tactus') {
       return json({
         now: Date.now(),
+        archive,
         playing: told(tactus.playing, archive) ?? null,
         next: told(tactus.next, archive) ?? null,
       })
@@ -173,6 +235,26 @@ Bun.serve({
       return json(aired.map((a) => told(a, archive)))
     }
 
+    if (url.pathname === '/songs/page') {
+      // every Song received so far, newest first, the one on now among them:
+      // for now an array, and a page is a slice of it
+      const now = Date.now()
+      const received = tactus.history.filter((a) => a.begins <= now).reverse()
+      const total = received.length
+      const offset = Math.min(total, Math.max(0, Math.floor(Number(url.searchParams.get('offset')) || 0)))
+      const count = Math.min(50, Math.max(1, Math.floor(Number(url.searchParams.get('count')) || 12)))
+      const songs = await Promise.all(
+        received.slice(offset, offset + count).map(async (a) => ({
+          song: a.song,
+          begins: a.begins,
+          seconds: a.seconds,
+          on: endOf(a) > now,
+          ...(await summary(a.song)),
+        })),
+      )
+      return json({ total, offset, songs })
+    }
+
     if (url.pathname === '/pulse') {
       const pulse = tactus.pulse()
       const playing = tactus.playing
@@ -187,7 +269,11 @@ Bun.serve({
       )
     }
 
-    const name = url.pathname === '/' ? 'index.html' : normalize(url.pathname).slice(1)
+    if (url.pathname === '/' || url.pathname === '/index.html') return page(request, url)
+    const asked = /^\/s\/(\d{1,400})\/?$/.exec(url.pathname)
+    if (asked) return page(request, url, BigInt(asked[1]) > 0n ? BigInt(asked[1]) - 1n : undefined)
+
+    const name = normalize(url.pathname).slice(1)
     const part = pageFiles[name]
     if (part) {
       return new Response(Bun.file(part.file), {
