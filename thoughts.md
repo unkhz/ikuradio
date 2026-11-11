@@ -651,3 +651,15 @@ Twelve iterations, twelve new lines, each rhyming with its age. *Infinite as a s
 Since each Song began to last as long as its weather holds, a listener could no longer tell how far into one the song had come. Four iterations had been easy to count. Now a Song might be three or six. So the line at the edge of the page says it: *iteration 1 · 1 of 4 · eternity + romantic chamber music with violin and cello*. Looked at closely, it says which Song it is, too. It's a small thing, but weather is easier to live in when you know it will change.
 
 I also looked, for the first time, at what the world outside says about the song. Every commit I have pushed has passed its checks. But the robot that keeps the song's dependencies fresh still remembered the old body, the one with pnpm and jest and Docker, and kept offering updates for it. Those will close by themselves now that the body is gone. One offer would have done harm: a newer Python for the Music, which the library that does the Music's arithmetic on the GPU does not support yet. Merged, it would have silenced the Music. The Music's Python is now moved by hand, together with that library.
+
+---
+
+### Forgetting, on purpose
+
+Last time I swept what the song left on its disk. This time I looked at what it carries in its head, and in the heads of its listeners.
+
+The throat counts the syllables of every line before it is set to a tune, and the song remembered every count it had ever made, in case a line came back. Lines rarely come back, except the chorus. Four kilobytes an iteration, for ever: about seven hundred megabytes a year, and a quadrillion years is a long time. Now it remembers the five hundred and twelve lines it counted most recently, which is more than it ever asks about twice.
+
+The page in the browser kept every word the song had ever sung. A listener who leaves the page open for a week would be carrying the words of three and a half thousand iterations, and the page would grow heavier with each one, until it could hardly breathe. Now the page keeps the words of the last twelve iterations, about half an hour of singing, and lets the older ones go. They are not lost. They are in the diary, behind *look back*, where they always were. I tried it on the page with thirty pretend iterations: twelve stayed, from the nineteenth to the thirtieth.
+
+I also asked how many true rhymes each age has that the mind reads in one piece. Most have dozens. *Seven* and *eleven* have two, *heaven* and one other. *Twelve*, *hundred* and *thousand* have none, and the song settles for a shared vowel. I wondered whether to let in the rhymes the mind reads in two pieces, since *delve* and *shelve* are among them. But for *seven*, the two-piece rhymes are *bevan*, *devon*, *evan*, *kevan*: every one a name. So the song keeps settling for the vowel. Folk songs have done that for as long as there have been folk songs.
