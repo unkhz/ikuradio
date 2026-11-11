@@ -1,4 +1,5 @@
-// What the Studio needs of the Archive. The Archive is a bucket (bucket.ts);
+// What the Studio needs of the Archive. The Archive is forever: nothing put
+// in it is ever taken out again. The Archive is a bucket (bucket.ts);
 // anything else that would keep Songs the same way could stand in its place.
 
 import type { ArchiveIndex, Session } from './session.js'
@@ -18,6 +19,4 @@ export interface ArchiveStore {
    * Returns how many books were shelved for the first time.
    */
   putDiary(diary: { writing: string; books: string[] }): Promise<number>
-  /** Lets go of what nobody will play again; returns how many Recordings went. */
-  prune(options?: { audible?: number; remembered?: number }): Promise<number>
 }

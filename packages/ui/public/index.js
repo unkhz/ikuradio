@@ -74,7 +74,7 @@ function prepare(airing) {
           try {
             const url = new URL(`recordings/${id}`, airing.archive)
             const response = await fetch(url)
-            // an old Song's voices are let go by the Archive, all together;
+            // a Song whose voices were lost before the Archive kept everything;
             // its words remain, and the rest of it is not asked for
             if ((response.status === 403 || response.status === 404) && attempt >= 1) {
               for (const lost of [id, ...queue.splice(0)]) song.gone.add(lost)
@@ -681,7 +681,7 @@ async function listenAgain(output, audioContext) {
     if (t < 0) return waiting(`Song ${replay.number} begins in ${Math.ceil(-t)}s`)
     if (t < airing.seconds) {
       writeUpTo(output, prepared, t)
-      if (prepared.missing && t < 6) waiting('its voices have been let go; only its words remain')
+      if (prepared.missing && t < 6) waiting('its voices were lost; only its words remain')
       return
     }
     if (ended) return

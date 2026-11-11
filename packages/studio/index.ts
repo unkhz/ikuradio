@@ -152,7 +152,6 @@ const session = toSession(
   (file) => loudness.get(file),
 )
 await store.putSession(session)
-const pruned = await store.prune()
 // and the diary, so the song's memory is not on this machine only
 const shelved = await store
   .putDiary({ writing: diary.file, books: (await diary.books()).map(({ file }) => file) })
@@ -165,7 +164,7 @@ if (shelved !== undefined) {
 }
 console.log(
   `Song ${BigInt(session.song) + 1n} is in the Archive: ${(session.seconds / 60).toFixed(1)} minutes,` +
-    ` ${files.size} recordings${pruned ? `, ${pruned} let go` : ''}, made in ${seconds(started)}`,
+    ` ${files.size} recordings, made in ${seconds(started)}`,
 )
 
 // the Studio's own copies are not needed any more

@@ -79,10 +79,9 @@ async function playable(song: string): Promise<Session | undefined> {
 
 /**
  * Which Song to announce next: the first after the last one aired, if the
- * Archive can still play it. The Archive keeps the words of many Songs for
- * looking back, but the Recordings of only the newest few; a Radio that has
- * fallen far behind, or has forgotten what it aired, takes up the oldest of
- * the Songs that can still be heard, and lets the others go.
+ * Archive can play it. The Archive keeps everything, but a few early Songs
+ * lost their voices before it did; a Radio that comes to one of those takes
+ * up the oldest of the later Songs that can still be heard.
  */
 async function nextPlayable(songs: readonly string[]) {
   const later = tactus.candidates(songs)

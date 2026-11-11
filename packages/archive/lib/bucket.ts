@@ -112,41 +112,4 @@ export class BucketStore implements ArchiveStore {
     await this.put(paths.diary, (await open.exists()) ? open : '', 'application/x-ndjson')
     return shelved
   }
-
-  /** Every key under `prefix`, a page at a time. */
-  private async keys(prefix: string): Promise<string[]> {
-    const keys: string[] = []
-    let startAfter: string | undefined
-    for (;;) {
-      const page = await this.client.list({ prefix, maxKeys: 1000, ...(startAfter ? { startAfter } : {}) })
-      const found = (page.contents ?? []).map(({ key }) => key)
-      keys.push(...found)
-      if (!page.isTruncated || found.length === 0) return keys
-      startAfter = found.at(-1)
-    }
-  }
-
-  async prune({ audible = 4, remembered = 2000 } = {}) {
-    const { songs } = await this.index()
-    const kept = songs.slice(-remembered)
-    const gone = songs.slice(0, songs.length - kept.length)
-    for (const song of gone) await this.client.delete(paths.session(song))
-    if (gone.length) {
-      await this.put(paths.index, JSON.stringify({ songs: kept }), 'application/json')
-    }
-    const needed = new Set<string>()
-    for (const song of kept.slice(-audible)) {
-      const session = await this.session(song)
-      for (const { id } of [...(session?.recordings ?? []), ...(session?.guides ?? [])]) {
-        needed.add(paths.recording(id))
-      }
-    }
-    let deleted = 0
-    for (const key of await this.keys('recordings/')) {
-      if (needed.has(key)) continue
-      await this.client.delete(key)
-      deleted++
-    }
-    return deleted
-  }
 }
