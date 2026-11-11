@@ -147,6 +147,23 @@ function begin(audioContext, iteration, since = 0) {
 
 // The words. Every part of the song is its own paragraph, and the words are
 // only ever added as text: whatever the mind writes is shown, never obeyed.
+//
+// The page keeps the words of the last few iterations only. A listener may
+// leave it open for weeks, and a page that kept every word ever sung would
+// grow heavy and slow; what has gone is in the diary, a click away.
+const keptIterations = 12
+function turnPage(output) {
+  const turn = document.createElement('span')
+  turn.className = 'turn'
+  turn.hidden = true
+  output.appendChild(turn)
+  const turns = output.querySelectorAll('.turn')
+  if (turns.length <= keptIterations) return
+  const oldest = turns[turns.length - keptIterations]
+  while (output.firstChild && output.firstChild !== oldest) {
+    output.removeChild(output.firstChild)
+  }
+}
 let el
 function switchStoryElement(parent, kind = 'verse') {
   el = document.createElement('p')
@@ -316,6 +333,7 @@ async function read(output, audioContext) {
     } else if (utterance.startsWith('begin:')) {
       const [iteration, since] = utterance.slice(6).split('@')
       begin(audioContext, iteration, Number(since ?? 0))
+      turnPage(output)
     } else if (utterance.startsWith('play:')) {
       const audioSrc = utterance.slice(5)
       if (isSnapshot) return

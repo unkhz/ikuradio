@@ -53,7 +53,15 @@ async function withScratch<T>(work: (dir: string) => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Lines already counted, the most recent last. A song that lives for ever
+ * cannot remember every line it has ever counted, so it remembers enough
+ * for a few iterations, which is all it ever asks about twice.
+ */
 const counted = new Map<string, number>()
+export const countsRemembered = 512
+/** How many lines are remembered now. */
+export const countsHeld = () => counted.size
 
 /** Reads how many syllables the throat hears in a refusal like "12 syllables for 1 notes: …". */
 export function parseRefusal(message: string): number | undefined {
@@ -70,7 +78,12 @@ export function parseRefusal(message: string): number | undefined {
 export async function countSyllables(line: string): Promise<number> {
   const lyrics = prepareLyrics(line)
   const known = counted.get(lyrics)
-  if (known !== undefined) return known
+  if (known !== undefined) {
+    // asked again: it moves to the end, among the most recent
+    counted.delete(lyrics)
+    counted.set(lyrics, known)
+    return known
+  }
 
   const count = await withScratch(async (dir) => {
     const input = join(dir, 'probe.json')
@@ -88,6 +101,11 @@ export async function countSyllables(line: string): Promise<number> {
     }
   })
   counted.set(lyrics, count)
+  // the oldest are let go
+  for (const old of counted.keys()) {
+    if (counted.size <= countsRemembered) break
+    counted.delete(old)
+  }
   return count
 }
 
