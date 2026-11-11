@@ -8,7 +8,7 @@
 #   sudo loginctl enable-linger $USER    # to beat with nobody logged in
 
 [Unit]
-Description=The Heart of the song that never ends
+Description=The Heart of ikuradio
 After=network-online.target
 
 [Service]

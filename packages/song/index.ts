@@ -60,7 +60,7 @@ async function pickVariation(
  * in the song that must always be exactly right: how long it has been going.
  */
 export function chorusOpening(iteration: bigint) {
-  return `This is the song, iteration ${numberToWords(iteration + 1n)},`
+  return `This is the song, iteration ${numberToWords(iteration)},`
 }
 
 /**

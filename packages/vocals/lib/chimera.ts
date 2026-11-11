@@ -45,7 +45,7 @@ async function exists(file: string) {
 }
 
 async function withScratch<T>(work: (dir: string) => Promise<T>): Promise<T> {
-  const dir = await mkdtemp(join(tmpdir(), 'song-that-never-ends-'))
+  const dir = await mkdtemp(join(tmpdir(), 'ikuradio-'))
   try {
     return await work(dir)
   } finally {

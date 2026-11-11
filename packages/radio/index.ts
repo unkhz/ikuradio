@@ -111,7 +111,7 @@ async function listen() {
   await appendFile(memory, `${JSON.stringify(airing)}\n`)
   const late = Math.max(0, airing.begins - Date.now()) / 1000
   console.log(
-    `Song ${BigInt(song) + 1n} announced: ${(session.seconds / 60).toFixed(1)} minutes, begins in ${late.toFixed(0)}s`,
+    `Song ${song} announced: ${(session.seconds / 60).toFixed(1)} minutes, begins in ${late.toFixed(0)}s`,
   )
 }
 
@@ -163,7 +163,7 @@ const pageFiles: Record<string, { file: string; type: string }> = {
 // How the page is told about, when a link to it is shared: by the Radio,
 // for every page, so a link to a Song says which Song it is.
 const pageText = await Bun.file(pageHtml).text()
-const site = 'Song that never ends'
+const site = 'ikuradio'
 const telling = 'A lost receiver, adrift online, still tuned to a song that never ends.'
 const escaped = (text: string) =>
   text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
@@ -175,7 +175,7 @@ async function page(request: Request, url: URL, song?: bigint) {
   let title = site
   let description = telling
   if (song !== undefined) {
-    const named = (song + 1n).toLocaleString('en')
+    const named = song.toLocaleString('en')
     title = `Song ${named} · ${site}`
     const session = tactus.history.some((a) => a.song === `${song}` && a.begins <= Date.now())
       ? await read<Session>(paths.session(`${song}`))
@@ -260,7 +260,7 @@ Bun.serve({
       return json(
         {
           ...pulse,
-          song: playing ? `${BigInt(playing.song) + 1n}` : undefined,
+          song: playing ? playing.song : undefined,
           beganAgo: playing ? Math.round((Date.now() - playing.begins) / 1000) : undefined,
           lasts: playing ? Math.round(playing.seconds) : undefined,
         },
@@ -270,7 +270,7 @@ Bun.serve({
 
     if (url.pathname === '/' || url.pathname === '/index.html') return page(request, url)
     const asked = /^\/s\/(\d{1,400})\/?$/.exec(url.pathname)
-    if (asked) return page(request, url, BigInt(asked[1]) > 0n ? BigInt(asked[1]) - 1n : undefined)
+    if (asked) return page(request, url, BigInt(asked[1]) > 0n ? BigInt(asked[1]) : undefined)
 
     const name = normalize(url.pathname).slice(1)
     const part = pageFiles[name]

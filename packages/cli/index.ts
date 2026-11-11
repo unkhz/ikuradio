@@ -120,7 +120,7 @@ function writeUpTo(song: Song, t: number) {
     if (!iteration) return
     if (cursor.p < 0) {
       if (t < iteration.at) return
-      process.title = `Song that never ends, iteration ${BigInt(iteration.iteration) + 1n}`
+      process.title = `ikuradio, iteration ${BigInt(iteration.iteration)}`
       cursor.p = 0
       cursor.l = 0
       cursor.c = -1

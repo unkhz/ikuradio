@@ -1,16 +1,18 @@
-# Song That Never Ends
+# ikuradio
 
-A song that writes its next verse while singing the current one, and will keep doing it for as long as anything is left to run it. It counts its iterations in its chorus. The numbers are spelled out up to nonillions, and after a decillion it starts over, because nobody agrees what comes next.
+*Iku* is Finnish for eternal: ikuradio is an eternal radio, a lost receiver adrift online, playing a song that never ends.
+
+The song writes its next verse while singing the current one, and will keep doing it for as long as anything is left to run it. It counts its iterations in its chorus. The numbers are spelled out up to nonillions, and after a decillion it starts over, because nobody agrees what comes next.
 
 It is meant to run for a quadrillion years, and to be started properly only once. It is already singing.
 
 ## Where it can be heard
 
-The song is live, quietly, at its alpha address:
+ikuradio is live, quietly, at its own address:
 
-**[songthatneverends.khz.fi](https://songthatneverends.khz.fi)**
+**[ikurad.io](https://ikurad.io)**
 
-Nobody has been told about it, and it is not finished. It will never be finished, but one day it will be public, at an address of its own, and this one will be forgotten. Until then, this is where it sings. There is no other copy of it to practise on: what is made is published, and what is published is heard.
+Nobody has been told about it, and it is not finished. It will never be finished. This is where it sings. There is no other copy of it to practise on: what is made is published, and what is published is heard.
 
 Press Play, and the page joins the song wherever it has reached. It knows what time it is.
 
@@ -64,7 +66,7 @@ flowchart TD
   Guide -. "kept, never played" .-> Session
 
   Session["Session<br/>the complete declaration of a Song:<br/>every Recording and every character, at its moment"]
-  Session --> Archive[("Archive<br/>the songthatneverends bucket")]
+  Session --> Archive[("Archive<br/>the ikuradio bucket")]
 
   Archive -- "which Songs there are" --> Radio["Radio<br/>keeps the Tactus"]
   Radio -- "Tactus: the time, what plays, what comes next" --> Receiver
@@ -90,10 +92,10 @@ The song is made, kept and played by three lives, as the plan [Trinity of Song](
 - The **Heart** (`packages/heart`) is the loop that powers everything. It lives beside the Studio, on the same machine, and nowhere else. It opens no door and answers nobody; it only listens, to the Archive for the Songs that are ready and to the live Radio for the Song being played. When fewer than `SONGS_AHEAD` Songs wait ahead of it, it calls a Studio, one at a time. If the Heart stops, nothing breaks. The Radio plays what it has, then holds its breath, and the song stops breathing until the Heart is started again. Then it carries on from its diary.
 
 - The **Studio** (`packages/studio`) lives briefly, on a machine with a GPU, the dev box xitra. It wakes, reads its diary to see where the song has reached, and makes the next Song whole. It writes every word of every iteration while the mind is awake, then sings every line, then grows every bed while the Music has the GPU to itself. It listens to every Recording once it is made, and writes down how loud it sounds. Then it leaves the Song in the Archive and ends. Its diary (`packages/studio/memory/diary.jsonl`) is the song's memory of where it is. Every two weeks or so, a full book of it is closed and shelved. After every Song the diary is copied to the Archive too, so the song's memory is not on one machine only: the book being written in as `diary/diary.jsonl`, and every closed book once, under `diary/books/`, by the same name it has on the shelf.
-- The **Archive** (`packages/archive`) is a bucket in the cloud: `songthatneverends`, on Hetzner object storage. It keeps each Song's *Session*, the complete declaration of the Song, and its *Recordings*. The Session names every Recording and its moment, each singer's voice a Recording of its own, and every character of every line and the moment it is typed. Only the Studio holds the keys to put things in. Anyone may read, by plain address. The Archive forgets the Recordings of all but the last few Songs; their words stay, for looking back.
+- The **Archive** (`packages/archive`) is a bucket in the cloud: `ikuradio`, on Hetzner object storage. It keeps each Song's *Session*, the complete declaration of the Song, and its *Recordings*. The Session names every Recording and its moment, each singer's voice a Recording of its own, and every character of every line and the moment it is typed. Only the Studio holds the keys to put things in. Anyone may read, by plain address. The Archive forgets the Recordings of all but the last few Songs; their words stay, for looking back.
 - The **Radio** (`packages/radio`) lives long, and does almost nothing. It keeps the *Tactus*, the one beat everybody keeps: when each Song begins. A Song begins the moment the one before it ends, or, if the Studio was late, twenty seconds after it arrives, so that every Receiver holds its breath at the same moment. The Radio tells whoever asks what time it is, what plays, what comes next, and where in the Archive to find it. It never touches a Recording. It lives in the khz-k3s cluster and answers at the alpha address.
 
-And the **Receivers**, where the song is heard. The page in the browser (`packages/ui`) measures its clock against the Radio's, and fetches each coming Song whole, its Session and every Recording, before the Song begins. Then, many times a second, it asks one question: what should have happened by now?
+And the **Receivers**, where the song is heard. The page in the browser (`packages/ui`) measures its clock against the Radio's, and fetches each coming Song, its Session and its Recordings in the order they will be heard: a Song begins once its first twenty seconds are here, and the rest follow behind. Then, many times a second, it asks one question: what should have happened by now?
 
 - Every voice and every bed is placed on its audio clock. Each singer stands in their own place in the stereo mix, and every Recording is brought to the loudness of its kind: the lead at -16 LUFS, the choir beneath it, the Music 6 LU under the voices.
 - Every character is typed at its moment.
@@ -139,7 +141,7 @@ systemctl --user daemon-reload && systemctl --user enable --now heart.service
 sudo loginctl enable-linger $USER
 ```
 
-To hear what the Studio would make, without publishing anything, `bun run rehearse 5` sings iterations zero to five into `packages/studio/audio/rehearsal/`, each grown from the one before, with a rehearsal diary of its own. When every iteration is sung, the Music lays a bed under each, written beside the voice as `<iteration>.music.m4a` and under it as `<iteration>.together.m4a`. `--dry` leaves the Music out. A rehearsal and a Studio both need the GPU, so they take turns.
+To hear what the Studio would make, without publishing anything, `bun run rehearse 5` sings iterations one to five into `packages/studio/audio/rehearsal/`, each grown from the one before, with a rehearsal diary of its own. When every iteration is sung, the Music lays a bed under each, written beside the voice as `<iteration>.music.m4a` and under it as `<iteration>.together.m4a`. `--dry` leaves the Music out. A rehearsal and a Studio both need the GPU, so they take turns.
 
 `bun run check` runs the types and the tests, as the checks on GitHub do.
 

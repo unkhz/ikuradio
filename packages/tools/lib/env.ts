@@ -16,7 +16,7 @@ const envSchema = z.object({
   /** Where the Radio answers Receivers, inside its home. */
   SERVER_PORT: z.coerce.number().default(3000),
   /** The live Radio: where the Heart and the terminal listen for the Tactus. */
-  RADIO_URL: z.string().url().default('https://songthatneverends.khz.fi/'),
+  RADIO_URL: z.string().url().default('https://ikurad.io/'),
   /**
    * The Archive's bucket, by its public, path-style address
    * (https://<host>/<bucket>). The Studio publishes there, with its keys;

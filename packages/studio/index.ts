@@ -54,10 +54,11 @@ const lastWritten = await diary.lastPage()
 if (lastWritten?.song && !(await store.hasSession(lastWritten.song.number))) {
   const taken = await diary.unwrite(lastWritten.song.number)
   console.warn(
-    `Song ${BigInt(lastWritten.song.number) + 1n} was written but never published; ${taken} pages are taken back, and it is made again`,
+    `Song ${lastWritten.song.number} was written but never published; ${taken} pages are taken back, and it is made again`,
   )
 }
-const wakesAt = await diary.lastPage().then((page) => (page ? BigInt(page.iteration) + 1n : 0n))
+// the song counts from one: its first iteration is iteration 1
+const wakesAt = await diary.lastPage().then((page) => (page ? BigInt(page.iteration) + 1n : 1n))
 
 /** Whether an iteration is the last of its Song. */
 const endsSong = ({ iteration, song }: Iteration) =>
@@ -90,7 +91,7 @@ for (let iteration = wakesAt; ; iteration++) {
 await mind.rest()
 const [first] = composed
 console.log(
-  `Song ${BigInt(first.song.number) + 1n}: ${describe(first.mood)}, sung by ${introduce(first.choir)}` +
+  `Song ${first.song.number}: ${describe(first.mood)}, sung by ${introduce(first.choir)}` +
     `; ${composed.length} iterations written in ${seconds(started)}`,
 )
 
@@ -163,7 +164,7 @@ if (shelved !== undefined) {
   console.log(`the diary is in the Archive${shelved ? `, with ${shelved} more books on its shelf` : ''}`)
 }
 console.log(
-  `Song ${BigInt(session.song) + 1n} is in the Archive: ${(session.seconds / 60).toFixed(1)} minutes,` +
+  `Song ${session.song} is in the Archive: ${(session.seconds / 60).toFixed(1)} minutes,` +
     ` ${files.size} recordings, made in ${seconds(started)}`,
 )
 

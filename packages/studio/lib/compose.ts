@@ -69,7 +69,8 @@ export function placeOf(
   last: Page | undefined,
   songLength: number,
 ): { beginsSong: boolean; number: bigint; began: bigint; lasts?: number } {
-  if (!last) return { beginsSong: true, number: 0n, began: iteration }
+  // the song counts from one: its first Song is Song 1
+  if (!last) return { beginsSong: true, number: 1n, began: iteration }
   const length = BigInt(songLength)
   const before: SongPlace = last.song ?? {
     number: `${BigInt(last.iteration) / length}`,
@@ -95,7 +96,7 @@ export async function composer(
   let last: Page | undefined = await diary.lastPage()
 
   /** Where the song wakes up: the iteration after the last one it wrote down. */
-  const wakesAt = last ? BigInt(last.iteration) + 1n : 0n
+  const wakesAt = last ? BigInt(last.iteration) + 1n : 1n
 
   async function compose(iteration: bigint): Promise<Iteration> {
     const place = placeOf(iteration, last, songLength)

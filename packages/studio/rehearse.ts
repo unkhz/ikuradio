@@ -3,7 +3,7 @@
 // audience, and without touching the server's diary.
 //
 //   bun run rehearse          iteration zero, the words a human wrote
-//   bun run rehearse 5        iterations zero to five, each grown from
+//   bun run rehearse 5        iterations one to five, each grown from
 //                             the one before, past the first change of Mood
 //
 // Every iteration grows from the previous one, so there is no skipping
@@ -33,7 +33,7 @@ import { humGuides } from './lib/guide.js'
 
 const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT } = getEnv()
 const given = process.argv.slice(2)
-const last = BigInt(given.find((arg) => /^\d+$/.test(arg)) ?? 0)
+const last = BigInt(given.find((arg) => /^\d+$/.test(arg)) ?? 1)
 const dry = given.includes('--dry')
 const dir = 'audio/rehearsal'
 
@@ -42,7 +42,7 @@ await rm(`${dir}/diary.jsonl`, { force: true })
 const seconds = (ms: number) => (ms / 1000).toFixed(1)
 
 // only iterations after the first need new words, and a mind to write them
-const mind = last > 0n ? wakeMind(`${dir}/mind.log`) : undefined
+const mind = last > 1n ? wakeMind(`${dir}/mind.log`) : undefined
 if (mind && !(await mind.ready)) {
   console.warn('the mind did not wake; the rehearsal waits for it as the song would')
 }
@@ -72,7 +72,7 @@ const sung: {
   guides: Awaited<ReturnType<typeof humGuides>>
 }[] = []
 
-for (let iteration = 0n; iteration <= last; iteration++) {
+for (let iteration = 1n; iteration <= last; iteration++) {
   const started = Date.now()
   const composed = await compose(iteration)
   const written = Date.now()

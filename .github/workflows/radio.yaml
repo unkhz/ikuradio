@@ -1,7 +1,7 @@
 name: Radio
 
 # Builds the Radio's image and tunes the cluster to it: the new tag goes into
-# .khz-k3s, and Argo CD carries it to songthatneverends.khz.fi.
+# .khz-k3s, and Argo CD carries it to ikurad.io.
 
 on:
   push:

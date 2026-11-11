@@ -6,5 +6,5 @@ namespace: apps
 resources:
   - radio.yaml
 images:
-  - name: ghcr.io/unkhz/song-that-never-ends/radio
+  - name: ghcr.io/unkhz/ikuradio/radio
     newTag: "09f0fe7d97ab8953aecc8fe294e5d49768392743"

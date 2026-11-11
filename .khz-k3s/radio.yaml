@@ -1,12 +1,12 @@
-# The Radio at songthatneverends.khz.fi. It reads the Archive from the
-# songthatneverends bucket, and sends Receivers there for Sessions and
+# ikuradio's Radio, at ikurad.io. It reads the Archive from the ikuradio
+# bucket, and sends Receivers there for Sessions and
 # Recordings. The Studio stays on the dev box, writing to the same bucket.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: song-radio
+  name: ikuradio-radio
   labels:
-    app: song-radio
+    app: ikuradio-radio
 spec:
   replicas: 1
   # One Radio keeps one Tactus; two would argue about the time
@@ -14,11 +14,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: song-radio
+      app: ikuradio-radio
   template:
     metadata:
       labels:
-        app: song-radio
+        app: ikuradio-radio
     spec:
       imagePullSecrets:
         - name: github-registry-secret
@@ -29,14 +29,14 @@ spec:
         fsGroup: 1000
       containers:
         - name: radio
-          image: ghcr.io/unkhz/song-that-never-ends/radio:latest
+          image: ghcr.io/unkhz/ikuradio/radio:latest
           env:
             - name: SERVER_PORT
               value: "3000"
             - name: ARCHIVE_URL
-              value: https://hel1.your-objectstorage.com/songthatneverends/
+              value: https://hel1.your-objectstorage.com/ikuradio/
             - name: PUBLIC_ARCHIVE_URL
-              value: https://hel1.your-objectstorage.com/songthatneverends/
+              value: https://hel1.your-objectstorage.com/ikuradio/
           ports:
             - name: http
               containerPort: 3000
@@ -67,12 +67,12 @@ spec:
       volumes:
         - name: memory
           persistentVolumeClaim:
-            claimName: song-radio-memory
+            claimName: ikuradio-radio-memory
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: song-radio-memory
+  name: ikuradio-radio-memory
 spec:
   accessModes:
     - ReadWriteOnce
@@ -84,11 +84,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: song-radio
+  name: ikuradio-radio
 spec:
   type: ClusterIP
   selector:
-    app: song-radio
+    app: ikuradio-radio
   ports:
     - name: http
       port: 80
@@ -97,7 +97,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: song-radio
+  name: ikuradio-radio
   annotations:
     kubernetes.io/ingress.class: "traefik"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
@@ -106,16 +106,16 @@ metadata:
 spec:
   tls:
     - hosts:
-        - songthatneverends.khz.fi
-      secretName: song-radio-tls
+        - ikurad.io
+      secretName: ikuradio-radio-tls
   rules:
-    - host: songthatneverends.khz.fi
+    - host: ikurad.io
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: song-radio
+                name: ikuradio-radio
                 port:
                   name: http

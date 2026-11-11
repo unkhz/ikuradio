@@ -14,10 +14,10 @@ const page = (iteration: number, song?: SongPlace): Page => ({
 
 describe('placeOf', () => {
   it('begins the very first Song at the very first iteration', () => {
-    expect(placeOf(0n, undefined, 4)).toEqual({
+    expect(placeOf(1n, undefined, 4)).toEqual({
       beginsSong: true,
-      number: 0n,
-      began: 0n,
+      number: 1n,
+      began: 1n,
     })
   })
 

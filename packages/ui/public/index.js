@@ -369,7 +369,7 @@ function writeUpTo(output, song, t) {
 
 // A quiet line at the edge of the page: the Song, and its iteration as a
 // side note. Everything else the receiver knows is behind the knob.
-const number = (n) => (BigInt(n) + 1n).toLocaleString('en')
+const number = (n) => BigInt(n).toLocaleString('en')
 const span = (className, textContent) => Object.assign(document.createElement('span'), { className, textContent })
 let showing // what is being received: a Session, and the iteration of it
 
@@ -523,7 +523,7 @@ function songRow(song, index) {
   }
   // the latest Song is not looked back on: it is where the receiver tunes in live
   const latest = index === 0
-  const link = Object.assign(document.createElement('a'), { href: latest ? '/' : `/s/${BigInt(song.song) + 1n}` })
+  const link = Object.assign(document.createElement('a'), { href: latest ? '/' : `/s/${song.song}` })
   link.append(document.createTextNode(latest ? 'tune live' : `Song ${number(song.song)}`))
   const about = song.mood ? `${song.mood.join(' + ')} · ${Math.round(song.seconds / 60)} min` : '…'
   link.append(span('mood', latest ? `Song ${number(song.song)} · ${about}` : about))
@@ -633,7 +633,7 @@ document.getElementById('close-songs').addEventListener('click', () => songsDial
 
 // A Song asked for by its number, at /s/<n>, is played from its beginning.
 const asked = /^\/s\/(\d{1,400})\/?$/.exec(location.pathname)
-const replay = asked && BigInt(asked[1]) > 0n ? { index: BigInt(asked[1]) - 1n, number: BigInt(asked[1]).toLocaleString('en') } : undefined
+const replay = asked && BigInt(asked[1]) > 0n ? { index: BigInt(asked[1]), number: BigInt(asked[1]).toLocaleString('en') } : undefined
 if (replay) {
   document.getElementById('play').textContent = `play Song ${replay.number} from its beginning`
   document.getElementById('live').hidden = false

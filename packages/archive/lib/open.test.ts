@@ -4,7 +4,7 @@ import { archiveAddress, openArchive, publicArchive } from './open.js'
 import { BucketStore } from './bucket.js'
 
 const env = (extra: Record<string, string>) => getEnv({ ...extra })
-const bucket = 'https://hel1.your-objectstorage.com/songthatneverends'
+const bucket = 'https://hel1.your-objectstorage.com/ikuradio'
 
 describe('openArchive', () => {
   it('opens the bucket, with its keys', () => {

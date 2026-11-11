@@ -3,8 +3,8 @@ import { arrange, chorusOpening, firstLyrics, rememberingInstruction, words } fr
 
 describe('chorusOpening', () => {
   it('sings how long the song has been going', () => {
-    expect(chorusOpening(0n)).toBe('This is the song, iteration one,')
-    expect(chorusOpening(411n)).toBe(
+    expect(chorusOpening(1n)).toBe('This is the song, iteration one,')
+    expect(chorusOpening(412n)).toBe(
       'This is the song, iteration four hundred and twelve,',
     )
   })
