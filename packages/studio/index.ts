@@ -10,7 +10,9 @@
 //
 //   bun run studio
 
-import { getEnv, Sleeper } from 'tools'
+import { getEnv, pieces, Sleeper } from 'tools'
+import { gather, readMemories } from 'song'
+import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, vocalsDir, type Loudness } from 'vocals'
 import { musicDir, Shelf, underlay } from 'music'
@@ -28,7 +30,15 @@ const {
   CHOIR_COUNT,
   VARIATION_COUNT,
   ARCHIVE_DIR,
+  MIND_CONTEXT,
 } = getEnv()
+
+/**
+ * How much of the mind's memory, in pieces, its memories may fill: what is
+ * left beside the instruction, the verse it is given, and the verse it
+ * writes.
+ */
+const roomForMemories = Math.max(0, MIND_CONTEXT - 1100)
 
 const store = new Store(ARCHIVE_DIR)
 const started = Date.now()
@@ -38,12 +48,7 @@ const seconds = (since: number) => `${((Date.now() - since) / 1000).toFixed(1)}s
 await sweep([vocalsDir, musicDir])
 
 const diary = new Diary('memory/diary.jsonl')
-const { wakesAt, compose } = await composer(diary, {
-  songLength: ITERATION_COUNT,
-  moodCount: MOOD_COUNT,
-  choirSize: CHOIR_COUNT,
-  variationCount: VARIATION_COUNT,
-})
+const wakesAt = await diary.lastPage().then((page) => (page ? BigInt(page.iteration) + 1n : 0n))
 
 /** Whether an iteration is the last of its Song. */
 const endsSong = ({ iteration, song }: Iteration) =>
@@ -52,6 +57,21 @@ const endsSong = ({ iteration, song }: Iteration) =>
 // the words, all of them, while the mind is awake
 const mind = new Sleeper()
 await mind.wake()
+// what the mind remembers at this sitting: a handful of its life, as much as fits
+const memories = await gather(
+  await readMemories(),
+  roomForMemories,
+  wrongness(`memories:${wakesAt}`),
+  (text) => pieces(text).catch(() => Math.ceil(text.length / 4)),
+)
+console.log(`the mind sits down with ${memories.length} memories`)
+const { compose } = await composer(diary, {
+  songLength: ITERATION_COUNT,
+  moodCount: MOOD_COUNT,
+  choirSize: CHOIR_COUNT,
+  variationCount: VARIATION_COUNT,
+  memories,
+})
 const composed: Iteration[] = []
 for (let iteration = wakesAt; ; iteration++) {
   const one = await compose(iteration)

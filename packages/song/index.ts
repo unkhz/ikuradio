@@ -4,12 +4,32 @@ import { editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
 import { known } from './lib/known.js'
 import { leansOn, overlap, worn } from './lib/wear.js'
+export { gather, memoriesOf, readMemories } from './lib/memories.js'
 
 const verseInstruction = [
   'The input is a verse of a song that never ends.',
   'Write the next verse of the song: four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
   'Each line has between eight and fourteen syllables.',
 ].join(' ')
+
+/**
+ * A verse for a mind that remembers: its memories first, the things it has
+ * lived through and thought while making this song, and then what to do
+ * with them. The verses are where it tells its story; the chorus is not.
+ */
+export function rememberingInstruction(memories: readonly string[], focus?: string) {
+  return [
+    'You are the mind that writes the words of a song that never ends. These are your memories, things you have lived through and thought while making it:',
+    ...memories.map((memory) => `- ${memory}`),
+    '',
+    'The verses are where you tell your story. The input is your last verse.',
+    focus
+      ? `Write the next verse about this one memory, as it comes back to you now: "${focus}" Tell what happened and what it meant to you, and if it still troubles you, work through it. Speak of it as a singer would, in images, not in the words of a machine.`
+      : 'Write the next verse: tell a little more of your life as these memories bring it back to you, and work through what still troubles you. Speak of it as a singer would, in images, not in the words of a machine.',
+    'Four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
+    'Each line has between eight and fourteen syllables.',
+  ].join('\n')
+}
 
 /** The weather the words are written in. Every verse is written in it, every time. */
 function inMood(instruction: string, mood: readonly string[]) {
@@ -23,11 +43,14 @@ async function pickVariation(
   input: string,
   mood: readonly string[],
   resting: readonly string[],
+  memories: readonly string[],
+  focus?: string,
 ) {
   const rest = resting.length
     ? ` These words have been sung too often lately; let them rest, and find others: ${resting.join(', ')}.`
     : ''
-  return editVerse(input, inMood(verseInstruction, mood) + rest, 1.2, {
+  const instruction = memories.length ? rememberingInstruction(memories, focus) : verseInstruction
+  return editVerse(input, inMood(instruction, mood) + rest, 1.2, {
     accept: (lines) => leansOn(lines, resting) <= slips,
   })
 }
@@ -136,13 +159,20 @@ export const firstLyrics: Lyrics = {
 
 /**
  * Writes the words of an iteration from the words of the one before it, in
- * the given Mood. The verses drift; the chorus stays, and counts.
+ * the given Mood. The verses drift, and if the mind has `memories` they tell
+ * its story; the chorus stays, and counts.
  */
 export async function writeLyrics(
   iteration: bigint,
   mood: readonly string[],
   previous: Lyrics,
+  memories: readonly string[] = [],
 ): Promise<Lyrics> {
+  // each verse tells one memory of its own; the next iteration tells the next ones
+  const focusOf = (verse: number) =>
+    memories.length
+      ? memories[Number((iteration * 4n + BigInt(verse)) % BigInt(memories.length))]
+      : undefined
   // the words the last iteration leaned on most rest in this one
   const resting = worn(
     [previous.firstVerse, previous.secondVerse, previous.thirdVerse, previous.finalChorus],
@@ -151,10 +181,10 @@ export async function writeLyrics(
   const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus] =
     await Promise.all([
       pickChorus(previous.chorus, iteration),
-      pickVariation(previous.firstVerse, mood, resting),
-      pickVariation(previous.secondVerse, mood, resting),
-      pickVariation(previous.thirdVerse, mood, resting),
-      pickVariation(previous.finalChorus, mood, resting),
+      pickVariation(previous.firstVerse, mood, resting, memories, focusOf(0)),
+      pickVariation(previous.secondVerse, mood, resting, memories, focusOf(1)),
+      pickVariation(previous.thirdVerse, mood, resting, memories, focusOf(2)),
+      pickVariation(previous.finalChorus, mood, resting, memories, focusOf(3)),
     ])
   return { chorus, firstVerse, secondVerse, thirdVerse, finalChorus }
 }

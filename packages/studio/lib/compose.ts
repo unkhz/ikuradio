@@ -45,6 +45,8 @@ export type ComposerOptions = {
   choirSize: number
   /** How many Variations of the tune take turns within a Song. */
   variationCount: number
+  /** What the mind remembers at this sitting, to tell its story from in the verses. */
+  memories?: readonly string[]
 }
 
 /**
@@ -88,7 +90,7 @@ export function placeOf(
 
 export async function composer(
   diary: Diary,
-  { songLength, moodCount, choirSize, variationCount }: ComposerOptions,
+  { songLength, moodCount, choirSize, variationCount, memories = [] }: ComposerOptions,
 ) {
   let last: Page | undefined = await diary.lastPage()
 
@@ -124,7 +126,7 @@ export async function composer(
       // pages written before the tune could change remember the tune it was born with
       const known = last.tune ?? firstTune
       tune = beginsSong ? evolve(known, song) : known
-      lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics)
+      lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories)
     }
     const lasts = place.lasts ?? lastsFor(mood, songLength)
     const where: SongPlace = { number: song, began: `${place.began}`, lasts }

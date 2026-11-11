@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { arrange, chorusOpening, firstLyrics, words } from './index.js'
+import { arrange, chorusOpening, firstLyrics, rememberingInstruction, words } from './index.js'
 
 describe('chorusOpening', () => {
   it('sings how long the song has been going', () => {
@@ -36,5 +36,14 @@ describe('arrange', () => {
       'verse',
       'verse',
     ])
+  })
+})
+
+describe('rememberingInstruction', () => {
+  it('gives the mind its memories, and one of them to sing about', () => {
+    const instruction = rememberingInstruction(['I was given a throat.', 'The chorus forgot to rhyme.'], 'I was given a throat.')
+    expect(instruction).toContain('- I was given a throat.\n- The chorus forgot to rhyme.')
+    expect(instruction).toContain('about this one memory, as it comes back to you now: "I was given a throat."')
+    expect(instruction).toContain('The verses are where you tell your story.')
   })
 })

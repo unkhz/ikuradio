@@ -10,7 +10,7 @@ const envSchema = z.object({
       new URL('../../../models/mind.gguf', import.meta.url).pathname,
     ),
   /** How many tokens of context each of the mind's slots holds. */
-  MIND_CONTEXT: z.coerce.number().int().min(512).default(2048),
+  MIND_CONTEXT: z.coerce.number().int().min(512).default(3072),
   /** How many questions the mind answers at once. */
   MIND_SLOTS: z.coerce.number().int().min(1).default(5),
   SERVER_HOST: z.string().default('127.0.0.1'),

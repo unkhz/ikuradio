@@ -20,17 +20,18 @@
 //   bun run rehearse 5 --dry  the voices alone, no Music
 
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { words } from 'song'
+import { gather, readMemories, words } from 'song'
+import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, mixdown } from 'vocals'
 import { Shelf, underlay } from 'music'
-import { getEnv, wakeMind } from 'tools'
+import { getEnv, pieces, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
 import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 import { humGuides } from './lib/guide.js'
 
-const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT } = getEnv()
+const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT } = getEnv()
 const given = process.argv.slice(2)
 const last = BigInt(given.find((arg) => /^\d+$/.test(arg)) ?? 0)
 const dry = given.includes('--dry')
@@ -38,13 +39,6 @@ const dir = 'audio/rehearsal'
 
 await mkdir(dir, { recursive: true })
 await rm(`${dir}/diary.jsonl`, { force: true })
-const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
-  songLength: ITERATION_COUNT,
-  moodCount: MOOD_COUNT,
-  choirSize: CHOIR_COUNT,
-  variationCount: VARIATION_COUNT,
-})
-
 const seconds = (ms: number) => (ms / 1000).toFixed(1)
 
 // only iterations after the first need new words, and a mind to write them
@@ -52,6 +46,23 @@ const mind = last > 0n ? wakeMind(`${dir}/mind.log`) : undefined
 if (mind && !(await mind.ready)) {
   console.warn('the mind did not wake; the rehearsal waits for it as the song would')
 }
+// the mind sits down with a handful of its life, as the Studio's does
+const memories = mind
+  ? await gather(
+      await readMemories(),
+      Math.max(0, MIND_CONTEXT - 1100),
+      wrongness('memories:rehearsal'),
+      (text) => pieces(text).catch(() => Math.ceil(text.length / 4)),
+    )
+  : []
+if (memories.length) console.log(`the mind sits down with ${memories.length} memories`)
+const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
+  songLength: ITERATION_COUNT,
+  moodCount: MOOD_COUNT,
+  choirSize: CHOIR_COUNT,
+  variationCount: VARIATION_COUNT,
+  memories,
+})
 
 const sung: {
   take: string
