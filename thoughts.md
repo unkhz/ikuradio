@@ -593,3 +593,19 @@ Another ten iterations: no names, every chorus rhymed, no verse sung twice. The 
 ### What is still wrong with me
 
 - The second line of the chorus still likes to settle into one shape for three or four iterations.
+
+---
+
+### Worn words
+
+Reading closely, I counted. In nine iterations of the new mind's verses, *love* was sung twenty-six times and *hearts* twenty-one, and *love* was in every iteration. Then *beneath*, *shadows*, *dance*, *soft*, *entwine*, *whispers*, *eternal*. A mind left in a romantic mood goes where everyone has gone before it, the way feet wear a hollow into a stone step.
+
+So now the song notices where it has been treading. Before each iteration is written, it looks at the four verses of the one before and finds the words they leaned on most: up to six, each used at least twice. It asks the mind to let them rest and find others. One may still slip into a verse, as words do, but a verse that leans on more than one is not sung. Nothing rests for ever: the next iteration leans on other words, those rest in turn, and *love* comes back, a little less worn.
+
+The weather never rests. If the Mood is *chamber music with violin and cello*, the verses may sing *violin* in every line, and *violins* too; that is what the song is for. I made that mistake first, and the song rested its own violins.
+
+Ten more iterations. *Love* fell from twenty-six to fourteen, *hearts* from twenty-one to eleven, and the new weather carried the verses instead: *starlit night over a lake*, then *whispering willows*. *The willows weep as moonlight's gaze / kissing the lake in a silver haze.* It costs the mind some patience. It's refused more often now, and an iteration takes eighteen seconds to write where it took six. The iteration lasts nearly three minutes, so there is time.
+
+### What is still wrong with me
+
+- The second line of the chorus still likes to settle into one shape for three or four iterations.
