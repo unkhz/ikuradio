@@ -19,6 +19,7 @@ import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 import { toSession, type Made } from './lib/session.js'
+import { humGuides } from './lib/guide.js'
 import { sweep } from './lib/sweep.js'
 
 const {
@@ -70,19 +71,28 @@ const sung = []
 for (const one of composed) sung.push(await perform(one))
 console.log(`sung in ${seconds(sungAt)}`)
 
+// the guide hums: the lead's melody with fewer notes, for the Music alone
+const guides = []
+for (const [i, one] of composed.entries()) guides.push(await humGuides(one, sung[i]))
+
 // the Music, with the GPU to itself
 const grownAt = Date.now()
 const shelf = new Shelf()
 const made: Made[] = []
 for (const [i, one] of composed.entries()) {
   const lines = sung[i]
-  const beds = await underlay(lines, one.mood, { shelf, iteration: one.iteration })
+  const hummed = guides[i]
+  const beds = await underlay(lines, one.mood, {
+    shelf,
+    iteration: one.iteration,
+    guides: new Map(hummed.map(({ part, file }) => [part, file])),
+  })
     .then(({ beds }) => beds)
     .catch((error) => {
       console.warn(`the Music did not come for iteration ${one.iteration}: ${error.message}`)
       return []
     })
-  made.push({ composed: one, lines, beds })
+  made.push({ composed: one, lines, beds, guides: hummed })
 }
 console.log(`accompanied in ${seconds(grownAt)}`)
 
@@ -93,6 +103,8 @@ const files = new Set(
     ...beds.map(({ file }) => file),
   ]),
 )
+// the guides are archived too, as what they are: never played, only what the Music heard
+const guiding = new Set(made.flatMap(({ guides = [] }) => guides.map(({ file }) => file)))
 // how loud each Recording sounds, heard from the Recording itself, now that it is made
 const heardAt = Date.now()
 const loudness = new Map<string, Loudness>()
@@ -104,7 +116,7 @@ await Promise.all(
 )
 console.log(`${loudness.size} of ${files.size} recordings measured in ${seconds(heardAt)}`)
 const ids = new Map<string, string>()
-for (const file of files) ids.set(file, await store.putRecording(file))
+for (const file of [...files, ...guiding]) ids.set(file, await store.putRecording(file))
 const session = toSession(
   made,
   (file) => ids.get(file)!,

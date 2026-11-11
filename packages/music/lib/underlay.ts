@@ -49,7 +49,19 @@ export const songOf = ({ descriptions, character }: Mood) =>
 export async function underlay(
   lines: Line[],
   mood: Mood,
-  { shelf, iteration = 0n }: { shelf?: Shelf; iteration?: bigint } = {},
+  {
+    shelf,
+    iteration = 0n,
+    guides,
+  }: {
+    shelf?: Shelf
+    iteration?: bigint
+    /**
+     * A guide hum for each part, the lead's slow reading of its melody: what
+     * the Music listens to, if given, instead of the sung voice.
+     */
+    guides?: ReadonlyMap<Line['part'], string>
+  } = {},
 ): Promise<{ beds: Placed[]; departed: string[]; grown: number }> {
   const all = sections(lines)
   const song = songOf(mood)
@@ -64,13 +76,15 @@ export async function underlay(
       beds.set(section.part, choice.bed)
       continue
     }
-    const vocals = await voiceOf(section.lines, section.at)
-    // the section's voice is only what the Music listens to; once heard, it is let go
+    // the Music follows the guide if there is one: a melody moving too fast distracts it
+    const guide = guides?.get(section.part)
+    const vocals = guide ?? (await voiceOf(section.lines, section.at))
+    // a section's sung voice is only what the Music listens to; once heard, it is let go
     const bed = await accompany({
       vocals,
       mood: words(mood),
       seconds: section.seconds,
-    }).finally(() => rm(vocals, { force: true }))
+    }).finally(() => (guide ? undefined : rm(vocals, { force: true })))
     beds.set(section.part, bed)
     grown++
     if (shelf) departed.push(...shelf.keep(song, section.part, bed))

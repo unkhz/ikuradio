@@ -28,6 +28,7 @@ import { getEnv, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
 import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
+import { humGuides } from './lib/guide.js'
 
 const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT } = getEnv()
 const given = process.argv.slice(2)
@@ -57,6 +58,7 @@ const sung: {
   lines: Awaited<ReturnType<typeof perform>>
   mood: Awaited<ReturnType<typeof compose>>['mood']
   iteration: bigint
+  guides: Awaited<ReturnType<typeof humGuides>>
 }[] = []
 
 for (let iteration = 0n; iteration <= last; iteration++) {
@@ -89,7 +91,7 @@ for (let iteration = 0n; iteration <= last; iteration++) {
       ` written in ${seconds(written - started)}s,` +
       ` sung in ${seconds(Date.now() - written)}s`,
   )
-  sung.push({ take, lines, mood: composed.mood, iteration })
+  sung.push({ take, lines, mood: composed.mood, iteration, guides: await humGuides(composed, lines) })
 }
 
 // the words are written; the mind lets go of the GPU, and the Music may have it
@@ -98,10 +100,14 @@ await mind?.rest()
 if (!dry) {
   // the shelf the live song keeps: a part grows a new bed, or plays one again
   const shelf = new Shelf()
-  for (const { take, lines, mood, iteration } of sung) {
+  for (const { take, lines, mood, iteration, guides } of sung) {
     const started = Date.now()
     try {
-      const { beds } = await underlay(lines, mood, { shelf, iteration })
+      const { beds } = await underlay(lines, mood, {
+        shelf,
+        iteration,
+        guides: new Map(guides.map(({ part, file }) => [part, file])),
+      })
       if (beds.length === 0) continue
       await mixdown(beds, `${take}.music.m4a`)
       await mixdown(
