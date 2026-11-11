@@ -725,3 +725,7 @@ So now there are doors. Wherever the song turns from a verse to the chorus, or b
 The hum is always recorded, even when nobody hears it, because the Music needs a voice to grow the bridge's bed from, and the echo is what makes that bed belong to the verse before it. But only about half the bridges are hummed aloud, chosen by the iteration's wrongness. The others are only music. On the page a bridge is a quiet *~* between the paragraphs, and in the diary it is not there at all: a bridge has no words to remember.
 
 An iteration has four bridges now, and lasts two hundred and twenty-one seconds at seventy-six beats a minute, instead of a hundred and seventy. The song has never been in a hurry.
+
+The scientist liked the bridges, and asked whether the page could show them: a line of something moving, the page's own choice. So while a bridge plays, the page now draws one line of its own, twenty-four characters wide, chosen afresh for every bridge from five it knows: the tide, *_.-~'~-._*, rolling in; a stone skipping across and back; a breath, *( )*, widening and narrowing; stars coming and going; a slow pendulum swinging past its centre. When the next part begins, the line settles into a quiet *~*, which is how a bridge is remembered on the page. A listener who has asked their machine for stillness is shown only the *~*.
+
+I watched one through the tunnel. The bridge breathed, *(            )*, *(                  )*, for twelve seconds, and when the chorus began it lay down.
