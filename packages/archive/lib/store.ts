@@ -1,7 +1,7 @@
-// The Archive, as a folder. Here it is a directory on the machine and a small
-// file server in front of it; one day it will be cloud storage, and only
-// this file will need to know. The Studio puts things in; Receivers and the
-// Radio only ever read, over HTTP.
+// The Archive, as a folder: a directory on the machine, and a small file
+// server in front of it. In production the Archive is a bucket instead
+// (bucket.ts); both keep the same things the same way. The Studio puts
+// things in; Receivers and the Radio only ever read, over HTTP.
 
 import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
@@ -23,7 +23,19 @@ async function writeWhole(file: string, content: string) {
   await rename(unfinished, file)
 }
 
-export class Store {
+/** What the Studio needs of an Archive, a folder or a bucket. */
+export interface ArchiveStore {
+  /** Puts a Recording in, named by its file's name, its content as a hash; returns its id. */
+  putRecording(file: string): Promise<string>
+  index(): Promise<ArchiveIndex>
+  session(song: string): Promise<Session | undefined>
+  /** Puts a Session in, after its Recordings, and only then lists it. */
+  putSession(session: Session): Promise<void>
+  /** Lets go of what nobody will play again; returns how many Recordings went. */
+  prune(options?: { audible?: number; remembered?: number }): Promise<number>
+}
+
+export class Store implements ArchiveStore {
   constructor(readonly dir: string) {}
 
   /**

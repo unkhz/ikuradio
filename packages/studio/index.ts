@@ -16,7 +16,7 @@ import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, vocalsDir, type Loudness } from 'vocals'
 import { musicDir, Shelf, underlay } from 'music'
-import { Store } from 'archive'
+import { openArchive } from 'archive'
 import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { perform } from './lib/perform.js'
@@ -29,7 +29,6 @@ const {
   MOOD_COUNT,
   CHOIR_COUNT,
   VARIATION_COUNT,
-  ARCHIVE_DIR,
   MIND_CONTEXT,
 } = getEnv()
 
@@ -40,7 +39,8 @@ const {
  */
 const roomForMemories = Math.max(0, MIND_CONTEXT - 1100)
 
-const store = new Store(ARCHIVE_DIR)
+const { store, where } = openArchive()
+console.log(`the Studio publishes to ${where}`)
 const started = Date.now()
 const seconds = (since: number) => `${((Date.now() - since) / 1000).toFixed(1)}s`
 

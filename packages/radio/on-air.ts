@@ -9,9 +9,9 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { getEnv } from 'tools'
-import { paths, type ArchiveIndex } from 'archive'
+import { archiveAddress, paths, type ArchiveIndex } from 'archive'
 
-const { ARCHIVE_URL, SERVER_PORT, SONGS_AHEAD } = getEnv()
+const { SERVER_PORT, SONGS_AHEAD } = getEnv()
 const at = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
 const lives: ChildProcess[] = []
@@ -50,7 +50,7 @@ async function read<T>(url: string): Promise<T | undefined> {
 
 /** How many finished Songs are waiting in the Archive after the one being played. */
 async function waiting(): Promise<number | undefined> {
-  const index = await read<ArchiveIndex>(new URL(paths.index, ARCHIVE_URL).href)
+  const index = await read<ArchiveIndex>(new URL(paths.index, archiveAddress()).href)
   const tactus = await read<{ playing?: { song: string }; next?: { song: string } }>(
     `http://127.0.0.1:${SERVER_PORT}/tactus`,
   )

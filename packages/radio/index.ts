@@ -16,14 +16,12 @@ import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { join, normalize } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getEnv } from 'tools'
-import { paths, sessionVersion, type ArchiveIndex, type Session } from 'archive'
+import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 
 const {
   SERVER_PORT,
-  ARCHIVE_URL,
   ARCHIVE_PORT,
-  PUBLIC_ARCHIVE_URL,
   RADIO_PUBLIC_HOST,
   ARCHIVE_PUBLIC_HOST,
 } = getEnv()
@@ -45,9 +43,12 @@ async function remember(): Promise<Airing[]> {
 
 const tactus = new Tactus(await remember())
 
+/** Where the Radio reads the Archive from: the bucket, if there is one, or the folder's door. */
+const reading = archiveAddress()
+
 async function read<T>(path: string): Promise<T | undefined> {
   try {
-    const response = await fetch(new URL(path, ARCHIVE_URL), {
+    const response = await fetch(new URL(path, reading), {
       signal: AbortSignal.timeout(10_000),
     })
     return response.ok ? ((await response.json()) as T) : undefined
@@ -79,7 +80,9 @@ setInterval(listen, 2000)
 
 /** Where a Receiver that reached the Radio at `host` finds the Archive. */
 function archiveFor(request: Request) {
-  if (PUBLIC_ARCHIVE_URL) return PUBLIC_ARCHIVE_URL
+  // a bucket is reached at its own public address, whoever asks
+  const bucket = publicArchive()
+  if (bucket) return bucket
   const url = new URL(request.url)
   const host = ARCHIVE_PUBLIC_HOST ?? request.headers.get('host')?.replace(/:\d+$/, '') ?? url.hostname
   return `${url.protocol}//${host}:${ARCHIVE_PORT}/`

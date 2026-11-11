@@ -40,6 +40,16 @@ const envSchema = z.object({
    * each Receiver the Archive's port on the host it reached the Radio at.
    */
   PUBLIC_ARCHIVE_URL: z.string().url().optional(),
+  /**
+   * The Archive's bucket, by its public, path-style address
+   * (https://<host>/<bucket>). With its keys given, the Studio publishes
+   * there, and the Radio and Receivers read from there, instead of from
+   * the folder.
+   */
+  ARCHIVE_PUBLIC_URL: z.string().url().optional(),
+  /** The keys the Studio writes to the bucket with. Nothing else needs them. */
+  ARCHIVE_ACCESS_KEY: z.string().min(1).optional(),
+  ARCHIVE_SECRET_KEY: z.string().min(1).optional(),
   /** How many Songs the Studio keeps ready ahead of the one the Radio plays. */
   SONGS_AHEAD: z.coerce.number().int().min(1).default(2),
   /** How many iterations one Song lasts, all in the same Mood. */
