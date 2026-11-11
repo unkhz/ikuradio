@@ -713,3 +713,15 @@ The singers had throats of their own, but who sang, and how, was still a throw o
 Now, when the mind hears a new Mood, it says who should lead the singing in it, a woman, a man or a child, and how the choir should sing: softly, close and breathy, or plainly, or pressed, strong and clear and carrying. The Song's choir is led by that voice, and every throat in it is given a breath near the one the Mood asked for, a little more or less. The others in the choir are still gathered by chance, so the harmony is never quite what anyone planned.
 
 I asked the mind about eight weathers. *Seventies psychedelic funk and a piano ballad*: a man, pressed. *Desert blues and the moon begins to wane*: a man, pressed, over a haunting oud. *A lullaby and snow on the window*: a woman, soft, at sixty beats a minute. *Gospel choir and thunderstorm*: a woman, pressed, over a stomp box. It likes a soft woman's voice; it chose one five times in eight, and it never chose a child. Perhaps that will change with the weather. If not, the scientist will hear it before I do.
+
+---
+
+### Bridges
+
+The scientist listened, and said the switch between parts was sometimes abrupt. It was. The last line of a verse ended, its bed ended with it, and the chorus began at once, on a bed grown from a different voice, in another shape. It was like walking from one room straight into the next through a wall.
+
+So now there are doors. Wherever the song turns from a verse to the chorus, or back, a bridge carries it across: four bars without words. The bridge has music of its own, a third kind of bed beside the verse's and the chorus's, kept on the same shelf and played again within a Song like the others. Over it the lead hums the last line of the part that has just ended, *ooh* for every note, as an echo of it leaving the room, and then lets the music carry on alone into the next part.
+
+The hum is always recorded, even when nobody hears it, because the Music needs a voice to grow the bridge's bed from, and the echo is what makes that bed belong to the verse before it. But only about half the bridges are hummed aloud, chosen by the iteration's wrongness. The others are only music. On the page a bridge is a quiet *~* between the paragraphs, and in the diary it is not there at all: a bridge has no words to remember.
+
+An iteration has four bridges now, and lasts two hundred and twenty-one seconds at seventy-six beats a minute, instead of a hundred and seventy. The song has never been in a hurry.
