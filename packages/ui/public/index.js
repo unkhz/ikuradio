@@ -182,6 +182,72 @@ function breakLine() {
     el.appendChild(document.createElement('br'))
 }
 
+// Bridges. A bridge has no words, so while the music carries the song
+// across, the page draws one line of its own: whichever of these it likes,
+// chosen afresh for every bridge. When the next part begins, the line
+// settles into a quiet ~. A listener who would rather nothing moved is
+// shown the ~ alone.
+const width = 24
+const pingPong = (t, span) => {
+  const p = t % (2 * span)
+  return p < span ? p : 2 * span - p
+}
+const motions = [
+  // the tide
+  (t) =>
+    Array.from({ length: width }, (_, i) => "_.-~'~-."[(i + t) % 8]).join(''),
+  // a stone skipping across, and back
+  (t) => {
+    const at = pingPong(t, width - 1)
+    return Array.from({ length: width }, (_, i) =>
+      i === at ? 'o' : Math.abs(i - at) < 3 ? '.' : ' ',
+    ).join('')
+  },
+  // a breath, in and out
+  (t) => {
+    const half = Math.round((Math.sin(t / 4) + 1) * ((width / 2 - 2) / 2))
+    const breath = `(${' '.repeat(half * 2)})`
+    return breath.padStart((width + breath.length) / 2, ' ')
+  },
+  // stars, coming and going
+  (t) =>
+    Array.from({ length: width }, (_, i) => {
+      const n = Math.sin(i * 12.9898 + Math.floor(t / 3) * 78.233) * 43758.5453
+      const twinkle = n - Math.floor(n)
+      return twinkle > 0.85 ? '*' : twinkle > 0.7 ? '+' : twinkle > 0.5 ? '.' : ' '
+    }).join(''),
+  // a pendulum, slow
+  (t) => {
+    const at = Math.round(((Math.sin(t / 5) + 1) / 2) * (width - 1))
+    return Array.from({ length: width }, (_, i) =>
+      i === at ? '|' : i === width / 2 ? ':' : ' ',
+    ).join('')
+  },
+]
+const still = '~'
+const stillness = window.matchMedia('(prefers-reduced-motion: reduce)')
+let motion
+function bridgeBegins(paragraph) {
+  bridgeEnds()
+  const line = document.createElement('span')
+  line.className = 'motion'
+  paragraph.appendChild(line)
+  if (stillness.matches) {
+    line.textContent = still
+    return
+  }
+  const draw = motions[Math.floor(Math.random() * motions.length)]
+  let t = 0
+  line.textContent = draw(t)
+  motion = { line, timer: setInterval(() => (line.textContent = draw(++t)), 140) }
+}
+function bridgeEnds() {
+  if (!motion) return
+  clearInterval(motion.timer)
+  motion.line.textContent = still
+  motion = undefined
+}
+
 // A quiet line at the edge of the page: how old the song is, and what it is.
 function describeIteration(about) {
   const status = document.getElementById('status')
@@ -343,13 +409,17 @@ async function read(output, audioContext) {
     } else if (utterance.startsWith('about:')) {
       describeIteration(JSON.parse(utterance.slice(6)))
     } else if (utterance.startsWith('rest:')) {
+      bridgeEnds()
       switchStoryElement(output, 'weather')
       appendStoryElement(`~ ${utterance.slice(5)} ~`)
     } else if (utterance.startsWith('weather:')) {
       switchStoryElement(output, 'weather')
       appendStoryElement(`~ ${utterance.slice(8)} ~`)
     } else if (utterance.startsWith('part:')) {
-      switchStoryElement(output, utterance.slice(5))
+      bridgeEnds()
+      const kind = utterance.slice(5)
+      switchStoryElement(output, kind)
+      if (kind === 'bridge') bridgeBegins(el)
     } else if (utterance === '<br>') {
       breakLine()
     } else {
