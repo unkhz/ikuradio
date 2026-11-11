@@ -70,17 +70,26 @@ describe('the shelf', () => {
     expect(shelf.choose(0n, 'a', 'chorus')).toEqual({ grow: true })
   })
 
-  it('grows one part each iteration, and plays the other again', () => {
+  it('grows one part each iteration, and plays the others again', () => {
     const shelf = new Shelf()
     shelf.keep('a', 'verse', 'v0')
     shelf.keep('a', 'chorus', 'c0')
+    shelf.keep('a', 'bridge', 'b0')
+    const grown = new Set<string>()
     for (let iteration = 1n; iteration < 40n; iteration++) {
-      const verse = shelf.choose(iteration, 'a', 'verse')
-      const chorus = shelf.choose(iteration, 'a', 'chorus')
-      expect(verse.grow !== chorus.grow).toBe(true)
+      const choices = (['verse', 'chorus', 'bridge'] as const).map((part) => ({
+        part,
+        ...shelf.choose(iteration, 'a', part),
+      }))
+      const growing = choices.filter(({ grow }) => grow)
+      expect(growing).toHaveLength(1)
+      grown.add(growing[0].part)
       // the same iteration always chooses the same
-      expect(shelf.choose(iteration, 'a', 'verse')).toEqual(verse)
+      expect(shelf.choose(iteration, 'a', 'verse')).toEqual(
+        shelf.choose(iteration, 'a', 'verse'),
+      )
     }
+    expect(grown.size).toBe(3)
   })
 
   it('lets a Song’s beds go when the Mood changes', () => {

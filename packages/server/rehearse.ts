@@ -20,7 +20,7 @@
 //   bun run rehearse 5 --dry  the voices alone, no Music
 
 import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { arrange } from 'song'
+import { words } from 'song'
 import { describe } from 'mood'
 import { introduce, mixdown } from 'vocals'
 import { Shelf, underlay } from 'music'
@@ -74,12 +74,12 @@ for (let iteration = 0n; iteration <= last; iteration++) {
   }
   const take = `${dir}/${iteration}`
   await mixdown(
-    lines.filter(({ file }) => file),
+    lines.filter(({ file, unheard }) => file && !unheard),
     `${take}.m4a`,
   )
   await writeFile(
     `${take}.txt`,
-    arrange(composed.lyrics)
+    words(composed.lyrics)
       .map(({ content }) => content)
       .join('\n\n'),
   )
@@ -105,7 +105,7 @@ if (!dry) {
       if (beds.length === 0) continue
       await mixdown(beds, `${take}.music.m4a`)
       await mixdown(
-        [...lines.filter(({ file }) => file), ...beds],
+        [...lines.filter(({ file, unheard }) => file && !unheard), ...beds],
         `${take}.together.m4a`,
       )
       console.log(

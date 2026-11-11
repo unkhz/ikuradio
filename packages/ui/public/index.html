@@ -35,6 +35,11 @@
         padding-left: 1.5em;
         border-left: 2px solid #234;
       }
+      /* a bridge has no words: only a quiet sign that the music goes on */
+      p.bridge::before {
+        content: '~';
+        opacity: 0.3;
+      }
       p.weather {
         color: var(--weather);
         font-style: italic;

@@ -6,12 +6,12 @@
 // takes are blended into one recording per line.
 
 import { arrange } from 'song'
-import { scoreSeconds, setLine } from 'melody'
+import { scoreSeconds, setBridge, setLine, wrongness } from 'melody'
 import { blend, countSyllables, humanize, record } from 'vocals'
 import type { Iteration } from './compose.js'
 
 export type SungLine = {
-  part: 'verse' | 'chorus'
+  part: 'verse' | 'chorus' | 'bridge'
   /** Which line of its part, from 0. */
   index: number
   lyrics: string
@@ -27,7 +27,18 @@ export type SungLine = {
   voiced: number
   /** When the line begins, in seconds from the start of the iteration. */
   at: number
+  /**
+   * A bridge's hum that is recorded but not heard: the Music listens to it,
+   * the listeners do not.
+   */
+  unheard?: boolean
 }
+
+/** How often a bridge is hummed aloud, rather than only played. */
+const humming = 0.5
+
+/** How loud a bridge's hum is, beside a sung line. */
+const humGain = 0.7
 
 /** A hum, one "ooh" for each note: what a singer sings when there are no words. */
 export const hum = (notes: number) =>
@@ -53,8 +64,56 @@ export async function perform({
     return phrases[index % phrases.length].notes.length
   }
 
+  /**
+   * A bridge: the lead hums the last line of the part that has just ended,
+   * and the Music plays on. The hum is always recorded, because the Music
+   * grows the bridge's bed from it, but only sometimes heard.
+   */
+  const bridge = async (
+    section: number,
+    from: 'verse' | 'chorus',
+  ): Promise<Omit<SungLine, 'at'>> => {
+    const [lead] = choir
+    const score = setBridge({
+      from,
+      lyrics: hum,
+      singer: lead.body,
+      character: mood.character,
+      harmony: lead.harmony,
+      tune,
+    })
+    const take = {
+      ...humanize(score, `${iteration}:bridge:${section}`),
+      ...lead.throat,
+    }
+    const seconds = scoreSeconds(score)
+    const [, rest] = score.notes.at(-1) ?? [0, 0]
+    const heard = wrongness(`hum:${iteration}:${section}`)() < humming
+    let file = ''
+    const recordings: string[] = []
+    try {
+      const dry = await record(take, lead.body)
+      recordings.push(dry)
+      file = await blend([{ file: dry, gain: humGain }])
+      recordings.push(file)
+    } catch (error) {
+      console.warn(`the bridge could not be hummed: ${error}`)
+    }
+    return {
+      part: 'bridge',
+      index: section,
+      lyrics: '',
+      file,
+      recordings: [...new Set(recordings)],
+      seconds,
+      enters: take.t0,
+      voiced: heard ? seconds - (rest * 60) / score.bpm : 0,
+      ...(heard ? {} : { unheard: true }),
+    }
+  }
+
   const sing = async (
-    part: SungLine['part'],
+    part: 'verse' | 'chorus',
     index: number,
     line: string,
   ): Promise<Omit<SungLine, 'at'>> => {
@@ -126,7 +185,15 @@ export async function perform({
     }
   }
 
-  for (const { type: part, content } of arrange(lyrics)) {
+  const parts = arrange(lyrics)
+  for (const { type: part, content, index: section } of parts) {
+    if (part === 'bridge') {
+      const from = parts[section - 1]?.type === 'chorus' ? 'chorus' : 'verse'
+      const key = lineKey('bridge', section, '')
+      if (!takes.has(key)) takes.set(key, bridge(section, from))
+      order.push(takes.get(key)!)
+      continue
+    }
     for (const [index, line] of content.split('\n').entries()) {
       if (!line.trim()) continue
       const key = lineKey(part, index, line)

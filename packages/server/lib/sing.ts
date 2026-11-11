@@ -25,7 +25,7 @@ export type IterationEvent = {
 
 export type PartEvent = {
   type: 'part'
-  content: 'verse' | 'chorus'
+  content: SongPart['type']
 }
 
 export type LineEvent = {
@@ -34,6 +34,8 @@ export type LineEvent = {
   part: SongPart['type']
   /** Which line of the part, from 0. */
   index: number
+  /** Where the part stands in the iteration, from 0. */
+  section: number
 }
 
 export type CharEvent = {
@@ -175,7 +177,13 @@ export async function* sing(
           voiced: 0,
         }
         await clock.until(at)
-        yield { type: 'line', content: line, part: part.type, index }
+        yield {
+          type: 'line',
+          content: line,
+          part: part.type,
+          index,
+          section: part.index,
+        }
         if (line.trim()) {
           const voice = at + timing.enters * 1000
           const moments = typingMoments(

@@ -160,19 +160,38 @@ export async function writeLyrics(
 }
 
 export type SongPart = {
-  type: 'verse' | 'chorus'
+  /** A bridge has no words: it is music between a verse and a chorus, hummed or not. */
+  type: 'verse' | 'chorus' | 'bridge'
+  /** Where the part stands in the iteration, from 0. */
   index: number
+  /** The words, a line each. A bridge has one line, and no words in it. */
   content: string
 }
 
-/** Lays the words out in the order they are sung. */
+/**
+ * Lays the parts out in the order they are sung. Wherever the song turns
+ * from a verse to the chorus, or back, a bridge carries it across.
+ */
 export function arrange(lyrics: Lyrics): SongPart[] {
-  return [
-    { type: 'verse', index: 0, content: lyrics.firstVerse },
-    { type: 'chorus', index: 1, content: lyrics.chorus },
-    { type: 'verse', index: 2, content: lyrics.secondVerse },
-    { type: 'chorus', index: 3, content: lyrics.chorus },
-    { type: 'verse', index: 4, content: lyrics.thirdVerse },
-    { type: 'verse', index: 5, content: lyrics.finalChorus },
+  const sung: Omit<SongPart, 'index'>[] = [
+    { type: 'verse', content: lyrics.firstVerse },
+    { type: 'chorus', content: lyrics.chorus },
+    { type: 'verse', content: lyrics.secondVerse },
+    { type: 'chorus', content: lyrics.chorus },
+    { type: 'verse', content: lyrics.thirdVerse },
+    { type: 'verse', content: lyrics.finalChorus },
   ]
+  return sung
+    .flatMap((part, i) => {
+      const before = sung[i - 1]
+      return before && before.type !== part.type
+        ? [{ type: 'bridge' as const, content: '' }, part]
+        : [part]
+    })
+    .map((part, index) => ({ ...part, index }))
+}
+
+/** The parts with words in them, as a reader would want them. */
+export function words(lyrics: Lyrics): SongPart[] {
+  return arrange(lyrics).filter(({ type }) => type !== 'bridge')
 }

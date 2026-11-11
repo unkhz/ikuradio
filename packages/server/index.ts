@@ -1,5 +1,5 @@
 import { getEnv, Sleeper } from 'tools'
-import { arrange } from 'song'
+import { arrange, words } from 'song'
 import { describe } from 'mood'
 import { introduce, vocalsDir, type Placed } from 'vocals'
 import { musicDir, Shelf, underlay } from 'music'
@@ -123,7 +123,7 @@ async function getSungSong(iteration: bigint): Promise<TimedPart[]> {
     `score:${JSON.stringify({
       iteration: `${iteration}`,
       lines: [...lines.values()]
-        .filter(({ file }) => file)
+        .filter(({ file, unheard }) => file && !unheard)
         .map(({ file, at }) => ({ file, at })),
       beds,
     })}`,
@@ -131,7 +131,11 @@ async function getSungSong(iteration: bigint): Promise<TimedPart[]> {
   return arrange(composed.lyrics).map((part) => ({
     ...part,
     timing: part.content.split('\n').map((line, index) => {
-      const sung = lines.get(lineKey(part.type, index, line))
+      const sung = lines.get(
+        part.type === 'bridge'
+          ? lineKey('bridge', part.index, '')
+          : lineKey(part.type, index, line),
+      )
       return sung ?? { seconds: 0, enters: 0, voiced: 0 }
     }),
   }))
@@ -160,8 +164,14 @@ async function letGo(iteration: bigint) {
   await forgetBeds()
 }
 
-const sungLine = ({ part, index, content }: LineEvent) =>
-  performed.get(current)?.lines.get(lineKey(part, index, content))
+const sungLine = ({ part, index, content, section }: LineEvent) =>
+  performed
+    .get(current)
+    ?.lines.get(
+      part === 'bridge'
+        ? lineKey('bridge', section, '')
+        : lineKey(part, index, content),
+    )
 
 async function run() {
   const say = (chunk: string) => room.say(chunk)
@@ -247,7 +257,7 @@ async function run() {
       }
       case 'line': {
         const sung = sungLine(event)
-        if (sung?.file) {
+        if (sung?.file && !sung.unheard) {
           say(`play:${sung.file}`)
         }
         break
@@ -276,7 +286,7 @@ async function lookBack({ before, count }: { before?: bigint; count: number }) {
     tempo: page.mood.character.tempo,
     choir: page.choir ? introduce(page.choir) : undefined,
     written: page.written,
-    parts: arrange(page.lyrics).map(({ type, content }) => ({ type, content })),
+    parts: words(page.lyrics).map(({ type, content }) => ({ type, content })),
   }))
 }
 

@@ -103,6 +103,47 @@ export function setLine({
   }
 }
 
+/** How many beats a bridge lasts: four bars. */
+export const bridgeBeats = 16
+
+/**
+ * The hum of a bridge, for one voice: the last line of the part that has
+ * just ended, without its words, as an echo leaving the room, and then
+ * silence until the bridge is over. `lyrics` is what is hummed, one sound
+ * for each note.
+ */
+export function setBridge({
+  from,
+  lyrics,
+  singer,
+  character = firstCharacter,
+  harmony = 0,
+  tune = firstTune,
+}: {
+  from: 'verse' | 'chorus'
+  lyrics: (notes: number) => string
+  singer: Singer
+  character?: Character
+  harmony?: number
+  tune?: Tune
+}): Score {
+  const phrases = from === 'chorus' ? tune.chorus : tune.verse
+  const { notes } = phrases[phrases.length - 1]
+  const key = keyFor(singer, character.mode)
+  const hummed = notes.reduce((sum, [, beats]) => sum + beats, 0)
+  return {
+    bpm: character.tempo,
+    lyrics: lyrics(notes.length),
+    notes: [
+      ...notes.map(([degree, beats]): [number, number] => [
+        degreeToMidi(degree + harmony, key),
+        beats,
+      ]),
+      [0, Math.max(0, bridgeBeats - hummed)],
+    ],
+  }
+}
+
 /** How long a line takes, rest included, in seconds. */
 export function scoreSeconds(score: Score): number {
   const beats = score.notes.reduce((sum, [, b]) => sum + b, 0)

@@ -3,7 +3,7 @@
 // line begins and lasts until the next section begins, rest included.
 
 export type Line = {
-  part: 'verse' | 'chorus'
+  part: 'verse' | 'chorus' | 'bridge'
   /** Which line of its part, from 0. */
   index: number
   /** When the line begins, in seconds from the start of the iteration. */
