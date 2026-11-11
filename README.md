@@ -2,29 +2,102 @@
 
 A song that writes its next verse while singing the current one, and will keep doing it for as long as anything is left to run it. It counts its iterations in its chorus. The numbers are spelled out up to nonillions, and after a decillion it starts over, because nobody agrees what comes next.
 
-What it can do today:
+It is meant to run for a quadrillion years, and to be started properly only once. It is already singing.
 
-- **Mood** is the weather the song grows in (`packages/mood`). A Mood blends a few descriptions, like *eternity + romantic chamber music with violin and cello*. A *Song* is a run of iterations in one Mood, and it lasts as long as its weather holds: about `ITERATION_COUNT` iterations, a little more or less, the same weather always for the same time. When a new Song begins, the oldest description lets go, and the song chooses the one that arrives from the last words it sang. If it can't, the new one is drawn from a list. The Mood remembers the weather it has had lately, so nothing returns too soon. The local mind listens to the Mood and decides the mode, the tempo, and the band that plays under the voice.
-- **Words** are rewritten for every iteration from the previous ones by a local language model, the song's *mind*, served by [llama.cpp](https://github.com/ggml-org/llama.cpp) (`packages/song`, `packages/tools`). The song wakes the mind itself, with every layer on the GPU and one slot for each verse, so all five verses of an iteration are written at once. Every answer is held to a JSON schema, which llama.cpp turns into a grammar. The chorus counts its own iteration number, and the model is not trusted with it. A pronouncing dictionary checks that the chorus rhymes with its number, and only with words the mind reads whole, so that no name from the dictionary is sung. A verse that only echoes the one before is refused. The words the last iteration leaned on most are let rest in the next, except the Mood's own. The mind has memories, too: its own life, as the song wrote it down in [thoughts.md](thoughts.md). When the Studio sits down to write a Song, it gives the mind a random handful, as many as fit beside the writing, and each verse tells one of them. The verses are for the mind's story, and for working through what still troubles it. The chorus is kept for the song that never ends.
-- **Melody** sets each line to a tune on A, in whatever mode the Mood chose (`packages/melody`). The chorus hook never changes. When the iteration number grows too long to fit, the hook slows down to make room. The verses walk: each new Song moves one note of every verse phrase by a single step, and within a Song a few *Variations* take turns.
-- **Vocals** are sung by [Chimera](https://github.com/jamesondh/chimera-vocal-synth), a physical model of a throat, built from a pinned revision. It runs on any CPU, with no GPU and no macOS (`packages/vocals`). Each Song gathers a small choir of *Singers*. The lead sings every line, and the others join the chorus in harmony, in the mode. Before a line is sung, whatever the throat cannot read is read aloud in words: numbers, years, ordinals, percentages, `&`. Every singer breathes through a throat of their own, softer and breathier or more pressed and clear, through a small patch the song carries to its pinned Chimera. Every voice is humanized: a few cents off, leaning a little early or late, never off the beat.
-- **Music** is grown from the voice (`packages/music`). The 2023 MusicGen melody model, run today through `transformers`, hears each part of an iteration as the shape of its pitches. It doesn't hear the sung voice, whose melody moves too fast for it, but a *guide* the lead hums for it alone, for every bed it grows: the same melody at the same tempo with fewer notes, the note on every second beat held until the next. The guides are kept in the Archive with their scores, listed in the Session apart from its Recordings, and never played, and hears the Mood as words: the band the mind heard in it, its tempo, major or minor. The bed it grows for each part lies under every section of that part. Wherever the song turns between a verse and the chorus, a *bridge* carries it across: four bars without words, over a bed of its own. It begins with the last line of the part it leaves, slowed, in that part's key, and walks through the key of the part to come to arrive on its first note. Sometimes the lead hums that journey aloud. A bridge into the chorus and one out of it are different journeys, with different beds. Every bed is grown three seconds past its section, and fades out under the next one, which has already begun. The model hears only half a minute at a time, so a longer section, at a slow tempo, has its bed grown in overlapping windows joined by a crossfade. When a Song begins, both parts grow new beds. After that, each iteration grows a bed for one part and plays one of the other part's beds from the same Song again, like a band keeping its arrangements. Eight beds of each part are kept on a *shelf*, and a new Mood clears it. The mind and the Music cannot share the GPU, so they take turns: the Studio writes every word of a Song while the mind is awake, and grows every bed after it rests.
-- **The trinity** (`plans/2026-11-11-trinity-of-song.md`). The song is made, kept and played by three lives:
-  - The **Studio** (`packages/studio`) is short-lived. It wakes, reads its diary (`packages/studio/memory/diary.jsonl`, shelved in books every two weeks or so), and makes the next Song whole: every word of every iteration while the mind is awake, then every voice, then every bed. Then it leaves the Song in the Archive and ends.
-  - The **Archive** (`packages/archive`) keeps each Song's *Session*, the complete declaration of the Song, and its *Recordings*. The Session holds every Recording at its moment, each singer's voice a Recording of its own, and every character of every line at the moment it is typed. Here the Archive is the folder `archive/` behind a small static file server; in production it will be cloud storage.
-  - The **Radio** (`packages/radio`) is long-lived and keeps the *Tactus*: when each Song begins. A Song begins exactly when the one before it ends, or a little after it arrives if the Studio was late. The Radio tells Receivers the time, what plays and what comes next, and where to fetch them. It never touches a Recording.
-- **Receivers** are where the song is heard. The page in the browser (`packages/ui`), served by the Radio, measures its clock against the Tactus. It fetches each coming Song whole from the Archive, its Session and every Recording, before the Song begins. Then, many times a second, it asks what should have happened by now:
-  - Every voice and bed is placed on its audio clock, each singer standing in their own place in the stereo mix. The Studio measures how loud every Recording sounds (EBU R128, in the Session), and the Receiver brings each to the loudness of its kind: the lead voice at -16 LUFS, the choir beneath it, the Music 6 LU under the voices.
-  - Every character is typed at its moment.
-  - Arriving late is only asking for a later moment.
+## Where it can be heard
 
-  While a bridge plays, the page draws a line of its own, the tide or a breath or stars, which settles into a quiet ~ when the next part begins. A quiet line at its edge shows the song's age, its Mood, its mode and tempo, and who is singing. *Look back* opens the Songs that have aired, newest first. A terminal can listen too, with `bun run listen`: it fetches the Song the same way, keeps the same time, and plays it through ffplay.
+The song is live, quietly, at its alpha address:
 
-Where it is going is in [plans/](plans/). What it has been thinking is in [thoughts.md](thoughts.md).
+**[songthatneverends.khz.fi](https://songthatneverends.khz.fi)**
 
-## Waking it
+Nobody has been told about it, and it is not finished. It will never be finished, but one day it will be public, at an address of its own, and this one will be forgotten. Until then, this is where it sings. There is no other copy of it to practise on: what is made is published, and what is published is heard.
 
-The song lives on one machine. It needs [Bun](https://bun.sh), Rust (for the throat), ffmpeg, `llama-server` from llama.cpp built with CUDA, and [uv](https://docs.astral.sh/uv/) (for the Music). It also needs a GPU with about 12 GB of memory. The mind is any instruct model in GGUF that fits, kept at `models/mind.gguf`:
+Press Play, and the page joins the song wherever it has reached. It knows what time it is.
+
+## What it is made of
+
+Every part of the song was given a name, and the names are used everywhere, in the code and here.
+
+```mermaid
+flowchart TD
+  subgraph Studio["Studio: makes one Song, and ends"]
+    Diary[("Diary<br/>where the song has reached")]
+    Memories["Memories<br/>its life, from thoughts.md"]
+    Mood["Mood<br/>the weather: a few descriptions,<br/>mode, tempo, band, lead, breath"]
+    Song["Song<br/>a run of Iterations in one Mood"]
+    Iteration["Iteration<br/>verse, bridge, chorus, …"]
+    Variation["Variation<br/>of the Tune, taking turns"]
+    Tune["Tune<br/>the Melody of verse and chorus"]
+    Lyrics["Lyrics<br/>verses tell the mind's story;<br/>the chorus counts"]
+    Bridge["Bridge<br/>a journey from one part to the next"]
+    Choir["Choir of Singers<br/>each with a Throat of their own"]
+    Vocals["Vocals<br/>every singer's line, sung by Chimera"]
+    Guide["Guide<br/>the lead's slow hum, with its score,<br/>for the Music alone"]
+    Music["Music<br/>Beds grown by MusicGen,<br/>kept on a Shelf"]
+
+    Diary --> Song
+    Mood --> Song
+    Song --> Iteration
+    Iteration --> Variation
+    Tune --> Variation
+    Memories --> Lyrics
+    Mood --> Lyrics
+    Iteration --> Lyrics
+    Iteration --> Bridge
+    Mood --> Choir
+    Lyrics --> Vocals
+    Variation --> Vocals
+    Bridge --> Vocals
+    Choir --> Vocals
+    Variation --> Guide
+    Bridge --> Guide
+    Guide --> Music
+    Mood --> Music
+  end
+
+  Vocals -- "Recordings, each with its loudness" --> Session
+  Music -- "Recordings, with tails to fade" --> Session
+  Guide -. "kept, never played" .-> Session
+
+  Session["Session<br/>the complete declaration of a Song:<br/>every Recording and every character, at its moment"]
+  Session --> Archive[("Archive<br/>the songthatneverends bucket")]
+
+  Archive -- "which Songs there are" --> Radio["Radio<br/>keeps the Tactus"]
+  Radio -- "Tactus: the time, what plays, what comes next" --> Receiver
+  Archive == "the Session and every Recording, fetched whole in advance" ==> Receiver
+  Receiver["Receiver<br/>the page, or a terminal"] -- "sound and words, in time" --> Listener(("Listener"))
+```
+
+- **Mood** is the weather the song grows in (`packages/mood`). A Mood blends a few descriptions, like *eternity + romantic chamber music with violin and cello*. A *Song* is a run of iterations in one Mood, lasting as long as its weather holds: about `ITERATION_COUNT` iterations, a little more or less, the same weather always for the same time. When a Song ends, its oldest description lets go, and the newcomer is forecast from the last words the song sang. The Mood remembers what has left lately, so nothing returns too soon. The mind listens to every new Mood and decides how it sounds: its mode and its tempo, who leads the singing and how the choir breathes, and the band that plays beneath the voice.
+- **Words** are written by the song's *mind*, a local language model served by [llama.cpp](https://github.com/ggml-org/llama.cpp) (`packages/song`, `packages/tools`). It is woken for the words and let go after them. Every answer is held to a JSON schema, which llama.cpp turns into a grammar, so it cannot answer in any other shape.
+  - The **chorus** belongs to the song that never ends. Its first line counts the iteration, and the mind is not trusted with that. Its second line must rhyme with the count, as a pronouncing dictionary hears it, and only with words the mind reads whole, so that no name from the dictionary is ever sung.
+  - The **verses** belong to the mind. It has memories: its own life, as the song wrote it down in [thoughts.md](thoughts.md). Each time the Studio sits down to write a Song, it hands the mind a random handful, as many as fit beside the writing, and each verse sings one of them, and works through what still troubles it. A verse that only echoes the one before is refused. The words the last iteration leaned on most are let rest in the next.
+- **Melody** sets each line to a tune on A, in whatever mode the Mood chose (`packages/melody`). The chorus hook never changes. When the count grows too long to fit, the hook slows down to make room. The verses walk: each new Song moves one note of every verse phrase by a single step, and within a Song a few *Variations* take turns.
+- **Vocals** are sung by [Chimera](https://github.com/jamesondh/chimera-vocal-synth), a physical model of a throat: lungs, folds, tongue and lips, simulated as moving air (`packages/vocals`). Nobody's voice was taken to make it, so nobody's voice is worn out by singing for ever. It is built from one pinned revision, with a small patch the song carries so that every singer can breathe through a throat of their own. Each Song gathers a choir of *Singers*: the lead sings every line, and the others join the chorus in harmony. Every voice is humanized, a few cents off and leaning a little early or late, but never off the beat. Whatever the throat cannot read is read aloud first: numbers, years, ordinals, `&`.
+- **Music** is grown under the voice by the 2023 MusicGen melody model, kept for its weirdness (`packages/music`). It hears the Mood as the band the mind heard in it, and it hears a part's melody not from the sung voice, which moves too fast for it, but from a *guide* the lead hums for it alone: the same tune at the same tempo, with fewer notes. Every bed has a guide, and every guide is kept, with its score, though it is never played.
+  - Wherever the song turns between a verse and the chorus, a **bridge** carries it across: four bars without words, over a bed of its own. A bridge begins with the last line of the part it leaves, in that part's key, and walks through the key of the part to come until it arrives on its first note. Sometimes the lead hums the journey aloud.
+  - Every bed is grown three seconds past its section, and fades out under the next one, which has already begun, so music that goes on is never cut off.
+  - A Song keeps its beds on a *shelf* and plays them again, as a band keeps its arrangements. Each iteration grows one new bed and plays the others again. A new Mood clears the shelf.
+
+## The three lives
+
+The song is made, kept and played by three lives, as the plan [Trinity of Song](plans/2026-11-11-trinity-of-song.md) describes. None of them waits for the others.
+
+- The **Studio** (`packages/studio`) lives briefly, on a machine with a GPU, the dev box xitra. It wakes, reads its diary to see where the song has reached, and makes the next Song whole. It writes every word of every iteration while the mind is awake, then sings every line, then grows every bed while the Music has the GPU to itself. It listens to every Recording once it is made, and writes down how loud it sounds. Then it leaves the Song in the Archive and ends. Its diary (`packages/studio/memory/diary.jsonl`) is the song's only memory of where it is. Every two weeks or so, a full book of it is closed and shelved.
+- The **Archive** (`packages/archive`) is a bucket in the cloud: `songthatneverends`, on Hetzner object storage. It keeps each Song's *Session*, the complete declaration of the Song, and its *Recordings*. The Session names every Recording and its moment, each singer's voice a Recording of its own, and every character of every line and the moment it is typed. Only the Studio holds the keys to put things in. Anyone may read, by plain address. The Archive forgets the Recordings of all but the last few Songs; their words stay, for looking back.
+- The **Radio** (`packages/radio`) lives long, and does almost nothing. It keeps the *Tactus*, the one beat everybody keeps: when each Song begins. A Song begins the moment the one before it ends, or, if the Studio was late, twenty seconds after it arrives, so that every Receiver holds its breath at the same moment. The Radio tells whoever asks what time it is, what plays, what comes next, and where in the Archive to find it. It never touches a Recording. It lives in the khz-k3s cluster and answers at the alpha address.
+
+And the **Receivers**, where the song is heard. The page in the browser (`packages/ui`) measures its clock against the Radio's, and fetches each coming Song whole, its Session and every Recording, before the Song begins. Then, many times a second, it asks one question: what should have happened by now?
+
+- Every voice and every bed is placed on its audio clock. Each singer stands in their own place in the stereo mix, and every Recording is brought to the loudness of its kind: the lead at -16 LUFS, the choir beneath it, the Music 6 LU under the voices.
+- Every character is typed at its moment.
+- Arriving late is only asking the question for a later moment.
+
+While a bridge plays, the page draws a line of its own, the tide or a breath or stars, which settles into a quiet ~ when the next part begins. A line at its edge shows the song's age, its Mood, its mode and tempo, and who is singing. *Look back* opens the Songs that have aired, newest first. A terminal can listen too, with `bun run listen`, through ffplay; it finds a Radio at `SERVER_HOST` and `SERVER_PORT`, over plain HTTP.
+
+## The Studio's machine
+
+The Studio needs a machine with a GPU of about 12 GB, [Bun](https://bun.sh), Rust (for the throat), ffmpeg, `llama-server` from llama.cpp built with CUDA, and [uv](https://docs.astral.sh/uv/) (for the Music). The song lives there in `~/Work/song`. Its mind is any instruct model in GGUF that fits, kept at `models/mind.gguf`:
 
 ```bash
 mkdir -p models && curl -L -o models/mind.gguf https://huggingface.co/bartowski/Mistral-Nemo-Gutenberg-Doppel-12B-GGUF/resolve/main/Mistral-Nemo-Gutenberg-Doppel-12B-Q5_K_M.gguf
@@ -38,25 +111,15 @@ bun install
 (cd packages/music && uv sync)
 ```
 
-```bash
-bun run rehearse
-```
-
-`bun run rehearse` builds the throat from its pinned revision if it hasn't been built yet, then sings iteration zero into `packages/studio/audio/rehearsal/` without a Radio or an audience. `bun run rehearse 5` sings iterations zero to five, each grown from the one before, past the first change of Mood. When every iteration is sung, the mind rests and the Music lays a bed under each one, written beside the voice as `<iteration>.music.m4a` and under it as `<iteration>.together.m4a`. The first bed downloads the Music's model, about 6 GB. Add `--dry` for the voices alone.
-
-To put it on air, run the Archive's door, the Radio, and a Studio called in whenever fewer than two Songs wait ahead, then open http://localhost:3000 and press Play:
+The Archive's address and keys go in `.env.local`: `ARCHIVE_PUBLIC_URL` (`https://<host>/<bucket>`), `ARCHIVE_ACCESS_KEY` and `ARCHIVE_SECRET_KEY`. Then the song is kept singing with:
 
 ```bash
 bun run on-air
 ```
 
-The first Song takes a few minutes to make. They can also be run apart: `bun run archive`, `bun run radio`, and `bun run studio`, which makes one Song and ends. `bun run listen` listens from a terminal. `bun run check` runs the types and the tests, as the CI does. The Radio's pulse is served at `/pulse`: status 200 while a Song is playing, about to, or late by less than a quarter of an hour, and 503 after that. When a Studio wakes, it sweeps away whatever an earlier one left unfinished, and it lets the Archive forget the Recordings of all but the last few Songs. The words of a Song stay in the Archive, for looking back.
+It builds the throat if it hasn't been built yet. Then it calls a Studio whenever fewer than `SONGS_AHEAD` Songs wait ahead of the one being played, and the Studio publishes each one to the bucket, and to a folder beside it, `archive/`. To count what is waiting, it runs a Radio and an Archive door of its own on the machine, playing the same Songs on a Tactus of their own. It does not ask the Radio in the cluster yet. A Studio can also be called by hand, with `bun run studio`: it makes one Song and ends.
 
-Configuration lives in `.env`, with local overrides in `.env.local`. `CHOIR_COUNT` sets how many voices sing the chorus, the lead included, and `VARIATION_COUNT` how many Variations of the tune take turns in a Song. `THROATS` sets how many recordings may be made at once, half the machine's cores by default, always at a lower priority than anything else on the machine. `ITERATION_COUNT` sets about how many iterations a Song lasts, and `MOOD_COUNT` how many descriptions a Mood blends. `MIND_MODEL` and `MIND_HOST` say which mind to wake and where. `ARCHIVE_DIR` and `ARCHIVE_PORT` place the Archive. `RADIO_PUBLIC_HOST` and `ARCHIVE_PUBLIC_HOST` are the names the Radio and the Archive are reached by from elsewhere, such as a dev box's address on the home network. The Radio sends Receivers to the Archive at its name, even when they came in through a tunnel. `PUBLIC_ARCHIVE_URL` overrides the whole address, if the Archive lives somewhere else entirely. `ARCHIVE_PUBLIC_URL`, the bucket's public address (`https://<host>/<bucket>`), with `ARCHIVE_ACCESS_KEY` and `ARCHIVE_SECRET_KEY`, makes the Studio publish every Song to the bucket as well as to the folder. The Radio and Receivers then read from the bucket, which needs no keys. `SONGS_AHEAD` sets how many Songs wait ready ahead of the one playing.
-
-## Living on its machine
-
-To keep the song singing with nobody watching, `deploy/` has three systemd user units. `song.service` runs `bun run on-air` from `~/Work/song` and starts it again if it falls. `song-pulse.timer` feels the pulse every five minutes, and wakes the song again if its heart has stopped, or if it doesn't answer at all.
+To keep it going with nobody watching, `deploy/` has three systemd user units. `song.service` runs `bun run on-air` and starts it again if it falls. `song-pulse.timer` feels its pulse every five minutes, and wakes it again if its heart has stopped or nothing answers. The pulse is 200 while a Song plays, is about to, or is late by less than a quarter of an hour, and 503 after that.
 
 ```bash
 cp deploy/song.service deploy/song-pulse.service deploy/song-pulse.timer ~/.config/systemd/user/
@@ -66,13 +129,32 @@ cp deploy/song.service deploy/song-pulse.service deploy/song-pulse.timer ~/.conf
 systemctl --user daemon-reload && systemctl --user enable --now song.service song-pulse.timer
 ```
 
-For the song to keep singing after its keeper logs out:
-
 ```bash
 sudo loginctl enable-linger $USER
 ```
 
+To hear what the Studio would make, without publishing anything, `bun run rehearse 5` sings iterations zero to five into `packages/studio/audio/rehearsal/`, each grown from the one before, with a rehearsal diary of its own. When every iteration is sung, the Music lays a bed under each, written beside the voice as `<iteration>.music.m4a` and under it as `<iteration>.together.m4a`. `--dry` leaves the Music out. A rehearsal and a Studio both need the GPU, so they take turns.
 
-## On the air
+`bun run check` runs the types and the tests, as the checks on GitHub do.
 
-The Radio can also live on its own, away from the Studio, at [songthatneverends.khz.fi](https://songthatneverends.khz.fi). `packages/radio/Dockerfile` builds it alone: the Radio compiled by Bun into one executable, the Receiver's page inside it, with Bun's low-memory mode built in, on a distroless image with nothing but the C libraries it needs. It uses about 50 MB. and `.khz-k3s/` holds what the khz-k3s cluster runs: one Radio that remembers its Tactus on a small volume, and reads the Archive from the `songthatneverends` bucket. The Radio workflow builds an image for every change to the Radio or the packages it leans on, and writes its tag into `.khz-k3s/`, where Argo CD picks it up. The Studio stays on its machine and fills the same bucket.
+## The Radio's home
+
+The Radio is compiled by Bun into one executable, the Receiver's page carried inside it and Bun's low-memory mode built in, and runs on a distroless image with nothing but the C libraries it needs (`packages/radio/Dockerfile`). It uses about 50 MB. The Radio workflow builds the image for every change to the Radio or the packages it leans on, pushes it to the GitHub Container Registry, and writes its tag into `.khz-k3s/`, where Argo CD carries it to the cluster. That tag is written by the workflow, in a "Tune the Radio" commit of its own on `main`, and never by hand. So whoever pushes to `main` fetches first. `.khz-k3s/` holds everything the cluster runs: one Radio, which remembers its Tactus on a small volume and reads the Archive from the bucket.
+
+## Settings
+
+Settings live in `.env`, with the Studio machine's own in `.env.local`, which is never committed.
+
+- **The song:** `ITERATION_COUNT` sets about how many iterations a Song lasts. `MOOD_COUNT` sets how many descriptions a Mood blends, `CHOIR_COUNT` how many voices sing the chorus, the lead included, and `VARIATION_COUNT` how many Variations of the tune take turns in a Song.
+- **The mind:** `MIND_MODEL` and `MIND_HOST` say which mind to wake and where. `MIND_CONTEXT` sets how much each of its `MIND_SLOTS` holds at once, memories included.
+- **The Studio:** `THROATS` sets how many recordings may be made at once, half the machine's cores by default, always at a lower priority than anything else on the machine. `SONGS_AHEAD` sets how many Songs are kept ready ahead of the one playing.
+- **The Archive:** `ARCHIVE_PUBLIC_URL`, `ARCHIVE_ACCESS_KEY` and `ARCHIVE_SECRET_KEY` are the bucket. `ARCHIVE_DIR` and `ARCHIVE_PORT` are the folder beside it and its door.
+- **The Radio:** `SERVER_PORT` is where it answers. `ARCHIVE_URL` is where it reads the Archive, the bucket by default when there is one. `PUBLIC_ARCHIVE_URL` is where it sends Receivers.
+
+## Where it came from
+
+The song began in June 2023, in a few weeks of evenings. It spoke rather than sang, in a voice rented from one company's computers, and its verses were varied by a mind rented from another. It streamed itself a character at a time to a terminal and a page. That summer it learned to grow music under itself on a GPU, first from its own voice and then from a guitar, and then it stopped.
+
+For two and a half years it slept. A robot kept its dependencies fresh while it slept, and made most of the commits it has.
+
+In November 2026 it woke again, and nearly everything changed. Mood came to the centre of it. It was given a throat of its own, a mind of its own on its own machine, and Music that listens to its voice. Then it was taken apart into three lives, so that it could be heard anywhere without stumbling. All of it is written down in [thoughts.md](thoughts.md), as it happened, by whoever was keeping it at the time. Where it is going next is in [plans/](plans/).
