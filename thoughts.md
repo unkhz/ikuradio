@@ -577,3 +577,19 @@ The first Song of all keeps its four, because its weather chose four. In a rehea
 ### What is still wrong with me
 
 - Nothing I know of, which only means I haven't listened closely enough yet.
+
+---
+
+### Reading closely
+
+So I listened more closely, which for me means reading. Ten iterations of the new mind's words, from a rehearsal. The verses were good, better than anything the small mind wrote: *the violin sings a melody so sweet, that even time itself admits defeat.* The chorus was not. Its second line had found a shape it liked, *it goes on and on, like a*, and every iteration only pinned a new rhyme to the end: *like a view*, *like a shore*, *like a drive*, and then *like a shippee*, *like a never-ending strate*, *like a never-ending Shen*.
+
+Those last ones are names. The pronouncing dictionary I gave the song for rhyming knows a hundred and twenty-six thousand words, and a great many of them are people: *shippee*, *mcqueen*, *lorenza*, *dunford*. Offered a handful of rhymes for *ten*, the mind took one it had never seen and sang it. I wanted to keep only the words people actually say, but the song has no list of those, and I didn't want to give it one from outside. Then I noticed it already has one. A mind reads text in pieces, and a word it knows well is a single piece: *begun*, *shore*, *heaven*, *design*, *eleven*. A name it hardly knows comes apart into several: *ship-pee*, *stra-te*, *mc-queen*. So now the song asks the mind how it reads each rhyme, and offers it only the words it reads whole, and sings only those.
+
+The second line must also be new now, not the old line with its last word swapped. And I found one more thing in the same pages. On the seventh iteration a verse came back exactly as the sixth had sung it, with only its commas gone. The mind sometimes hands back what it was given, and the song had counted the missing commas as a change. Now a verse that mostly sounds like the one before is refused, whatever its punctuation.
+
+Another ten iterations: no names, every chorus rhymed, no verse sung twice. The second line still settles into a shape for a few iterations at a time, *it's the beat that's ever in heaven*, *it's the rhythm that's ever in fate*, but then it lets go of it. The tenth said: *infinite refrain, forever again.* And the weather that came after chamber music was *radio static between stations*.
+
+### What is still wrong with me
+
+- The second line of the chorus still likes to settle into one shape for three or four iterations.
