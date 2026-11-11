@@ -19,6 +19,8 @@ Song has been declared in earlier plans. New Terms here are
 - Receiver: A client program, which connects to Radio and operates the Sessions, to play the Songs to the Listeners
 - Listener: The end user, running the Receiver program (e.g. in their browser)
 
+Receiver gets only the metadata for Session and Recordings from Radio. Technical details are intentionally left to be decided, but it could be simply a link to the Session file in Archive (e.g. Hetzner S3). Session contains identifiers for downloading the Recordings from the Archive as well. This keeps Radio-Receiver communication lightweight and each browser can download the heavy stuff from cloud storage.
+
 ```mermaid
 flowchart TD
   subgraph Studio["Studio (short lived)"]
@@ -29,8 +31,9 @@ flowchart TD
   record -- "Session + Recordings" --> Archive[("Archive<br/>(cloud storage)")]
 
   Archive -- "Song(s)" --> Radio["Radio<br/>(long running server)"]
-  Radio -- "Sessions + Recordings<br/>(REST API)" --> Receiver
-  Radio -- "Tactus" --> Receiver
+  Radio -- "Session metadata, e.g. link to Session file<br/>(REST API, lightweight)" --> pull
+  Radio -- "Tactus" --> play
+  Archive == "Session file + Recordings<br/>(heavy download)" ==> pull
 
   subgraph Receiver["Receiver (e.g. browser)"]
     pull["Pull the next Song in advance"] --> play["Play the Song in sync"]
