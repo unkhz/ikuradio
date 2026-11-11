@@ -10,6 +10,12 @@ export interface ArchiveStore {
   session(song: string): Promise<Session | undefined>
   /** Puts a Session in, after its Recordings, and only then lists it. */
   putSession(session: Session): Promise<void>
+  /**
+   * Keeps a copy of the diary, so the song's memory is not on one machine
+   * only: every closed book once, and the book being written in afresh.
+   * Returns how many books were shelved for the first time.
+   */
+  putDiary(diary: { writing: string; books: string[] }): Promise<number>
   /** Lets go of what nobody will play again; returns how many Recordings went. */
   prune(options?: { audible?: number; remembered?: number }): Promise<number>
 }

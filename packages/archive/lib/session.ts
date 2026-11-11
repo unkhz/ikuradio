@@ -123,4 +123,8 @@ export const paths = {
   index: 'index.json',
   session: (song: string) => `sessions/${song}.json`,
   recording: (id: string) => `recordings/${id}`,
+  /** The diary's book being written in, copied afresh after every Song. */
+  diary: 'diary/diary.jsonl',
+  /** A closed book of the diary, named as it is on the shelf. It never changes. */
+  diaryBook: (name: string) => `diary/books/${name}`,
 }

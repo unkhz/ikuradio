@@ -144,6 +144,16 @@ const session = toSession(
 )
 await store.putSession(session)
 const pruned = await store.prune()
+// and the diary, so the song's memory is not on this machine only
+const shelved = await store
+  .putDiary({ writing: diary.file, books: (await diary.books()).map(({ file }) => file) })
+  .catch((error: Error) => {
+    console.warn(`the diary was not copied to the Archive: ${error.message}`)
+    return undefined
+  })
+if (shelved !== undefined) {
+  console.log(`the diary is in the Archive${shelved ? `, with ${shelved} more books on its shelf` : ''}`)
+}
 console.log(
   `Song ${BigInt(session.song) + 1n} is in the Archive: ${(session.seconds / 60).toFixed(1)} minutes,` +
     ` ${files.size} recordings${pruned ? `, ${pruned} let go` : ''}, made in ${seconds(started)}`,

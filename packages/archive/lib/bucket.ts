@@ -78,6 +78,20 @@ export class BucketStore implements ArchiveStore {
     await this.put(paths.index, JSON.stringify({ songs: listed }), 'application/json')
   }
 
+  async putDiary({ writing, books }: { writing: string; books: string[] }) {
+    let shelved = 0
+    for (const file of books) {
+      const key = paths.diaryBook(basename(file))
+      if (await this.client.exists(key)) continue
+      await this.put(key, Bun.file(file), 'application/x-ndjson')
+      shelved++
+    }
+    // a book just closed leaves nothing being written in, and so does the copy
+    const open = Bun.file(writing)
+    await this.put(paths.diary, (await open.exists()) ? open : '', 'application/x-ndjson')
+    return shelved
+  }
+
   /** Every key under `prefix`, a page at a time. */
   private async keys(prefix: string): Promise<string[]> {
     const keys: string[] = []
