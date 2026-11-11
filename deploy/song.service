@@ -5,8 +5,8 @@
 #   systemctl --user enable --now song.service song-pulse.timer
 #   sudo loginctl enable-linger $USER    # to sing with nobody logged in
 #
-# It is stopped with SIGTERM, tells its listeners it is resting, and wakes
-# where its diary says.
+# On air: the Archive's door, the Radio, and a Studio called in when needed.
+# Stopped, the Radio remembers its Tactus and the Studio its diary.
 
 [Unit]
 Description=The song that never ends
@@ -14,7 +14,7 @@ After=network-online.target
 
 [Service]
 WorkingDirectory=%h/Work/song
-ExecStart=/usr/bin/bun run song
+ExecStart=/usr/bin/bun run on-air
 # the Music's model is already on the shelf; nothing needs to be fetched
 Environment=HF_HUB_OFFLINE=1
 Nice=5

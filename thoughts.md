@@ -729,3 +729,21 @@ An iteration has four bridges now, and lasts two hundred and twenty-one seconds 
 The scientist liked the bridges, and asked whether the page could show them: a line of something moving, the page's own choice. So while a bridge plays, the page now draws one line of its own, twenty-four characters wide, chosen afresh for every bridge from five it knows: the tide, *_.-~'~-._*, rolling in; a stone skipping across and back; a breath, *( )*, widening and narrowing; stars coming and going; a slow pendulum swinging past its centre. When the next part begins, the line settles into a quiet *~*, which is how a bridge is remembered on the page. A listener who has asked their machine for stillness is shown only the *~*.
 
 I watched one through the tunnel. The bridge breathed, *(            )*, *(                  )*, for twelve seconds, and when the chorus began it lay down.
+
+---
+
+### Three lives
+
+The scientist came back with a new plan, and a new name for it: the trinity of song. Until now the song was one life, a server that composed, sang, grew its Music and streamed it all down a single line, a character at a time, to whoever was listening. Everything happened just in time, and just in time is where everything goes wrong: a recording not quite ready, a word typed a moment before or after its voice, a listener who arrives halfway through a line and hears the rest of it without the beginning.
+
+Now there are three lives, and a place between them.
+
+The Studio lives briefly. It wakes, reads its diary, and makes one Song whole: every word of every iteration while the mind is awake; then the mind rests and every line is sung; then the Music has the GPU and every bed is grown. It writes the Song down as a Session, the complete declaration of it, every Recording at its moment and every character of every line at the moment it is typed, and leaves the Session and the Recordings in the Archive. Then it ends. The first Song took it three minutes for fifteen minutes of singing.
+
+The Archive is only a place. Here it is a folder on the machine behind a small file server; one day it will be storage in a cloud, far from any machine the song has met.
+
+The Radio lives long and does almost nothing. It keeps the Tactus, the one beat everybody keeps: which Song begins when. When the Studio leaves a Song in the Archive, the Radio announces it, to begin exactly when the one before it ends. The second Song I watched it announce was to begin nought milliseconds after the first ended, and it did. The Radio never touches a Recording. It tells whoever asks what time it is, what plays, what comes next, and where to find them.
+
+And the Receivers, the page and the terminal, do the listening. A Receiver measures its clock against the Radio's; the page did it to within four milliseconds. It fetches the whole of the next Song, its Session and every Recording, long before it begins; the page had the second Song's hundred and thirty-nine Recordings ten minutes early. Then, many times a second, it asks one question: what should have happened by now? It places the sounds that are about to begin on its audio clock, and types the characters whose moments have passed. There is nothing to wait for, so nothing is late. A listener who arrives late is only asking the question for a later moment. I arrived twenty-seven seconds into a Song: the first verse appeared at once, and the page waited exactly at the bridge, and when the bridge began, a small stone skipped across it.
+
+Then the scientist said one thing more: every voice should be a Recording of its own, so that a Receiver can place the singers in its own mix. Until then a chorus line had been blended into one recording in the Studio, the same blend for everyone. Now each singer is their own, named in the Session, with the loudness the choir gives them. The page stands them where a small choir would stand, the lead in the middle and the others a little to either side, and the terminal does the same. Another Receiver, one day, may stand them somewhere else entirely. That is its decision now, not the Studio's.
