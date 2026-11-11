@@ -45,7 +45,12 @@ function made(iteration: bigint, began = 0n): Made {
       at += 6
     })
   }
-  return { composed, lines, beds: [{ file: `bed-${iteration}.m4a`, at: 0, gain: 0.45 }] }
+  return {
+    composed,
+    lines,
+    beds: [{ file: `bed-${iteration}.m4a`, at: 0, gain: 0.45 }],
+    guides: [{ part: 'verse', at: 0, seconds: 36, file: `guide-${iteration}.m4a` }],
+  }
 }
 
 describe('toSession', () => {
@@ -101,6 +106,14 @@ describe('toSession', () => {
     expect(session.recordings.every(({ loudness }) => loudness !== undefined)).toBe(true)
     const bed = session.recordings.find(({ kind }) => kind === 'bed')
     expect(bed?.loudness).toEqual({ lufs: -14.2, peak: -1.1 })
+  })
+
+  it('keeps the guides apart, never among what is played', () => {
+    expect(session.guides?.map(({ id, kind, at }) => [id, kind, at])).toEqual([
+      ['id:guide-0.m4a', 'guide', 0],
+      ['id:guide-1.m4a', 'guide', session.iterations[1].at],
+    ])
+    expect(session.recordings.some(({ id }) => id.includes('guide'))).toBe(false)
   })
 
   it('has no words in its bridges', () => {

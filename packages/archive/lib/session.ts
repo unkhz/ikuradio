@@ -31,6 +31,25 @@ export type Session = {
   iterations: SessionIteration[]
   /** Everything audible, each at its moment. */
   recordings: SessionRecording[]
+  /**
+   * The guide hums the Music grew its beds from: the lead humming a part's
+   * melody with fewer notes. They are not part of the Song, and a Receiver
+   * never plays them; they are kept so that anyone may hear what the Music
+   * was listening to.
+   */
+  guides?: SessionGuide[]
+}
+
+export type SessionGuide = {
+  /** Its name in the Archive's recordings: its content, as a hash. */
+  id: string
+  /** Only ever a guide for the Music, never to be played in the Song. */
+  kind: 'guide'
+  /** The part it guided the Music for. */
+  part: 'verse' | 'chorus' | 'bridge'
+  /** The section it was hummed against, from the Song's beginning. */
+  at: number
+  seconds: number
 }
 
 export type SessionIteration = {

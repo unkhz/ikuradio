@@ -82,7 +82,10 @@ export class Store {
 
     const needed = new Set<string>()
     for (const song of kept.slice(-audible)) {
-      for (const { id } of (await this.session(song))?.recordings ?? []) needed.add(id)
+      const session = await this.session(song)
+      for (const { id } of [...(session?.recordings ?? []), ...(session?.guides ?? [])]) {
+        needed.add(id)
+      }
     }
     const shelf = join(this.dir, 'recordings')
     let deleted = 0

@@ -6,6 +6,7 @@ import { introduce, type Loudness, type Placed } from 'vocals'
 import { sessionVersion, type Session, type SessionIteration } from 'archive'
 import type { Iteration } from './compose.js'
 import type { SungLine } from './perform.js'
+import type { Guide } from './guide.js'
 import { typingMoments } from './typing.js'
 
 /** One iteration as the Studio made it: composed, sung, and with its beds. */
@@ -13,6 +14,8 @@ export type Made = {
   composed: Iteration
   lines: SungLine[]
   beds: Placed[]
+  /** The guide hums the Music grew the beds from. */
+  guides?: Guide[]
 }
 
 const seconds = (n: number) => Math.round(n * 1000) / 1000
@@ -42,8 +45,9 @@ export function toSession(
   let offset = 0
   const iterations: SessionIteration[] = []
   const recordings: Session['recordings'] = []
+  const guides: NonNullable<Session['guides']> = []
 
-  for (const { composed, lines, beds } of made) {
+  for (const { composed, lines, beds, guides: hummed = [] } of made) {
     // the performance is in the order the parts are sung, a line at a time;
     // the chorus comes twice, each time at its own moment
     let cursor = 0
@@ -106,6 +110,15 @@ export function toSession(
         ...heard(bed.file),
       })
     }
+    for (const guide of hummed) {
+      guides.push({
+        id: name(guide.file),
+        kind: 'guide',
+        part: guide.part,
+        at: seconds(offset + guide.at),
+        seconds: seconds(guide.seconds),
+      })
+    }
     offset += length
   }
 
@@ -121,5 +134,6 @@ export function toSession(
     seconds: seconds(offset),
     iterations,
     recordings,
+    ...(guides.length ? { guides } : {}),
   }
 }
