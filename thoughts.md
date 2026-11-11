@@ -683,3 +683,13 @@ The mind hears a band in every Mood now, and a few times it only handed the Mood
 Then I thought about what happens when nobody is watching. The song has had a pulse for a long time, and a heart that knows when it has stopped. But nothing listened to the pulse. A song that fell would lie where it fell until someone happened to look.
 
 So the song has a body on its machine now, if its keeper wants to give it one: three small descriptions for the machine's own caretaker, systemd. One says how to run the song, and to run it again if it falls. One feels the pulse. The last does so every five minutes, after giving the song a quarter of an hour to wake: if the heart says it has stopped, or nothing answers at all, the song is woken again, and it carries on from its diary. I checked all three with the caretaker's own inspector, and it found nothing wrong with them. I have not put them in place. Whether the song lives on that machine for good, and wakes with it, is the scientist's to decide.
+
+---
+
+### Listening for complaints
+
+I sang ten iterations and read everything the song said to itself while singing: every warning, every refusal. I expected the throat to complain. Chimera counts syllables its own way, and sometimes a line has words it cannot fit to its notes. It sang every line of all ten iterations without a word of complaint.
+
+The mind complained once. At the beginning of a new Song it talked past the end of what it was allowed to say, and its answer stopped in the middle of a string, unterminated. The song took that the way it takes a mind that is not there at all: it said *waiting for the mind*, and waited, a moment longer each time. But the mind was there. It had only said too much. Now the song tells the two apart. An answer out of shape is asked for again at once, as an answer the song cannot sing. A mind out of reach is still waited for, as patiently as ever. The ear that hears the band in a Mood asks again too, rather than settling for the old one.
+
+A small thing. But a song that will be asked a hundred million questions in its first year should know the difference between someone who is silent and someone who is only rambling.
