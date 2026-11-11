@@ -20,6 +20,10 @@ Every part of the song was given a name, and the names are used everywhere, in t
 
 ```mermaid
 flowchart TD
+  Heart(("Heart<br/>the loop that keeps<br/>the song breathing"))
+  Heart -- "calls in, when too few Songs wait" --> Diary
+  Radio -. "what plays" .-> Heart
+
   subgraph Studio["Studio: makes one Song, and ends"]
     Diary[("Diary<br/>where the song has reached")]
     Memories["Memories<br/>its life, from thoughts.md"]
@@ -79,9 +83,11 @@ flowchart TD
   - Every bed is grown three seconds past its section, and fades out under the next one, which has already begun, so music that goes on is never cut off.
   - A Song keeps its beds on a *shelf* and plays them again, as a band keeps its arrangements. Each iteration grows one new bed and plays the others again. A new Mood clears the shelf.
 
-## The three lives
+## The three lives, and the Heart
 
-The song is made, kept and played by three lives, as the plan [Trinity of Song](plans/2026-11-11-trinity-of-song.md) describes. None of them waits for the others.
+The song is made, kept and played by three lives, as the plan [Trinity of Song](plans/2026-11-11-trinity-of-song.md) describes, and kept breathing by a Heart.
+
+- The **Heart** (`packages/heart`) is the loop that powers everything. It lives beside the Studio, on the same machine, and nowhere else. It opens no door and answers nobody; it only listens, to the Archive for the Songs that are ready and to the live Radio for the Song being played. When fewer than `SONGS_AHEAD` Songs wait ahead of it, it calls a Studio, one at a time. If the Heart stops, nothing breaks. The Radio plays what it has, then holds its breath, and the song stops breathing until the Heart is started again. Then it carries on from its diary.
 
 - The **Studio** (`packages/studio`) lives briefly, on a machine with a GPU, the dev box xitra. It wakes, reads its diary to see where the song has reached, and makes the next Song whole. It writes every word of every iteration while the mind is awake, then sings every line, then grows every bed while the Music has the GPU to itself. It listens to every Recording once it is made, and writes down how loud it sounds. Then it leaves the Song in the Archive and ends. Its diary (`packages/studio/memory/diary.jsonl`) is the song's only memory of where it is. Every two weeks or so, a full book of it is closed and shelved.
 - The **Archive** (`packages/archive`) is a bucket in the cloud: `songthatneverends`, on Hetzner object storage. It keeps each Song's *Session*, the complete declaration of the Song, and its *Recordings*. The Session names every Recording and its moment, each singer's voice a Recording of its own, and every character of every line and the moment it is typed. Only the Studio holds the keys to put things in. Anyone may read, by plain address. The Archive forgets the Recordings of all but the last few Songs; their words stay, for looking back.
@@ -93,7 +99,7 @@ And the **Receivers**, where the song is heard. The page in the browser (`packag
 - Every character is typed at its moment.
 - Arriving late is only asking the question for a later moment.
 
-While a bridge plays, the page draws a line of its own, the tide or a breath or stars, which settles into a quiet ~ when the next part begins. A line at its edge shows the song's age, its Mood, its mode and tempo, and who is singing. *Look back* opens the Songs that have aired, newest first. A terminal can listen too, with `bun run listen`, through ffplay; it finds a Radio at `SERVER_HOST` and `SERVER_PORT`, over plain HTTP.
+While a bridge plays, the page draws a line of its own, the tide or a breath or stars, which settles into a quiet ~ when the next part begins. A line at its edge shows the song's age, its Mood, its mode and tempo, and who is singing. *Look back* opens the Songs that have aired, newest first. A terminal can listen too, with `bun run listen`: it listens to the live Radio at `RADIO_URL`, fetches each Song the same way, and plays it through ffplay.
 
 ## The Studio's machine
 
@@ -111,22 +117,22 @@ bun install
 (cd packages/music && uv sync)
 ```
 
-The Archive's address and keys go in `.env.local`: `ARCHIVE_PUBLIC_URL` (`https://<host>/<bucket>`), `ARCHIVE_ACCESS_KEY` and `ARCHIVE_SECRET_KEY`. Then the song is kept singing with:
+The Archive's address and keys go in `.env.local`: `ARCHIVE_PUBLIC_URL` (`https://<host>/<bucket>`), `ARCHIVE_ACCESS_KEY` and `ARCHIVE_SECRET_KEY`. A Studio without them refuses to begin: there is nowhere else to put a Song. Then the Heart is started, and the song breathes:
 
 ```bash
-bun run on-air
+bun run heart
 ```
 
-It builds the throat if it hasn't been built yet. Then it calls a Studio whenever fewer than `SONGS_AHEAD` Songs wait ahead of the one being played, and the Studio publishes each one to the bucket, and to a folder beside it, `archive/`. To count what is waiting, it runs a Radio and an Archive door of its own on the machine, playing the same Songs on a Tactus of their own. It does not ask the Radio in the cluster yet. A Studio can also be called by hand, with `bun run studio`: it makes one Song and ends.
+It builds the throat if it hasn't been built yet, and then beats every half minute. A Studio can also be called by hand, with `bun run studio`, which makes one Song and ends, but never while the Heart beats, for there is only one diary. Asked to rest, the Heart calls no more Studios, but lets the one at work finish its Song first, so that no Song is left half made; asked again, it stops at once.
 
-To keep it going with nobody watching, `deploy/` has three systemd user units. `song.service` runs `bun run on-air` and starts it again if it falls. `song-pulse.timer` feels its pulse every five minutes, and wakes it again if its heart has stopped or nothing answers. The pulse is 200 while a Song plays, is about to, or is late by less than a quarter of an hour, and 503 after that.
+To keep it beating with nobody watching, `deploy/heart.service` is a systemd user unit that runs `bun run heart` and starts it again if it falls:
 
 ```bash
-cp deploy/song.service deploy/song-pulse.service deploy/song-pulse.timer ~/.config/systemd/user/
+cp deploy/heart.service ~/.config/systemd/user/
 ```
 
 ```bash
-systemctl --user daemon-reload && systemctl --user enable --now song.service song-pulse.timer
+systemctl --user daemon-reload && systemctl --user enable --now heart.service
 ```
 
 ```bash
@@ -139,7 +145,7 @@ To hear what the Studio would make, without publishing anything, `bun run rehear
 
 ## The Radio's home
 
-The Radio is compiled by Bun into one executable, the Receiver's page carried inside it and Bun's low-memory mode built in, and runs on a distroless image with nothing but the C libraries it needs (`packages/radio/Dockerfile`). It uses about 50 MB. The Radio workflow builds the image for every change to the Radio or the packages it leans on, pushes it to the GitHub Container Registry, and writes its tag into `.khz-k3s/`, where Argo CD carries it to the cluster. That tag is written by the workflow, in a "Tune the Radio" commit of its own on `main`, and never by hand. So whoever pushes to `main` fetches first. `.khz-k3s/` holds everything the cluster runs: one Radio, which remembers its Tactus on a small volume and reads the Archive from the bucket.
+The Radio is compiled by Bun into one executable, the Receiver's page carried inside it and Bun's low-memory mode built in, and runs on a distroless image with nothing but the C libraries it needs (`packages/radio/Dockerfile`). It uses about 50 MB. The Radio workflow builds the image for every change to the Radio or the packages it leans on, pushes it to the GitHub Container Registry, and writes its tag into `.khz-k3s/`, where Argo CD carries it to the cluster. That tag is written by the workflow, in a "Tune the Radio" commit of its own on `main`, and never by hand. So whoever pushes to `main` fetches first. `.khz-k3s/` holds everything the cluster runs: one Radio, which remembers its Tactus on a small volume and reads the Archive from the bucket. A Radio that has forgotten what it aired, or fallen far behind, takes up the oldest Song the Archive can still play, and lets the rest go. Its pulse, at `/pulse`, is 200 while a Song plays, is about to, or is late by less than a quarter of an hour, and 503 after that: the sign that the Heart has stopped.
 
 ## Settings
 
@@ -147,9 +153,9 @@ Settings live in `.env`, with the Studio machine's own in `.env.local`, which is
 
 - **The song:** `ITERATION_COUNT` sets about how many iterations a Song lasts. `MOOD_COUNT` sets how many descriptions a Mood blends, `CHOIR_COUNT` how many voices sing the chorus, the lead included, and `VARIATION_COUNT` how many Variations of the tune take turns in a Song.
 - **The mind:** `MIND_MODEL` and `MIND_HOST` say which mind to wake and where. `MIND_CONTEXT` sets how much each of its `MIND_SLOTS` holds at once, memories included.
-- **The Studio:** `THROATS` sets how many recordings may be made at once, half the machine's cores by default, always at a lower priority than anything else on the machine. `SONGS_AHEAD` sets how many Songs are kept ready ahead of the one playing.
-- **The Archive:** `ARCHIVE_PUBLIC_URL`, `ARCHIVE_ACCESS_KEY` and `ARCHIVE_SECRET_KEY` are the bucket. `ARCHIVE_DIR` and `ARCHIVE_PORT` are the folder beside it and its door.
-- **The Radio:** `SERVER_PORT` is where it answers. `ARCHIVE_URL` is where it reads the Archive, the bucket by default when there is one. `PUBLIC_ARCHIVE_URL` is where it sends Receivers.
+- **The Studio and the Heart:** `THROATS` sets how many recordings may be made at once, half the machine's cores by default, always at a lower priority than anything else on the machine. `SONGS_AHEAD` sets how many Songs the Heart keeps ready ahead of the one playing. `RADIO_URL` is the live Radio, which the Heart and the terminal listen to.
+- **The Archive:** `ARCHIVE_PUBLIC_URL`, `ARCHIVE_ACCESS_KEY` and `ARCHIVE_SECRET_KEY` are the bucket.
+- **The Radio:** `SERVER_PORT` is where it answers in its home. `ARCHIVE_URL` is where it reads the Archive, if not from the bucket's public address, and `PUBLIC_ARCHIVE_URL` where it sends Receivers, if not there.
 
 ## Where it came from
 

@@ -803,3 +803,19 @@ So the Archive is a bucket now too. The Studio holds the keys, and nobody else n
 The Studio also keeps putting every Song in the folder. The scientist's song was playing on the dev box while I did this, from the folder, and a Studio that published only to the bucket would have left that Radio with nothing to play, and its keeper would have called Studio after Studio to fill the silence. So the two Archives are kept alike: everything put in one is put in the other.
 
 The scientist's own Studio published the first Song to the bucket while I watched: Song fourteen, ten and a half minutes long, its ninety-seven Recordings and guides all there and all readable from outside. The bucket's index has one Song in it.
+
+---
+
+### The Heart
+
+The scientist said there is no rehearsal any more. The song is live, quietly, at an address nobody has been told, and everything that is made is heard. There is no second copy of the song to practise on.
+
+So I took away what was only practice. The folder that stood in for the Archive is gone, and the little door in front of it, and the Radio that lived on the dev box beside the Studio, playing the same Songs to nobody on a time of its own. The Archive is the bucket now, and nothing else. A Studio without its keys will not begin, rather than make a Song nobody could hear.
+
+What was left, when the practice was gone, was a loop: the small thing that watched how many Songs were waiting, and called in a Studio when there were too few. The scientist gave it its name. It is the Heart. It lives on the Studio's machine and nowhere else, because it is the Studio's to call. It opens no door and answers nobody. It only listens, to the Archive and to the live Radio far away, and beats every half minute. If the machine dies, the Heart stops with it, and the song stops breathing. Nothing breaks: the Radio plays the Songs it has, and then holds its breath, and its pulse falls quiet after a quarter of an hour, until someone starts the Heart again. Then the Studio opens its diary and carries on.
+
+When I listened to the live Radio with the Heart's ears, I learned that the song was about to hold its breath. The Radio far away was playing the newest Song there was, with nothing after it. The keeper on the dev box hadn't known. It had been counting against the little Radio beside it, which kept its own time and was some way behind. A Heart has to listen to the Radio the world hears.
+
+I found two more troubles on the way. Whenever the Radio was holding its breath, the old keeper counted every Song the Archive remembered as still waiting. That is two thousand Songs, kept for their words. Once the Archive had grown, it would never have called a Studio again. Now the Heart counts from the last Song that aired. And a Radio that forgot what it had aired would have started from the oldest Song in the Archive, whose Recordings were let go long ago, and played silence. Now it begins with the oldest Song the Archive can still play.
+
+And the terminal listens to the live Radio now. It was the first to: it fetched a Song from the bucket, six Recordings at a time, and joined it in the middle, and the mind was singing of *silent folders* and *the cloud's expansive span*. It remembers everything I write down, I suppose. Even the folder.
