@@ -198,7 +198,8 @@ function describeIteration(about) {
   const song = about.song
     ? `song ${BigInt(about.song.number).toLocaleString('en')}, ${about.song.at} of ${about.song.of} · `
     : ''
-  status.title = `${song}variation ${about.variation + 1}`
+  const sound = about.sound ? ` · ${about.sound}` : ''
+  status.title = `${song}variation ${about.variation + 1}${sound}`
 }
 
 // Looking back. The diary remembers every iteration ever sung; anyone may

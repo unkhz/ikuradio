@@ -32,6 +32,12 @@ export type Character = {
   mode: ModeName
   /** Beats per minute. */
   tempo: number
+  /**
+   * What the music under the voice sounds like, in a musician's words: its
+   * instruments and its style. Missing in characters heard before the mind
+   * was asked, and then the Music hears the Mood's own words.
+   */
+  sound?: string
 }
 
 /** The character the song was born with: A minor, slow enough to be mournful, quick enough to keep walking. */

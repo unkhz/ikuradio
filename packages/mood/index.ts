@@ -86,5 +86,6 @@ export async function nextMood(
 
 /** How a Mood reads, for anyone watching. */
 export function describe({ descriptions, character }: Mood) {
-  return `${descriptions.join(' + ')} (${character.mode}, ${character.tempo} bpm)`
+  const sound = character.sound ? `, ${character.sound}` : ''
+  return `${descriptions.join(' + ')} (${character.mode}, ${character.tempo} bpm${sound})`
 }

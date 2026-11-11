@@ -52,6 +52,15 @@ describe('words', () => {
       }),
     ).toBe('a lighthouse, 120 bpm, major key')
   })
+
+  it('tells the model the band the mind heard, when it heard one', () => {
+    expect(
+      words({
+        descriptions: ['radio static between stations'],
+        character: { mode: 'dorian', tempo: 60, sound: 'detuned shortwave synths and a slow brushed snare' },
+      }),
+    ).toBe('detuned shortwave synths and a slow brushed snare, 60 bpm, minor key')
+  })
 })
 
 describe('the shelf', () => {

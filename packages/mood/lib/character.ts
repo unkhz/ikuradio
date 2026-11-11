@@ -18,8 +18,9 @@ const schema = {
   properties: {
     mode: { type: 'string', enum: Object.keys(modes) },
     tempo: { type: 'integer', minimum: slowest, maximum: fastest },
+    sound: { type: 'string', minLength: 8, maxLength: 90 },
   },
-  required: ['mode', 'tempo'],
+  required: ['mode', 'tempo', 'sound'],
 }
 
 const instruction = `You are the ear of a song that never ends. You are given the mood of the song: a few words, blended. Decide how the song's melody should sound in that mood.
@@ -33,7 +34,9 @@ Choose a mode:
 - aeolian: natural minor, sad and steady
 - harmonic: harmonic minor, longing, the old world, the desert
 
-Choose a tempo in beats per minute, between ${slowest} and ${fastest}.`
+Choose a tempo in beats per minute, between ${slowest} and ${fastest}.
+
+Describe the sound of the band that plays under the voice in that mood, in a few words, the way a musician would say it to the band: its instruments and its style, for example "slow string quartet with a cello drone" or "dusty desert blues guitar and hand drums". The mood may be a feeling, a place or a picture; say how it sounds. Do not mention singing, a voice or words.`
 
 /** Keeps a tempo within reach of the previous one, and within what a throat can sing. */
 export function settle(tempo: number, previous: number): number {
@@ -54,7 +57,7 @@ export async function hear(
   previous: Character,
 ): Promise<Character> {
   try {
-    const answer = await ask<{ mode?: string; tempo?: number }>({
+    const answer = await ask<{ mode?: string; tempo?: number; sound?: string }>({
       instruction,
       input: descriptions.join(' + '),
       schema,
@@ -64,7 +67,11 @@ export async function hear(
     const tempo = Number.isFinite(answer.tempo)
       ? settle(answer.tempo as number, previous.tempo)
       : previous.tempo
-    return { mode: answer.mode as ModeName, tempo }
+    const sound =
+      typeof answer.sound === 'string' && answer.sound.trim()
+        ? answer.sound.trim().replace(/[."]+$/, '')
+        : undefined
+    return { mode: answer.mode as ModeName, tempo, ...(sound ? { sound } : {}) }
   } catch (error) {
     console.warn(`the mind did not hear the mood: ${error}`)
     return previous

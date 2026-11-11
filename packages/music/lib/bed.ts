@@ -30,13 +30,15 @@ const home = fileURLToPath(new URL('../', import.meta.url))
 const bright = new Set(['ionian', 'lydian', 'mixolydian'])
 
 /**
- * The Mood in words a music model understands: the weather, the pulse, and
- * whether it is bright or dark. The mode itself is too fine a word for it;
+ * The Mood in words a music model understands: the band the mind heard in
+ * it, the pulse, and whether it is bright or dark. The mode itself is too fine a word for it;
  * the voice carries the mode, and the bed follows the voice.
  */
 export function words({ descriptions, character }: Mood): string {
   const key = bright.has(character.mode) ? 'major key' : 'minor key'
-  return [...descriptions, `${character.tempo} bpm`, key].join(', ')
+  // the band the mind heard in the Mood, or, if it heard none, the Mood itself
+  const sound = character.sound ? [character.sound] : descriptions
+  return [...sound, `${character.tempo} bpm`, key].join(', ')
 }
 
 async function exists(file: string) {

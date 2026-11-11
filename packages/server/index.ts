@@ -189,6 +189,7 @@ async function run() {
               mood: shown.mood.descriptions,
               mode: shown.mood.character.mode,
               tempo: shown.mood.character.tempo,
+              sound: shown.mood.character.sound,
               choir: introduce(shown.choir),
               variation: shown.variation,
               // where in its Song this iteration is, counted from one, as the chorus counts
