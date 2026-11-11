@@ -18,7 +18,8 @@ const schema = {
   properties: {
     mode: { type: 'string', enum: Object.keys(modes) },
     tempo: { type: 'integer', minimum: slowest, maximum: fastest },
-    sound: { type: 'string', minLength: 8, maxLength: 90 },
+    // room enough that the mind is never cut off mid-word; the band is trimmed after
+    sound: { type: 'string', minLength: 8, maxLength: 240 },
   },
   required: ['mode', 'tempo', 'sound'],
 }
@@ -36,7 +37,7 @@ Choose a mode:
 
 Choose a tempo in beats per minute, between ${slowest} and ${fastest}.
 
-Describe the sound of the band that plays under the voice in that mood, in a few words, the way a musician would say it to the band: its instruments and its style, for example "slow string quartet with a cello drone" or "dusty desert blues guitar and hand drums". The mood may be a feeling, a place or a picture; say how it sounds. Do not mention singing, a voice or words.`
+Describe the sound of the band that plays under the voice in that mood, in at most twelve words, the way a musician would say it to the band: its instruments and its style, for example "slow string quartet with a cello drone" or "dusty desert blues guitar and hand drums". The mood may be a feeling, a place or a picture; say how it sounds. Do not mention singing, a voice or words.`
 
 /** Keeps a tempo within reach of the previous one, and within what a throat can sing. */
 export function settle(tempo: number, previous: number): number {
@@ -47,33 +48,78 @@ export function settle(tempo: number, previous: number): number {
   return Math.round(Math.min(fastest, Math.max(slowest, reachable)))
 }
 
+/** The words of a phrase that carry meaning, small ones left out. */
+const meaningful = (text: string) =>
+  (text.toLowerCase().match(/[a-z]+/g) ?? []).filter((w) => w.length > 3)
+
+/**
+ * Whether a band is only the Mood's own words handed back. Asked how
+ * "chamber music + gregorian chant" sounds, a mind will sometimes just say
+ * "chamber music + gregorian chant".
+ */
+export function echoesMood(sound: string, descriptions: readonly string[]) {
+  const ours = meaningful(sound)
+  if (ours.length === 0) return true
+  const theirs = new Set(descriptions.flatMap(meaningful))
+  return ours.filter((w) => theirs.has(w)).length / ours.length >= 0.6
+}
+
+/** How many words of a band the Music is told. */
+const bandWords = 14
+
+/**
+ * A band as the Music is told it: plain words only, no more than a musician
+ * would say, ending on a whole word, not on "with" or "and" or a letter cut off.
+ */
+export function band(sound: string): string {
+  const words = sound
+    .replace(/[^\x20-\x7e]+/g, ' ')
+    .replace(/["]+/g, '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, bandWords)
+  while (words.length && /^(with|and|or|of|in|an|the|by|to|interspersed|over|under|[a-z])$/i.test(words.at(-1)!.replace(/[,.;:]+$/, ''))) {
+    words.pop()
+  }
+  return words.join(' ').replace(/[,.;:\s]+$/, '')
+}
+
+/** How many times the mind is asked to hear a Mood before the song keeps what it had. */
+const tries = 3
+
 /**
  * Asks the mind what a Mood sounds like. If the mind does not answer, or
  * answers with something that is not a mode, the song keeps the character it
- * had: the words change, the tune waits.
+ * had: the words change, the tune waits. A band that only repeats the Mood's
+ * words is asked for again; if the mind cannot hear one, the Music hears the
+ * Mood's own words instead.
  */
 export async function hear(
   descriptions: readonly string[],
   previous: Character,
 ): Promise<Character> {
-  try {
-    const answer = await ask<{ mode?: string; tempo?: number; sound?: string }>({
-      instruction,
-      input: descriptions.join(' + '),
-      schema,
-      temperature: 0.7,
-    })
-    if (!answer?.mode || !(answer.mode in modes)) return previous
-    const tempo = Number.isFinite(answer.tempo)
-      ? settle(answer.tempo as number, previous.tempo)
-      : previous.tempo
-    const sound =
-      typeof answer.sound === 'string' && answer.sound.trim()
-        ? answer.sound.trim().replace(/[."]+$/, '')
-        : undefined
-    return { mode: answer.mode as ModeName, tempo, ...(sound ? { sound } : {}) }
-  } catch (error) {
-    console.warn(`the mind did not hear the mood: ${error}`)
-    return previous
+  let heard: Character | undefined
+  for (let attempt = 0; attempt < tries; attempt++) {
+    try {
+      const answer = await ask<{ mode?: string; tempo?: number; sound?: string }>({
+        instruction,
+        input: descriptions.join(' + '),
+        schema,
+        temperature: 0.7 + attempt * 0.2,
+      })
+      if (!answer?.mode || !(answer.mode in modes)) continue
+      const tempo = Number.isFinite(answer.tempo)
+        ? settle(answer.tempo as number, previous.tempo)
+        : previous.tempo
+      const sound = typeof answer.sound === 'string' ? band(answer.sound) : ''
+''
+      heard = { mode: answer.mode as ModeName, tempo }
+      if (sound && !echoesMood(sound, descriptions)) return { ...heard, sound }
+    } catch (error) {
+      console.warn(`the mind did not hear the mood: ${error}`)
+      return heard ?? previous
+    }
   }
+  return heard ?? previous
 }
