@@ -18,6 +18,19 @@ import { receiver } from './receiver.js'
 
 const pub = fileURLToPath(new URL('../public/', import.meta.url))
 const scratch = mkdtempSync(join(tmpdir(), 'drawing-'))
+
+// The words on the card are set in Doto, as the page is. rsvg-convert finds
+// letters through fontconfig and cannot turn a variable font's axes, so it
+// is shown only a still Doto, its dots made round and bold beforehand:
+//   fonttools varLib.instancer 'Doto[ROND,wght].ttf' ROND=100 wght=700
+const letters = fileURLToPath(new URL('./fonts/', import.meta.url))
+const fontconfig = join(scratch, 'fonts.conf')
+writeFileSync(
+  fontconfig,
+  `<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd"><fontconfig>` +
+    `<include ignore_missing="yes">/etc/fonts/fonts.conf</include><dir>${letters}</dir>` +
+    `<cachedir>${join(scratch, 'fontcache')}</cachedir></fontconfig>`,
+)
 const night = '#05070b'
 const unlit: Light = { color: hex('#1c2833'), energy: 0.1 }
 
@@ -94,7 +107,9 @@ function png(name: string, image: string, width: number, height = width) {
   const from = join(scratch, `${name}.svg`)
   const to = join(scratch, `${name}.png`)
   writeFileSync(from, image)
-  const made = spawnSync('rsvg-convert', ['-w', `${width}`, '-h', `${height}`, from, '-o', to])
+  const made = spawnSync('rsvg-convert', ['-w', `${width}`, '-h', `${height}`, from, '-o', to], {
+    env: { ...process.env, FONTCONFIG_FILE: fontconfig },
+  })
   if (made.status !== 0) throw new Error(`rsvg-convert could not draw ${name}: ${made.stderr}`)
   return readFileSync(to)
 }
@@ -129,10 +144,10 @@ const card = over(
 const cardImage = [
   `<rect width="1200" height="630" fill="${night}"/>`,
   circles(sample(card, { ...grid(1200, 630, 10), smallest: 0.05 })),
-  `<g font-family="DejaVu Sans Mono, Menlo, monospace" font-size="27" fill="#9aaaa4">`,
+  `<g font-family="Doto" font-weight="700" font-size="29" fill="#d2ddd8">`,
   `<text x="590" y="340">a lost receiver, adrift online,</text>`,
-  `<text x="590" y="382">still tuned to a song</text>`,
-  `<text x="590" y="424">that never ends</text>`,
+  `<text x="590" y="384">still tuned to a song</text>`,
+  `<text x="590" y="428">that never ends</text>`,
   `</g>`,
 ].join('\n')
 writeFileSync(join(pub, 'card.png'), png('card', svg(1200, 630, cardImage, 'The card a shared link carries.'), 1200, 630))

@@ -29,6 +29,8 @@ import pageManifest from '../ui/public/manifest.webmanifest' with { type: 'file'
 import pageAppIcon from '../ui/public/icon-512.png' with { type: 'file' }
 import pageSmallAppIcon from '../ui/public/icon-192.png' with { type: 'file' }
 import pageTouchIcon from '../ui/public/apple-touch-icon.png' with { type: 'file' }
+import pageFont from '../ui/public/fonts/doto.woff2' with { type: 'file' }
+import pageFontLicense from '../ui/public/fonts/DOTO-LICENSE.txt' with { type: 'file' }
 // @ts-expect-error: the page's throat is plain JavaScript, imported only as a file
 import pageThroatFile from '../ui/public/throat.js' with { type: 'file' }
 // @ts-expect-error: the throat's worker is plain JavaScript, imported only as a file
@@ -183,6 +185,9 @@ const pageFiles: Record<string, { file: string; type: string }> = {
   'icon-512.png': { file: pageAppIcon, type: 'image/png' },
   'icon-192.png': { file: pageSmallAppIcon, type: 'image/png' },
   'apple-touch-icon.png': { file: pageTouchIcon, type: 'image/png' },
+  // the letters the page is set in, and their license
+  'fonts/doto.woff2': { file: pageFont, type: 'font/woff2' },
+  'fonts/DOTO-LICENSE.txt': { file: pageFontLicense, type: 'text/plain; charset=utf-8' },
   // the throat every Receiver sings with, and the words it reads; the
   // dictionary is sent as it is, gzipped, and unzipped by the page
   'throat.js': { file: pageThroatFile as unknown as string, type: 'text/javascript; charset=utf-8' },
@@ -308,8 +313,9 @@ Bun.serve({
     const part = pageFiles[name]
     if (part) {
       // the throat is two megabytes that change only when the throat is moved
-      // on: kept a day, so a listener who comes back does not fetch it again
-      const cache = name.startsWith('throat/') ? 'public, max-age=86400' : 'no-cache'
+      // on, and the letters, which change less: kept a day, so a listener who
+      // comes back does not fetch them again
+      const cache = name.startsWith('throat/') || name.startsWith('fonts/') ? 'public, max-age=86400' : 'no-cache'
       return new Response(Bun.file(part.file), {
         headers: { 'Content-Type': part.type, 'Cache-Control': cache },
       })

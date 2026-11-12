@@ -15,7 +15,17 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="ikuradio" />
+    <link rel="preload" href="/fonts/doto.woff2" as="font" type="font/woff2" crossorigin />
     <style>
+      /* Doto: letters made of round dots on a grid, like everything else the
+         receiver shows. Served by the Radio, under the SIL Open Font License. */
+      @font-face {
+        font-family: 'Doto';
+        font-style: normal;
+        font-weight: 100 900;
+        font-display: swap;
+        src: url('/fonts/doto.woff2') format('woff2');
+      }
       :root {
         --night: #05070b;
         --words: #fff;
@@ -39,8 +49,11 @@
         display: flex;
         flex-direction: column;
         color: var(--words);
-        font-family: ui-monospace, Menlo, Consolas, monospace;
-        font-size: clamp(1.1rem, 3.2vw, 2rem);
+        font-family: 'Doto', ui-monospace, Menlo, Consolas, monospace;
+        font-weight: 700;
+        /* the dots round, not square */
+        font-variation-settings: 'ROND' 100;
+        font-size: clamp(1rem, 2.8vw, 1.75rem);
         line-height: 1.5;
       }
       /* only the Song being received: its newest words at the bottom, the
@@ -87,16 +100,17 @@
         white-space: pre;
         overflow: hidden;
       }
+      /* the dots have no slant: the weather is told in a dimmer light instead */
       p.weather {
-        color: var(--weather);
-        font-style: italic;
+        color: #9aaaa4;
+        font-weight: 600;
       }
       /* the edge of the page: the Song, and the iteration as a side note */
       #status {
         flex-shrink: 0;
         padding: 0.5rem 2rem calc(0.6rem + env(safe-area-inset-bottom));
         color: var(--edge);
-        font-size: 0.8rem;
+        font-size: 0.95rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -105,8 +119,7 @@
         color: var(--chorus);
       }
       #status .side {
-        font-size: 0.85em;
-        opacity: 0.8;
+        font-size: 0.9em;
       }
       #controls {
         position: fixed;
@@ -145,9 +158,9 @@
         margin-top: 0.6em;
         padding: 0.45em 1.3em;
         font: inherit;
-        font-size: 0.9em;
-        font-weight: bold;
-        letter-spacing: 0.04em;
+        font-size: 1em;
+        font-weight: 900;
+        letter-spacing: 0.02em;
         color: #120b02;
         background:
           radial-gradient(circle, var(--glow) 0 1.35px, transparent 1.75px) 0 0 / 3px 3px,
@@ -202,7 +215,7 @@
           var(--hull);
         border: 2px dotted var(--seam);
         border-radius: 0.8rem 0.2rem 0.8rem 0.8rem;
-        font-size: 0.8rem;
+        font-size: 0.9rem;
         color: var(--weather);
       }
       #panel[hidden] {
@@ -254,7 +267,7 @@
         color: var(--weather);
         border: 2px dotted var(--seam);
         border-radius: 0.8rem;
-        font-size: 0.8rem;
+        font-size: 0.9rem;
         overflow: hidden;
       }
       #songs::backdrop {
