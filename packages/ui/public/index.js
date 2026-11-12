@@ -374,6 +374,7 @@ const span = (className, textContent) => Object.assign(document.createElement('s
 let showing // what is being received: a Session, and the iteration of it
 
 function describe(session, iteration) {
+  if (showing?.session !== session) window.space?.tune(session.song)
   showing = { session, iteration }
   document.getElementById('status').replaceChildren(
     span('song', `Song ${number(session.song)}`),
