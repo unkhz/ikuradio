@@ -1,26 +1,235 @@
 diff --git a/crates/chimera-cli/src/render.rs b/crates/chimera-cli/src/render.rs
-index 9e105a2..2d34856 100644
+index 9e105a2..5cbe3f4 100644
 --- a/crates/chimera-cli/src/render.rs
 +++ b/crates/chimera-cli/src/render.rs
-@@ -517,14 +517,19 @@ pub fn notes(ctx: &Ctx, a: &[String]) -> Result<(), String> {
-             syl.iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(" ")));
-     }
-     let t0 = j["t0"].as_f64().unwrap_or(0.3);
+@@ -14,6 +14,7 @@ use chimera::math::{js_max, js_min, js_round, log10};
+ use chimera::phonetics::beatbox::{BEAT_PRESETS, BEAT_SOUNDS, BeatStep, beat_ready, parse_beat};
+ use chimera::phonetics::english::EnglishG2P;
+ use chimera::phonetics::ipa::tokenize_ipa;
++use chimera::phonetics::notes::schedule_notes;
+ use chimera::phonetics::planner::{
+     PhraseInput, PlanOptions, plan_phrases, plan_utterance, vowel_table,
+ };
+@@ -503,56 +504,12 @@ pub fn notes(ctx: &Ctx, a: &[String]) -> Result<(), String> {
+     let input = a.first().ok_or("render notes <in.json> <out> [male|female|child] [--artic tracks.json] [--tele voice.tele]")?;
+     let out_name = wav_name(arg(a, 1, "out/notes"));
+     let body_name = arg(a, 2, "male");
+-    let b = body(body_name)?;
+     let text = std::fs::read_to_string(input).map_err(|e| format!("{input}: {e}"))?;
+     let j: serde_json::Value = serde_json::from_str(&text).map_err(|e| format!("{input}: {e}"))?;
+-    let bpm = j["bpm"].as_f64().ok_or("bpm missing")?;
+-    let vibrato = j["vibrato"].as_f64().unwrap_or(35.0);
+-    let raw: Vec<[f64; 2]> = serde_json::from_value(j["notes"].clone()).map_err(|e| format!("notes: {e}"))?;
+     let g = g2p()?;
+-    let syl = lyrics_to_syllables(j["lyrics"].as_str().ok_or("lyrics missing")?, &g);
+-    let sounding = raw.iter().filter(|n| n[0] > 0.0).count();
+-    if syl.len() != sounding {
+-        return Err(format!("{} syllables for {sounding} notes: {}", syl.len(),
+-            syl.iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(" ")));
+-    }
+-    let t0 = j["t0"].as_f64().unwrap_or(0.3);
+-    let beat = 60.0 / bpm;
+-    let mut v = HumanVoice::new(FS, b, 2);
+-    let first = raw.iter().find(|n| n[0] > 0.0).ok_or("no notes")?;
+-    v.set_source(&SourcePatch {
+-        f0: Some(midi_to_hz(first[0])),
+-        voiced: Some(true),
+-        pressure: Some(9.0),
+-        tension: Some(0.55),
+-        ..Default::default()
+-    });
+-    let (mut t, mut k, mut end) = (t0, 0usize, 0.0f64);
+-    let mut phrase: Vec<SungNote> = Vec::new();
+-    let mut start = t;
+-    let flush = |phrase: &mut Vec<SungNote>, start: f64, v: &mut HumanVoice, end: &mut f64| {
+-        if phrase.is_empty() {
+-            return;
+-        }
+-        let plan = plan_song(phrase, &SongOptions { body: body_name.into(), bpm, t0: start, vibrato });
+-        v.schedule(&plan.gestures);
+-        *end = js_max(*end, plan.end);
+-        phrase.clear();
+-    };
+-    for n in &raw {
+-        if n[0] > 0.0 {
+-            if phrase.is_empty() {
+-                start = t;
+-            }
+-            phrase.push(SungNote { midi: n[0], beats: n[1], syl: syl[k].clone() });
+-            k += 1;
+-        } else {
+-            flush(&mut phrase, start, &mut v, &mut end);
+-        }
+-        t += n[1] * beat;
+-    }
+-    flush(&mut phrase, start, &mut v, &mut end);
+-    let n = js_round(FS * (end + 0.4)) as usize;
++    // the same scheduling the browser sings with (chimera::phonetics::notes)
++    let scheduled = schedule_notes(&j, body_name, &g, FS)?;
++    let (mut v, n, sounding) = (scheduled.voice, scheduled.samples, scheduled.sounding);
+     let mut out = vec![0f32; n];
+     let (frames, rec) = if artic_out.is_some() || tele_out.is_some() {
+         render_tracked(&mut v, &mut out, artic_out.is_some(), tele_out.is_some())?
+diff --git a/crates/chimera-wasm/src/api.rs b/crates/chimera-wasm/src/api.rs
+index 6174d63..97d8cc8 100644
+--- a/crates/chimera-wasm/src/api.rs
++++ b/crates/chimera-wasm/src/api.rs
+@@ -33,6 +33,8 @@ struct State {
+     next_model: usize,
+     /// the page's English G2P (one dictionary, loaded once)
+     g2p: EnglishG2P,
++    /// the last score sung by `sing`, as samples, read with `chimera_sung_ptr`/`chimera_sung_len`
++    sung: Vec<f32>,
+ }
+ 
+ thread_local! {
+@@ -124,6 +126,16 @@ fn dispatch(st: &mut State, req: &Value) -> Res {
+         }
+         "g2pPhrases" => to_json(&st.g2p.to_phrases(&arg::<String>(req, "text")?)),
+         "g2pWord" => to_json(&st.g2p.word(&arg::<String>(req, "word")?, arg::<Option<bool>>(req, "reduce")?.unwrap_or(true))),
++        // ---------------------------------------------------------------- singing, offline
++        // a whole score sung as `chimera render notes` sings it; the samples are left in the
++        // sung buffer, and the call says how many there are
++        "sing" => {
++            let score: Value = arg(req, "score")?;
++            let body: String = arg(req, "body")?;
++            let fs: f64 = arg::<Option<f64>>(req, "sampleRate")?.unwrap_or(48000.0);
++            st.sung = chimera::phonetics::notes::render_notes(&score, &body, &st.g2p, fs)?;
++            Ok(json!({ "samples": st.sung.len(), "sampleRate": fs }))
++        }
+         "lyricsToSyllables" => to_json(&syllables::lyrics_to_syllables(&arg::<String>(req, "text")?, &st.g2p)),
+         // ---------------------------------------------------------------- creatures
+         "creaturePreview" => {
+@@ -224,3 +236,14 @@ pub extern "C" fn chimera_result_ptr() -> *const u8 {
+ pub extern "C" fn chimera_result_len() -> usize {
+     STATE.with(|s| s.borrow().result.len())
+ }
++
++/// The samples of the last `sing`, valid until the next call that sings.
++#[unsafe(no_mangle)]
++pub extern "C" fn chimera_sung_ptr() -> *const f32 {
++    STATE.with(|s| s.borrow().sung.as_ptr())
++}
++
++#[unsafe(no_mangle)]
++pub extern "C" fn chimera_sung_len() -> usize {
++    STATE.with(|s| s.borrow().sung.len())
++}
+diff --git a/crates/chimera/src/phonetics/mod.rs b/crates/chimera/src/phonetics/mod.rs
+index 3c45df6..a27da04 100644
+--- a/crates/chimera/src/phonetics/mod.rs
++++ b/crates/chimera/src/phonetics/mod.rs
+@@ -10,6 +10,7 @@ pub mod durations;
+ pub mod english;
+ pub mod inventory;
+ pub mod ipa;
++pub mod notes;
+ pub mod planner;
+ pub mod sing;
+ pub mod songs;
+diff --git a/crates/chimera/src/phonetics/notes.rs b/crates/chimera/src/phonetics/notes.rs
+new file mode 100644
+index 0000000..5bc57b0
+--- /dev/null
++++ b/crates/chimera/src/phonetics/notes.rs
+@@ -0,0 +1,100 @@
++//! A melody with lyrics, sung offline: what `chimera render notes` sings, as a library, so that
++//! the CLI and the browser sing the same score the same way, sample for sample.
++//!
++//! The score is JSON: `{"bpm", "lyrics", "notes": [[midi, beats], …]}`, a midi of 0 or less
++//! being a rest, with optional `t0` (seconds before the first beat), `vibrato` (cents) and the
++//! singer's throat: `pressure` (cmH2O), `tension` and `breathiness`.
++
++use crate::anatomy::human::{BODY_CHILD, BODY_FEMALE, BODY_MALE, HumanBody};
++use crate::math::{js_max, js_round};
++use crate::phonetics::english::EnglishG2P;
++use crate::phonetics::sing::{SongOptions, SungNote, midi_to_hz, plan_song};
++use crate::phonetics::syllables::lyrics_to_syllables;
++use crate::voice::human_voice::{HumanVoice, SourcePatch};
++
++/// A body by its name: male, female or child.
++pub fn body_named(name: &str) -> Result<HumanBody, String> {
++    match name {
++        "male" => Ok(BODY_MALE),
++        "female" => Ok(BODY_FEMALE),
++        "child" => Ok(BODY_CHILD),
++        _ => Err(format!("unknown body {name:?}; have male, female, child")),
++    }
++}
++
++/// A voice with a whole score scheduled on it, ready to be rendered.
++pub struct ScheduledNotes {
++    pub voice: HumanVoice,
++    /// how many samples the rendering lasts, the last note's release included
++    pub samples: usize,
++    /// how many notes are sung (not rests)
++    pub sounding: usize,
++}
++
++/// Schedules a score on a new voice of `body_name` at `fs`. Refuses a score whose lyrics do not
++/// have one syllable for every sung note, saying how many it heard.
++pub fn schedule_notes(j: &serde_json::Value, body_name: &str, g: &EnglishG2P, fs: f64) -> Result<ScheduledNotes, String> {
++    let b = body_named(body_name)?;
++    let bpm = j["bpm"].as_f64().ok_or("bpm missing")?;
++    let vibrato = j["vibrato"].as_f64().unwrap_or(35.0);
++    let raw: Vec<[f64; 2]> = serde_json::from_value(j["notes"].clone()).map_err(|e| format!("notes: {e}"))?;
++    let syl = lyrics_to_syllables(j["lyrics"].as_str().ok_or("lyrics missing")?, g);
++    let sounding = raw.iter().filter(|n| n[0] > 0.0).count();
++    if syl.len() != sounding {
++        return Err(format!("{} syllables for {sounding} notes: {}", syl.len(),
++            syl.iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(" ")));
++    }
++    let t0 = j["t0"].as_f64().unwrap_or(0.3);
 +    // the song's own: how hard each singer breathes, and how tightly their folds close
 +    let pressure = j["pressure"].as_f64().unwrap_or(9.0);
 +    let tension = j["tension"].as_f64().unwrap_or(0.55);
 +    let breathiness = j["breathiness"].as_f64();
-     let beat = 60.0 / bpm;
-     let mut v = HumanVoice::new(FS, b, 2);
-     let first = raw.iter().find(|n| n[0] > 0.0).ok_or("no notes")?;
-     v.set_source(&SourcePatch {
-         f0: Some(midi_to_hz(first[0])),
-         voiced: Some(true),
--        pressure: Some(9.0),
--        tension: Some(0.55),
++    let beat = 60.0 / bpm;
++    let mut v = HumanVoice::new(fs, b, 2);
++    let first = raw.iter().find(|n| n[0] > 0.0).ok_or("no notes")?;
++    v.set_source(&SourcePatch {
++        f0: Some(midi_to_hz(first[0])),
++        voiced: Some(true),
 +        pressure: Some(pressure),
 +        tension: Some(tension),
 +        breathiness,
-         ..Default::default()
-     });
-     let (mut t, mut k, mut end) = (t0, 0usize, 0.0f64);
++        ..Default::default()
++    });
++    let (mut t, mut k, mut end) = (t0, 0usize, 0.0f64);
++    let mut phrase: Vec<SungNote> = Vec::new();
++    let mut start = t;
++    let flush = |phrase: &mut Vec<SungNote>, start: f64, v: &mut HumanVoice, end: &mut f64| {
++        if phrase.is_empty() {
++            return;
++        }
++        let plan = plan_song(phrase, &SongOptions { body: body_name.into(), bpm, t0: start, vibrato });
++        v.schedule(&plan.gestures);
++        *end = js_max(*end, plan.end);
++        phrase.clear();
++    };
++    for n in &raw {
++        if n[0] > 0.0 {
++            if phrase.is_empty() {
++                start = t;
++            }
++            phrase.push(SungNote { midi: n[0], beats: n[1], syl: syl[k].clone() });
++            k += 1;
++        } else {
++            flush(&mut phrase, start, &mut v, &mut end);
++        }
++        t += n[1] * beat;
++    }
++    flush(&mut phrase, start, &mut v, &mut end);
++    let samples = js_round(fs * (end + 0.4)) as usize;
++    Ok(ScheduledNotes { voice: v, samples, sounding })
++}
++
++/// Sings a score whole, in blocks of 128 samples, as the CLI renders it.
++pub fn render_notes(j: &serde_json::Value, body_name: &str, g: &EnglishG2P, fs: f64) -> Result<Vec<f32>, String> {
++    let mut s = schedule_notes(j, body_name, g, fs)?;
++    let mut out = vec![0f32; s.samples];
++    for block in out.chunks_mut(128) {
++        s.voice.render(block);
++    }
++    Ok(out)
++}

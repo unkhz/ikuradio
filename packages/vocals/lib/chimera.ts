@@ -110,13 +110,24 @@ export async function countSyllables(line: string): Promise<number> {
 }
 
 /**
+ * A score exactly as the throat is given it, its lyrics read aloud first:
+ * what the Studio sings, and what a Receiver is given to sing the same.
+ */
+export function throatScore<T extends Score>(score: T): T {
+  return { ...score, lyrics: prepareLyrics(score.lyrics) }
+}
+
+/** A recording's name, without its folder or kind: the hash of the score that sang it. */
+export const recordingName = (file: string) => file.replace(/^.*\//, '').replace(/\.[^.]*$/, '')
+
+/**
  * Sings one line and keeps the recording. Returns the path the UI asks for.
  *
  * The same score in the same throat is the same recording, so a line that
  * returns is only ever sung once.
  */
 export async function record(score: Score, singer: Singer): Promise<string> {
-  const sung = { ...score, lyrics: prepareLyrics(score.lyrics) }
+  const sung = throatScore(score)
   const name = createHash('sha256')
     .update(JSON.stringify({ singer, ...sung }))
     .digest('hex')
