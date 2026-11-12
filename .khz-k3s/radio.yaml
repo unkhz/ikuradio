@@ -119,3 +119,41 @@ spec:
                 name: ikuradio-radio
                 port:
                   name: http
+---
+# ikurad.io is the one host that answers; every other name only sends
+# people there. ikuradio.com is redirected by Cloudflare; www is here.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ikuradio-to-apex
+spec:
+  redirectRegex:
+    regex: ^https?://[^/]+/?(.*)
+    replacement: https://ikurad.io/${1}
+    permanent: true
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ikuradio-www
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+    traefik.ingress.kubernetes.io/router.middlewares: "apps-cloudflare-only@kubernetescrd,apps-ikuradio-to-apex@kubernetescrd"
+spec:
+  tls:
+    - hosts:
+        - www.ikurad.io
+      secretName: ikuradio-www-tls
+  rules:
+    - host: www.ikurad.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ikuradio-radio
+                port:
+                  name: http
