@@ -2,7 +2,7 @@
 // line at its moment with its typing decided, every Recording at its place.
 
 import { arrange } from 'song'
-import { introduce, type Loudness, type Placed } from 'vocals'
+import { introduce, type Loudness, type Placed, type Take } from 'vocals'
 import { sessionVersion, type Session, type SessionIteration } from 'archive'
 import type { Iteration } from './compose.js'
 import type { SungLine } from './perform.js'
@@ -20,6 +20,18 @@ export type Made = {
 
 const seconds = (n: number) => Math.round(n * 1000) / 1000
 
+/** A take as a Session keeps it: only what the throat reads. */
+const takeOf = ({ bpm, lyrics, notes, t0, vibrato, pressure, tension, breathiness }: Take) => ({
+  bpm,
+  lyrics,
+  notes,
+  t0,
+  vibrato,
+  ...(pressure !== undefined ? { pressure } : {}),
+  ...(tension !== undefined ? { tension } : {}),
+  ...(breathiness !== undefined ? { breathiness } : {}),
+})
+
 /** How long an iteration lasts: until its last line has had its place. */
 export function lengthOf(lines: readonly SungLine[]) {
   return Math.max(0, ...lines.map(({ at, seconds }) => at + seconds))
@@ -29,12 +41,13 @@ export function lengthOf(lines: readonly SungLine[]) {
  * The Session of a Song, from its iterations as the Studio made them. Every
  * moment is counted from the Song's beginning; `name` maps a recording's
  * file to its id in the Archive, and `loudness` to how loud it was measured
- * to sound, if it was.
+ * to sound, if it was. `throat` names the throat the voices were sung with.
  */
 export function toSession(
   made: readonly Made[],
   name: (file: string) => string,
   loudness: (file: string) => Loudness | undefined = () => undefined,
+  throat?: string,
 ): Session {
   const heard = (file: string) => {
     const measured = loudness(file)
@@ -86,12 +99,13 @@ export function toSession(
       },
       parts,
     })
-    // every singer's own recording, so that a Receiver can mix them as it likes
+    // every singer's own take, so that a Receiver can sing them and mix them as it likes
     for (const line of lines) {
       if (line.unheard) continue
-      for (const { file, voice, gain } of line.voices) {
+      for (const { file, voice, gain, take } of line.voices) {
         recordings.push({
           id: name(file),
+          ...(take ? { take: takeOf(take) } : {}),
           at: seconds(offset + line.at),
           kind: 'voice',
           voice,
@@ -116,6 +130,7 @@ export function toSession(
       const [, from, to] = /^bridge:(\w+)>(\w+)$/.exec(guide.kind) ?? []
       guides.push({
         id: name(guide.file),
+        ...(guide.take ? { take: takeOf(guide.take) } : {}),
         kind: 'guide',
         part: guide.part,
         ...(from && to ? { from: from as 'verse' | 'chorus', to: to as 'verse' | 'chorus' } : {}),
@@ -136,6 +151,7 @@ export function toSession(
     ...(mood.character.sound ? { sound: mood.character.sound } : {}),
     choir: introduce(choir),
     singers: choir.map(({ body, harmony }) => ({ body, harmony })),
+    ...(throat ? { throat } : {}),
     seconds: seconds(offset),
     iterations,
     recordings,

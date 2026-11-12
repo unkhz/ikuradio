@@ -7,7 +7,7 @@
 
 import { arrange } from 'song'
 import { scoreSeconds, setBridge, setLine, wrongness } from 'melody'
-import { blend, countSyllables, fullness, humanize, record } from 'vocals'
+import { blend, countSyllables, fullness, humanize, record, throatScore, type Take } from 'vocals'
 import type { Iteration } from './compose.js'
 
 export type SungLine = {
@@ -21,10 +21,11 @@ export type SungLine = {
    */
   file: string
   /**
-   * Each singer's own recording of the line, and how loud it is: what a
-   * Receiver plays, placing each singer where it likes in its mix.
+   * Each singer's own take of the line, as the throat sang it, its
+   * recording, and how loud it is: what a Receiver sings, placing each
+   * singer where it likes in its mix. The recording stays in the Studio.
    */
-  voices: { file: string; voice: number; gain: number }[]
+  voices: { file: string; voice: number; gain: number; take: Take }[]
   /** Every recording made for this line: each voice's take, and their blend. */
   recordings: string[]
   /** How long the line lasts, rest included. */
@@ -107,7 +108,7 @@ export async function perform({
     try {
       const dry = await record(take, lead.body)
       recordings.push(dry)
-      voices.push({ file: dry, voice: 0, gain: humGain })
+      voices.push({ file: dry, voice: 0, gain: humGain, take: throatScore(take) })
       file = await blend([{ file: dry, gain: humGain }])
       recordings.push(file)
     } catch (error) {
@@ -170,6 +171,7 @@ export async function perform({
               file: await record(take, voice.body),
               gain: voice.gain,
               voice: v,
+              take: throatScore(take),
             }
           } catch (error) {
             // a throat that cannot sing this line falls silent for it; the others go on

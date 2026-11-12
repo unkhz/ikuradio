@@ -10,7 +10,7 @@
 
 import { holdLast, phraseOf, setBridge, setGuide, type Phrase, type Score } from 'melody'
 import { sections, tail, type Kind } from 'music'
-import { record, type Take } from 'vocals'
+import { record, throatScore, type Take } from 'vocals'
 import type { Iteration } from './compose.js'
 import { hum, type SungLine } from './perform.js'
 
@@ -25,6 +25,8 @@ export type Guide = {
   file: string
   /** What the lead hummed: the guide's notes, in MIDI and beats, at its tempo. */
   score: Pick<Score, 'bpm' | 'notes'>
+  /** What the lead hummed, exactly as the throat was given it: the source the guide is kept as. */
+  take: Take
 }
 
 /**
@@ -74,6 +76,7 @@ export async function humGuides(
           seconds: section.seconds,
           file,
           score: { bpm: held.bpm, notes: held.notes },
+          take: throatScore(take),
         }
       } catch (error) {
         console.warn(`the lead could not hum the guide for the ${section.kind}: ${error}`)

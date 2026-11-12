@@ -7,6 +7,18 @@ import type { Iteration } from './compose.js'
 import type { SungLine } from './perform.js'
 import { toSession, type Made } from './session.js'
 
+/** A take as the throat is given it, with the throat it is sung through. */
+const takeOf = (lyrics: string, voice: number) => ({
+  bpm: 76,
+  lyrics,
+  notes: [[57 + voice / 100, 2], [59, 2], [0, 1]] as [number, number][],
+  t0: 0.3,
+  vibrato: 30,
+  pressure: 9,
+  tension: 0.55,
+  breathiness: 0.15,
+})
+
 /** An iteration as the Studio would make it, every line six seconds, its file named after it. */
 function made(iteration: bigint, began = 0n): Made {
   const composed: Iteration = {
@@ -34,6 +46,7 @@ function made(iteration: bigint, began = 0n): Made {
           file: `${iteration}-${part.index}-${index}-${voice}.m4a`,
           voice,
           gain: [1, 0.55, 0.45][voice],
+          take: takeOf(text || 'ooh', voice),
         })),
         recordings: [],
         seconds: 6,
@@ -57,6 +70,7 @@ function made(iteration: bigint, began = 0n): Made {
         seconds: 36,
         file: `guide-${iteration}.m4a`,
         score: { bpm: 76, notes: [[57, 4], [59, 4]] },
+        take: { bpm: 76, lyrics: 'ooh ooh', notes: [[57, 4], [59, 4]], t0: 0.05, vibrato: 0 },
       },
       {
         kind: 'bridge:verse>chorus',
@@ -65,6 +79,7 @@ function made(iteration: bigint, began = 0n): Made {
         seconds: 12,
         file: `bridge-guide-${iteration}.m4a`,
         score: { bpm: 76, notes: [[57, 8], [60, 8]] },
+        take: { bpm: 76, lyrics: 'ooh ooh', notes: [[57, 8], [60, 8]], t0: 0.05, vibrato: 0 },
       },
     ],
   }
@@ -75,7 +90,20 @@ describe('toSession', () => {
     [made(0n), made(1n)],
     (file) => `id:${file}`,
     (file) => (file.startsWith('bed-') ? { lufs: -14.2, peak: -1.1 } : { lufs: -19.5, peak: -6 }),
+    'c24945a+0123456789ab',
   )
+
+  it('keeps every voice as its take, for a Receiver to sing, and the Music as sound', () => {
+    expect(session.throat).toBe('c24945a+0123456789ab')
+    const voices = session.recordings.filter(({ kind }) => kind === 'voice')
+    expect(voices.length).toBeGreaterThan(0)
+    expect(voices.every(({ take }) => take !== undefined)).toBe(true)
+    const chorusHarmony = session.recordings.find(({ id }) => id === 'id:0-2-0-1.m4a')
+    expect(chorusHarmony?.take).toEqual(takeOf(session.iterations[0].parts.find(({ type }) => type === 'chorus')!.lines[0].text, 1))
+    expect(session.recordings.filter(({ kind }) => kind === 'bed').every(({ take }) => take === undefined)).toBe(true)
+    // a guide keeps its whole take, words and breath and all
+    expect(session.guides?.[0].take).toEqual({ bpm: 76, lyrics: 'ooh ooh', notes: [[57, 4], [59, 4]], t0: 0.05, vibrato: 0 })
+  })
 
   it('lays the iterations end to end', () => {
     const [first, second] = session.iterations

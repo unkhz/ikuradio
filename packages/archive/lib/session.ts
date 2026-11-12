@@ -6,6 +6,13 @@
 // any moment in it.
 //
 // All moments are in seconds from the beginning of the Song.
+//
+// A voice is not kept as sound. It is kept as its source: the score its
+// singer sang, every note and every small wrongness of the take, exactly as
+// the throat was given it. A Receiver sings it with the same throat (Chimera,
+// compiled to WebAssembly) and hears what the Studio heard, sample for sample.
+// Only the Music is kept as sound. Songs from before this have their voices
+// as Recordings, and no takes.
 
 export const sessionVersion = 1
 
@@ -26,6 +33,12 @@ export type Session = {
    * its mix. A voice Recording names its singer by place in this list.
    */
   singers: { body: 'female' | 'male' | 'child'; harmony: number }[]
+  /**
+   * The throat its voices are sung with: Chimera's revision and the song's
+   * patch to it, as `<revision>+<patch>`. A Receiver sings with the throat it
+   * has, which is the same one unless the throat has been moved on since.
+   */
+  throat?: string
   /** How long the whole Song lasts. */
   seconds: number
   iterations: SessionIteration[]
@@ -40,9 +53,33 @@ export type Session = {
   guides?: SessionGuide[]
 }
 
+/**
+ * A take, exactly as the throat is given it: the notes in MIDI (cents and
+ * all) and beats at `bpm`, a rest being 0 or less, the words read aloud, the
+ * breath before the first note, the vibrato, and the singer's own throat.
+ * The body that sings it is the singer's, in `singers`.
+ */
+export type SessionTake = {
+  bpm: number
+  lyrics: string
+  notes: [number, number][]
+  /** Seconds of breath before the first note. */
+  t0?: number
+  /** Vibrato depth in cents on held vowels. */
+  vibrato?: number
+  /** Lung pressure, in cmH2O. */
+  pressure?: number
+  /** 0 slack … 1 pressed. */
+  tension?: number
+  /** 0 clear … 1 all breath. */
+  breathiness?: number
+}
+
 export type SessionGuide = {
-  /** Its name in the Archive's recordings: its content, as a hash. */
+  /** Its name: the hash of what was hummed. Guides sung from a take are not in the Archive's recordings. */
   id: string
+  /** What the lead hummed, exactly as the throat was given it; the lead's body. */
+  take?: SessionTake
   /** Only ever a guide for the Music, never to be played in the Song. */
   kind: 'guide'
   /** The part it guided the Music for. */
@@ -89,8 +126,16 @@ export type SessionLine = {
 }
 
 export type SessionRecording = {
-  /** Its name in the Archive's recordings: its content, as a hash. */
+  /**
+   * Its name: for a Recording in the Archive, its content as a hash; for a
+   * voice with a take, the hash of the take, which nobody fetches.
+   */
   id: string
+  /**
+   * For a voice: the take its singer sings, for the Receiver to sing. A
+   * voice with a take is not in the Archive's recordings.
+   */
+  take?: SessionTake
   at: number
   /** How loud it is played, 1 being as recorded. */
   gain?: number

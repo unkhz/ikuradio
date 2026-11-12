@@ -14,7 +14,7 @@ import { getEnv, pieces, Sleeper } from 'tools'
 import { gather, readMemories } from 'song'
 import { wrongness } from 'melody'
 import { describe } from 'mood'
-import { introduce, loudnessOf, vocalsDir, type Loudness } from 'vocals'
+import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
 import { musicDir, Shelf, underlay } from 'music'
 import { openArchive } from 'archive'
 import { Diary } from './lib/diary.js'
@@ -126,18 +126,21 @@ for (const [i, one] of composed.entries()) {
 }
 console.log(`accompanied in ${seconds(grownAt)}`)
 
-// into the Archive: the Recordings first, then the Session that names them
-const files = new Set(
-  made.flatMap(({ lines, beds }) => [
-    ...lines.filter(({ unheard }) => !unheard).flatMap(({ voices }) => voices.map(({ file }) => file)),
-    ...beds.map(({ file }) => file),
-  ]),
+// into the Archive: the Music's Recordings first, then the Session that names
+// them. The voices and the guides are kept as their source, the takes in the
+// Session, for every Receiver to sing; their recordings stay here, and are
+// let go with the rest of the Studio's copies
+const beds = new Set(made.flatMap(({ beds }) => beds.map(({ file }) => file)))
+const voices = new Set(
+  made.flatMap(({ lines }) =>
+    lines.filter(({ unheard }) => !unheard).flatMap(({ voices }) => voices.map(({ file }) => file)),
+  ),
 )
-// the guides are archived too, as what they are: never played, only what the Music heard
 const guiding = new Set(made.flatMap(({ guides = [] }) => guides.map(({ file }) => file)))
-// how loud each Recording sounds, heard from the Recording itself, now that it is made
+// how loud each voice and bed sounds, heard from its recording, now that it is made
 const heardAt = Date.now()
 const loudness = new Map<string, Loudness>()
+const files = new Set([...voices, ...beds])
 await Promise.all(
   [...files].map(async (file) => {
     const measured = await loudnessOf(file)
@@ -146,11 +149,13 @@ await Promise.all(
 )
 console.log(`${loudness.size} of ${files.size} recordings measured in ${seconds(heardAt)}`)
 const ids = new Map<string, string>()
-for (const file of [...files, ...guiding]) ids.set(file, await store.putRecording(file))
+for (const file of [...voices, ...guiding]) ids.set(file, recordingName(file))
+for (const file of beds) ids.set(file, await store.putRecording(file))
 const session = toSession(
   made,
   (file) => ids.get(file)!,
   (file) => loudness.get(file),
+  throatName(),
 )
 await store.putSession(session)
 // and the diary, so the song's memory is not on this machine only
@@ -165,7 +170,7 @@ if (shelved !== undefined) {
 }
 console.log(
   `Song ${session.song} is in the Archive: ${(session.seconds / 60).toFixed(1)} minutes,` +
-    ` ${files.size} recordings, made in ${seconds(started)}`,
+    ` ${beds.size} beds and ${voices.size} takes, made in ${seconds(started)}`,
 )
 
 // the Studio's own copies are not needed any more
