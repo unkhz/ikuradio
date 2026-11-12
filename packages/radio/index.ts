@@ -24,6 +24,11 @@ import pageSpaceFile from '../ui/public/space.js' with { type: 'file' }
 import pageIcon from '../ui/public/favicon.ico' with { type: 'file' }
 import pageReceiver from '../ui/public/receiver.svg' with { type: 'file' }
 import pageCard from '../ui/public/card.png' with { type: 'file' }
+import pageWordmark from '../ui/public/wordmark.svg' with { type: 'file' }
+import pageManifest from '../ui/public/manifest.webmanifest' with { type: 'file' }
+import pageAppIcon from '../ui/public/icon-512.png' with { type: 'file' }
+import pageSmallAppIcon from '../ui/public/icon-192.png' with { type: 'file' }
+import pageTouchIcon from '../ui/public/apple-touch-icon.png' with { type: 'file' }
 // @ts-expect-error: the page's throat is plain JavaScript, imported only as a file
 import pageThroatFile from '../ui/public/throat.js' with { type: 'file' }
 // @ts-expect-error: the throat's worker is plain JavaScript, imported only as a file
@@ -172,6 +177,12 @@ const pageFiles: Record<string, { file: string; type: string }> = {
   'favicon.ico': { file: pageIcon, type: 'image/x-icon' },
   'receiver.svg': { file: pageReceiver, type: 'image/svg+xml' },
   'card.png': { file: pageCard, type: 'image/png' },
+  'wordmark.svg': { file: pageWordmark, type: 'image/svg+xml' },
+  // what a phone or a browser needs to keep the receiver as an app of its own
+  'manifest.webmanifest': { file: pageManifest, type: 'application/manifest+json' },
+  'icon-512.png': { file: pageAppIcon, type: 'image/png' },
+  'icon-192.png': { file: pageSmallAppIcon, type: 'image/png' },
+  'apple-touch-icon.png': { file: pageTouchIcon, type: 'image/png' },
   // the throat every Receiver sings with, and the words it reads; the
   // dictionary is sent as it is, gzipped, and unzipped by the page
   'throat.js': { file: pageThroatFile as unknown as string, type: 'text/javascript; charset=utf-8' },

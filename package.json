@@ -11,9 +11,10 @@
     "heart": "bun run throat && cd packages/heart && bun --env-file=../../.env --env-file=../../.env.local index.ts",
     "studio": "bun run throat && cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local index.ts",
     "rehearse": "bun run throat && cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local rehearse.ts",
+    "draw": "bun packages/ui/drawing/draw.ts",
     "listen": "bun --env-file=.env --env-file=.env.local packages/cli/index.ts",
-    "test": "bun test ./packages/archive ./packages/cli/lib ./packages/heart ./packages/melody ./packages/mood ./packages/music/lib ./packages/radio ./packages/song ./packages/studio ./packages/tools ./packages/vocals/lib",
-    "lint": "for p in archive cli heart melody mood music radio song studio tools vocals; do (cd packages/$p && tsc --noEmit) || exit 1; done",
+    "test": "bun test ./packages/archive ./packages/cli/lib ./packages/heart ./packages/melody ./packages/mood ./packages/music/lib ./packages/radio ./packages/song ./packages/studio ./packages/tools ./packages/ui ./packages/vocals/lib",
+    "lint": "for p in archive cli heart melody mood music radio song studio tools ui vocals; do (cd packages/$p && tsc --noEmit) || exit 1; done",
     "check": "bun run lint && bun run test"
   },
   "devDependencies": {

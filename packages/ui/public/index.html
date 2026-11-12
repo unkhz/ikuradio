@@ -6,8 +6,15 @@
     <!--meta-->
     <title>ikuradio</title>
     <!--/meta-->
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" href="/receiver.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#05070b" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ikuradio" />
     <style>
       :root {
         --night: #05070b;
@@ -17,6 +24,9 @@
         --edge: #5d6b66;
         --glow: #ffb347;
         --hull: #0b1016;
+        /* the matrix the page is drawn in: space behind it, its own marks in front */
+        --pitch: 6px;
+        --seam: #24313c;
       }
       html,
       body {
@@ -69,7 +79,7 @@
       p.chorus {
         color: var(--chorus);
         padding-left: 1.5em;
-        border-left: 2px solid #234;
+        background: radial-gradient(circle, #2f4a63 0 1.6px, transparent 2px) 0 0 / var(--pitch) var(--pitch) repeat-y;
       }
       /* a bridge has no words: only a line of motion while the music carries across */
       p.bridge {
@@ -108,19 +118,50 @@
         align-items: center;
         gap: 1.2em;
       }
-      #controls img {
-        width: min(40vw, 14rem);
-        transform: rotate(-9deg);
+      /* the receiver's likeness and its name, drawn in dots of the same pitch
+         as space behind them, only fuller and brighter: in front of it */
+      /* drawn on the page's own six-pixel matrix, shown half as large again:
+         larger dots, nearer the listener */
+      #controls .likeness {
+        width: min(78vw, 432px);
+        height: auto;
       }
+      #controls .name {
+        width: min(72vw, 441px);
+        height: auto;
+        margin-top: -1.2em;
+      }
+      /* space hushed a little around them, so they stand in front of it */
+      #controls::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: radial-gradient(ellipse 34rem 30rem at 50% 50%, rgba(5, 7, 11, 0.82), rgba(5, 7, 11, 0.4) 55%, transparent 80%);
+        pointer-events: none;
+      }
+      /* the one lit switch on the panel: a patch of amber dots, glowing */
       #play {
-        padding: 0.4em 1em;
+        margin-top: 0.6em;
+        padding: 0.45em 1.3em;
         font: inherit;
         font-size: 0.9em;
-        background: var(--glow);
-        color: #000;
+        font-weight: bold;
+        letter-spacing: 0.04em;
+        color: #120b02;
+        background:
+          radial-gradient(circle, var(--glow) 0 1.35px, transparent 1.75px) 0 0 / 3px 3px,
+          #7a4f1a;
         border: 0 none;
         border-radius: 0.5em;
+        box-shadow: 0 0 1.6em rgba(255, 179, 71, 0.28);
         cursor: pointer;
+        transition: box-shadow 0.3s;
+      }
+      #play:hover,
+      #play:focus-visible {
+        box-shadow: 0 0 2.4em rgba(255, 179, 71, 0.5);
+        outline: none;
       }
       /* the tuning knob, at the corner: it opens what the receiver knows */
       #knob {
@@ -156,8 +197,10 @@
         width: min(24rem, calc(100vw - 1.8rem));
         box-sizing: border-box;
         padding: 1rem 1.1rem;
-        background: var(--hull);
-        border: 1px solid #1f2a33;
+        background:
+          radial-gradient(circle, #141d25 0 1px, transparent 1.4px) 0 0 / var(--pitch) var(--pitch),
+          var(--hull);
+        border: 2px dotted var(--seam);
         border-radius: 0.8rem 0.2rem 0.8rem 0.8rem;
         font-size: 0.8rem;
         color: var(--weather);
@@ -190,7 +233,7 @@
         font: inherit;
         color: var(--words);
         background: none;
-        border: 1px solid #2a3640;
+        border: 2px dotted #34434f;
         border-radius: 0.4rem;
         padding: 0.25rem 0.8rem;
         cursor: pointer;
@@ -205,9 +248,11 @@
         max-height: min(40rem, calc(100dvh - 4rem));
         box-sizing: border-box;
         padding: 1rem 1.2rem;
-        background: var(--hull);
+        background:
+          radial-gradient(circle, #141d25 0 1px, transparent 1.4px) 0 0 / var(--pitch) var(--pitch),
+          var(--hull);
         color: var(--weather);
-        border: 1px solid #1f2a33;
+        border: 2px dotted var(--seam);
         border-radius: 0.8rem;
         font-size: 0.8rem;
         overflow: hidden;
@@ -241,7 +286,7 @@
       #song-list li.unknown {
         color: var(--edge);
         padding: 0.5rem 0.2rem;
-        border-top: 1px solid #161f27;
+        border-top: 2px dotted #1a242d;
       }
       #song-list a {
         display: block;
@@ -251,7 +296,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        border-top: 1px solid #161f27;
+        border-top: 2px dotted #1a242d;
         color: var(--chorus);
         text-decoration: none;
       }
@@ -298,14 +343,15 @@
     <div id="output"></div>
     <div id="status"></div>
     <div id="controls">
-      <img src="/receiver.svg" alt="A lost receiver, a little broken" />
+      <img class="likeness" src="/receiver.svg" width="288" height="288" alt="A lost receiver, a little broken" />
+      <img class="name" src="/wordmark.svg" width="294" height="54" alt="ikuradio" />
       <button id="play" type="button">switch on</button>
     </div>
     <button id="knob" type="button" aria-label="What the receiver knows" aria-expanded="false" aria-controls="panel">
-      <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-        <path d="M6 30 L3 32 M5 20 L2 20 M8 10 L5 8 M17 5 L16 2 M27 6 L29 3" />
-        <circle cx="21" cy="22" r="11" />
-        <path d="M21 22 L28 15" stroke="var(--glow)" />
+      <svg viewBox="0 0 40 40" fill="currentColor" aria-hidden="true">
+        <g><circle cx="32.0" cy="22.0" r="1.5"/><circle cx="31.2" cy="26.2" r="1.5"/><circle cx="28.8" cy="29.8" r="1.5"/><circle cx="25.2" cy="32.2" r="1.5"/><circle cx="21.0" cy="33.0" r="1.5"/><circle cx="16.8" cy="32.2" r="1.5"/><circle cx="13.2" cy="29.8" r="1.5"/><circle cx="10.8" cy="26.2" r="1.5"/><circle cx="10.0" cy="22.0" r="1.5"/><circle cx="10.8" cy="17.8" r="1.5"/><circle cx="13.2" cy="14.2" r="1.5"/><circle cx="16.8" cy="11.8" r="1.5"/><circle cx="21.0" cy="11.0" r="1.5"/><circle cx="25.2" cy="11.8" r="1.5"/><circle cx="28.8" cy="14.2" r="1.5"/><circle cx="31.2" cy="17.8" r="1.5"/></g>
+        <g opacity="0.6"><circle cx="6.3" cy="30.5" r="1"/><circle cx="4.0" cy="22.0" r="1"/><circle cx="6.3" cy="13.5" r="1"/><circle cx="12.5" cy="7.3" r="1"/><circle cx="21.0" cy="5.0" r="1"/><circle cx="29.5" cy="7.3" r="1"/></g>
+        <g fill="var(--glow)"><circle cx="21.0" cy="22.0" r="1.6"/><circle cx="23.3" cy="19.7" r="1.6"/><circle cx="25.5" cy="17.5" r="1.6"/><circle cx="27.8" cy="15.2" r="1.9"/></g>
       </svg>
     </button>
     <section id="panel" hidden aria-label="What the receiver knows">
