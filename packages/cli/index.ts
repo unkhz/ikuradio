@@ -1,17 +1,19 @@
 // A Receiver in a terminal. Like the page, it asks the Radio for the Tactus,
 // fetches each coming Song whole from the Archive before it begins, its
-// Session and every Recording, into a folder of its own, and then plays it:
-// the voices and the Music through ffplay, each at its moment, and the
-// words typed as they are sung.
+// Session and every Recording, into a folder of its own, sings every voice
+// that came as a take with the page's own throat (in a Worker, as the page
+// does), and then plays it: the voices and the Music through ffplay, each at
+// its moment, and the words typed as they are sung.
 //
 //   bun run listen
 
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { gunzipSync } from 'node:zlib'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { play } from 'vocals'
 import { getEnv } from 'tools'
-import { levelOf, paths, type Session } from 'archive'
+import { levelOf, paths, type Session, type SessionTake } from 'archive'
 import { placements } from './lib/time.js'
 
 // the live Radio, wherever it is: RADIO_URL
@@ -38,6 +40,61 @@ async function askRadio(): Promise<{ playing: Airing | null; next: Airing | null
   return tactus
 }
 
+// The throat: the page's own, from beside the page, in a Worker of its own so
+// the words are typed on time while a take is sung
+const page = new URL('../ui/public/', import.meta.url)
+let throat: Promise<Worker> | undefined
+const answers = new Map<number, (answer: { samples?: Float32Array; error?: string }) => void>()
+let jobs = 0
+
+function openThroat() {
+  throat ??= (async () => {
+    const engine = await Bun.file(new URL('throat/chimera.wasm', page)).arrayBuffer()
+    const dictionary = gunzipSync(await Bun.file(new URL('throat/cmudict.txt.gz', page)).arrayBuffer()).toString()
+    const worker = new Worker(new URL('throat-worker.js', page).href, { type: 'module' })
+    await new Promise<void>((resolve, reject) => {
+      worker.onmessage = ({ data }) => (data.opened ? resolve() : reject(new Error(data.error)))
+      worker.postMessage({ open: { engine, dictionary } })
+    })
+    worker.onmessage = ({ data }) => {
+      answers.get(data.job)?.(data)
+      answers.delete(data.job)
+    }
+    return worker
+  })()
+  return throat
+}
+
+/** Sings a take into a WAV the size of its samples: mono, 32-bit float, at 48 kHz. */
+async function singInto(file: string, take: SessionTake, body: string) {
+  const worker = await openThroat()
+  const job = jobs++
+  const { samples, error } = await new Promise<{ samples?: Float32Array; error?: string }>((resolve) => {
+    answers.set(job, resolve)
+    worker.postMessage({ job, take, body })
+  })
+  if (!samples) throw new Error(error)
+  await writeFile(file, wav(samples))
+}
+
+function wav(samples: Float32Array, rate = 48000) {
+  const header = Buffer.alloc(44)
+  const bytes = samples.length * 4
+  header.write('RIFF', 0)
+  header.writeUInt32LE(36 + bytes, 4)
+  header.write('WAVEfmt ', 8)
+  header.writeUInt32LE(16, 16)
+  header.writeUInt16LE(3, 20) // IEEE float
+  header.writeUInt16LE(1, 22)
+  header.writeUInt32LE(rate, 24)
+  header.writeUInt32LE(rate * 4, 28)
+  header.writeUInt16LE(4, 32)
+  header.writeUInt16LE(32, 34)
+  header.write('data', 36)
+  header.writeUInt32LE(bytes, 40)
+  return Buffer.concat([header, Buffer.from(samples.buffer, samples.byteOffset, bytes)])
+}
+
 const shelf = await mkdtemp(join(tmpdir(), 'song-receiver-'))
 type Song = { airing: Airing; session?: Session; dir: string; ready: boolean; placed: boolean; cursor?: Cursor }
 const songs = new Map<string, Song>()
@@ -57,7 +114,8 @@ async function prepare(airing: Airing) {
     return
   }
   await mkdir(song.dir, { recursive: true })
-  const queue = [...new Set(song.session.recordings.map(({ id }) => id))]
+  const session = song.session
+  const queue = [...new Set(session.recordings.filter(({ take }) => !take).map(({ id }) => id))]
   // a few at a time, each asked for again, patiently, until it comes
   const worker = async () => {
     while (queue.length) {
@@ -74,7 +132,20 @@ async function prepare(airing: Airing) {
       }
     }
   }
-  await Promise.all(Array.from({ length: fetching }, worker))
+  // and the voices, sung here, each take once however often it is heard
+  const singing = (async () => {
+    const sung = new Set<string>()
+    for (const { id, take, voice } of session.recordings) {
+      if (!take || sung.has(id) || songs.get(airing.song) !== song) continue
+      sung.add(id)
+      const body = session.singers[voice ?? 0]?.body ?? 'female'
+      await singInto(join(song.dir, id), take, body).catch((error) => {
+        // a take that cannot be sung falls silent; the song goes on
+        console.warn(`\na take could not be sung: ${error}`)
+      })
+    }
+  })()
+  await Promise.all([...Array.from({ length: fetching }, worker), singing])
   song.ready = songs.get(airing.song) === song
 }
 

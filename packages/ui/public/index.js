@@ -36,6 +36,119 @@ async function askRadio() {
 // Recordings of its first stretch are here, and the rest follow behind.
 const songs = new Map()
 
+// The choir, in this page. A Session keeps every voice as its take, the
+// score exactly as the Studio's throat was given it, and the page sings each
+// one itself, with the same throat compiled to WebAssembly (throat.js), in a
+// few Workers of its own. Every singer is sung apart, so the page may place
+// each one where it likes in its mix. Takes are sung in the order they are
+// heard, never more than a little ahead, and let go once they have been
+// heard: a page left open for weeks holds only the next minute or two of song.
+
+/** The rate the throat sings at. */
+const throatRate = 48000
+/** How far ahead of its moment a take is sung, at most, in seconds. */
+const singingAhead = 90
+/** How many throats sing at once: a few, and never all of the machine. */
+const throatCount = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 2) - 1))
+
+const choir = { throats: undefined, idle: [], takes: [], jobs: new Map(), next: 0, failed: false }
+
+/** Opens the throats, once: the engine and its dictionary are fetched and given to each. */
+function openThroats() {
+  choir.throats ??= (async () => {
+    const [engine, dictionary] = await Promise.all([
+      fetch('/throat/chimera.wasm').then((r) => {
+        if (!r.ok) throw new Error(`the throat: ${r.status}`)
+        return r.arrayBuffer()
+      }),
+      fetch('/throat/cmudict.txt.gz').then(async (r) => {
+        if (!r.ok) throw new Error(`the dictionary: ${r.status}`)
+        return new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).text()
+      }),
+    ])
+    const opened = await Promise.all(
+      Array.from({ length: throatCount }, async () => {
+        const worker = new Worker('/throat-worker.js', { type: 'module' })
+        const answer = await new Promise((resolve) => {
+          worker.onmessage = ({ data }) => resolve(data)
+          worker.onerror = (error) => resolve({ opened: false, error: String(error.message ?? error) })
+          worker.postMessage({ open: { engine, dictionary } })
+        })
+        if (!answer.opened) {
+          worker.terminate()
+          return undefined
+        }
+        worker.onmessage = ({ data }) => sung(worker, data)
+        return worker
+      }),
+    )
+    choir.idle = opened.filter(Boolean)
+    if (!choir.idle.length) throw new Error('no throat would open')
+  })().catch((error) => {
+    // a page that cannot sing still plays the Music and types the words
+    console.warn(`the page cannot sing: ${error}`)
+    choir.failed = true
+    for (const take of choir.takes.splice(0)) lose(take)
+  })
+  return choir.throats
+}
+
+/** When a take is wanted by, on the Tactus: its moment, or, for a Song not yet begun, as if it began now. */
+function dueOf({ song, at }) {
+  const begins = Number.isFinite(song.airing.begins) ? song.airing.begins : now()
+  return begins + at * 1000
+}
+
+/** A take that will not be sung: its Song goes on without it. */
+function lose({ song, id }) {
+  song.gone.add(id)
+  song.missing = song.gone.size
+  song.done?.()
+}
+
+/** Asks for a take to be sung, for the first moment it is heard in its Song. */
+function wantSung(song, recording) {
+  const body = song.session.singers?.[recording.voice ?? 0]?.body ?? 'female'
+  choir.takes.push({ song, id: recording.id, take: recording.take, body, at: recording.at, seconds: recording.seconds ?? 0 })
+  if (choir.failed) lose(choir.takes.pop())
+  else openThroats()
+}
+
+/** Gives every idle throat the take due soonest, if it is due soon enough. */
+function singSoon() {
+  if (!choir.idle.length || !choir.takes.length) return
+  const moment = now()
+  // takes of Songs let go, and takes whose moment is already over, are not sung
+  choir.takes = choir.takes.filter(
+    (t) => songs.get(t.song.airing.song) === t.song && dueOf(t) + t.seconds * 1000 > moment,
+  )
+  choir.takes.sort((a, b) => dueOf(a) - dueOf(b))
+  while (choir.idle.length && choir.takes.length && dueOf(choir.takes[0]) - moment < singingAhead * 1000) {
+    const take = choir.takes.shift()
+    const job = choir.next++
+    choir.jobs.set(job, take)
+    choir.idle.pop().postMessage({ job, take: take.take, body: take.body })
+  }
+}
+
+/** A take, sung: kept until it has been heard, and the throat sings on. */
+function sung(worker, { job, samples, error }) {
+  const take = choir.jobs.get(job)
+  choir.jobs.delete(job)
+  choir.idle.push(worker)
+  if (take) {
+    if (error) {
+      console.warn(`a take could not be sung: ${error}`)
+      lose(take)
+    } else if (songs.get(take.song.airing.song) === take.song) {
+      take.song.voices.set(take.id, samples)
+      take.song.fetched++
+      take.song.done?.()
+    }
+  }
+  singSoon()
+}
+
 /** How many Recordings are fetched at once. */
 const fetching = 6
 /** How much of a Song, in seconds from where it is joined, must be here before it begins. */
@@ -43,7 +156,7 @@ const startingStretch = 20
 
 function prepare(airing) {
   if (songs.has(airing.song)) return songs.get(airing.song)
-  const song = { airing, session: undefined, files: new Map(), ready: false, startable: false, fetched: 0, needed: 0, missing: 0 }
+  const song = { airing, session: undefined, files: new Map(), voices: new Map(), uses: new Map(), gone: new Set(), ready: false, startable: false, fetched: 0, needed: 0, missing: 0 }
   songs.set(airing.song, song)
   let started
   song.starting = new Promise((resolve) => (started = resolve))
@@ -54,18 +167,28 @@ function prepare(airing) {
     const heard = song.session.recordings
       .filter(({ at, seconds, fade }) => seconds === undefined || at + seconds + (fade ?? 0) > from)
       .sort((a, b) => a.at - b.at)
-    const ids = [...new Set(heard.map(({ id }) => id))]
+    song.heard = new Set(heard)
+    // the Music is fetched; the voices with takes are sung here, each once, however often it is heard
+    const ids = [...new Set(heard.filter(({ take }) => !take).map(({ id }) => id))]
+    const takes = new Map()
+    for (const recording of heard) {
+      if (!recording.take) continue
+      if (!takes.has(recording.id)) takes.set(recording.id, recording)
+      song.uses.set(recording.id, (song.uses.get(recording.id) ?? 0) + 1)
+    }
     const first = new Set(heard.filter(({ at }) => at < from + startingStretch).map(({ id }) => id))
-    song.needed = ids.length
+    song.needed = ids.length + takes.size
     song.first = first.size
-    const done = () => {
+    const here = (id) => song.files.has(id) || song.voices.has(id) || song.gone.has(id)
+    song.done = () => {
       if (song.startable) return
-      if (![...first].every((id) => song.files.has(id) || song.gone?.has(id))) return
+      if (![...first].every(here)) return
       song.startable = true
       started()
     }
-    song.gone = new Set()
-    done()
+    for (const recording of takes.values()) wantSung(song, recording)
+    song.done()
+    const done = song.done
     const queue = [...ids]
     const worker = async () => {
       while (queue.length) {
@@ -202,6 +325,16 @@ const standingOf = (voice = 0) => stand[voice] ?? 0
 /** How far ahead sounds are placed on the audio clock, in seconds. */
 const ahead = 8
 
+/** A take has had one of its moments; after its last, its samples are let go. */
+function heardOnce(song, recording) {
+  // only the moments that were waited for count: one already over when the page joined does not
+  if (!song.heard.has(recording)) return
+  const { id } = recording
+  const left = (song.uses.get(id) ?? 1) - 1
+  song.uses.set(id, left)
+  if (left <= 0) song.voices.delete(id)
+}
+
 /**
  * Places every sound that begins soon, or began a moment ago and is still
  * going, on the audio clock: at the moment the Tactus says, translated into
@@ -221,13 +354,27 @@ function placeSounds(audioContext) {
       // a line whose place is already over is not decoded at all
       if (recording.seconds !== undefined && until + recording.seconds + (recording.fade ?? 0) <= 0) {
         song.placed.add(n)
+        if (recording.take) heardOnce(song, recording)
         return
       }
-      const data = song.files.get(recording.id)
-      if (!data) return
-      song.placed.add(n)
-      // decoding takes the data away, so a copy is decoded
-      audioContext.decodeAudioData(data.slice(0)).then((buffer) => {
+      let buffering
+      if (recording.take) {
+        // a take the page sang: its samples become a sound, and are let go once heard for the last time
+        const samples = song.voices.get(recording.id)
+        if (!samples) return
+        song.placed.add(n)
+        const buffer = audioContext.createBuffer(1, samples.length, throatRate)
+        buffer.copyToChannel(samples, 0)
+        heardOnce(song, recording)
+        buffering = Promise.resolve(buffer)
+      } else {
+        const data = song.files.get(recording.id)
+        if (!data) return
+        song.placed.add(n)
+        // decoding takes the data away, so a copy is decoded
+        buffering = audioContext.decodeAudioData(data.slice(0))
+      }
+      buffering.then((buffer) => {
         const since = (now() - starts) / 1000
         if (since >= buffer.duration) return
         const when = audioContext.currentTime - since
@@ -664,7 +811,7 @@ async function listenAgain(output, audioContext) {
   const airing = { song, session: new URL(`sessions/${song}.json`, tactus.archive).href, archive: tactus.archive, begins: Infinity, seconds: 0 }
   const prepared = prepare(airing)
   const fetching = setInterval(
-    () => waiting(`fetching Song ${replay.number}: ${prepared.fetched} of ${prepared.first || '…'} recordings to begin with`),
+    () => waiting(`readying Song ${replay.number}: ${prepared.fetched} of ${prepared.first || '…'} to begin with`),
     200,
   )
   await prepared.starting
@@ -678,6 +825,7 @@ async function listenAgain(output, audioContext) {
   let ended = false
   setInterval(() => {
     placeSounds(audioContext)
+    singSoon()
     const t = (now() - airing.begins) / 1000
     if (t < 0) return waiting(`Song ${replay.number} begins in ${Math.ceil(-t)}s`)
     if (t < airing.seconds) {
@@ -727,6 +875,7 @@ async function listen() {
 
   setInterval(() => {
     placeSounds(audioContext)
+    singSoon()
     const moment = now()
     const playing = [...songs.values()].find(
       ({ airing }) => airing.begins <= moment && moment < airing.begins + airing.seconds * 1000,
@@ -736,7 +885,7 @@ async function listen() {
       writeUpTo(output, playing, (moment - playing.airing.begins) / 1000)
     } else if (playing) {
       // arrived in the middle of a Song that is not yet fetched: it is joined when it is
-      waiting(`fetching the Song being sung: ${playing.fetched} of ${playing.first || '…'} recordings to begin with`)
+      waiting(`readying the Song being sung: ${playing.fetched} of ${playing.first || '…'} to begin with`)
     } else if (heard) {
       bridgeEnds()
       const coming = [...songs.values()].find(({ airing }) => airing.begins > moment)
@@ -745,7 +894,7 @@ async function listen() {
         waiting(
           coming.startable
             ? `the next Song begins in ${inSeconds}s`
-            : `fetching the next Song: ${coming.fetched} of ${coming.first || '…'} recordings to begin with`,
+            : `readying the next Song: ${coming.fetched} of ${coming.first || '…'} to begin with`,
         )
       } else if (said !== breath) {
         weather(output, breath.slice(2, -2))

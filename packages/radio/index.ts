@@ -24,6 +24,13 @@ import pageSpaceFile from '../ui/public/space.js' with { type: 'file' }
 import pageIcon from '../ui/public/favicon.ico' with { type: 'file' }
 import pageReceiver from '../ui/public/receiver.svg' with { type: 'file' }
 import pageCard from '../ui/public/card.png' with { type: 'file' }
+// @ts-expect-error: the page's throat is plain JavaScript, imported only as a file
+import pageThroatFile from '../ui/public/throat.js' with { type: 'file' }
+// @ts-expect-error: the throat's worker is plain JavaScript, imported only as a file
+import pageThroatWorkerFile from '../ui/public/throat-worker.js' with { type: 'file' }
+import pageThroatEngine from '../ui/public/throat/chimera.wasm' with { type: 'file' }
+import pageThroatWords from '../ui/public/throat/cmudict.txt.gz' with { type: 'file' }
+import pageThroatWordsLicense from '../ui/public/throat/CMUDICT-LICENSE.txt' with { type: 'file' }
 import { getEnv } from 'tools'
 import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
@@ -62,11 +69,15 @@ async function read<T>(path: string): Promise<T | undefined> {
   }
 }
 
-/** A Session, if the Archive still holds the Recordings it names: a Song it can still play. */
+/**
+ * A Session, if the Archive still holds the Recordings it names: a Song it
+ * can still play. Voices sung from takes are never in the Archive's
+ * recordings, so only a Recording kept as sound is looked for.
+ */
 async function playable(song: string): Promise<Session | undefined> {
   const session = await read<Session>(paths.session(song))
   if (!session || session.version !== sessionVersion) return undefined
-  const [first] = session.recordings
+  const first = session.recordings.find(({ take }) => !take)
   if (!first) return session
   try {
     const response = await fetch(new URL(paths.recording(first.id), reading), {
@@ -161,6 +172,13 @@ const pageFiles: Record<string, { file: string; type: string }> = {
   'favicon.ico': { file: pageIcon, type: 'image/x-icon' },
   'receiver.svg': { file: pageReceiver, type: 'image/svg+xml' },
   'card.png': { file: pageCard, type: 'image/png' },
+  // the throat every Receiver sings with, and the words it reads; the
+  // dictionary is sent as it is, gzipped, and unzipped by the page
+  'throat.js': { file: pageThroatFile as unknown as string, type: 'text/javascript; charset=utf-8' },
+  'throat-worker.js': { file: pageThroatWorkerFile as unknown as string, type: 'text/javascript; charset=utf-8' },
+  'throat/chimera.wasm': { file: pageThroatEngine, type: 'application/wasm' },
+  'throat/cmudict.txt.gz': { file: pageThroatWords, type: 'application/octet-stream' },
+  'throat/CMUDICT-LICENSE.txt': { file: pageThroatWordsLicense, type: 'text/plain; charset=utf-8' },
 }
 
 // How the page is told about, when a link to it is shared: by the Radio,
@@ -278,8 +296,11 @@ Bun.serve({
     const name = normalize(url.pathname).slice(1)
     const part = pageFiles[name]
     if (part) {
+      // the throat is two megabytes that change only when the throat is moved
+      // on: kept a day, so a listener who comes back does not fetch it again
+      const cache = name.startsWith('throat/') ? 'public, max-age=86400' : 'no-cache'
       return new Response(Bun.file(part.file), {
-        headers: { 'Content-Type': part.type, 'Cache-Control': 'no-cache' },
+        headers: { 'Content-Type': part.type, 'Cache-Control': cache },
       })
     }
     return new Response(null, { status: 404 })
