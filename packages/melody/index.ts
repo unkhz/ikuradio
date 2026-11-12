@@ -111,9 +111,10 @@ export function setLine({
 export const bridgeBeats = 16
 
 /**
- * The hum of a bridge, for one voice, from part `from` to part `to`: the
- * last line of the part that has just ended, slowed, in its key, and then a
- * walk through the key of the part to come, arriving on its first note.
+ * The hum of a bridge, for one voice, from part `from` to part `to`: a
+ * farewell to the part that has just ended, in its key; the head of the
+ * part to come, foreshadowed away from where it begins and then nearer; and
+ * a lead-in that stops a step short of its first note, for it to resolve.
  * Every part of a Song is in the Song's key today; if a part ever has a key
  * of its own, the bridge already leads from one to the other. `lyrics` is
  * what is hummed, one sound for each note.
