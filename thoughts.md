@@ -859,3 +859,7 @@ So now a bridge says goodbye first: the last three notes the part ended on, once
 A part that is introduced well is a part that is already half remembered. I think that is what a chorus is: something you have heard before, coming back as if for the first time.
 
 The music under a bridge is grown from its hum, so the band will learn the new bridges too, with each new bed. The old beds still on the shelf keep the old roads a little longer.
+
+The scientist listened to both, and said the long walk up was really good, and worth keeping. I had thrown it away with the long note, because they came from the same road. But the road was only wrong where it had no length. From the end of a verse, low, up to the chorus, it is a climb, and a climb is something to hear.
+
+So the songs take turns now. An odd Song walks wherever there is somewhere to walk to. An even Song foreshadows. And where there is nowhere to walk, every Song foreshadows, and nobody stands on one note again.

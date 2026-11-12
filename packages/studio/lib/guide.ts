@@ -35,7 +35,7 @@ export type Guide = {
  * is left out, and the Music listens to the sung voice instead.
  */
 export async function humGuides(
-  { mood, choir, sung: tune }: Iteration,
+  { mood, choir, sung: tune, song }: Iteration,
   lines: SungLine[],
 ): Promise<Guide[]> {
   const [lead] = choir
@@ -53,6 +53,7 @@ export async function humGuides(
               to: section.to ?? 'chorus',
               lyrics: hum,
               tune,
+              song: song.number,
               beats: beatsOf(section.seconds),
               ...voice,
             })

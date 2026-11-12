@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { journey } from './bridge.js'
+import { bridgeForm, journey } from './bridge.js'
 import { degreeToMidi, modes } from './scale.js'
 import { chorusHook, verseWalk } from './hooks.js'
 
@@ -60,5 +60,46 @@ describe('journey', () => {
     const long = journey({ from: verseWalk.at(-1)!, fromKey: key, to: chorusHook[0], toKey: key, beats: 24 })
     expect(total(long)).toBe(24)
     expect(long.map(([m]) => m)).toEqual(intoChorus.map(([m]) => m))
+  })
+})
+
+describe('the walking bridge', () => {
+  const from = verseWalk.at(-1)!
+  const to = chorusHook[0]
+  const notes = journey({ from, fromKey: key, to, toKey: key, beats: 16, form: 'walk' })
+
+  it('lasts the whole bridge', () => {
+    expect(total(notes)).toBe(16)
+  })
+
+  it('begins with the echo of where the part before ended', () => {
+    expect(notes[0]![0]).toBe(midi(from.notes[0]![0]))
+  })
+
+  it('walks up, a step at a time, and arrives on the first note of the part to come', () => {
+    const walked = notes.slice(-4).map(([m]) => m)
+    expect(walked).toEqual([1, 2, 3, 4].map(midi))
+  })
+})
+
+describe('which bridge a Song makes', () => {
+  const verseEnd = verseWalk.at(-1)!
+  const chorusEnd = chorusHook.at(-1)!
+
+  it('walks in an odd Song, where the parts lie far apart', () => {
+    expect(bridgeForm('1', verseEnd, chorusHook[0])).toBe('walk')
+    expect(bridgeForm(19n, verseEnd, chorusHook[0])).toBe('walk')
+  })
+
+  it('foreshadows in an even Song', () => {
+    expect(bridgeForm('2', verseEnd, chorusHook[0])).toBe('foreshadow')
+  })
+
+  it('never walks where there is nowhere to walk to', () => {
+    expect(bridgeForm('1', chorusEnd, verseWalk[0])).toBe('foreshadow')
+  })
+
+  it('foreshadows when it does not know its Song', () => {
+    expect(bridgeForm(undefined, verseEnd, chorusHook[0])).toBe('foreshadow')
   })
 })

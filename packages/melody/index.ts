@@ -10,14 +10,14 @@ import {
 
 import { firstTune, type Tune } from './lib/variation.js'
 import { slowSection } from './lib/guide.js'
-import { journey } from './lib/bridge.js'
+import { bridgeForm, journey } from './lib/bridge.js'
 
 export { fitPhrase, chorusHook, verseWalk, aeolian, modes, degreeToMidi }
 export { firstTune, evolve, step, variations } from './lib/variation.js'
 export type { Tune } from './lib/variation.js'
 export { wrongness } from './lib/wrongness.js'
 export { guideStep, slowPhrase, slowSection } from './lib/guide.js'
-export { journey, type Pitches } from './lib/bridge.js'
+export { bridgeForm, journey, walkingDistance, type BridgeForm, type Pitches } from './lib/bridge.js'
 export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
 
@@ -115,6 +115,8 @@ export const bridgeBeats = 16
  * farewell to the part that has just ended, in its key; the head of the
  * part to come, foreshadowed away from where it begins and then nearer; and
  * a lead-in that stops a step short of its first note, for it to resolve.
+ * Or, in an odd `song` where the two parts lie far apart, an echo of the
+ * part that ended and a long walk to the coming part's first note.
  * Every part of a Song is in the Song's key today; if a part ever has a key
  * of its own, the bridge already leads from one to the other. `lyrics` is
  * what is hummed, one sound for each note.
@@ -128,6 +130,7 @@ export function setBridge({
   harmony = 0,
   tune = firstTune,
   beats = bridgeBeats,
+  song,
 }: {
   from: 'verse' | 'chorus'
   to: 'verse' | 'chorus'
@@ -137,16 +140,21 @@ export function setBridge({
   harmony?: number
   tune?: Tune
   beats?: number
+  /** The Song the bridge is in, which decides whether it walks. */
+  song?: string | bigint
 }): Score {
   const phrases = (part: 'verse' | 'chorus') => (part === 'chorus' ? tune.chorus : tune.verse)
   const key = keyFor(singer, character.mode)
+  const leaving = phrases(from).at(-1)!
+  const coming = phrases(to)[0]
   const notes = journey({
-    from: phrases(from).at(-1)!,
+    from: leaving,
     fromKey: key,
-    to: phrases(to)[0],
+    to: coming,
     toKey: key,
     beats,
     harmony,
+    form: bridgeForm(song, leaving, coming),
   })
   return { bpm: character.tempo, lyrics: lyrics(notes.length), notes }
 }

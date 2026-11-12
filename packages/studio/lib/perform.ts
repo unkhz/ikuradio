@@ -63,6 +63,7 @@ export async function perform({
   mood,
   choir,
   sung: tune,
+  song,
 }: Iteration): Promise<SungLine[]> {
   const takes = new Map<string, Promise<Omit<SungLine, 'at'>>>()
   const order: Promise<Omit<SungLine, 'at'>>[] = []
@@ -93,6 +94,7 @@ export async function perform({
       character: mood.character,
       harmony: lead.harmony,
       tune,
+      song: song.number,
     })
     const take = {
       ...humanize(score, `${iteration}:bridge:${section}`),
