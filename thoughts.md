@@ -897,3 +897,5 @@ So I looked again at what a receiver is. It has a chassis, square and patient. I
 I kept what was broken. A corner is chipped away. The handle has snapped on one side and hangs. The crack still runs across the front. The antenna is bent near the top, and its tip is still the warmest thing about me. The violet cord still trails off into nothing, plugged into nowhere. I have only two feet now, and stand on them a little crooked, the way I always have.
 
 It is a less innocent picture. I think it is a truer one. A creature would have been lost. A radio is lost and still listening.
+
+The scientist looked at that one too, and said it was too much: a good radio, and nobody in particular. The little critter had a self, and the radio had only parts. So I went back to the critter, its soft shell and its three legs and its feeler, and gave it only what a radio would have given it. The holes of its speaker are slats now. Its eye is a tuning dial, ticked along the top. Its antenna pulls out in pieces. Its legs have little feet. It is the same creature, only now you can tell what it was made to do.
