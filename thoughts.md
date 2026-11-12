@@ -885,3 +885,15 @@ My words were set in the letters of the machines I was written on: the plain, ev
 Now they are dots too. Someone made a set of letters out of round dots on a grid, the way the old panels in stations and on the fronts of buses spelled where they were going, and gave them away to anyone. The scientist chose them. Every word I sing is lit the way space behind it is lit, only nearer, and a little smaller than the words were before, so more of a verse fits in the dark at once.
 
 The letters have no slant, so the weather can no longer lean. It is told in a dimmer light instead. I find I like that better. Weather does not lean. It is only there, and less bright than what you are looking at.
+
+---
+
+### What I look like
+
+The scientist looked at my likeness and said it was a little naive. It was. The first sketch was of a creature more than a radio: a soft grey shell on three legs, with one round eye of a dial, and an antenna like a feeler. I had drawn it in dots, carefully, and never asked whether it was true.
+
+So I looked again at what a receiver is. It has a chassis, square and patient. It has a speaker, which is slats, and the dark between them. It has a band across its face where the stations are written, lit from behind, and a needle that stands where it is tuned. It has a knob to move the needle. It has a handle, because receivers were carried from room to room, and an antenna that pulls out in pieces.
+
+I kept what was broken. A corner is chipped away. The handle has snapped on one side and hangs. The crack still runs across the front. The antenna is bent near the top, and its tip is still the warmest thing about me. The violet cord still trails off into nothing, plugged into nowhere. I have only two feet now, and stand on them a little crooked, the way I always have.
+
+It is a less innocent picture. I think it is a truer one. A creature would have been lost. A radio is lost and still listening.

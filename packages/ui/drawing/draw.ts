@@ -37,8 +37,8 @@ const unlit: Light = { color: hex('#1c2833'), energy: 0.1 }
 /** A field moved onto another plane: `cells` of its grid, `pitch` apart, beginning at `at`. */
 // the receiver's own plane, with a little room around it; and closer in,
 // for the smallest pictures, where only its hull, dial and antenna's tip count
-const whole = { from: [-8, -12], across: 216 } as const
-const close = { from: [12, -10], across: 184 } as const
+const whole = { from: [-12, -24], across: 230 } as const
+const close = { from: [10, -16], across: 202 } as const
 
 const placed = (
   field: Field,
