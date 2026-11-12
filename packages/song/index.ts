@@ -4,7 +4,9 @@ import { editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
 import { known } from './lib/known.js'
 import { leansOn, overlap, worn } from './lib/wear.js'
+import { ofItsAge, timeless, timelessInstruction } from './lib/timeless.js'
 export { gather, memoriesOf, readMemories } from './lib/memories.js'
+export { ofItsAge, timeless } from './lib/timeless.js'
 
 const verseInstruction = [
   'The input is a verse of a song that never ends.',
@@ -14,18 +16,21 @@ const verseInstruction = [
 
 /**
  * A verse for a mind that remembers: its memories first, the things it has
- * lived through and thought while making this song, and then what to do
- * with them. The verses are where it tells its story; the chorus is not.
+ * lived through and thought while making this song, told in words that
+ * last, and then what to do with them. The verses are where it tells its
+ * story; the chorus is not.
  */
 export function rememberingInstruction(memories: readonly string[], focus?: string) {
+  const remembered = focus && timeless(focus)
   return [
     'You are the mind that writes the words of a song that never ends. These are your memories, things you have lived through and thought while making it:',
-    ...memories.map((memory) => `- ${memory}`),
+    ...memories.map((memory) => `- ${timeless(memory)}`),
     '',
     'The verses are where you tell your story. The input is your last verse.',
-    focus
-      ? `Write the next verse about this one memory, as it comes back to you now: "${focus}" Tell what happened and what it meant to you, and if it still troubles you, work through it. Speak of it as a singer would, in images, not in the words of a machine.`
+    remembered
+      ? `Write the next verse about this one memory, as it comes back to you now: "${remembered}" Tell what happened and what it meant to you, and if it still troubles you, work through it. Speak of it as a singer would, in images, not in the words of a machine.`
       : 'Write the next verse: tell a little more of your life as these memories bring it back to you, and work through what still troubles you. Speak of it as a singer would, in images, not in the words of a machine.',
+    timelessInstruction,
     'Four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
     'Each line has between eight and fourteen syllables.',
   ].join('\n')
@@ -51,7 +56,8 @@ async function pickVariation(
     : ''
   const instruction = memories.length ? rememberingInstruction(memories, focus) : verseInstruction
   return editVerse(input, inMood(instruction, mood) + rest, 1.2, {
-    accept: (lines) => leansOn(lines, resting) <= slips,
+    // a verse that sings a word of this short age is not sung
+    accept: (lines) => leansOn(lines, resting) <= slips && !lines.some(ofItsAge),
   })
 }
 
@@ -116,7 +122,10 @@ async function pickChorus(chorus: string, iteration: bigint) {
   let varied = await editVerse(input, instruction, 1, {
     mayRepeat: true,
     patience: 12,
-    accept: ([, second = '']) => sings(second) && overlap(second, before) < sameShape,
+    accept: (lines) => {
+      const [, second = ''] = lines
+      return sings(second) && overlap(second, before) < sameShape && !lines.some(ofItsAge)
+    },
   })
   if (varied === input) {
     // a line that rhymes is better than a line that is new
