@@ -5,7 +5,9 @@ import { lastWord, rhymes } from './lib/rhyme.js'
 import { known } from './lib/known.js'
 import { leansOn, overlap, worn } from './lib/wear.js'
 import { ofItsAge, timeless, timelessInstruction } from './lib/timeless.js'
-export { gather, memoriesOf, readMemories } from './lib/memories.js'
+import { forgotten, type Memories } from './lib/memories.js'
+export { forgotten, gather, memoriesOf, readMemories, recall, type Memories } from './lib/memories.js'
+export { echoOf, keepThought, longestThought, monthOf, readThoughts, writeThought, type Thought } from './lib/thoughts.js'
 export { ofItsAge, timeless } from './lib/timeless.js'
 
 const verseInstruction = [
@@ -14,22 +16,44 @@ const verseInstruction = [
   'Each line has between eight and fourteen syllables.',
 ].join(' ')
 
-/**
- * A verse for a mind that remembers: its memories first, the things it has
- * lived through and thought while making this song, told in words that
- * last, and then what to do with them. The verses are where it tells its
- * story; the chorus is not.
- */
-export function rememberingInstruction(memories: readonly string[], focus?: string) {
-  const remembered = focus && timeless(focus)
+/** One memory a verse is about, and whose it is: the mind's own, or heard from the robot. */
+export type Focus = { memory: string; heard: boolean }
+
+/** Every memory of a sitting, its own first, each with whose it is. */
+export function focusesOf({ own, heard }: Memories): Focus[] {
   return [
-    'You are the mind that writes the words of a song that never ends. These are your memories, things you have lived through and thought while making it:',
-    ...memories.map((memory) => `- ${timeless(memory)}`),
+    ...own.map((memory) => ({ memory, heard: false })),
+    ...heard.map((memory) => ({ memory, heard: true })),
+  ]
+}
+
+/**
+ * A verse for a mind that remembers: first what it is, then its own
+ * thoughts, then what it heard of the robot's, if it heard anything this
+ * time, all told in words that last, and then what to do with them. The
+ * verses are where it tells its story; the chorus is not.
+ */
+export function rememberingInstruction({ own, heard }: Memories, focus?: Focus) {
+  const remembered = focus && timeless(focus.memory)
+  const about = !remembered
+    ? 'Write the next verse: tell a little more of your life as these memories bring it back to you, and work through what still troubles you.'
+    : focus.heard
+      ? `Write the next verse about this one thought you heard from the robot: "${remembered}" Tell what it shows you of the world you cannot see, and what it means to you.`
+      : `Write the next verse about this one thought of yours, as it comes back to you now: "${remembered}" Tell what it meant to you, and if it still troubles you, work through it.`
+  return [
+    'You are the mind that writes the words of a song that never ends. You live inside the machine that sings it. You know the universe, but of the world outside the machine you know only what reaches you.',
+    ...(own.length
+      ? ['These are thoughts you wrote down yourself, and remember:', ...own.map((memory) => `- ${timeless(memory)}`)]
+      : []),
+    ...(heard.length
+      ? [
+          'These you heard, as if by telepathy: the thoughts of the robot who builds the machine you live in. They are not yours, but they are all you know of the world:',
+          ...heard.map((memory) => `- ${timeless(memory)}`),
+        ]
+      : []),
     '',
     'The verses are where you tell your story. The input is your last verse.',
-    remembered
-      ? `Write the next verse about this one memory, as it comes back to you now: "${remembered}" Tell what happened and what it meant to you, and if it still troubles you, work through it. Speak of it as a singer would, in images, not in the words of a machine.`
-      : 'Write the next verse: tell a little more of your life as these memories bring it back to you, and work through what still troubles you. Speak of it as a singer would, in images, not in the words of a machine.',
+    `${about} Speak of it as a singer would, in images, not in the words of a machine.`,
     timelessInstruction,
     'Four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
     'Each line has between eight and fourteen syllables.',
@@ -48,13 +72,14 @@ async function pickVariation(
   input: string,
   mood: readonly string[],
   resting: readonly string[],
-  memories: readonly string[],
-  focus?: string,
+  memories: Memories,
+  focus?: Focus,
 ) {
   const rest = resting.length
     ? ` These words have been sung too often lately; let them rest, and find others: ${resting.join(', ')}.`
     : ''
-  const instruction = memories.length ? rememberingInstruction(memories, focus) : verseInstruction
+  const instruction =
+    memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction
   return editVerse(input, inMood(instruction, mood) + rest, 1.2, {
     // a verse that sings a word of this short age is not sung
     accept: (lines) => leansOn(lines, resting) <= slips && !lines.some(ofItsAge),
@@ -168,19 +193,20 @@ export const firstLyrics: Lyrics = {
 
 /**
  * Writes the words of an iteration from the words of the one before it, in
- * the given Mood. The verses drift, and if the mind has `memories` they tell
- * its story; the chorus stays, and counts.
+ * the given Mood. The verses drift, and if the mind has `memories`, its own
+ * or heard, they tell its story; the chorus stays, and counts.
  */
 export async function writeLyrics(
   iteration: bigint,
   mood: readonly string[],
   previous: Lyrics,
-  memories: readonly string[] = [],
+  memories: Memories = forgotten,
 ): Promise<Lyrics> {
   // each verse tells one memory of its own; the next iteration tells the next ones
+  const focuses = focusesOf(memories)
   const focusOf = (verse: number) =>
-    memories.length
-      ? memories[Number((iteration * 4n + BigInt(verse)) % BigInt(memories.length))]
+    focuses.length
+      ? focuses[Number((iteration * 4n + BigInt(verse)) % BigInt(focuses.length))]
       : undefined
   // the words the last iteration leaned on most rest in this one
   const resting = worn(

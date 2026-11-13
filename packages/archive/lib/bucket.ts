@@ -112,4 +112,10 @@ export class BucketStore implements ArchiveStore {
     await this.put(paths.diary, (await open.exists()) ? open : '', 'application/x-ndjson')
     return shelved
   }
+
+  async putThoughts(file: string) {
+    const month = basename(file, '.jsonl')
+    if (!/^\d{4}-\d{2}$/.test(month)) throw new Error(`not a month of thoughts: ${file}`)
+    await this.put(paths.thoughts(month), Bun.file(file), 'application/x-ndjson')
+  }
 }

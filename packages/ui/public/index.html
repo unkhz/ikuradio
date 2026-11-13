@@ -235,6 +235,22 @@
         color: var(--chorus);
         overflow-wrap: anywhere;
       }
+      /* what the mind thought of the Song, last, in its own words */
+      #thought {
+        margin: 0 0 1rem;
+      }
+      #thought[hidden] {
+        display: none;
+      }
+      #thought figcaption {
+        color: var(--edge);
+        margin-bottom: 0.25rem;
+      }
+      #thought p {
+        margin: 0;
+        color: var(--words);
+        overflow-wrap: anywhere;
+      }
       #panel nav {
         display: flex;
         gap: 0.6rem;
@@ -369,6 +385,10 @@
     </button>
     <section id="panel" hidden aria-label="What the receiver knows">
       <dl id="details"></dl>
+      <figure id="thought" hidden>
+        <figcaption>the mind</figcaption>
+        <p></p>
+      </figure>
       <nav>
         <button id="open-songs" type="button">songs</button>
         <a id="live" href="/" hidden>tune to live</a>

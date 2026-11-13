@@ -14,7 +14,7 @@
 // Settings are what the Studio's hooks follow for the whole Song.
 
 import { firstMood, nextMood, type Mood } from 'mood'
-import { firstLyrics, writeLyrics, type Lyrics } from 'song'
+import { firstLyrics, forgotten, writeLyrics, type Lyrics, type Memories } from 'song'
 import { firstChoir, gather, type Choir } from 'vocals'
 import { evolve, firstTune, variations, type Tune } from 'melody'
 import { defaults, perspectivesFor, type Chosen, type Settings } from 'perspectives'
@@ -58,8 +58,8 @@ export type ComposerOptions = {
   choirSize: number
   /** How many Variations of the tune take turns within a Song. */
   variationCount: number
-  /** What the mind remembers at this sitting, to tell its story from in the verses. */
-  memories?: readonly string[]
+  /** What the mind remembers at this sitting, its own and heard, to tell its story from in the verses. */
+  memories?: Memories
 }
 
 /**
@@ -111,7 +111,7 @@ export async function composer(
     variationCount,
     perspectiveCount = 0,
     heardFrom,
-    memories = [],
+    memories = forgotten,
   }: ComposerOptions,
 ) {
   let last: Page | undefined = await diary.lastPage()

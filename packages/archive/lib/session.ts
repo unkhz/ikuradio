@@ -36,6 +36,13 @@ export type Session = {
    */
   perspectives?: SessionPerspective[]
   /**
+   * What the mind thought, once it had written the Song's words: for
+   * itself to remember, and for anyone watching to read. Missing on Songs
+   * from before the mind kept its thoughts, and on Songs it was silent
+   * about.
+   */
+  thought?: string
+  /**
    * The singers, the lead first: a Receiver places each where it likes in
    * its mix. A voice Recording names its singer by place in this list.
    */
@@ -182,4 +189,6 @@ export const paths = {
   diary: 'diary/diary.jsonl',
   /** A closed book of the diary, named as it is on the shelf. It never changes. */
   diaryBook: (name: string) => `diary/books/${name}`,
+  /** A month of the mind's own thoughts, a thought a line, copied afresh after every Song. */
+  thoughts: (month: string) => `thoughts/mind/${month}.jsonl`,
 }

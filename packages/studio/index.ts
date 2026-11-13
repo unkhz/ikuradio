@@ -1,8 +1,8 @@
 // The Studio: a short life, spent making one Song.
 //
 // It wakes, reads its diary to see where the song is, and makes the next
-// Song whole: first every word of every iteration, while the mind is awake;
-// then the mind rests, and every line is sung; then the Music has the GPU,
+// Song whole: first every word of every iteration, while the mind is awake,
+// and the one thought the mind writes down about them; then the mind rests, and every line is sung; then the Music has the GPU,
 // and every bed is grown. When the Song is made, its Recordings and its
 // Session are left in the Archive, where the Radio will find it and
 // Receivers will fetch it, and the Studio lets go of everything else, and
@@ -11,7 +11,7 @@
 //   bun run studio
 
 import { getEnv, pieces, Sleeper } from 'tools'
-import { gather, readMemories } from 'song'
+import { keepThought, readMemories, readThoughts, recall, words, writeThought } from 'song'
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
@@ -41,6 +41,18 @@ const {
  */
 const roomForMemories = Math.max(0, MIND_CONTEXT - 1100)
 
+/** Where the mind keeps its own thoughts, beside the diary: a file a month. */
+const thoughtsDir = 'memory/thoughts'
+
+/** While it has kept fewer thoughts than this, the mind always hears the robot: a mind with no past is not left alone with it. */
+const newborn = 12
+
+/** How often the mind hears the robot, once it has a past of its own. */
+const telepathy = 0.5
+
+/** How many of its newest thoughts a new one is held against, so it does not think one of them again. */
+const heldAgainst = 200
+
 const { store, where } = openArchive()
 console.log(`the Studio publishes to ${where}`)
 const started = Date.now()
@@ -69,14 +81,22 @@ const endsSong = ({ iteration, song }: Iteration) =>
 // the words, all of them, while the mind is awake
 const mind = new Sleeper()
 await mind.wake()
-// what the mind remembers at this sitting: a handful of its life, as much as fits
-const memories = await gather(
-  await readMemories(),
-  roomForMemories,
-  wrongness(`memories:${wakesAt}`),
-  (text) => pieces(text).catch(() => Math.ceil(text.length / 4)),
+// what the mind remembers at this sitting, as much as fits: its own thoughts,
+// and, now and then, the robot's, heard as if by telepathy
+const own = (await readThoughts(thoughtsDir)).map(({ thought }) => thought)
+const hears = own.length < newborn || wrongness(`telepathy:${wakesAt}`)() < telepathy
+const memories = await recall({
+  own,
+  heard: await readMemories(),
+  hears,
+  room: roomForMemories,
+  random: wrongness(`memories:${wakesAt}`),
+  measure: (text) => pieces(text).catch(() => Math.ceil(text.length / 4)),
+})
+console.log(
+  `the mind sits down with ${memories.own.length} thoughts of its own` +
+    (memories.heard.length ? `, and hears ${memories.heard.length} of the robot's` : ''),
 )
-console.log(`the mind sits down with ${memories.length} memories`)
 const { compose } = await composer(diary, {
   songLength: ITERATION_COUNT,
   perspectiveCount: PERSPECTIVE_COUNT,
@@ -91,6 +111,16 @@ for (let iteration = wakesAt; ; iteration++) {
   composed.push(one)
   if (endsSong(one)) break
 }
+// and, before it rests, the mind writes down what it thought of them
+const thought = await writeThought(
+  composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
+  composed[0].mood.descriptions,
+  own.slice(-heldAgainst),
+).catch((error: Error) => {
+  console.warn(`the mind kept no thought: ${error.message}`)
+  return undefined
+})
+console.log(thought ? `the mind thinks: ${thought}` : 'the mind is silent about this Song')
 await mind.rest()
 const [first] = composed
 console.log(
@@ -161,8 +191,16 @@ const session = toSession(
   (file) => ids.get(file)!,
   (file) => loudness.get(file),
   throatName(),
+  thought,
 )
 await store.putSession(session)
+// the thought is kept only once its Song is published: a Song made again is thought about again
+if (thought) {
+  const month = await keepThought(thoughtsDir, { song: session.song, written: new Date().toISOString(), thought })
+  await store.putThoughts(month).catch((error: Error) => {
+    console.warn(`the mind's thoughts were not copied to the Archive: ${error.message}`)
+  })
+}
 // and the diary, so the song's memory is not on this machine only
 const shelved = await store
   .putDiary({ writing: diary.file, books: (await diary.books()).map(({ file }) => file) })

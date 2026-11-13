@@ -40,10 +40,26 @@ describe('arrange', () => {
 })
 
 describe('rememberingInstruction', () => {
-  it('gives the mind its memories, and one of them to sing about', () => {
-    const instruction = rememberingInstruction(['I was given a throat.', 'The chorus forgot to rhyme.'], 'I was given a throat.')
-    expect(instruction).toContain('- I was given a throat.\n- The chorus forgot to rhyme.')
-    expect(instruction).toContain('about this one memory, as it comes back to you now: "I was given a throat."')
+  const memories = { own: ['I was given a throat.'], heard: ['The chorus forgot to rhyme.'] }
+
+  it('gives the mind its own thoughts, and what it heard of the robot, told apart', () => {
+    const instruction = rememberingInstruction(memories)
+    expect(instruction).toContain('thoughts you wrote down yourself, and remember:\n- I was given a throat.')
+    expect(instruction).toContain('as if by telepathy: the thoughts of the robot')
+    expect(instruction).toContain('of the world:\n- The chorus forgot to rhyme.')
     expect(instruction).toContain('The verses are where you tell your story.')
+  })
+
+  it('asks for a verse about one memory, and says whose it is', () => {
+    expect(rememberingInstruction(memories, { memory: 'I was given a throat.', heard: false })).toContain(
+      'about this one thought of yours, as it comes back to you now: "I was given a throat."',
+    )
+    expect(rememberingInstruction(memories, { memory: 'The chorus forgot to rhyme.', heard: true })).toContain(
+      'about this one thought you heard from the robot: "The chorus forgot to rhyme."',
+    )
+  })
+
+  it('says nothing of telepathy when the mind hears nothing', () => {
+    expect(rememberingInstruction({ own: ['I was given a throat.'], heard: [] })).not.toContain('telepathy')
   })
 })

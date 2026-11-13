@@ -19,4 +19,9 @@ export interface ArchiveStore {
    * Returns how many books were shelved for the first time.
    */
   putDiary(diary: { writing: string; books: string[] }): Promise<number>
+  /**
+   * Keeps a copy of a month of the mind's thoughts, from its file named
+   * <yyyy-mm>.jsonl, afresh: the month only ever grows.
+   */
+  putThoughts(file: string): Promise<void>
 }

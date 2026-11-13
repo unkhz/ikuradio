@@ -544,10 +544,18 @@ function row(name, value) {
   return both
 }
 
+/** What the mind thought of the Song being shown, beneath what is known of it: nothing, if it kept no thought. */
+function tellThought(thought) {
+  const figure = document.getElementById('thought')
+  figure.querySelector('p').textContent = thought ?? ''
+  figure.hidden = !thought
+}
+
 function tellDetails() {
   const details = document.getElementById('details')
   if (!showing) {
     details.replaceChildren(row('receiving', replay ? `Song ${replay.number}, soon` : 'nothing yet'))
+    tellThought(undefined)
     return
   }
   const { session, iteration } = showing
@@ -563,6 +571,7 @@ function tellDetails() {
       : []),
     row('iteration', `${number(iteration.iteration)}, ${iteration.of.at} of ${iteration.of.of}`),
   )
+  tellThought(session.thought)
 }
 
 // Bridges. A bridge has no words, so while the music carries the song

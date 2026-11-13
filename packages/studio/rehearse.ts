@@ -11,6 +11,8 @@
 //
 // Takes are written to audio/rehearsal/<iteration>.m4a, with their
 // words beside them, and the rehearsal's own diary in audio/rehearsal/.
+// What the mind thinks of each Song is written to thoughts.txt there, and
+// is not kept among its own thoughts.
 //
 // When every iteration is sung, the mind rests and the Music wakes: each
 // iteration's parts are accompanied, and the beds are written beside the
@@ -24,8 +26,8 @@
 //                             how a new Perspective is heard before it is
 //                             made active
 
-import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { gather, readMemories, words } from 'song'
+import { appendFile, mkdir, rm, writeFile } from 'node:fs/promises'
+import { forgotten, readMemories, readThoughts, recall, words, writeThought } from 'song'
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, mixdown } from 'vocals'
@@ -57,16 +59,26 @@ const mind = last > 1n ? wakeMind(`${dir}/mind.log`) : undefined
 if (mind && !(await mind.ready)) {
   console.warn('the mind did not wake; the rehearsal waits for it as the song would')
 }
-// the mind sits down with a handful of its life, as the Studio's does
+// the mind sits down with its own thoughts, as the Studio's does, and in a
+// rehearsal always hears the robot too; what it thinks here is not kept
+const own = (await readThoughts('memory/thoughts')).map(({ thought }) => thought)
 const memories = mind
-  ? await gather(
-      await readMemories(),
-      Math.max(0, MIND_CONTEXT - 1100),
-      wrongness('memories:rehearsal'),
-      (text) => pieces(text).catch(() => Math.ceil(text.length / 4)),
-    )
-  : []
-if (memories.length) console.log(`the mind sits down with ${memories.length} memories`)
+  ? await recall({
+      own,
+      heard: await readMemories(),
+      hears: true,
+      room: Math.max(0, MIND_CONTEXT - 1100),
+      random: wrongness('memories:rehearsal'),
+      measure: (text) => pieces(text).catch(() => Math.ceil(text.length / 4)),
+    })
+  : forgotten
+if (mind) {
+  console.log(
+    `the mind sits down with ${memories.own.length} thoughts of its own, and hears ${memories.heard.length} of the robot's`,
+  )
+}
+await rm(`${dir}/thoughts.txt`, { force: true })
+let songWords: string[] = []
 const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
   songLength: ITERATION_COUNT,
   perspectiveCount: PERSPECTIVE_COUNT,
@@ -116,6 +128,15 @@ for (let iteration = 1n; iteration <= last; iteration++) {
       ` written in ${seconds(written - started)}s,` +
       ` sung in ${seconds(Date.now() - written)}s`,
   )
+  // at the end of each Song, the mind writes down what it thought of it
+  songWords.push(words(composed.lyrics).map(({ content }) => content).join('\n\n'))
+  const endsSong = iteration - BigInt(composed.song.began) + 1n >= BigInt(composed.song.lasts)
+  if (mind && (endsSong || iteration === last)) {
+    const thought = await writeThought(songWords.join('\n\n'), composed.mood.descriptions, own)
+    console.log(thought ? `\nthe mind thinks: ${thought}` : '\nthe mind is silent about this Song')
+    if (thought) await appendFile(`${dir}/thoughts.txt`, `Song ${composed.song.number}: ${thought}\n`)
+  }
+  if (endsSong) songWords = []
   sung.push({
     take,
     lines,
