@@ -29,7 +29,6 @@ import { homecoming } from './lib/homecoming.js'
 
 const {
   ITERATION_COUNT,
-  PERSPECTIVE_COUNT,
   MOOD_COUNT,
   CHOIR_COUNT,
   VARIATION_COUNT,
@@ -110,7 +109,6 @@ console.log(
 )
 const { compose } = await composer(diary, {
   songLength: ITERATION_COUNT,
-  perspectiveCount: PERSPECTIVE_COUNT,
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
   variationCount: VARIATION_COUNT,

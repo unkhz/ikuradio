@@ -57,6 +57,23 @@ export function readPerspectives(home = perspectivesHome): PerspectiveRecord[] {
  * Draws `count` active Perspectives for a Song, by weight and without
  * putting two on one Facet. Fewer are drawn if fewer Facets are left.
  */
+/**
+ * How often a Song is heard from no Perspective, from one, or from two: it
+ * is mostly heard plainly, as itself. A way of hearing that comes every
+ * time is no longer a different way, only the usual one.
+ */
+export const perspectiveOdds = [0.6, 0.35, 0.05] as const
+
+/**
+ * How many Perspectives a Song is heard from, by `perspectiveOdds`, from a
+ * wrongness of its own, so that which ones are drawn is not disturbed by it.
+ */
+export function howMany(song: string): number {
+  let left = wrongness(`perspectives:count:${song}`)()
+  for (const [count, odds] of perspectiveOdds.entries()) if ((left -= odds) < 0) return count
+  return perspectiveOdds.length - 1
+}
+
 export function draw(records: readonly PerspectiveRecord[], song: string, count: number): PerspectiveRecord[] {
   const random = wrongness(`perspectives:${song}`)
   const drawn: PerspectiveRecord[] = []
@@ -123,11 +140,11 @@ export async function resolve(
 export async function perspectivesFor(
   song: string,
   {
-    count,
+    count = howMany(song),
     choirSize,
     only,
     home = perspectivesHome,
-  }: { count: number; choirSize: number; only?: readonly string[]; home?: string },
+  }: { count?: number; choirSize: number; only?: readonly string[]; home?: string },
 ) {
   const records = readPerspectives(home)
   if (!only) return resolve(draw(records, song, count), song, choirSize)

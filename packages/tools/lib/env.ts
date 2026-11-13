@@ -34,8 +34,6 @@ const envSchema = z.object({
   SONGS_AHEAD: z.coerce.number().int().min(1).default(2),
   /** How many iterations one Song lasts, all in the same Mood. */
   ITERATION_COUNT: z.coerce.number().int().min(1).default(2),
-  /** How many Perspectives a Song is heard from: ways it differs from the usual (packages/perspectives). */
-  PERSPECTIVE_COUNT: z.coerce.number().int().min(0).max(6).default(2),
   /** How many descriptions are blended into one Mood. */
   MOOD_COUNT: z.coerce.number().int().min(1).default(2),
   /** How many voices sing the chorus, the lead included. */

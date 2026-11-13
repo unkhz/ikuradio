@@ -45,8 +45,6 @@ export type Iteration = {
 export type ComposerOptions = {
   /** How many iterations one Song lasts. */
   songLength: number
-  /** How many Perspectives a Song is heard from. */
-  perspectiveCount?: number
   /**
    * For a rehearsal: the Perspectives every Song is heard from, by name,
    * drafts too, instead of drawing them.
@@ -109,7 +107,6 @@ export async function composer(
     moodCount,
     choirSize,
     variationCount,
-    perspectiveCount = 0,
     heardFrom,
     memories = forgotten,
   }: ComposerOptions,
@@ -139,7 +136,6 @@ export async function composer(
       // a new Song's Perspectives are drawn before anything else, since one may turn its weather
       if (beginsSong) {
         ;({ perspectives, settings } = await perspectivesFor(song, {
-          count: perspectiveCount,
           choirSize,
           ...(heardFrom ? { only: heardFrom } : {}),
         }))

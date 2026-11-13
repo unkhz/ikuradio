@@ -19,6 +19,8 @@ export {
 export {
   describePerspectives,
   draw,
+  howMany,
+  perspectiveOdds,
   parseRecord,
   perspectivesFor,
   perspectivesHome,

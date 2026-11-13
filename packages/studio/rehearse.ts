@@ -39,7 +39,7 @@ import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 import { humGuides } from './lib/guide.js'
 
-const { ITERATION_COUNT, PERSPECTIVE_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT } = getEnv()
+const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT } = getEnv()
 const given = process.argv.slice(2)
 const last = BigInt(given.find((arg) => /^\d+$/.test(arg)) ?? 1)
 const dry = given.includes('--dry')
@@ -81,7 +81,6 @@ await rm(`${dir}/thoughts.txt`, { force: true })
 let songWords: string[] = []
 const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
   songLength: ITERATION_COUNT,
-  perspectiveCount: PERSPECTIVE_COUNT,
   ...(heardFrom ? { heardFrom } : {}),
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,

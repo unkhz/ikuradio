@@ -39,10 +39,12 @@ export type Settings = {
   'bridge-singers': { humming: number; choir: boolean }
   /**
    * What the bridges' beds are told instead of the Mood's band (the tempo is
-   * always told), and whether the Music follows the guide's melody. Hooked
-   * where a section's bed is grown.
+   * always told), whether the Music follows the guide's melody, and the row
+   * of all twelve pitches the bridges' guides are hummed in instead of the
+   * key, if they lose it. Hooked where a section's bed is grown, and where
+   * its guide is hummed.
    */
-  'bridge-beds': { instead?: string; melody: boolean }
+  'bridge-beds': { instead?: string; melody: boolean; row?: number[] }
   /** How many of the Mood's descriptions let go when the Song begins. Hooked in `nextMood`. */
   drift: { letGo: number }
 }

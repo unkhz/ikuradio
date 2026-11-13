@@ -6,9 +6,11 @@
 // lasts as long as its section and the tail after it, holding its last
 // note, so the Music has a voice to follow while it fades. A guide is never
 // heard by anyone: it is what the Music listened to, and the Archive keeps
-// it as that, with its score.
+// it as that, with its score. A bridge heard from a Perspective that takes
+// its key away is hummed in a row of all twelve pitches instead, to the same
+// rhythm: the Music only ever grows from what it hears.
 
-import { holdLast, phraseOf, setBridge, setGuide, type Phrase, type Score } from 'melody'
+import { atonal, holdLast, phraseOf, setBridge, setGuide, type Phrase, type Score } from 'melody'
 import { sections, tail, type Kind } from 'music'
 import { record, throatScore, type Take } from 'vocals'
 import type { Iteration } from './compose.js'
@@ -35,7 +37,7 @@ export type Guide = {
  * is left out, and the Music listens to the sung voice instead.
  */
 export async function humGuides(
-  { mood, choir, sung: tune, song }: Iteration,
+  { mood, choir, sung: tune, song, settings }: Iteration,
   lines: SungLine[],
 ): Promise<Guide[]> {
   const [lead] = choir
@@ -65,7 +67,10 @@ export async function humGuides(
               lyrics: hum,
               ...voice,
             })
-      const held = holdLast(score, beatsOf(tail))
+      // a bridge that has lost its key is hummed in the Song's row instead, to the same rhythm
+      const { row } = settings['bridge-beds']
+      const keyed = section.part === 'bridge' && row ? atonal(score, row) : score
+      const held = holdLast(keyed, beatsOf(tail))
       try {
         // steady, without a singer's wavering: it is a map, not a performance
         const take: Take = { ...held, t0: 0.05, vibrato: 0, ...lead.throat }

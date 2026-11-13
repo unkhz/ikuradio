@@ -28,7 +28,7 @@ Nobody prompts the Studio while it works: the robot is not there, and the Mind c
 
 ## Moderation
 
-- `PERSPECTIVE_COUNT`: how many Perspectives a Song gets. Default 2.
+- How many Perspectives a Song gets is drawn for it, from a wrongness of its own (`perspectives:count:<song>`): none six Songs in ten, one in about a third, two in one Song of twenty (`perspectiveOdds`). A Song is mostly heard plainly; a way of hearing that comes every time is only the usual way. (Until 2026-11-13 it was a fixed `PERSPECTIVE_COUNT` of 2, and almost every Song was heard differently.)
 - A Song never gets two Perspectives on the same Facet, so Perspectives never fight over one piece of work.
 - Perspectives are drawn by Weight, without replacement, so drastic ones are rare.
 - Only Perspectives in state `active` are drawn. A new one stays `draft` until it has been heard in a rehearsal.
@@ -106,7 +106,7 @@ The Session says which Perspectives its Song was heard from: each one's slug, Fa
 
 ```mermaid
 flowchart TD
-  Begins["A Song begins<br/>(compose.ts)"] --> Draw["draw PERSPECTIVE_COUNT active Perspectives<br/>by Weight, one per Facet,<br/>from the wrongness of the Song's number"]
+  Begins["A Song begins<br/>(compose.ts)"] --> Draw["draw 0, 1 or 2 active Perspectives<br/>(60%, 35%, 5%), by Weight, one per Facet,<br/>from the wrongness of the Song's number"]
   Draw --> Diary[("diary page<br/>the Song's Perspectives")]
 
   subgraph Records["packages/perspectives/(slug)/"]

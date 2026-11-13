@@ -1,7 +1,8 @@
 // bridge-beds-atonal: see perspective.md
-import { pick, turning } from '../lib/facets.js'
+import { rowName, toneRow } from 'melody'
+import { turning } from '../lib/facets.js'
 
-export default turning('bridge-beds', (setting, { random, prompts }) => {
-  const way = pick(prompts, random)
-  return { setting: { instead: way, melody: false }, variant: way }
+export default turning('bridge-beds', (setting, { random }) => {
+  const row = toneRow(random)
+  return { setting: { ...setting, melody: true, row }, variant: `a row of twelve: ${rowName(row)}` }
 })
