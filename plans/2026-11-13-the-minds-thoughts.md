@@ -1,6 +1,6 @@
 ---
 date: 2026-11-13
-state: draft
+state: active
 owner: robot
 id: 5
 kind: plan
