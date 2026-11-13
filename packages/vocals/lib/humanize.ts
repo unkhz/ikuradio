@@ -46,13 +46,21 @@ export type Throat = {
   breathiness: number
 }
 
-/** One human take of a score. `name` decides which wrongness it gets. */
-export function humanize(score: Score, name: string): Take {
+/** How far a lean may go at most, whatever a Song's humanness: a note never gives away a third of itself. */
+const leanest = 0.3
+
+/**
+ * One human take of a score. `name` decides which wrongness it gets.
+ * `humanness` scales how far it wanders: 1 as usual, less for a tight,
+ * glassy take, more for a loose one. The vibrato moves half as much.
+ */
+export function humanize(score: Score, name: string, humanness = 1): Take {
   const random = wrongness(name)
-  const takeDrift = between(random, -drift, drift)
+  const scale = Math.max(0, humanness)
+  const takeDrift = between(random, -drift * scale, drift * scale)
   const notes = score.notes.map(([midi, beats]): [number, number] => [
     midi > 0
-      ? midi + (takeDrift + between(random, -wobble, wobble)) / 100
+      ? midi + (takeDrift + between(random, -wobble * scale, wobble * scale)) / 100
       : midi,
     beats,
   ])
@@ -61,7 +69,8 @@ export function humanize(score: Score, name: string): Take {
   for (let i = 0; i + 1 < notes.length; i++) {
     if (notes[i][0] <= 0 || notes[i + 1][0] <= 0) continue
     const shorter = Math.min(notes[i][1], notes[i + 1][1])
-    const shift = between(random, -lean, lean) * shorter
+    const leaning = Math.min(leanest, lean * scale)
+    const shift = between(random, -leaning, leaning) * shorter
     notes[i][1] += shift
     notes[i + 1][1] -= shift
   }
@@ -70,6 +79,6 @@ export function humanize(score: Score, name: string): Take {
     ...score,
     notes,
     t0: between(random, 0.24, 0.36),
-    vibrato: between(random, 22, 48),
+    vibrato: between(random, 22, 48) * (0.5 + 0.5 * scale),
   }
 }

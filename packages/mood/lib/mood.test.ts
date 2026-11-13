@@ -80,6 +80,14 @@ describe('nextMood without the mind', () => {
     }
   })
 
+  it('lets every description go in a big turn of the weather', async () => {
+    const next = await nextMood(previous, 2, { mind: false, letGo: 10 })
+    expect(next.descriptions).toHaveLength(2)
+    expect(next.descriptions).not.toContain('eternity')
+    expect(next.descriptions).not.toContain('dub')
+    expect(next.remembered).toEqual(['spring', 'death', 'eternity', 'dub'])
+  })
+
   it('remembers only so much', async () => {
     const long = {
       ...previous,

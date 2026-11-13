@@ -92,7 +92,7 @@ def join(pieces: list[np.ndarray], rate: int, starts: list[float]) -> np.ndarray
     return bed
 
 
-def accompany(vocals: str, mood: str, seconds: float, out: str):
+def accompany(vocals: str, mood: str, seconds: float, out: str, melody: bool = True):
     if not torch.cuda.is_available():
         sys.exit("the Music needs a GPU, and this machine lends it none")
 
@@ -110,7 +110,8 @@ def accompany(vocals: str, mood: str, seconds: float, out: str):
     # hearing its own stretch of the voice, and joined where they overlap
     for start, end in windows(seconds):
         heard = voice[int(start * rate) : int(end * rate)]
-        if len(heard) < rate:
+        # without the melody, the model hears silence and grows from the words alone
+        if len(heard) < rate or not melody:
             heard = np.zeros(rate, dtype=np.float32)
         inputs = processor(
             audio=heard,
@@ -148,5 +149,11 @@ if __name__ == "__main__":
     parser.add_argument("--mood", required=True, help="the weather, in words")
     parser.add_argument("--seconds", type=float, default=LONGEST, help="as long as the section")
     parser.add_argument("--out", required=True, help="where the bed is written (.wav, or .m4a)")
+    parser.add_argument(
+        "--no-melody",
+        dest="melody",
+        action="store_false",
+        help="do not follow the voice's melody: grow from the words alone",
+    )
     args = parser.parse_args()
-    accompany(args.vocals, args.mood, args.seconds, args.out)
+    accompany(args.vocals, args.mood, args.seconds, args.out, args.melody)

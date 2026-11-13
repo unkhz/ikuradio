@@ -83,23 +83,38 @@ export function evolve(tune: Tune, name: string): Tune {
   }
 }
 
+/** How far a Song's Variations move from its tune: how many verse phrases are ornamented, and by how many steps. */
+export type Development = { ornaments: number; steps: number }
+
 /**
  * The Variations of a Song's tune. The first is the tune itself. Each of the
- * others has one ornament: a single verse phrase, chosen by its name, takes
- * one step. Every variation is made from the Song's tune, never from another
+ * others has its ornaments: by default a single verse phrase, chosen by its
+ * name, takes one step; a Song's development may ornament more phrases, or
+ * further. Every variation is made from the Song's tune, never from another
  * variation, so they do not add up.
  */
-export function variations(tune: Tune, count: number, name: string): Tune[] {
+export function variations(
+  tune: Tune,
+  count: number,
+  name: string,
+  { ornaments = 1, steps = 1 }: Partial<Development> = {},
+): Tune[] {
   return Array.from({ length: Math.max(1, count) }, (_, v) => {
     if (v === 0)
       return { chorus: tune.chorus.map(copy), verse: tune.verse.map(copy) }
     const random = wrongness(`variation:${name}:${v}`)
-    const ornamented = Math.floor(random() * tune.verse.length)
+    // the first ornament is chosen as it always was, so a plain Song sounds as before
+    const ornamented = new Set<number>()
+    const phrases = Math.min(Math.max(1, ornaments), tune.verse.length)
+    while (ornamented.size < phrases) ornamented.add(Math.floor(random() * tune.verse.length))
     return {
       chorus: tune.chorus.map(copy),
-      verse: tune.verse.map((phrase, p) =>
-        p === ornamented ? step(phrase, random) : copy(phrase),
-      ),
+      verse: tune.verse.map((phrase, p) => {
+        if (!ornamented.has(p)) return copy(phrase)
+        let walked = phrase
+        for (let s = 0; s < Math.max(1, steps); s++) walked = step(walked, random)
+        return walked
+      }),
     }
   })
 }

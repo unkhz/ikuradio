@@ -40,6 +40,11 @@ export type NextMoodOptions = {
    * the list and the tune keeps the character it had.
    */
   mind?: boolean
+  /**
+   * How many descriptions let go: one, the oldest, as the weather usually
+   * drifts, or more, for a bigger turn. Never fewer than one.
+   */
+  letGo?: number
 }
 
 /**
@@ -51,10 +56,10 @@ export type NextMoodOptions = {
 export async function nextMood(
   previous: Mood,
   count: number,
-  { words = '', random = Math.random, mind = true }: NextMoodOptions = {},
+  { words = '', random = Math.random, mind = true, letGo = 1 }: NextMoodOptions = {},
 ): Promise<Mood> {
   const staying = previous.descriptions.slice(
-    Math.max(0, previous.descriptions.length - count + 1),
+    Math.max(0, previous.descriptions.length - count + Math.max(1, letGo)),
   )
   const leaving = previous.descriptions.filter((d) => !staying.includes(d))
   const remembered = [...(previous.remembered ?? []), ...leaving].slice(-memory)

@@ -69,14 +69,20 @@ export async function accompany({
   vocals,
   mood,
   seconds,
+  melody = true,
 }: {
   vocals: string
   mood: string
   seconds: number
+  /**
+   * Whether the model follows the voice's melody. Without it, the model
+   * hears silence where the voice would be, and grows from the words alone.
+   */
+  melody?: boolean
 }): Promise<string> {
   seconds = Math.min(longest, Math.round(seconds * 10) / 10)
   const name = createHash('sha256')
-    .update(JSON.stringify({ model, vocals, mood, seconds }))
+    .update(JSON.stringify({ model, vocals, mood, seconds, ...(melody ? {} : { melody }) }))
     .digest('hex')
   const file = `${musicDir}/${name}.m4a`
   if (await exists(file)) return file
@@ -97,6 +103,7 @@ export async function accompany({
         `${seconds}`,
         '--out',
         file,
+        ...(melody ? [] : ['--no-melody']),
       ],
       { gentle: true },
     ),

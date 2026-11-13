@@ -13,7 +13,7 @@ import { slowSection } from './lib/guide.js'
 import { bridgeForm, journey } from './lib/bridge.js'
 
 export { fitPhrase, chorusHook, verseWalk, aeolian, modes, degreeToMidi }
-export { firstTune, evolve, step, variations } from './lib/variation.js'
+export { firstTune, evolve, step, variations, type Development } from './lib/variation.js'
 export type { Tune } from './lib/variation.js'
 export { wrongness } from './lib/wrongness.js'
 export { guideStep, slowPhrase, slowSection } from './lib/guide.js'

@@ -83,4 +83,27 @@ describe('variations', () => {
   it('always gives at least one', () => {
     expect(variations(firstTune, 0, 'x')).toHaveLength(1)
   })
+
+  it('sounds as it always did when nothing asks it to develop further', () => {
+    expect(variations(firstTune, 2, 'song 0', { ornaments: 1, steps: 1 })).toEqual(
+      variations(firstTune, 2, 'song 0'),
+    )
+  })
+
+  it('ornaments more phrases, and further, when a Song develops more', () => {
+    const changedPhrases = (v: Tune) =>
+      v.verse.filter((phrase, p) => distance(firstTune.verse[p], phrase) > 0).length
+    let wider = 0
+    for (const name of ['a', 'b', 'c', 'd', 'e', 'f']) {
+      const [, plain] = variations(firstTune, 2, name)
+      const [, more] = variations(firstTune, 2, name, { ornaments: 3, steps: 2 })
+      expect(changedPhrases(plain)).toBeLessThanOrEqual(1)
+      expect(changedPhrases(more)).toBeLessThanOrEqual(3)
+      if (changedPhrases(more) > changedPhrases(plain)) wider++
+      // the chorus stays the anchor, and the bar lines stay where they were
+      expect(more.chorus).toEqual(firstTune.chorus)
+      more.verse.forEach((phrase, p) => expect(beats(phrase)).toBeCloseTo(beats(firstTune.verse[p]), 10))
+    }
+    expect(wider).toBeGreaterThan(0)
+  })
 })

@@ -53,9 +53,16 @@ export async function underlay(
     shelf,
     iteration = 0n,
     guides,
+    bridgeBeds,
   }: {
     shelf?: Shelf
     iteration?: bigint
+    /**
+     * What the bridges' beds are told instead of the Mood's band, and
+     * whether they follow the guide's melody: a Song's Perspective on its
+     * bridges. Without it, a bridge's bed is grown like any other.
+     */
+    bridgeBeds?: { instead?: string; melody: boolean }
     /**
      * A guide hum for each kind of bed, the lead's slow reading of its
      * melody: what the Music listens to, if given, instead of the sung voice.
@@ -81,11 +88,14 @@ export async function underlay(
     // the Music follows the guide if there is one: a melody moving too fast distracts it
     const vocals = guide ?? (await voiceOf(section.lines, section.at))
     // a section's sung voice is only what the Music listens to; once heard, it is let go
+    const turned = section.part === 'bridge' ? bridgeBeds : undefined
     const bed = await accompany({
       vocals,
-      mood: words(mood),
+      // the tempo is always told; what plays may be the Perspective's, not the Mood's band
+      mood: turned?.instead ? `${turned.instead}, ${mood.character.tempo} bpm` : words(mood),
       // grown a little longer than its place, to fade under what follows
       seconds: section.seconds + tail,
+      melody: turned?.melody ?? true,
     }).finally(() => (guide ? undefined : rm(vocals, { force: true })))
     beds.set(section.kind, bed)
     grown++

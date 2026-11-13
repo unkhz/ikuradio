@@ -39,6 +39,28 @@ describe('humanize', () => {
     }
   })
 
+  it('sings as it always did at the usual humanness', () => {
+    expect(humanize(score, 'a', 1)).toEqual(humanize(score, 'a'))
+  })
+
+  it('wanders less when glassy and more when loose, never off the tune or the bar lines', () => {
+    const away = (h: number) =>
+      ['a', 'b', 'c', 'd', 'e'].reduce(
+        (sum, name) =>
+          sum + humanize(score, name, h).notes.reduce((s, [midi], i) => s + Math.abs(midi - score.notes[i][0]), 0),
+        0,
+      )
+    expect(away(0.35)).toBeLessThan(away(1))
+    expect(away(1.8)).toBeGreaterThan(away(1))
+    for (const name of ['a', 'b', 'c']) {
+      const loose = humanize(score, name, 1.8)
+      loose.notes.forEach(([midi], i) => expect(Math.abs(midi - score.notes[i][0])).toBeLessThan(0.25))
+      expect(beats(loose)).toBeCloseTo(beats(score), 10)
+      expect(loose.notes.every(([, b]) => b > 0)).toBe(true)
+      expect(humanize(score, name, 0.35).vibrato).toBeLessThan(humanize(score, name).vibrato)
+    }
+  })
+
   it('never moves the bar lines', () => {
     for (const name of ['a', 'b', 'c']) {
       const take = humanize(score, name)
