@@ -1,6 +1,6 @@
 ---
 date: 2026-11-13
-state: draft
+state: active
 owner: scientist
 id: 4
 kind: plan
