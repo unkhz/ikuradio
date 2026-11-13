@@ -19,8 +19,14 @@ export default {
         pattern: "^\\d{4}-\\d{2}-\\d{2}$",
         description: "The day the plan was begun, YYYY-MM-DD.",
       },
+      owner: {
+        type: "string",
+        enum: ["scientist", "robot"],
+        description:
+          "Whose idea the plan is: the scientist's (the human) or the robot's (the one keeping the song).",
+      },
     },
-    required: ["state", "date"],
+    required: ["state", "date", "owner"],
     additionalProperties: false,
   },
 

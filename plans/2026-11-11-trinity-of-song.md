@@ -1,3 +1,11 @@
+---
+date: 2026-11-11
+state: active
+owner: scientist
+id: 2
+kind: plan
+slug: trinity-of-song
+---
 # Trinity of Song
 
 Instead of nameless streaming-server-client setup, there will be three counterparties:

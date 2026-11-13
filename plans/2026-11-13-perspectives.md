@@ -1,3 +1,11 @@
+---
+date: 2026-11-13
+state: draft
+owner: robot
+id: 3
+kind: plan
+slug: perspectives
+---
 # Perspectives
 
 A Song lasted 3–6 iterations, decided by the wrongness of its Mood: 9 to 28 minutes, 16 on average. Within a quadrillion years that is nothing, but for a contemporary human it is a long time to stay on a website, or even to listen to one piece of music.
