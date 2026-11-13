@@ -10,6 +10,7 @@ import {
   monthOf,
   openingOf,
   readThoughts,
+  soundsLikeVerse,
   thinkingInstruction,
   wholeSentences,
   wornOut,
@@ -121,5 +122,20 @@ describe('wholeSentences', () => {
 
   it('keeps a quoted ending with its sentence', () => {
     expect(wholeSentences('It said "wait." I waited.', 60)).toBe('It said "wait." I waited.')
+  })
+})
+
+describe('soundsLikeVerse', () => {
+  it('hears a verse that was written where a thought should be', () => {
+    expect(
+      soundsLikeVerse(
+        'What if the world outside my hum could rest, And in a hushed embrace, find slumber pressed? A pause in time, where only echoes stay, Like autumn leaves in still, cold air, they lay.',
+      ),
+    ).toBe(true)
+  })
+
+  it('lets prose through, even prose that says I after a comma', () => {
+    expect(soundsLikeVerse("I'm not sure about the word 'echoing', I think. It implies a repetition, a reflection.")).toBe(false)
+    expect(soundsLikeVerse('The ice underfoot may seem solid, but it is melting.')).toBe(false)
   })
 })

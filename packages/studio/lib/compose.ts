@@ -14,7 +14,7 @@
 // Settings are what the Studio's hooks follow for the whole Song.
 
 import { firstMood, nextMood, type Mood } from 'mood'
-import { firstLyrics, forgotten, writeLyrics, type Lyrics, type Memories } from 'song'
+import { firstLyrics, forgotten, longWear, versesOf, wornDeep, writeLyrics, type Lyrics, type Memories } from 'song'
 import { firstChoir, gather, type Choir } from 'vocals'
 import { evolve, firstTune, variations, type Tune } from 'melody'
 import { defaults, perspectivesFor, type Chosen, type Settings } from 'perspectives'
@@ -161,7 +161,13 @@ export async function composer(
       // pages written before the tune could change remember the tune it was born with
       const known = last.tune ?? firstTune
       tune = beginsSong ? evolve(known, song) : known
-      lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories)
+      // the words the song has leaned on for a day or so rest, until they are not worn so deep
+      const deep = wornDeep(
+        (await diary.recent({ count: longWear, before: iteration })).map(({ lyrics }) => versesOf(lyrics)),
+        mood.descriptions,
+      )
+      if (deep.length) console.log(`iteration ${iteration} lets rest the words worn deep: ${deep.join(', ')}`)
+      lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories, { deep })
     }
     const lasts = place.lasts ?? lastsFor(mood, songLength)
     const where: SongPlace = { number: song, began: `${place.began}`, lasts }

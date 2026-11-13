@@ -7,6 +7,14 @@
 // lets them rest. They are not forbidden for ever: the next iteration leans
 // on other words, and those rest in turn, and the first ones come back.
 //
+// And some words wear deeper than one iteration can rest them. Over a few
+// hundred iterations the song came to sing *echo* in almost every one of
+// them, and *halls* and *whispers* in most, whatever the weather: rested
+// for one iteration, they came straight back in the next. So the song also
+// looks further back, a day or so of singing, and lets rest the words that
+// were in more than half of it, until they are not. They come back too,
+// only more slowly.
+//
 // The words of the Mood are never rested. They are the weather, and the
 // song is meant to live in it.
 
@@ -25,6 +33,54 @@ function wordsOf(text: string): string[] {
   return (text.toLowerCase().match(/[a-z']+/g) ?? [])
     .map((word) => word.replace(/'s$/, '').replace(/^'+|'+$/g, ''))
     .filter((word) => word.length > 3 && !small.has(word))
+}
+
+/**
+ * A word with its endings taken off, so that echoes, echoed and echoing are
+ * worn as one word. Roughly: it only has to hear the song's own words.
+ */
+export function stemOf(word: string): string {
+  if (word.endsWith('ss')) return word
+  if (word.endsWith('ing') && word.length >= 7) return word.slice(0, -3)
+  if (word.endsWith('ed') && word.length >= 6) return word.slice(0, -2)
+  if (/(?:o|s|x|z|ch|sh)es$/.test(word) && word.length >= 6) return word.slice(0, -2)
+  if (word.endsWith('s') && word.length >= 5) return word.slice(0, -1)
+  return word
+}
+
+/** How far back the song looks for words worn deep: about a day of singing. */
+export const longWear = 24
+
+/**
+ * The words worn deep: those in more than `share` of the `iterations`
+ * (each the verses of one iteration), as stems, at most `count`, the
+ * deepest first. Fewer than `least` iterations are too few to tell a habit
+ * from a weather. The Mood's own words are never among them.
+ */
+export function wornDeep(
+  iterations: readonly (readonly string[])[],
+  mood: readonly string[],
+  { share = 0.5, count = 6, least = 8 }: { share?: number; count?: number; least?: number } = {},
+): string[] {
+  if (iterations.length < least) return []
+  const weather = new Set(mood.flatMap(wordsOf).map(stemOf))
+  const seen = new Map<string, number>()
+  for (const verses of iterations) {
+    for (const stem of new Set(verses.flatMap(wordsOf).map(stemOf))) {
+      if (!weather.has(stem)) seen.set(stem, (seen.get(stem) ?? 0) + 1)
+    }
+  }
+  return [...seen]
+    .filter(([, n]) => n / iterations.length > share)
+    .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
+    .slice(0, count)
+    .map(([stem]) => stem)
+}
+
+/** How many of the words worn deep a verse uses anyway, in any of their forms. */
+export function leansDeep(lines: readonly string[], deep: readonly string[]) {
+  const rest = new Set(deep)
+  return wordsOf(lines.join(' ')).filter((word) => rest.has(stemOf(word))).length
 }
 
 /**

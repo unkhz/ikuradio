@@ -164,6 +164,12 @@ export function wornOut(own: readonly string[]): { openings: string[]; words: st
   return { openings, words }
 }
 
+/**
+ * Whether a thought came out as a verse after all: lines run together, each
+ * still beginning with its capital after a comma.
+ */
+export const soundsLikeVerse = (thought: string) => (thought.match(/[,;] (?!I\b)[A-Z]/g) ?? []).length >= 2
+
 /** A thought that begins the way one of the newest began, or leans on three worn words, is worn. */
 export function isWorn(thought: string, worn: { openings: readonly string[]; words: readonly string[] }): boolean {
   if (worn.openings.includes(openingOf(thought))) return true
@@ -228,6 +234,7 @@ export async function writeThought(
         thought.length <= longestThought &&
         !ofItsAge(thought) &&
         !isWorn(thought, worn) &&
+        !soundsLikeVerse(thought) &&
         own.every((kept) => echoOf(thought, kept) < sameThought)
       ) {
         return thought

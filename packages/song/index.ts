@@ -3,7 +3,7 @@ import { numberToWords } from './lib/numbers.js'
 import { editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
 import { known } from './lib/known.js'
-import { leansOn, overlap, worn } from './lib/wear.js'
+import { leansDeep, leansOn, overlap, stemOf, worn } from './lib/wear.js'
 import { ofItsAge, timeless, timelessInstruction } from './lib/timeless.js'
 import { forgotten, type Memories } from './lib/memories.js'
 export { forgotten, gather, memoriesOf, readMemories, recall, type Memories } from './lib/memories.js'
@@ -19,6 +19,7 @@ export {
   type Thought,
 } from './lib/thoughts.js'
 export { ofItsAge, timeless } from './lib/timeless.js'
+export { longWear, wornDeep } from './lib/wear.js'
 
 const verseInstruction = [
   'The input is a verse of a song that never ends.',
@@ -84,15 +85,20 @@ async function pickVariation(
   resting: readonly string[],
   memories: Memories,
   focus?: Focus,
+  deep: readonly string[] = [],
 ) {
   const rest = resting.length
     ? ` These words have been sung too often lately; let them rest, and find others: ${resting.join(', ')}.`
     : ''
+  const restDeep = deep.length
+    ? ` The song has leaned on these for a long while, in every form of them; find other images: ${deep.join(', ')}.`
+    : ''
   const instruction =
     memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction
-  return editVerse(input, inMood(instruction, mood) + rest, 1.2, {
+  return editVerse(input, inMood(instruction, mood) + rest + restDeep, 1.2, {
     // a verse that sings a word of this short age is not sung
-    accept: (lines) => leansOn(lines, resting) <= slips && !lines.some(ofItsAge),
+    accept: (lines) =>
+      leansOn(lines, resting) <= slips && leansDeep(lines, deep) <= slips && !lines.some(ofItsAge),
   })
 }
 
@@ -211,6 +217,7 @@ export async function writeLyrics(
   mood: readonly string[],
   previous: Lyrics,
   memories: Memories = forgotten,
+  { deep = [] }: { deep?: readonly string[] } = {},
 ): Promise<Lyrics> {
   // each verse tells one memory of its own; the next iteration tells the next ones
   const focuses = focusesOf(memories)
@@ -219,17 +226,15 @@ export async function writeLyrics(
       ? focuses[Number((iteration * 4n + BigInt(verse)) % BigInt(focuses.length))]
       : undefined
   // the words the last iteration leaned on most rest in this one
-  const resting = worn(
-    [previous.firstVerse, previous.secondVerse, previous.thirdVerse, previous.finalChorus],
-    mood,
-  )
+  // and the words worn deep, over a long while, rest too; each is rested once
+  const resting = worn(versesOf(previous), mood).filter((word) => !deep.includes(stemOf(word)))
   const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus] =
     await Promise.all([
       pickChorus(previous.chorus, iteration),
-      pickVariation(previous.firstVerse, mood, resting, memories, focusOf(0)),
-      pickVariation(previous.secondVerse, mood, resting, memories, focusOf(1)),
-      pickVariation(previous.thirdVerse, mood, resting, memories, focusOf(2)),
-      pickVariation(previous.finalChorus, mood, resting, memories, focusOf(3)),
+      pickVariation(previous.firstVerse, mood, resting, memories, focusOf(0), deep),
+      pickVariation(previous.secondVerse, mood, resting, memories, focusOf(1), deep),
+      pickVariation(previous.thirdVerse, mood, resting, memories, focusOf(2), deep),
+      pickVariation(previous.finalChorus, mood, resting, memories, focusOf(3), deep),
     ])
   return { chorus, firstVerse, secondVerse, thirdVerse, finalChorus }
 }
@@ -265,6 +270,9 @@ export function arrange(lyrics: Lyrics): SongPart[] {
     })
     .map((part, index) => ({ ...part, index }))
 }
+
+/** The verses of an iteration, as the song wears them: every part the mind writes. */
+export const versesOf = (lyrics: Lyrics) => [lyrics.firstVerse, lyrics.secondVerse, lyrics.thirdVerse, lyrics.finalChorus]
 
 /** The parts with words in them, as a reader would want them. */
 export function words(lyrics: Lyrics): SongPart[] {
