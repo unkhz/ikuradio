@@ -16,7 +16,7 @@ export const facets = [
   'bridge-singers',
   'bridge-voice',
   'bridge-beds',
-  'intervals',
+  'verse-tune',
   'drift',
 ] as const
 
@@ -65,13 +65,12 @@ export type Settings = {
    */
   'bridge-beds': { instead?: string; melody: boolean; row?: number[] }
   /**
-   * How far the verses and the bridges leap, in whole tones, from the least
-   * to the most, every time their notes change, within the lead's range;
-   * the chorus never does.
-   * Without it, they move as they were written. Hooked where an
-   * iteration's tune is chosen, and where a bridge is set.
+   * Whether the Song plays its verse as it remembers it, or as a melody
+   * written anew for this Song alone, to the verse's own rhythm. The tune
+   * the Song remembers, and passes on to the next, is never rewritten.
+   * Hooked where an iteration's tune is chosen.
    */
-  intervals: { leap?: [number, number] }
+  'verse-tune': { unfamiliar: boolean }
   /** How many of the Mood's descriptions let go when the Song begins. Hooked in `nextMood`. */
   drift: { letGo: number }
 }
@@ -86,7 +85,7 @@ export function defaults(choirSize: number): Settings {
     'bridge-singers': { humming: 0.5, choir: false },
     'bridge-voice': {},
     'bridge-beds': { melody: true },
-    intervals: {},
+    'verse-tune': { unfamiliar: false },
     drift: { letGo: 1 },
   }
 }

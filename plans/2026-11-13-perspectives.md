@@ -65,7 +65,7 @@ These are the Facets that have a hook in the code today, and the Turns each can 
 | `bridge-singers` | `studio/lib/perform.ts:47`, how often a bridge is hummed; `:87`, who hums it; `:106`, whether this bridge is heard | How many of a Song's bridges are hummed aloud (now half), and whether the lead hums alone or the choir hums with it in harmony. |
 | `bridge-beds` | `music/lib/underlay.ts:86`, where a section's bed is given its words; `music/accompany.py:114-118`, where the model hears the guide's melody | What the bridges' beds are told, beside or instead of the Mood's band, and whether the model follows the guide's melody at all. |
 | `bridge-voice` | `studio/lib/perform.ts`, where a bridge is hummed | What a hummed bridge sings: an "ooh" a note, or scat syllables. The guide the Music grows from is always hummed. |
-| `intervals` | `studio/lib/compose.ts`, where an iteration's tune is chosen; `melody/index.ts` `setBridge` | How far the verses and the bridges leap, in whole tones, within the lead's range. The chorus never leaps. |
+| `verse-tune` | `studio/lib/compose.ts`, where an iteration's tune is chosen | Whether the Song plays its verse as it remembers it, or to a melody written for it alone by the melody writer (`melody/lib/writer.ts`). The diary keeps the remembered tune, so the next Song sings the old verse again. |
 | `drift` | `studio/lib/compose.ts:119` calls `mood/index.ts:56`, where it is decided which descriptions of the Mood stay | How many of the Mood's descriptions let go when this Song begins (now one). |
 
 ### Choosing them
@@ -93,7 +93,7 @@ The Song length is fixed in the same place: `lastsFor` (`studio/lib/compose.ts:5
 | `bridge-scat` | `bridge-voice` | A heard bridge is scatted: doo, wop, bah, dap, a syllable a note, from one set per Song in `prompts.json`, never twice in a row. | 3 |
 | `harmony-parallel` | `harmony` | The choir sings parallel, the lead's degree and a fixed step, every note, exactly as before the harmonizer. | 3 |
 | `choir-soprano` | `harmony` | The voices turn about, the first above: a woman or a child about an octave over the lead, within her range, and the next below. | 3 |
-| `drastic-intervals` | `intervals` | The verses and bridges leap between a least of 3 to 5 and a most of 5 to 12 whole tones, drawn per Song, within the lead's range. | 1 |
+| `verse-unfamiliar-melody` | `verse-tune` | For one Song the verse is played to a new melody: its own rhythm, a question and an answer twice, the highest note in the third line, home to the tonic. The guides, the bridges and the harmonies follow it; the remembered tune does not change. | 1 |
 | `drift-big-turn` | `drift` | Every description of the Mood lets go when this Song begins, not only the oldest. | 2 |
 
 The Music only ever grows from the guide hum: told in words alone, the old model plays anything, at any tempo, unrelated to the Song. So a Perspective turns what the guide hums or what the bed is told, and never takes the hum away. (`accompany.py` still has its `--no-melody` flag, for a stretch too short to hear, and no Perspective uses it.)

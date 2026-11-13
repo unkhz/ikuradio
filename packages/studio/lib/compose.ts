@@ -16,7 +16,7 @@
 import { firstMood, nextMood, type Mood } from 'mood'
 import { firstLyrics, forgotten, longWear, versesOf, wornDeep, writeLyrics, type Lyrics, type Memories } from 'song'
 import { firstChoir, gather, type Choir } from 'vocals'
-import { evolve, firstTune, keyFor, leapTune, sidesOf, variations, vocalRange, wrongness, type Tune } from 'melody'
+import { evolve, firstTune, keyFor, sidesOf, unfamiliarVerse, variations, vocalRange, wrongness, type Tune } from 'melody'
 import { defaults, perspectivesFor, type Chosen, type Settings } from 'perspectives'
 import type { Diary, Page, SongPlace } from './diary.js'
 
@@ -172,13 +172,20 @@ export async function composer(
     const where: SongPlace = { number: song, began: `${place.began}`, lasts }
     const variation =
       Number(iteration - place.began) % Math.max(1, variationCount)
-    const varied = variations(tune, variationCount, song, settings.development)[variation]!
-    // in a Song heard that way, the verses leap; the tune passed on to the next Song does not
-    const { leap } = settings.intervals
+    // in a Song heard that way, its verse is played to a melody written for it alone;
+    // the tune it remembers, and passes on to the next Song, is the one it had
     const [lead] = choir
-    const sung = leap
-      ? leapTune(varied, keyFor(lead!.body, mood.character.mode), leap, wrongness(`leaps:${song}`), vocalRange[lead!.body])
-      : varied
+    const played: Tune = settings['verse-tune'].unfamiliar
+      ? {
+          ...tune,
+          verse: unfamiliarVerse(tune.verse, {
+            key: keyFor(lead!.body, mood.character.mode),
+            range: vocalRange[lead!.body],
+            random: wrongness(`unfamiliar:${song}`),
+          }),
+        }
+      : tune
+    const sung = variations(played, variationCount, song, settings.development)[variation]!
     last = {
       iteration: iteration.toString(),
       mood,

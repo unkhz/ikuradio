@@ -57,8 +57,6 @@ export async function humGuides(
               tune,
               song: song.number,
               beats: beatsOf(section.seconds),
-              // in a Song heard that way the bridge leaps, and the Music follows the leaps
-              leap: settings.intervals?.leap,
               ...voice,
             })
           : setGuide({

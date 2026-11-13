@@ -86,7 +86,6 @@ export async function perform({
   const humanness = settings.humanness.scale
   const bridging = settings['bridge-singers']
   const { syllables: scatSyllables } = settings['bridge-voice']
-  const { leap } = settings.intervals
 
   /**
    * Every singer's score for a line, from the lead's: the lead as it is, the
@@ -142,7 +141,6 @@ export async function perform({
       character: mood.character,
       tune,
       song: song.number,
-      leap,
     })
     const scores = choirOf(led, hummers, `bridge:${section}`)
     const hums = hummers.map((voice, v) => {
