@@ -41,4 +41,5 @@ The Song's panel on the page shows the thought last, beneath the rows and above 
 2. The mind writes a thought a Song; the Studio keeps it, puts it in the Session and the Archive.
 3. Memories are its own and the telepathic, told apart in the instruction.
 4. The page shows the thought in the Song's panel.
-5. The robot reads the mind's newest thoughts from the Archive in its loop (`private/contributing.md`, the scientist's to change).
+
+The robot does not read the mind's thoughts every loop. They are on the page for anyone, and in the Archive when some work needs them.
