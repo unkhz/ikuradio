@@ -1,0 +1,11 @@
+{
+  "name": "perspectives",
+  "version": "1.0.0",
+  "description": "The ways a Song may be heard differently: a Facet of the Studio's work, the Turn it is given, and how often",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "melody": "workspace:*"
+  }
+}

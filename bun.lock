@@ -53,6 +53,13 @@
         "vocals": "workspace:*",
       },
     },
+    "packages/perspectives": {
+      "name": "perspectives",
+      "version": "1.0.0",
+      "dependencies": {
+        "melody": "workspace:*",
+      },
+    },
     "packages/radio": {
       "name": "radio",
       "version": "1.0.0",
@@ -77,6 +84,7 @@
         "melody": "workspace:*",
         "mood": "workspace:*",
         "music": "workspace:*",
+        "perspectives": "workspace:*",
         "song": "workspace:*",
         "tools": "workspace:*",
         "vocals": "workspace:*",
@@ -120,6 +128,8 @@
     "mood": ["mood@workspace:packages/mood"],
 
     "music": ["music@workspace:packages/music"],
+
+    "perspectives": ["perspectives@workspace:packages/perspectives"],
 
     "radio": ["radio@workspace:packages/radio"],
 

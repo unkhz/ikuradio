@@ -18,6 +18,7 @@
       "vocals": ["packages/vocals"],
       "music": ["packages/music"],
       "archive": ["packages/archive"],
+      "perspectives": ["packages/perspectives"],
       "song": ["packages/song"],
       "song/*": ["packages/song/*"]
     }
