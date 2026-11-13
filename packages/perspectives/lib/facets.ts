@@ -6,12 +6,17 @@
 //
 // Keep the list in step with .arkku/templates/perspective.ts.
 
+import { traditional, type Harmony } from 'melody'
+
 export const facets = [
   'development',
   'choir',
   'humanness',
+  'harmony',
   'bridge-singers',
+  'bridge-voice',
   'bridge-beds',
+  'intervals',
   'drift',
 ] as const
 
@@ -30,6 +35,13 @@ export type Settings = {
    * where the choir is gathered and where a line's singers are chosen.
    */
   choir: { size: number; verses: boolean }
+  /**
+   * How the harmonizer sings beside the lead: voiced by the rules, or
+   * parallel as the song first sang; on which side of the lead; how far the
+   * first voice above stands; how widely the voices below spread. Hooked
+   * where the choir is gathered, and wherever a voice sings beside the lead.
+   */
+  harmony: Harmony
   /** How far a take wanders from the score: 1 as usual. Hooked in `humanize`. */
   humanness: { scale: number }
   /**
@@ -38,6 +50,13 @@ export type Settings = {
    */
   'bridge-singers': { humming: number; choir: boolean }
   /**
+   * What a hummed bridge sings, a syllable a note, drawn from these without
+   * saying one twice in a row; an "ooh" on every note, without them. The
+   * guide the Music grows from is always hummed. Hooked where a bridge is
+   * performed.
+   */
+  'bridge-voice': { syllables?: string[] }
+  /**
    * What the bridges' beds are told instead of the Mood's band (the tempo is
    * always told), whether the Music follows the guide's melody, and the row
    * of all twelve pitches the bridges' guides are hummed in instead of the
@@ -45,6 +64,14 @@ export type Settings = {
    * its guide is hummed.
    */
   'bridge-beds': { instead?: string; melody: boolean; row?: number[] }
+  /**
+   * How far the verses and the bridges leap, in whole tones, from the least
+   * to the most, every time their notes change, within the lead's range;
+   * the chorus never does.
+   * Without it, they move as they were written. Hooked where an
+   * iteration's tune is chosen, and where a bridge is set.
+   */
+  intervals: { leap?: [number, number] }
   /** How many of the Mood's descriptions let go when the Song begins. Hooked in `nextMood`. */
   drift: { letGo: number }
 }
@@ -54,9 +81,12 @@ export function defaults(choirSize: number): Settings {
   return {
     development: { ornaments: 1, steps: 1 },
     choir: { size: choirSize, verses: false },
+    harmony: { ...traditional },
     humanness: { scale: 1 },
     'bridge-singers': { humming: 0.5, choir: false },
+    'bridge-voice': {},
     'bridge-beds': { melody: true },
+    intervals: {},
     drift: { letGo: 1 },
   }
 }

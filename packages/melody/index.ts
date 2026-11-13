@@ -11,6 +11,8 @@ import {
 import { firstTune, type Tune } from './lib/variation.js'
 import { slowSection } from './lib/guide.js'
 import { bridgeForm, journey } from './lib/bridge.js'
+import { leapScore, vocalRange, type Leap } from './lib/reach.js'
+import { wrongness } from './lib/wrongness.js'
 
 export { fitPhrase, chorusHook, verseWalk, aeolian, modes, degreeToMidi }
 export { firstTune, evolve, step, variations, type Development } from './lib/variation.js'
@@ -19,6 +21,16 @@ export { wrongness } from './lib/wrongness.js'
 export { guideStep, slowPhrase, slowSection } from './lib/guide.js'
 export { bridgeForm, journey, walkingDistance, type BridgeForm, type Pitches } from './lib/bridge.js'
 export { atonal, pitchNames, rowName, toneRow } from './lib/atonal.js'
+export { degreeOf, leapPhrase, leapScore, leapTune, leaping, nearestDegree, vocalRange, type Leap } from './lib/reach.js'
+export {
+  harmonizeChoir,
+  parallel,
+  sidesOf,
+  traditional,
+  voiceLine,
+  type ChordSource,
+  type Harmony,
+} from './lib/harmony.js'
 export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
 
@@ -132,6 +144,7 @@ export function setBridge({
   tune = firstTune,
   beats = bridgeBeats,
   song,
+  leap,
 }: {
   from: 'verse' | 'chorus'
   to: 'verse' | 'chorus'
@@ -143,6 +156,8 @@ export function setBridge({
   beats?: number
   /** The Song the bridge is in, which decides whether it walks. */
   song?: string | bigint
+  /** How far its notes leap, in whole tones, in a Song heard that way, within the singer's range. */
+  leap?: Leap
 }): Score {
   const phrases = (part: 'verse' | 'chorus') => (part === 'chorus' ? tune.chorus : tune.verse)
   const key = keyFor(singer, character.mode)
@@ -157,7 +172,8 @@ export function setBridge({
     harmony,
     form: bridgeForm(song, leaving, coming),
   })
-  return { bpm: character.tempo, lyrics: lyrics(notes.length), notes }
+  const score = { bpm: character.tempo, lyrics: lyrics(notes.length), notes }
+  return leap ? leapScore(score, key, leap, wrongness(`leaps:${song}:${from}:${to}`), vocalRange[singer]) : score
 }
 
 /** A score with its last note held `beats` longer: a tail, for the Music to carry on into. */

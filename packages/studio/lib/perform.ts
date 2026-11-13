@@ -6,7 +6,7 @@
 // takes are blended into one recording per line.
 
 import { arrange } from 'song'
-import { scoreSeconds, setBridge, setLine, wrongness } from 'melody'
+import { harmonizeChoir, keyFor, scoreSeconds, setBridge, setLine, wrongness, type Score } from 'melody'
 import { blend, countSyllables, fullness, humanize, record, throatScore, type Take } from 'vocals'
 import type { Iteration } from './compose.js'
 
@@ -53,6 +53,22 @@ const humGain = 0.7
 export const hum = (notes: number) =>
   Array.from({ length: notes }, () => 'ooh').join(' ')
 
+/**
+ * Scat: a percussive syllable a note, drawn from `syllables` by `random`,
+ * never the same one twice in a row, the way a singer with no words still
+ * keeps the rhythm going.
+ */
+export function scat(syllables: readonly string[], random: () => number) {
+  return (notes: number) => {
+    const sung: string[] = []
+    for (let i = 0; i < notes; i++) {
+      const choices = syllables.length > 1 ? syllables.filter((s) => s !== sung.at(-1)) : syllables
+      sung.push(choices[Math.floor(random() * choices.length)]!)
+    }
+    return sung.join(' ')
+  }
+}
+
 /** Where a line stands in the song and what it says. The same line in the same place is sung the same. */
 export const lineKey = (part: string, index: number, lyrics: string) =>
   `${part}:${index}:${lyrics}`
@@ -69,6 +85,29 @@ export async function perform({
   // the Song's Perspectives, as its hooks here follow them
   const humanness = settings.humanness.scale
   const bridging = settings['bridge-singers']
+  const { syllables: scatSyllables } = settings['bridge-voice']
+  const { leap } = settings.intervals
+
+  /**
+   * Every singer's score for a line, from the lead's: the lead as it is, the
+   * others beside it by the harmonizer, the same for the same line.
+   */
+  const choirOf = (lead: Score, singers: typeof choir, named: string): Score[] => {
+    const [first, ...others] = singers
+    if (!first || others.length === 0) return [lead]
+    return [
+      lead,
+      ...harmonizeChoir({
+        lead,
+        leadKey: keyFor(first.body, mood.character.mode),
+        frame: keyFor('female', mood.character.mode),
+        keyOf: (body) => keyFor(body, mood.character.mode),
+        voices: others,
+        harmony: settings.harmony,
+        random: wrongness(`harmony:${song.number}:${named}`),
+      }),
+    ]
+  }
 
   const takes = new Map<string, Promise<Omit<SungLine, 'at'>>>()
   const order: Promise<Omit<SungLine, 'at'>>[] = []
@@ -93,17 +132,21 @@ export async function perform({
     // the lead hums, or, in a Song heard that way, the whole choir in its harmonies
     const hummers = bridging.choir ? choir : [lead]
     // the hum walks from where the last part ended to where the next begins
+    // a hum, or, in a Song heard that way, scat: the same syllables for every voice, so they sing together
+    const sound = scatSyllables?.length ? scat(scatSyllables, wrongness(`scat:${song.number}:${section}`)) : hum
+    const led = setBridge({
+      from,
+      to,
+      lyrics: sound,
+      singer: lead.body,
+      character: mood.character,
+      tune,
+      song: song.number,
+      leap,
+    })
+    const scores = choirOf(led, hummers, `bridge:${section}`)
     const hums = hummers.map((voice, v) => {
-      const score = setBridge({
-        from,
-        to,
-        lyrics: hum,
-        singer: voice.body,
-        character: mood.character,
-        harmony: voice.harmony,
-        tune,
-        song: song.number,
-      })
+      const score = scores[v]!
       const take = {
         // the lead's take is named as it always was
         ...humanize(score, v === 0 ? `${iteration}:bridge:${section}` : `${iteration}:bridge:${section}:${v}`, humanness),
@@ -171,17 +214,18 @@ export async function perform({
 
     // the lead sings every line; the others the chorus, or, in a Song heard that way, the verses too
     const voices = part === 'chorus' || settings.choir.verses ? choir : choir.slice(0, 1)
+    const led = setLine({
+      part,
+      line: index,
+      lyrics: words,
+      syllables,
+      singer: voices[0]!.body,
+      character: mood.character,
+      tune,
+    })
+    const scores = choirOf(led, voices, lineKey(part, index, line))
     const takes = voices.map((voice, v) => {
-      const score = setLine({
-        part,
-        line: index,
-        lyrics: words,
-        syllables,
-        singer: voice.body,
-        character: mood.character,
-        harmony: voice.harmony,
-        tune,
-      })
+      const score = scores[v]!
       const take = {
         ...humanize(score, `${iteration}:${lineKey(part, index, line)}:${v}`, humanness),
         // each singer breathes through a throat of their own

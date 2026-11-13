@@ -61,8 +61,11 @@ These are the Facets that have a hook in the code today, and the Turns each can 
 | `development` | `studio/lib/compose.ts:136`, where the iteration's Variation is chosen; `melody/lib/variation.ts:92` makes the Variations | How far the second iteration's Variation moves: how many verse phrases are ornamented (now one), and how many steps each takes. The chorus stays the anchor. |
 | `choir` | `studio/lib/compose.ts:125`, where a Song's choir is gathered; `studio/lib/perform.ts:148`, where it is decided who sings a line | How many sing (1 to 4: the lead, then harmonies a third, a fifth and an octave below), and whether the harmonies sing the verses as well as the chorus. |
 | `humanness` | `vocals/lib/humanize.ts:22-26` and `:73`, the limits of a take's wrongness; called from `studio/lib/perform.ts:100` and `:161` | How far a take wanders: pitch drift and wobble, how much a note leans into the next, and the vibrato, all scaled together. |
+| `harmony` | `melody/lib/harmony.ts`, the harmonizer, called from `studio/lib/perform.ts` wherever a voice sings beside the lead; `studio/lib/compose.ts`, where a voice above the lead is gathered as a woman or a child | Whether the choir is voiced by the rules of part-writing (the default, traditional: below and close) or parallel, a fixed step from the lead as the song first sang; which side of the lead the voices sing on; how far the first voice above stands; how widely the voices below spread. Every voice stays within its body's range (`melody/lib/reach.ts`). |
 | `bridge-singers` | `studio/lib/perform.ts:47`, how often a bridge is hummed; `:87`, who hums it; `:106`, whether this bridge is heard | How many of a Song's bridges are hummed aloud (now half), and whether the lead hums alone or the choir hums with it in harmony. |
 | `bridge-beds` | `music/lib/underlay.ts:86`, where a section's bed is given its words; `music/accompany.py:114-118`, where the model hears the guide's melody | What the bridges' beds are told, beside or instead of the Mood's band, and whether the model follows the guide's melody at all. |
+| `bridge-voice` | `studio/lib/perform.ts`, where a bridge is hummed | What a hummed bridge sings: an "ooh" a note, or scat syllables. The guide the Music grows from is always hummed. |
+| `intervals` | `studio/lib/compose.ts`, where an iteration's tune is chosen; `melody/index.ts` `setBridge` | How far the verses and the bridges leap, in whole tones, within the lead's range. The chorus never leaps. |
 | `drift` | `studio/lib/compose.ts:119` calls `mood/index.ts:56`, where it is decided which descriptions of the Mood stay | How many of the Mood's descriptions let go when this Song begins (now one). |
 
 ### Choosing them
@@ -85,11 +88,15 @@ The Song length is fixed in the same place: `lastsFor` (`studio/lib/compose.ts:5
 | `bridge-singers-often` | `bridge-singers` | Most bridges are hummed aloud. | 6 |
 | `bridge-singers-rarely` | `bridge-singers` | Few bridges are hummed; the Music carries them alone. | 6 |
 | `bridge-singers-choir` | `bridge-singers` | The choir hums the heard bridges with the lead, in harmony. | 4 |
-| `bridge-beds-dramatic-percussion` | `bridge-beds` | The bridges' beds are only percussion, one kind per Song, from `prompts.json`: "war drums", "spanish clapping", "church bells" and the like, at the Song's tempo, not following the guide's melody. | 3 |
-| `bridge-beds-atonal` | `bridge-beds` | The bridges' beds are told to be atonal, and do not follow the guide's melody. | 2 |
+| `bridge-beds-dramatic-percussion` | `bridge-beds` | The bridges' beds are only percussion, one kind per Song, from `prompts.json`: "war drums", "spanish clapping", "church bells" and the like, at the Song's tempo, following the guide hum for their rhythm. | 3 |
+| `bridge-beds-atonal` | `bridge-beds` | The bridges' guides are hummed atonal, each note the next pitch of a twelve-tone row drawn for the Song, to the same rhythm; the beds follow them with the Mood's own band. | 2 |
+| `bridge-scat` | `bridge-voice` | A heard bridge is scatted: doo, wop, bah, dap, a syllable a note, from one set per Song in `prompts.json`, never twice in a row. | 3 |
+| `harmony-parallel` | `harmony` | The choir sings parallel, the lead's degree and a fixed step, every note, exactly as before the harmonizer. | 3 |
+| `choir-soprano` | `harmony` | The voices turn about, the first above: a woman or a child about an octave over the lead, within her range, and the next below. | 3 |
+| `drastic-intervals` | `intervals` | The verses and bridges leap between a least of 3 to 5 and a most of 5 to 12 whole tones, drawn per Song, within the lead's range. | 1 |
 | `drift-big-turn` | `drift` | Every description of the Mood lets go when this Song begins, not only the oldest. | 2 |
 
-Not following the guide's melody needs one small change to `accompany.py`: a flag that gives the model silence to listen to, as it already does for a stretch too short to hear (line 114). The flag goes into the bed's name, beside its words.
+The Music only ever grows from the guide hum: told in words alone, the old model plays anything, at any tempo, unrelated to the Song. So a Perspective turns what the guide hums or what the bed is told, and never takes the hum away. (`accompany.py` still has its `--no-melody` flag, for a stretch too short to hear, and no Perspective uses it.)
 
 ## Left out of the first set
 

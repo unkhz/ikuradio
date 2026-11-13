@@ -9,7 +9,7 @@ import { existsSync } from "node:fs";
 // See plans/2026-11-13-perspectives.md.
 
 /** The Facets that have a hook in the Studio. Keep in step with packages/perspectives/lib/facets.ts. */
-const facets = ["development", "choir", "humanness", "bridge-singers", "bridge-beds", "drift"];
+const facets = ["development", "choir", "humanness", "harmony", "bridge-singers", "bridge-voice", "bridge-beds", "intervals", "drift"];
 
 /** The project's root, from this module: .arkku/templates/ is two folders down. */
 const root = new URL("../../", import.meta.url).pathname;

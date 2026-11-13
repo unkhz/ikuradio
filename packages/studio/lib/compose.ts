@@ -16,7 +16,7 @@
 import { firstMood, nextMood, type Mood } from 'mood'
 import { firstLyrics, forgotten, longWear, versesOf, wornDeep, writeLyrics, type Lyrics, type Memories } from 'song'
 import { firstChoir, gather, type Choir } from 'vocals'
-import { evolve, firstTune, variations, type Tune } from 'melody'
+import { evolve, firstTune, keyFor, leapTune, sidesOf, variations, vocalRange, wrongness, type Tune } from 'melody'
 import { defaults, perspectivesFor, type Chosen, type Settings } from 'perspectives'
 import type { Diary, Page, SongPlace } from './diary.js'
 
@@ -141,7 +141,8 @@ export async function composer(
         }))
       } else {
         perspectives = last.perspectives ?? []
-        settings = last.settings ?? settings
+        // pages written before a Facet had a hook have no Setting for it, and follow its default
+        settings = { ...settings, ...last.settings }
       }
       // the last words sung shape the weather of the next Song
       const words = [last.lyrics.thirdVerse, last.lyrics.finalChorus].join('\n')
@@ -152,7 +153,9 @@ export async function composer(
       const remembered = last.choir ?? firstChoir.slice(0, choirSize)
       // the Mood names who leads and how the choir breathes, if the mind heard it
       choir = beginsSong
-        ? gather(settings.choir.size, Math.random, mood.character.voice)
+        ? gather(settings.choir.size, Math.random, mood.character.voice, {
+            high: sidesOf(settings.harmony.placement, settings.choir.size - 1).map((side) => side === 'above'),
+          })
         : remembered
       // pages written before the tune could change remember the tune it was born with
       const known = last.tune ?? firstTune
@@ -169,7 +172,13 @@ export async function composer(
     const where: SongPlace = { number: song, began: `${place.began}`, lasts }
     const variation =
       Number(iteration - place.began) % Math.max(1, variationCount)
-    const sung = variations(tune, variationCount, song, settings.development)[variation]
+    const varied = variations(tune, variationCount, song, settings.development)[variation]!
+    // in a Song heard that way, the verses leap; the tune passed on to the next Song does not
+    const { leap } = settings.intervals
+    const [lead] = choir
+    const sung = leap
+      ? leapTune(varied, keyFor(lead!.body, mood.character.mode), leap, wrongness(`leaps:${song}`), vocalRange[lead!.body])
+      : varied
     last = {
       iteration: iteration.toString(),
       mood,

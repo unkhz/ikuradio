@@ -82,6 +82,16 @@ describe('wrongness', () => {
   })
 })
 
+describe('gather, with voices above the lead', () => {
+  it('never sets a man above the lead', () => {
+    for (const seed of ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8']) {
+      const [, above, below] = gather(3, wrongness(seed), { lead: 'male', breath: 'plain' }, { high: [true, false] })
+      expect(above!.body).not.toBe('male')
+      expect(below!.harmony).toBe(-4)
+    }
+  })
+})
+
 describe('gather', () => {
   it('puts the lead first, singing the tune at full voice', () => {
     const [lead, ...rest] = gather(3, wrongness('choir'))

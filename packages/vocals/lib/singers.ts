@@ -65,9 +65,11 @@ export function gather(
   size: number,
   random: () => number = Math.random,
   guide?: { lead: Singer; breath: Breath },
+  /** Which of the voices beside the lead, in order, sing above it: never a man's voice, which cannot reach that high. */
+  { high = [] }: { high?: readonly boolean[] } = {},
 ): Choir {
   const pick = () => bodies[Math.floor(random() * bodies.length)]
-  return [
+  const choir: Choir = [
     {
       body: guide?.lead ?? pick(),
       harmony: 0,
@@ -80,6 +82,12 @@ export function gather(
       throat: throatOf(random, guide?.breath),
     })),
   ]
+  // a voice that sings above the lead is a woman's or a child's
+  for (const [k, above] of high.entries()) {
+    const voice = choir[k + 1]
+    if (above && voice?.body === 'male') voice.body = random() < 0.5 ? 'female' : 'child'
+  }
+  return choir
 }
 
 /** How a choir reads, for anyone watching. */
