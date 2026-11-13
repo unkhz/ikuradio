@@ -17,6 +17,7 @@ import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
 import { musicDir, Shelf, underlay } from 'music'
 import { openArchive } from 'archive'
+import { describePerspectives } from 'perspectives'
 import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { perform } from './lib/perform.js'
@@ -26,6 +27,7 @@ import { sweep } from './lib/sweep.js'
 
 const {
   ITERATION_COUNT,
+  PERSPECTIVE_COUNT,
   MOOD_COUNT,
   CHOIR_COUNT,
   VARIATION_COUNT,
@@ -77,6 +79,7 @@ const memories = await gather(
 console.log(`the mind sits down with ${memories.length} memories`)
 const { compose } = await composer(diary, {
   songLength: ITERATION_COUNT,
+  perspectiveCount: PERSPECTIVE_COUNT,
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
   variationCount: VARIATION_COUNT,
@@ -92,6 +95,7 @@ await mind.rest()
 const [first] = composed
 console.log(
   `Song ${first.song.number}: ${describe(first.mood)}, sung by ${introduce(first.choir)}` +
+    `, heard ${describePerspectives(first.perspectives)}` +
     `; ${composed.length} iterations written in ${seconds(started)}`,
 )
 
@@ -116,6 +120,7 @@ for (const [i, one] of composed.entries()) {
     shelf,
     iteration: one.iteration,
     guides: new Map(hummed.map(({ kind, file }) => [kind, file])),
+    bridgeBeds: one.settings['bridge-beds'],
   })
     .then(({ beds }) => beds)
     .catch((error) => {

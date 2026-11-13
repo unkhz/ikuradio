@@ -10,6 +10,7 @@
     "melody": "workspace:*",
     "mood": "workspace:*",
     "music": "workspace:*",
+    "perspectives": "workspace:*",
     "song": "workspace:*",
     "tools": "workspace:*",
     "vocals": "workspace:*"

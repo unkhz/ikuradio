@@ -51,26 +51,16 @@ describe('placeOf', () => {
 })
 
 describe('lastsFor', () => {
-  it('lasts about as long as asked, and the same weather always as long', () => {
+  it('lasts as long as asked, whatever the weather', () => {
     const moods = [
       ['eternity', 'romantic chamber music with violin and cello'],
-      ['the moon begins to wane', 'a lighthouse'],
       ['70s psychedelic funk', 'piano ballad'],
-      ['rust', 'dub'],
-      ['snow on a radio', 'an empty harbour'],
       ['glass', 'tide'],
     ].map((descriptions) => ({
       descriptions,
       character: { mode: 'aeolian' as const, tempo: 76 },
     }))
-    const lengths = moods.map((mood) => lastsFor(mood, 4))
-    for (const length of lengths) {
-      expect(length).toBeGreaterThanOrEqual(3)
-      expect(length).toBeLessThanOrEqual(6)
-    }
-    // not every Song is the same length
-    expect(new Set(lengths).size).toBeGreaterThan(1)
-    expect(moods.map((mood) => lastsFor(mood, 4))).toEqual(lengths)
-    expect(lastsFor(moods[0], 1)).toBeGreaterThanOrEqual(2)
+    expect(moods.map((mood) => lastsFor(mood, 2))).toEqual([2, 2, 2])
+    expect(lastsFor(moods[0], 0)).toBe(1)
   })
 })

@@ -557,6 +557,10 @@ function tellDetails() {
     row('key', `${session.mode}, ${session.tempo} bpm`),
     row('choir', session.choir),
     ...(session.sound ? [row('band', session.sound)] : []),
+    // the ways this Song is heard differently from the usual, if any
+    ...(session.perspectives?.length
+      ? [row('heard', session.perspectives.map(({ title, variant }) => (variant ? `${title}: ${variant}` : title)).join(', '))]
+      : []),
     row('iteration', `${number(iteration.iteration)}, ${iteration.of.at} of ${iteration.of.of}`),
   )
 }

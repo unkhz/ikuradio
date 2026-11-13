@@ -43,8 +43,8 @@ export type SungLine = {
   unheard?: boolean
 }
 
-/** How often a bridge is hummed aloud, rather than only played. */
-const humming = 0.5
+/** How often a bridge is hummed aloud, rather than only played, unless a Perspective says otherwise. */
+export const humming = 0.5
 
 /** How loud a bridge's hum is, beside a sung line. */
 const humGain = 0.7
@@ -64,7 +64,12 @@ export async function perform({
   choir,
   sung: tune,
   song,
+  settings,
 }: Iteration): Promise<SungLine[]> {
+  // the Song's Perspectives, as its hooks here follow them
+  const humanness = settings.humanness.scale
+  const bridging = settings['bridge-singers']
+
   const takes = new Map<string, Promise<Omit<SungLine, 'at'>>>()
   const order: Promise<Omit<SungLine, 'at'>>[] = []
 
@@ -85,36 +90,55 @@ export async function perform({
     to: 'verse' | 'chorus',
   ): Promise<Omit<SungLine, 'at'>> => {
     const [lead] = choir
+    // the lead hums, or, in a Song heard that way, the whole choir in its harmonies
+    const hummers = bridging.choir ? choir : [lead]
     // the hum walks from where the last part ended to where the next begins
-    const score = setBridge({
-      from,
-      to,
-      lyrics: hum,
-      singer: lead.body,
-      character: mood.character,
-      harmony: lead.harmony,
-      tune,
-      song: song.number,
+    const hums = hummers.map((voice, v) => {
+      const score = setBridge({
+        from,
+        to,
+        lyrics: hum,
+        singer: voice.body,
+        character: mood.character,
+        harmony: voice.harmony,
+        tune,
+        song: song.number,
+      })
+      const take = {
+        // the lead's take is named as it always was
+        ...humanize(score, v === 0 ? `${iteration}:bridge:${section}` : `${iteration}:bridge:${section}:${v}`, humanness),
+        ...voice.throat,
+      }
+      return { voice, v, score, take }
     })
-    const take = {
-      ...humanize(score, `${iteration}:bridge:${section}`),
-      ...lead.throat,
-    }
+    const { score, take } = hums[0]
     const seconds = scoreSeconds(score)
     const [lastPitch, lastBeats] = score.notes.at(-1) ?? [0, 0]
     const rest = lastPitch === 0 ? lastBeats : 0
-    const heard = wrongness(`hum:${iteration}:${section}`)() < humming
+    const heard = wrongness(`hum:${iteration}:${section}`)() < bridging.humming
     let file = ''
     const voices: SungLine['voices'] = []
     const recordings: string[] = []
-    try {
-      const dry = await record(take, lead.body)
-      recordings.push(dry)
-      voices.push({ file: dry, voice: 0, gain: humGain, take: throatScore(take) })
-      file = await blend([{ file: dry, gain: humGain }])
-      recordings.push(file)
-    } catch (error) {
-      console.warn(`the bridge could not be hummed: ${error}`)
+    // a choir humming is fuller than one voice, but not louder than a throat can bear
+    const total = hums.reduce((sum, { voice }) => sum + voice.gain * humGain, 0)
+    const headroom = Math.min(1, fullness / Math.max(total, humGain))
+    for (const { voice, v, take } of hums) {
+      try {
+        const dry = await record(take, voice.body)
+        recordings.push(dry)
+        const gain = Math.round(voice.gain * humGain * (v === 0 ? 1 : headroom) * 1000) / 1000
+        voices.push({ file: dry, voice: v, gain, take: throatScore(take) })
+      } catch (error) {
+        console.warn(`a ${voice.body} voice could not hum the bridge: ${error}`)
+      }
+    }
+    if (voices.length > 0) {
+      try {
+        file = await blend(voices.map(({ file, gain }) => ({ file, gain })))
+        recordings.push(file)
+      } catch (error) {
+        console.warn(`the bridge could not be hummed: ${error}`)
+      }
     }
     return {
       part: 'bridge',
@@ -145,7 +169,8 @@ export async function perform({
       hummed = true
     }
 
-    const voices = part === 'chorus' ? choir : choir.slice(0, 1)
+    // the lead sings every line; the others the chorus, or, in a Song heard that way, the verses too
+    const voices = part === 'chorus' || settings.choir.verses ? choir : choir.slice(0, 1)
     const takes = voices.map((voice, v) => {
       const score = setLine({
         part,
@@ -158,7 +183,7 @@ export async function perform({
         tune,
       })
       const take = {
-        ...humanize(score, `${iteration}:${lineKey(part, index, line)}:${v}`),
+        ...humanize(score, `${iteration}:${lineKey(part, index, line)}:${v}`, humanness),
         // each singer breathes through a throat of their own
         ...voice.throat,
       }

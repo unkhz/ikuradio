@@ -3,6 +3,7 @@ import { firstMood } from 'mood'
 import { arrange, firstLyrics } from 'song'
 import { firstChoir } from 'vocals'
 import { firstTune } from 'melody'
+import { defaults } from 'perspectives'
 import type { Iteration } from './compose.js'
 import type { SungLine } from './perform.js'
 import { toSession, type Made } from './session.js'
@@ -31,6 +32,8 @@ function made(iteration: bigint, began = 0n): Made {
     beginsSong: iteration === began,
     song: { number: '0', began: `${began}`, lasts: 4 },
     lyrics: firstLyrics,
+    perspectives: [{ slug: 'bridge-beds-atonal', title: 'Atonal bridges', facet: 'bridge-beds', variant: 'free jazz' }],
+    settings: defaults(3),
   }
   const lines: SungLine[] = []
   let at = 0
@@ -103,6 +106,12 @@ describe('toSession', () => {
     expect(session.recordings.filter(({ kind }) => kind === 'bed').every(({ take }) => take === undefined)).toBe(true)
     // a guide keeps its whole take, words and breath and all
     expect(session.guides?.[0].take).toEqual({ bpm: 76, lyrics: 'ooh ooh', notes: [[57, 4], [59, 4]], t0: 0.05, vibrato: 0 })
+  })
+
+  it('says which Perspectives its Song is heard from', () => {
+    expect(session.perspectives).toEqual([
+      { slug: 'bridge-beds-atonal', title: 'Atonal bridges', facet: 'bridge-beds', variant: 'free jazz' },
+    ])
   })
 
   it('lays the iterations end to end', () => {

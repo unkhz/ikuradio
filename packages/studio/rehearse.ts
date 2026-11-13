@@ -18,6 +18,11 @@
 // The two cannot be awake at once; the machine has one GPU.
 //
 //   bun run rehearse 5 --dry  the voices alone, no Music
+//   bun run rehearse 4 --perspectives=choir-lone,bridge-beds-atonal
+//                             every Song after the first heard from these
+//                             Perspectives, drafts too, instead of drawn ones:
+//                             how a new Perspective is heard before it is
+//                             made active
 
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { gather, readMemories, words } from 'song'
@@ -25,16 +30,22 @@ import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, mixdown } from 'vocals'
 import { Shelf, underlay } from 'music'
+import { describePerspectives } from 'perspectives'
 import { getEnv, pieces, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
 import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 import { humGuides } from './lib/guide.js'
 
-const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT } = getEnv()
+const { ITERATION_COUNT, PERSPECTIVE_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT } = getEnv()
 const given = process.argv.slice(2)
 const last = BigInt(given.find((arg) => /^\d+$/.test(arg)) ?? 1)
 const dry = given.includes('--dry')
+const heardFrom = given
+  .find((arg) => arg.startsWith('--perspectives='))
+  ?.slice('--perspectives='.length)
+  .split(',')
+  .filter(Boolean)
 const dir = 'audio/rehearsal'
 
 await mkdir(dir, { recursive: true })
@@ -58,6 +69,8 @@ const memories = mind
 if (memories.length) console.log(`the mind sits down with ${memories.length} memories`)
 const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
   songLength: ITERATION_COUNT,
+  perspectiveCount: PERSPECTIVE_COUNT,
+  ...(heardFrom ? { heardFrom } : {}),
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
   variationCount: VARIATION_COUNT,
@@ -70,6 +83,7 @@ const sung: {
   mood: Awaited<ReturnType<typeof compose>>['mood']
   iteration: bigint
   guides: Awaited<ReturnType<typeof humGuides>>
+  bridgeBeds: Awaited<ReturnType<typeof compose>>['settings']['bridge-beds']
 }[] = []
 
 for (let iteration = 1n; iteration <= last; iteration++) {
@@ -78,7 +92,7 @@ for (let iteration = 1n; iteration <= last; iteration++) {
   const written = Date.now()
   const lines = await perform(composed)
   if (composed.beginsSong) {
-    console.log(`\n~ ${describe(composed.mood)} ~`)
+    console.log(`\n~ ${describe(composed.mood)} ~ heard ${describePerspectives(composed.perspectives)}`)
     console.log(`  sung by ${introduce(composed.choir)}`)
   }
   console.log(`\niteration ${iteration}, variation ${composed.variation}\n`)
@@ -102,7 +116,14 @@ for (let iteration = 1n; iteration <= last; iteration++) {
       ` written in ${seconds(written - started)}s,` +
       ` sung in ${seconds(Date.now() - written)}s`,
   )
-  sung.push({ take, lines, mood: composed.mood, iteration, guides: await humGuides(composed, lines) })
+  sung.push({
+    take,
+    lines,
+    mood: composed.mood,
+    iteration,
+    guides: await humGuides(composed, lines),
+    bridgeBeds: composed.settings['bridge-beds'],
+  })
 }
 
 // the words are written; the mind lets go of the GPU, and the Music may have it
@@ -111,13 +132,14 @@ await mind?.rest()
 if (!dry) {
   // the shelf the live song keeps: a part grows a new bed, or plays one again
   const shelf = new Shelf()
-  for (const { take, lines, mood, iteration, guides } of sung) {
+  for (const { take, lines, mood, iteration, guides, bridgeBeds } of sung) {
     const started = Date.now()
     try {
       const { beds } = await underlay(lines, mood, {
         shelf,
         iteration,
         guides: new Map(guides.map(({ kind, file }) => [kind, file])),
+        bridgeBeds,
       })
       if (beds.length === 0) continue
       await mixdown(beds, `${take}.music.m4a`)

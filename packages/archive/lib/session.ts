@@ -29,6 +29,13 @@ export type Session = {
   /** Who sings it, for anyone watching. */
   choir: string
   /**
+   * The Perspectives the Song is heard from: ways it differs from the usual,
+   * each with the part of the Studio's work it changed, and the variant
+   * chosen, if any. For anyone watching: everything they changed is already
+   * in the parts, takes and beds. Missing on Songs from before Perspectives.
+   */
+  perspectives?: SessionPerspective[]
+  /**
    * The singers, the lead first: a Receiver places each where it likes in
    * its mix. A voice Recording names its singer by place in this list.
    */
@@ -52,6 +59,9 @@ export type Session = {
    */
   guides?: SessionGuide[]
 }
+
+/** A Perspective a Song is heard from: its name and title, the Facet it turned, and the variant chosen. */
+export type SessionPerspective = { slug: string; title: string; facet: string; variant?: string }
 
 /**
  * A take, exactly as the throat is given it: the notes in MIDI (cents and

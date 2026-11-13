@@ -150,6 +150,16 @@ export function toSession(
     tempo: mood.character.tempo,
     ...(mood.character.sound ? { sound: mood.character.sound } : {}),
     choir: introduce(choir),
+    ...(first.perspectives?.length
+      ? {
+          perspectives: first.perspectives.map(({ slug, title, facet, variant }) => ({
+            slug,
+            title,
+            facet,
+            ...(variant ? { variant } : {}),
+          })),
+        }
+      : {}),
     singers: choir.map(({ body, harmony }) => ({ body, harmony })),
     ...(throat ? { throat } : {}),
     seconds: seconds(offset),

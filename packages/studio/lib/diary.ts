@@ -11,6 +11,7 @@
 // new book is begun. Anyone looking for an iteration from long ago goes
 // straight to the book that holds it.
 
+import type { Chosen, Settings } from 'perspectives'
 import {
   appendFile,
   mkdir,
@@ -44,6 +45,12 @@ export type Page = {
    * when every Song lasted the same.
    */
   song?: SongPlace
+  /**
+   * The Perspectives the Song is heard from, and the Settings they made for
+   * the Studio's hooks. Missing on pages written before there were any.
+   */
+  perspectives?: Chosen[]
+  settings?: Settings
   lyrics: Lyrics
   /** When it was written, as the machine's clock saw it. */
   written: string
