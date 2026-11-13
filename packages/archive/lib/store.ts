@@ -1,5 +1,6 @@
 // What the Studio needs of the Archive. The Archive is forever: nothing put
-// in it is ever taken out again. The Archive is a bucket (bucket.ts);
+// in it is ever taken out again. Copies of it may be: a Studio that wakes on
+// a machine that has forgotten the song reads its memory back out of it. The Archive is a bucket (bucket.ts);
 // anything else that would keep Songs the same way could stand in its place.
 
 import type { ArchiveIndex, Session } from './session.js'
@@ -24,4 +25,16 @@ export interface ArchiveStore {
    * <yyyy-mm>.jsonl, afresh: the month only ever grows.
    */
   putThoughts(file: string): Promise<void>
+  /**
+   * The newest Song the Archive holds, or nothing if it holds none yet.
+   * Throws if the Archive cannot say: not knowing is not the same as none.
+   */
+  newestSong(): Promise<string | undefined>
+  /** The names of everything kept at a place in the Archive, such as `diary/books/`. */
+  kept(prefix: string): Promise<string[]>
+  /**
+   * Copies something kept in the Archive out, into a file on this machine,
+   * whole or not at all. Returns whether it was there to copy.
+   */
+  copyOut(key: string, file: string): Promise<boolean>
 }

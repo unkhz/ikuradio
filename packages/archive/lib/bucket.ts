@@ -10,7 +10,8 @@
 // chance to keep a Recording, which never changes.)
 
 import { S3Client } from 'bun'
-import { basename } from 'node:path'
+import { mkdir, rename } from 'node:fs/promises'
+import { basename, dirname } from 'node:path'
 import { paths, type ArchiveIndex, type Session } from './session.js'
 import type { ArchiveStore } from './store.js'
 
@@ -117,5 +118,33 @@ export class BucketStore implements ArchiveStore {
     const month = basename(file, '.jsonl')
     if (!/^\d{4}-\d{2}$/.test(month)) throw new Error(`not a month of thoughts: ${file}`)
     await this.put(paths.thoughts(month), Bun.file(file), 'application/x-ndjson')
+  }
+
+  async newestSong() {
+    if (!(await this.exists(paths.index))) return undefined
+    const { songs } = await this.patiently('read the index', () => this.client.file(paths.index).json() as Promise<ArchiveIndex>)
+    return songs.at(-1)
+  }
+
+  async kept(prefix: string) {
+    const keys: string[] = []
+    let startAfter: string | undefined
+    for (;;) {
+      const page = await this.patiently(`list ${prefix}`, () => this.client.list({ prefix, ...(startAfter ? { startAfter } : {}) }))
+      const found = (page.contents ?? []).map(({ key }) => key)
+      keys.push(...found)
+      if (!page.isTruncated || !found.length) return keys
+      startAfter = found.at(-1)
+    }
+  }
+
+  async copyOut(key: string, file: string) {
+    if (!(await this.exists(key))) return false
+    await mkdir(dirname(file), { recursive: true })
+    // copied beside it first, so a copy cut off halfway is never mistaken for the thing itself
+    const coming = `${file}.${process.pid}.coming`
+    await this.patiently(`copy out ${key}`, () => Bun.write(coming, this.client.file(key)))
+    await rename(coming, file)
+    return true
   }
 }

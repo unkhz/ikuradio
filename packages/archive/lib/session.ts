@@ -189,6 +189,10 @@ export const paths = {
   diary: 'diary/diary.jsonl',
   /** A closed book of the diary, named as it is on the shelf. It never changes. */
   diaryBook: (name: string) => `diary/books/${name}`,
+  /** Where the diary's closed books are kept. */
+  diaryShelf: 'diary/books/',
   /** A month of the mind's own thoughts, a thought a line, copied afresh after every Song. */
   thoughts: (month: string) => `thoughts/mind/${month}.jsonl`,
+  /** Where the months of the mind's thoughts are kept. */
+  thoughtsShelf: 'thoughts/mind/',
 }

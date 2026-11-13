@@ -1,6 +1,7 @@
 // The Studio: a short life, spent making one Song.
 //
-// It wakes, reads its diary to see where the song is, and makes the next
+// It wakes, takes back from the Archive whatever its machine has forgotten,
+// reads its diary to see where the song is, and makes the next
 // Song whole: first every word of every iteration, while the mind is awake,
 // and the one thought the mind writes down about them; then the mind rests, and every line is sung; then the Music has the GPU,
 // and every bed is grown. When the Song is made, its Recordings and its
@@ -24,6 +25,7 @@ import { perform } from './lib/perform.js'
 import { toSession, type Made } from './lib/session.js'
 import { humGuides } from './lib/guide.js'
 import { sweep } from './lib/sweep.js'
+import { homecoming } from './lib/homecoming.js'
 
 const {
   ITERATION_COUNT,
@@ -62,6 +64,15 @@ const seconds = (since: number) => `${((Date.now() - since) / 1000).toFixed(1)}s
 await sweep([vocalsDir, musicDir])
 
 const diary = new Diary('memory/diary.jsonl')
+// on a machine that has lost the song, its memory is first taken back from
+// the Archive; on one that remembers less than the Archive holds, the Studio
+// does not wake at all
+const home = await homecoming(store, { diary, thoughts: thoughtsDir })
+if (home.books || home.months) {
+  console.log(
+    `this machine had forgotten; the Archive gave back ${home.books} books of the diary and ${home.months} months of the mind's thoughts`,
+  )
+}
 // a Song written down but never published, by a Studio that fell before the
 // end, is not remembered: its pages are taken back, and it is made again
 const lastWritten = await diary.lastPage()

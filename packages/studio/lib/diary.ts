@@ -82,7 +82,8 @@ export type ReadingOptions = {
 /** A closed book on the shelf: its place, and the first and last iteration in it. */
 export type Book = { file: string; place: number; first: bigint; last: bigint }
 
-const bookName = /^(\d+)\.(\d+)-(\d+)\.jsonl$/
+/** How a closed book is named on the shelf: its place, and its first and last iteration. */
+export const bookName = /^(\d+)\.(\d+)-(\d+)\.jsonl$/
 
 function isPage(page: unknown): page is Page {
   const p = page as Page
