@@ -14,85 +14,118 @@ So a Song is locked to **two iterations**: about 8 minutes at 72 bpm, from about
 
 The wrongness that used to decide a Song's length is applied elsewhere instead, as **Perspectives**.
 
+## Why Perspectives are code
+
+Nobody prompts the Studio while it works: the robot is not there, and the Mind cannot orchestrate work this complex. So every Perspective is written down whole, ahead of time, as a record and the code that applies it. The Studio only chooses Perspectives and runs them.
+
 ## Terms
 
-- **Perspective:** one way a Song is heard differently from the usual. The wrongness of the Song chooses a few Perspectives for it, and how far each one goes. A Perspective holds for the whole Song: both of its iterations.
-- **Wrongness:** as before, not random. The same Song (its number and Mood) always gets the same Perspectives, so it can be made again from the diary.
+- **Perspective:** one way a Song is heard differently from the usual. A single Perspective defines its own Facet, Turn and Weight. It holds for the whole Song: both of its iterations.
+- **Facet:** the part of the Studio's work a Perspective changes. A Facet is a fixed identifier, not an instruction to the Mind: it names one hook, a specific place in the Studio's code where Perspectives for that Facet are applied. The code decides what a Facet can reasonably let a Perspective change.
+- **Turn:** how a Perspective changes its Facet away from the default. A Turn is code (the Perspective's `actions.ts`), and may also need words for a model, kept beside it (`prompts.json`), for example what a bridge's bed is told. A Turn may have **variants**, chosen by the wrongness of the Song, such as which percussion the bridges are played on.
+- **Weight:** how likely the Perspective is to be chosen, from 1 to 10. The more drastic it is, the less weight it has.
+- **Wrongness:** as before, not random. The same Song always gets the same Perspectives and the same variants, so it can be made again from the diary.
 
 ## Moderation
 
-The changes stay moderate. Every Song is mostly the song as it usually is, with a few things heard from another side.
+- `PERSPECTIVE_COUNT`: how many Perspectives a Song gets. Default 2.
+- A Song never gets two Perspectives on the same Facet, so Perspectives never fight over one piece of work.
+- Perspectives are drawn by Weight, without replacement, so drastic ones are rare.
+- Only Perspectives in state `active` are drawn. A new one stays `draft` until it has been heard in a rehearsal.
+- Every Turn is moderate by itself, and makes sense next to any other Perspective. For example, the choir humming a bridge while a lone singer sings the Song is just the lone singer humming.
 
-- `PERSPECTIVE_COUNT`: how many Perspectives a Song gets. Default 2. Never all of them at once.
-- `PERSPECTIVE_STRENGTH`: how far a Perspective may go, from 0 (nothing changes) to 1 (the most the Perspective allows). Default 0.5. Each Perspective scales its own change by this, so the whole song can be made calmer or wilder from one place.
-- A Song may have no Perspectives at all, now and then, and be heard plainly.
-- Two Perspectives that would fight each other (for example "more humming" and "less humming") are never chosen together.
+There is no separate strength setting: how far a Perspective goes is its Turn, and how often it is heard is its Weight.
 
-Iterations are no longer set by `ITERATION_COUNT` with a drift. A Song has two, fixed. Variations keep alternating: the first iteration sings the Song's tune, the second its Variation.
+## Perspectives as records
 
-## The Perspectives
+Each Perspective is an arkku record of a new kind, `perspective`, in a folder of its own beside the code that applies it:
 
-### Form
+```
+packages/perspectives/
+  bridge-beds-dramatic-percussion/
+    perspective.md   the record: facet, weight, state; what it is, in prose
+    actions.ts       the Turn: a function typed for its Facet's hook
+    prompts.json     the words a model is given, if the Turn needs any
+```
 
-The arrangement of the iteration changes, instead of always verse · bridge · chorus · bridge · verse · bridge · chorus · bridge · verse · verse. For example:
+- **The `perspective` template** stores `facet` (one of the Facets below), `weight` (1–10) and `state` (`draft`, `active` or `retired`). Its `getFilename` is `packages/perspectives/<slug>/perspective.md`, and its validation checks that `actions.ts` is there.
+- **Under `packages/`**, the actions are inside the Bun workspaces, so `bun run lint` and the tests cover them like the rest of the song.
+- **`actions.ts`** exports a Turn typed for its Facet: a Perspective can only touch what its Facet's hook offers, and the typecheck enforces it. A Turn is given a wrongness of its own, named by the Song and the Perspective, and never uses `Math.random`.
 
-- a long wordless bridge, where the Music stretches out
-- the chorus doubled at the end
-- an instrumental intro or outro over a bed
-- a verse sung alone, without the Music
+## The Facets
 
-The Song's length moves by about a minute at most, through its shape rather than its duration.
+These are the Facets that have a hook in the code today, and the Turns each can reasonably take. Each line number is where the hook goes, as of `5f885fc`.
 
-### Development
+| Facet | Hook | What its Turns can change |
+|---|---|---|
+| `development` | `studio/lib/compose.ts:136`, where the iteration's Variation is chosen; `melody/lib/variation.ts:92` makes the Variations | How far the second iteration's Variation moves: how many verse phrases are ornamented (now one), and how many steps each takes. The chorus stays the anchor. |
+| `choir` | `studio/lib/compose.ts:125`, where a Song's choir is gathered; `studio/lib/perform.ts:148`, where it is decided who sings a line | How many sing (1 to 4: the lead, then harmonies a third, a fifth and an octave below), and whether the harmonies sing the verses as well as the chorus. |
+| `humanness` | `vocals/lib/humanize.ts:22-26` and `:73`, the limits of a take's wrongness; called from `studio/lib/perform.ts:100` and `:161` | How far a take wanders: pitch drift and wobble, how much a note leans into the next, and the vibrato, all scaled together. |
+| `bridge-singers` | `studio/lib/perform.ts:47`, how often a bridge is hummed; `:87`, who hums it; `:106`, whether this bridge is heard | How many of a Song's bridges are hummed aloud (now half), and whether the lead hums alone or the choir hums with it in harmony. |
+| `bridge-beds` | `music/lib/underlay.ts:86`, where a section's bed is given its words; `music/accompany.py:114-118`, where the model hears the guide's melody | What the bridges' beds are told, beside or instead of the Mood's band, and whether the model follows the guide's melody at all. |
+| `drift` | `studio/lib/compose.ts:119` calls `mood/index.ts:56`, where it is decided which descriptions of the Mood stay | How many of the Mood's descriptions let go when this Song begins (now one). |
 
-How far the second iteration moves from the first. Today the Variation ornaments one verse phrase by one step. Under this Perspective it may go further: more phrases, more steps, or a key change up a step for the second iteration. Some Songs barely move; others turn somewhere new.
+### Choosing them
 
-### Choir
+Perspectives are chosen when a Song begins, in `studio/lib/compose.ts` before the Mood drifts (line 119), because `drift` changes how the Song's own weather is formed. They are drawn from the wrongness of the Song's number. Like the choir and the tune, they are written into the diary page (line 146), so the second iteration and a Studio that wakes again both find them. They go to `perform`, `underlay` and `variations` with the iteration.
 
-Who sings, beyond the usual lead with two singers joining the chorus:
+The Song length is fixed in the same place: `lastsFor` (`studio/lib/compose.ts:56`) no longer drifts, and `ITERATION_COUNT` is 2.
 
-- a lone singer, with no choir at all
-- a fuller choir, up to four voices
-- harmonies that creep into the verses too
+## The first Perspectives
 
-Every singer is still sung apart in the Receiver, so they can be mixed live.
+| Perspective | Facet | Turn | Weight |
+|---|---|---|---|
+| `development-wider` | `development` | The second iteration's Variation ornaments two or three verse phrases instead of one. | 6 |
+| `development-deeper` | `development` | Each ornament takes two steps instead of one. | 4 |
+| `choir-lone` | `choir` | One singer, no choir. | 4 |
+| `choir-full` | `choir` | Four singers: the octave below joins. | 5 |
+| `choir-in-the-verses` | `choir` | The harmonies sing the verses too, not only the chorus. | 3 |
+| `humanness-glassy` | `humanness` | Takes wander about a third as far as usual: tight and machine-like. | 5 |
+| `humanness-loose` | `humanness` | Takes wander nearly twice as far: loose and a little drunk. | 4 |
+| `bridge-singers-often` | `bridge-singers` | Most bridges are hummed aloud. | 6 |
+| `bridge-singers-rarely` | `bridge-singers` | Few bridges are hummed; the Music carries them alone. | 6 |
+| `bridge-singers-choir` | `bridge-singers` | The choir hums the heard bridges with the lead, in harmony. | 4 |
+| `bridge-beds-dramatic-percussion` | `bridge-beds` | The bridges' beds are only percussion, one kind per Song, from `prompts.json`: "war drums", "spanish clapping", "church bells" and the like, at the Song's tempo, not following the guide's melody. | 3 |
+| `bridge-beds-atonal` | `bridge-beds` | The bridges' beds are told to be atonal, and do not follow the guide's melody. | 2 |
+| `drift-big-turn` | `drift` | Every description of the Mood lets go when this Song begins, not only the oldest. | 2 |
 
-### Human
+Not following the guide's melody needs one small change to `accompany.py`: a flag that gives the model silence to listen to, as it already does for a stretch too short to hear (line 114). The flag goes into the bed's name, beside its words.
 
-How human the singers are. The humanization (pitch drift, wobble, leaning on the beat, vibrato) is scaled up or down: tight and glassy in one Song, loose and drunk in another.
+## Left out of the first set
 
-### Bridge
+These ideas came up, but would take more than one hook, so they wait:
 
-What happens between the parts. At least these:
+- **Form**, the arrangement of an iteration (an instrumental intro or outro, a doubled chorus, a long bridge, a verse without the Music). `arrange` (`song/index.ts:214`) is shared by `perform`, the Session, the guides and the typing, and a different form changes the Song's length and every section's timing.
+- **A key change** for the second iteration, under `development`. The shelf (`music/lib/shelf.ts`) plays beds again within a Song, so a transposed iteration would be sung over beds in the old key. Every bed of the second iteration would have to be grown anew.
 
-- **More or less humming than usual.** Today half the bridges are hummed aloud; under this Perspective a Song hums most of them, or hardly any.
-- **The choir hums**, instead of the lead singer alone.
-- **The bridge beds are told something special**, on top of the Mood's band, for example:
-  - just specific percussion: "war drums", "spanish clapping", "church bells" and the like
-  - atonal
-
-### Drift
-
-How far the weather turns at the Song change. Usually one Mood description lets go and one arrives. Under this Perspective both may change, for an occasional bigger turn, without the song turning faster on average.
+Both can come later as Facets of their own, once the first set has been heard.
 
 ## In the Session
 
-The Session says which Perspectives its Song was heard from, and how far each went, so a Receiver can show them (in the knob panel, beside the weather, the key and the choir) and anyone looking back can see them. Everything a Perspective changes is already in the Session as it is played: the parts, the takes and the beds. A Receiver does not need to understand a Perspective to play it.
+The Session says which Perspectives its Song was heard from: each one's slug, Facet and Turn, and the variant chosen, for example `bridge-beds-dramatic-percussion: war drums`. A Receiver can show them in the knob panel, beside the weather, the key and the choir, and anyone looking back can see them. Everything a Perspective changes is already in the Session as it is played (the parts, the takes and the beds), so a Receiver does not need to understand a Perspective to play it.
 
 ```mermaid
 flowchart TD
-  Wrongness["Wrongness of the Song<br/>(its number and Mood)"] --> Choose["choose PERSPECTIVE_COUNT Perspectives<br/>that do not fight,<br/>each scaled by PERSPECTIVE_STRENGTH"]
+  Begins["A Song begins<br/>(compose.ts)"] --> Draw["draw PERSPECTIVE_COUNT active Perspectives<br/>by Weight, one per Facet,<br/>from the wrongness of the Song's number"]
+  Draw --> Diary[("diary page<br/>the Song's Perspectives")]
 
-  subgraph Perspectives
-    Form["Form<br/>the arrangement of parts"]
-    Development["Development<br/>how far iteration 2 moves"]
-    Choir["Choir<br/>who sings, and where"]
-    Human["Human<br/>how loose the singers are"]
-    Bridge["Bridge<br/>humming, who hums,<br/>what the bridge beds are told"]
-    Drift["Drift<br/>how far the weather turns next"]
+  subgraph Records["packages/perspectives/(slug)/"]
+    Record["perspective.md<br/>facet, weight, state"]
+    Actions["actions.ts<br/>the Turn"]
+    Prompts["prompts.json<br/>words for a model"]
+  end
+  Records --> Draw
+
+  Diary --> Hooks
+  subgraph Hooks["the Facets' hooks in the Studio"]
+    Drift["drift<br/>mood: which descriptions stay"]
+    Choir["choir<br/>who sings, and where"]
+    Development["development<br/>the second iteration's Variation"]
+    Humanness["humanness<br/>how far a take wanders"]
+    BridgeSingers["bridge-singers<br/>how often, and who hums"]
+    BridgeBeds["bridge-beds<br/>what the bridge beds are told"]
   end
 
-  Choose --> Perspectives
-  Perspectives --> Song["Song<br/>2 iterations, about 8 minutes"]
-  Song --> Session["Session<br/>the parts, takes and beds as played,<br/>and which Perspectives it was heard from"]
+  Hooks --> Song["Song<br/>2 iterations, about 8 minutes"]
+  Song --> Session["Session<br/>parts, takes and beds as played,<br/>and its Perspectives"]
 ```
