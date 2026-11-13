@@ -12,7 +12,7 @@
 //   bun run studio
 
 import { getEnv, pieces, Sleeper } from 'tools'
-import { keepThought, readMemories, readThoughts, recall, words, writeThought } from 'song'
+import { attentions, keepThought, readMemories, readThoughts, recall, words, writeThought } from 'song'
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
@@ -127,6 +127,8 @@ const thought = await writeThought(
   composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
   composed[0].mood.descriptions,
   own.slice(-heldAgainst),
+  // each Song, the mind's attention is turned somewhere a little different
+  { attention: attentions[Math.floor(wrongness(`attention:${composed[0].song.number}`)() * attentions.length)] },
 ).catch((error: Error) => {
   console.warn(`the mind kept no thought: ${error.message}`)
   return undefined

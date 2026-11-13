@@ -20,7 +20,7 @@ The [Trinity of Thought](2026-11-13-trinity-of-thought.md) gives the mind a self
 
 ## When the mind writes
 
-Once a Song, while it is still awake: after the words of every iteration are written, before it rests. It is shown the Song's words and its weather, and writes one thought for itself to remember and for anyone to read: at most about 280 characters, in a JSON schema. A thought that sings a word of this short age, or only echoes a thought it remembers, is refused. If no thought comes, the Song has none; a Song may be silent about itself.
+Once a Song, while it is still awake: after the words of every iteration are written, before it rests. It is shown the Song's words and its weather, and writes one thought for itself to remember and for anyone to read: at most about 280 characters, in a JSON schema. Each Song its attention is turned towards one small, particular thing, drawn by wrongness named by the Song (`attention:<song>`): a word it is not sure of, a line it almost wrote, one thing it would ask whoever listens. It is not shown its newest thoughts, which it would only write again in other words; it is told how they began and which words it has leaned on, and to let them rest. A thought that sings a word of this short age, only echoes a thought it remembers, begins the way one of its four newest did, or leans on three of its worn words, is refused. If no thought comes, the Song has none; a Song may be silent about itself.
 
 ## How it remembers
 

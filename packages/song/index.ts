@@ -7,7 +7,17 @@ import { leansOn, overlap, worn } from './lib/wear.js'
 import { ofItsAge, timeless, timelessInstruction } from './lib/timeless.js'
 import { forgotten, type Memories } from './lib/memories.js'
 export { forgotten, gather, memoriesOf, readMemories, recall, type Memories } from './lib/memories.js'
-export { echoOf, keepThought, longestThought, monthOf, readThoughts, writeThought, type Thought } from './lib/thoughts.js'
+export {
+  attentions,
+  echoOf,
+  keepThought,
+  longestThought,
+  monthOf,
+  readThoughts,
+  wornOut,
+  writeThought,
+  type Thought,
+} from './lib/thoughts.js'
 export { ofItsAge, timeless } from './lib/timeless.js'
 
 const verseInstruction = [
