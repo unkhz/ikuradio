@@ -40,6 +40,8 @@ export type Iteration = {
   perspectives: Chosen[]
   /** What the Studio's hooks follow for this Song: the defaults, as its Perspectives turned them. */
   settings: Settings
+  /** How many syllables a second its voices may sing at most. */
+  rate: number
 }
 
 export type ComposerOptions = {
@@ -56,6 +58,8 @@ export type ComposerOptions = {
   choirSize: number
   /** How many Variations of the tune take turns within a Song. */
   variationCount: number
+  /** How many syllables a second a voice may sing at most, for every Song that begins from now on. */
+  rate: number
   /** What the mind remembers at this sitting, its own and heard, to tell its story from in the verses. */
   memories?: Memories
 }
@@ -107,6 +111,7 @@ export async function composer(
     moodCount,
     choirSize,
     variationCount,
+    rate: rateNow,
     heardFrom,
     memories = forgotten,
   }: ComposerOptions,
@@ -186,6 +191,8 @@ export async function composer(
         }
       : tune
     const sung = variations(played, variationCount, song, settings.development)[variation]!
+    // the rate a Song begins with is the one it keeps, to its end
+    const rate = beginsSong || !last?.rate ? rateNow : last.rate
     last = {
       iteration: iteration.toString(),
       mood,
@@ -194,6 +201,7 @@ export async function composer(
       song: where,
       perspectives,
       settings,
+      rate,
       lyrics,
       written: new Date().toISOString(),
     }
@@ -210,6 +218,7 @@ export async function composer(
       lyrics,
       perspectives,
       settings,
+      rate,
     }
   }
 

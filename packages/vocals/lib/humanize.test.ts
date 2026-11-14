@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 import type { Score } from 'melody'
-import { humanize, wrongness } from './humanize.js'
+import { humanize, keepsPace, quickest, TooFast, wrongness } from './humanize.js'
 import { gather, firstChoir, introduce, throatOf } from './singers.js'
 
 const score: Score = {
@@ -141,5 +141,25 @@ describe('a choir the Mood guides', () => {
       expect(pressed[0].body).toBe('male')
       expect(pressed.every(({ throat }) => throat!.pressure >= 9.6)).toBe(true)
     }
+  })
+})
+
+describe('the pace of a take', () => {
+  // a line at the grid's floor at 90 bpm: every syllable exactly a sixth of a second apart
+  const tight: Score = { bpm: 90, lyrics: 'a b c d e f g h', notes: [[60, 0.25], [62, 0.25], [64, 0.25], [65, 0.25], [64, 0.25], [62, 0.25], [60, 1], [0, 1]] }
+
+  it('is never hurried by humanizing, however loose, when the rate is given', () => {
+    for (let n = 0; n < 200; n++) {
+      expect(quickest(humanize(tight, `take:${n}`, 1.6, 6))).toBeGreaterThanOrEqual(1 / 6 - 1e-9)
+    }
+  })
+
+  it('counts rests as time the voice has', () => {
+    expect(quickest({ bpm: 60, notes: [[60, 0.1], [0, 0.4], [62, 1]] })).toBeCloseTo(0.5)
+  })
+
+  it('refuses a take that would sing a syllable too soon, and lets one in time through', () => {
+    expect(() => keepsPace({ bpm: 120, notes: [[60, 0.25], [62, 1]] }, 6, 'a test')).toThrow(TooFast)
+    expect(() => keepsPace(tight, 6, 'a test')).not.toThrow()
   })
 })

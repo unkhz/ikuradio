@@ -1,4 +1,4 @@
-import { fitPhrase, type Phrase } from './lib/fit.js'
+import { fitPhrase, shortestBeats, type Phrase } from './lib/fit.js'
 import { chorusHook, verseWalk } from './lib/hooks.js'
 import {
   aeolian,
@@ -32,6 +32,7 @@ export {
 } from './lib/harmony.js'
 export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
+export { shortestBeats, spacing } from './lib/fit.js'
 
 export type Singer = 'male' | 'female' | 'child'
 
@@ -90,6 +91,8 @@ export type LineOptions = {
   harmony?: number
   /** The tune to sing, if not the one the song was born with. */
   tune?: Tune
+  /** How many syllables a second the voice may sing at most; the line is fitted to the grid that allows. */
+  rate?: number
 }
 
 /** Sets one line of lyrics to its tune, for one voice. */
@@ -102,9 +105,11 @@ export function setLine({
   character = firstCharacter,
   harmony = 0,
   tune = firstTune,
+  rate,
 }: LineOptions): Score {
   const phrases = part === 'chorus' ? tune.chorus : tune.verse
-  const { notes, rest } = fitPhrase(phrases[line % phrases.length], syllables)
+  const least = rate ? shortestBeats(character.tempo, rate) : undefined
+  const { notes, rest } = fitPhrase(phrases[line % phrases.length], syllables, least)
   const key = keyFor(singer, character.mode)
   return {
     bpm: character.tempo,

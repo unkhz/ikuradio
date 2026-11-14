@@ -7,7 +7,7 @@
 
 import { arrange } from 'song'
 import { harmonizeChoir, keyFor, scoreSeconds, setBridge, setLine, wrongness, type Score } from 'melody'
-import { blend, countSyllables, fullness, humanize, record, throatScore, type Take } from 'vocals'
+import { blend, countSyllables, fullness, humanize, keepsPace, record, throatScore, type Take } from 'vocals'
 import type { Iteration } from './compose.js'
 
 export type SungLine = {
@@ -81,6 +81,7 @@ export async function perform({
   sung: tune,
   song,
   settings,
+  rate,
 }: Iteration): Promise<SungLine[]> {
   // the Song's Perspectives, as its hooks here follow them
   const humanness = settings.humanness.scale
@@ -147,9 +148,11 @@ export async function perform({
       const score = scores[v]!
       const take = {
         // the lead's take is named as it always was
-        ...humanize(score, v === 0 ? `${iteration}:bridge:${section}` : `${iteration}:bridge:${section}:${v}`, humanness),
+        ...humanize(score, v === 0 ? `${iteration}:bridge:${section}` : `${iteration}:bridge:${section}:${v}`, humanness, rate),
         ...voice.throat,
       }
+      // a hum that would come too quickly is never sung: the iteration fails, and is made again
+      keepsPace(take, rate, `the bridge ${section} of iteration ${iteration}, voice ${v}`)
       return { voice, v, score, take }
     })
     const { score, take } = hums[0]
@@ -220,15 +223,18 @@ export async function perform({
       singer: voices[0]!.body,
       character: mood.character,
       tune,
+      rate,
     })
     const scores = choirOf(led, voices, lineKey(part, index, line))
     const takes = voices.map((voice, v) => {
       const score = scores[v]!
       const take = {
-        ...humanize(score, `${iteration}:${lineKey(part, index, line)}:${v}`, humanness),
+        ...humanize(score, `${iteration}:${lineKey(part, index, line)}:${v}`, humanness, rate),
         // each singer breathes through a throat of their own
         ...voice.throat,
       }
+      // a line that would come too quickly is never sung: the iteration fails, and is made again
+      keepsPace(take, rate, `"${line}" in iteration ${iteration}, voice ${v}`)
       return { voice, score, take }
     })
 

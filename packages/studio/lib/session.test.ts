@@ -34,6 +34,7 @@ function made(iteration: bigint, began = 0n): Made {
     lyrics: firstLyrics,
     perspectives: [{ slug: 'bridge-beds-atonal', title: 'Atonal bridges', facet: 'bridge-beds', variant: 'free jazz' }],
     settings: defaults(3),
+    rate: 6,
   }
   const lines: SungLine[] = []
   let at = 0
@@ -95,6 +96,10 @@ describe('toSession', () => {
     (file) => (file.startsWith('bed-') ? { lufs: -14.2, peak: -1.1 } : { lufs: -19.5, peak: -6 }),
     'c24945a+0123456789ab',
   )
+
+  it('says how many syllables a second its voices could sing', () => {
+    expect(session.rate).toBe(6)
+  })
 
   it('keeps every voice as its take, for a Receiver to sing, and the Music as sound', () => {
     expect(session.throat).toBe('c24945a+0123456789ab')

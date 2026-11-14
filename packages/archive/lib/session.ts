@@ -43,6 +43,12 @@ export type Session = {
    */
   thought?: string
   /**
+   * How many syllables a second the Song's voices could sing at most: no
+   * syllable was sung sooner than 1 / rate seconds after the one before.
+   * Missing on Songs from before there was a limit.
+   */
+  rate?: number
+  /**
    * The singers, the lead first: a Receiver places each where it likes in
    * its mix. A voice Recording names its singer by place in this list.
    */

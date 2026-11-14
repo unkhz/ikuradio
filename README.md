@@ -156,7 +156,7 @@ The Radio is compiled by Bun into one executable, the Receiver's page carried in
 
 Settings live in `.env`, with the Studio machine's own in `.env.local`, which is never committed.
 
-- **The song:** `ITERATION_COUNT` sets how many iterations a Song lasts. `MOOD_COUNT` sets how many descriptions a Mood blends, `CHOIR_COUNT` how many voices sing the chorus, the lead included, and `VARIATION_COUNT` how many Variations of the tune take turns in a Song.
+- **The song:** `ITERATION_COUNT` sets how many iterations a Song lasts. `MOOD_COUNT` sets how many descriptions a Mood blends, `CHOIR_COUNT` how many voices sing the chorus, the lead included, `SYLLABLES_PER_SECOND` how many syllables a voice may sing in a second at most (6; no sung syllable comes sooner than a sixth of a second after the one before, and a take that would is never sung; see [plans/2026-11-14-time-follows-lyrics.md](plans/2026-11-14-time-follows-lyrics.md)), and `VARIATION_COUNT` how many Variations of the tune take turns in a Song.
 - **The mind:** `MIND_MODEL` and `MIND_HOST` say which mind to wake and where. `MIND_CONTEXT` sets how much each of its `MIND_SLOTS` holds at once, memories included.
 - **The Studio and the Heart:** `THROATS` sets how many recordings may be made at once, half the machine's cores by default, always at a lower priority than anything else on the machine. `SONGS_AHEAD` sets how many Songs the Heart keeps ready ahead of the one playing. `RADIO_URL` is the live Radio, which the Heart and the terminal listen to.
 - **The Archive:** `ARCHIVE_PUBLIC_URL`, `ARCHIVE_ACCESS_KEY` and `ARCHIVE_SECRET_KEY` are the bucket.

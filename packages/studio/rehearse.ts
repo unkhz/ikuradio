@@ -39,7 +39,7 @@ import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 import { humGuides } from './lib/guide.js'
 
-const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT } = getEnv()
+const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT, SYLLABLES_PER_SECOND } = getEnv()
 const given = process.argv.slice(2)
 const last = BigInt(given.find((arg) => /^\d+$/.test(arg)) ?? 1)
 const dry = given.includes('--dry')
@@ -85,6 +85,7 @@ const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
   variationCount: VARIATION_COUNT,
+  rate: SYLLABLES_PER_SECOND,
   memories,
 })
 

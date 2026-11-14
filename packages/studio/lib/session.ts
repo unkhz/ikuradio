@@ -153,6 +153,7 @@ export function toSession(
     ...(mood.character.sound ? { sound: mood.character.sound } : {}),
     choir: introduce(choir),
     ...(thought ? { thought } : {}),
+    ...(first.rate ? { rate: first.rate } : {}),
     ...(first.perspectives?.length
       ? {
           perspectives: first.perspectives.map(({ slug, title, facet, variant }) => ({

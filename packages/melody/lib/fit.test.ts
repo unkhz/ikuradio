@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { fitPhrase, type Phrase } from './fit.js'
+import { fitPhrase, shortestBeats, spacing, type Phrase } from './fit.js'
 import { chorusHook, verseWalk } from './hooks.js'
 import { degreeToMidi, aeolian } from './scale.js'
 import { setLine } from '../index.js'
@@ -93,5 +93,24 @@ describe('setLine', () => {
 
   it('keeps silence silent in every voice', () => {
     expect(setLine({ ...line, harmony: -4 }).notes.at(-1)?.[0]).toBe(0)
+  })
+})
+
+describe('the grid', () => {
+  it('keeps syllables a sixteenth apart at slow tempos and an eighth apart at fast ones, at six a second', () => {
+    for (const bpm of [60, 76, 90]) expect(spacing(bpm, 6)).toBe(1)
+    for (const bpm of [92, 116, 180]) expect(spacing(bpm, 6)).toBe(2)
+    expect(spacing(76, 4)).toBe(2)
+  })
+
+  it('never lets a fitted note be quicker than the grid allows, however many syllables come', () => {
+    for (const bpm of [60, 76, 92, 116]) {
+      const least = shortestBeats(bpm, 6)
+      for (const syllables of [9, 15, 22, 30, 42]) {
+        const fitted = fitPhrase(chorusHook[0]!, syllables, least)
+        expect(fitted.notes).toHaveLength(syllables)
+        for (const [, beats] of fitted.notes.slice(0, -1)) expect((beats * 60) / bpm).toBeGreaterThanOrEqual(1 / 6 - 1e-9)
+      }
+    }
   })
 })

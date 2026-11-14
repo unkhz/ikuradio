@@ -31,6 +31,7 @@ const {
   ITERATION_COUNT,
   MOOD_COUNT,
   CHOIR_COUNT,
+  SYLLABLES_PER_SECOND,
   VARIATION_COUNT,
   MIND_CONTEXT,
 } = getEnv()
@@ -112,6 +113,7 @@ const { compose } = await composer(diary, {
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
   variationCount: VARIATION_COUNT,
+  rate: SYLLABLES_PER_SECOND,
   memories,
 })
 const composed: Iteration[] = []

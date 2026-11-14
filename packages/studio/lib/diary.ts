@@ -51,6 +51,12 @@ export type Page = {
    */
   perspectives?: Chosen[]
   settings?: Settings
+  /**
+   * How many syllables a second the Song's voices may sing at most, as it
+   * was set when the Song began. Missing on pages written before there was
+   * a limit.
+   */
+  rate?: number
   lyrics: Lyrics
   /** When it was written, as the machine's clock saw it. */
   written: string

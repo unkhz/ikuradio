@@ -38,6 +38,12 @@ const envSchema = z.object({
   MOOD_COUNT: z.coerce.number().int().min(1).default(2),
   /** How many voices sing the chorus, the lead included. */
   CHOIR_COUNT: z.coerce.number().int().min(1).max(4).default(3),
+  /**
+   * How many syllables a voice may sing in a second, at most: no sung
+   * syllable starts sooner than 1 / this after the one before. English is
+   * spoken at about six; tuned by ear, from the next Song on.
+   */
+  SYLLABLES_PER_SECOND: z.coerce.number().min(1).max(12).default(6),
   VARIATION_COUNT: z.coerce.number().int().min(1).default(2),
 })
 
