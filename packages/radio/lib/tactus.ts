@@ -52,6 +52,20 @@ export class Tactus {
     return this.aired
   }
 
+  /**
+   * What follows a Song for someone hearing Songs again, one after another:
+   * the next Song that aired to its end after it, in the order they aired,
+   * a Song aired twice counted once; or live, if what follows it is the Song
+   * playing now, or nothing has aired after it. Never a Song still to come.
+   */
+  after(song: string): { song: string } | { live: true } {
+    const now = this.now()
+    const at = this.aired.findIndex((a) => a.song === song)
+    const later = at >= 0 ? this.aired.slice(at + 1) : this.aired.filter((a) => order(a.song, song) > 0)
+    const next = later.find((a) => a.song !== song)
+    return next && endOf(next) <= now ? { song: next.song } : { live: true }
+  }
+
   /** The Songs that could be announced next, of those the Archive has, in order. */
   candidates(songs: readonly string[]): string[] {
     const last = this.aired.at(-1)

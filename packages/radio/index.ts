@@ -12,6 +12,7 @@
 //   GET /songs/page every Song received, the one on now first, a slice at a time,
 //                   found by mode and by how it was heard (?mode=dorian&heard=plainly|<slug>)
 //   GET /songs/options  both filters' options, each counted given the other
+//   GET /songs/after?song=<n>  what follows Song n for someone hearing Songs again: the next aired, or live
 //   GET /pulse      whether the song is alive (200) or not (503)
 //   GET /           the Receiver, for a browser
 //   GET /s/<n>      the Receiver, tuned to Song n from its beginning
@@ -142,9 +143,6 @@ async function listen() {
   )
 }
 
-await listen()
-setInterval(listen, 2000)
-
 // The cache of the Songs received, for searching them. The song never waits
 // for it: it is filled in the background, and while it is away the list is
 // read from the Tactus, without search.
@@ -178,8 +176,12 @@ async function keepCache() {
     keeping = false
   }
 }
+
+await listen()
+setInterval(listen, 2000)
 void keepCache()
 setInterval(keepCache, 60_000)
+
 
 /** What a search asks for, if it asks for something that could be there. */
 const searchOf = (url: URL) => {
@@ -348,6 +350,12 @@ Bun.serve({
         .slice(-count)
         .reverse()
       return json(aired.map((a) => told(a, archive)))
+    }
+
+    if (url.pathname === '/songs/after') {
+      const song = url.searchParams.get('song') ?? ''
+      if (!/^\d{1,400}$/.test(song)) return json({ error: 'a Song is asked for by its number' }, 400)
+      return json(tactus.after(song))
     }
 
     if (url.pathname === '/songs/options') {

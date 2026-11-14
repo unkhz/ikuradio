@@ -130,6 +130,18 @@
       #status .side {
         font-size: 0.9em;
       }
+      /* where a Song heard again has ended: the two ways to carry on */
+      #status .carry {
+        font: inherit;
+        color: var(--words);
+        background: none;
+        border: 2px dotted #34434f;
+        border-radius: 0.4rem;
+        min-height: 44px;
+        padding: 0.25rem 0.9rem;
+        margin-right: 0.6rem;
+        cursor: pointer;
+      }
       #controls {
         position: fixed;
         inset: 0;
@@ -277,7 +289,11 @@
         cursor: pointer;
         text-decoration: none;
       }
-      #panel nav a[hidden] {
+      #panel nav [aria-pressed='true'] {
+        color: var(--chorus);
+      }
+      #panel nav a[hidden],
+      #panel nav button[hidden] {
         display: none;
       }
       /* every Song received, newest first, opened over the receiver */
@@ -452,6 +468,7 @@
       <nav>
         <button id="open-songs" type="button">songs</button>
         <a id="live" href="/" hidden>tune to live</a>
+        <button id="autoplay" type="button" aria-pressed="false" hidden>autoplay: off</button>
       </nav>
     </section>
     <dialog id="songs" aria-label="Songs received">

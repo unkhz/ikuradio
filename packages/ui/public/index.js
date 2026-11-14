@@ -956,15 +956,151 @@ document.getElementById('open-songs').addEventListener('click', () => {
 document.getElementById('close-songs').addEventListener('click', () => songsDialog.close())
 
 // A Song asked for by its number, at /s/<n>, is played from its beginning.
-const asked = /^\/s\/(\d{1,400})\/?$/.exec(location.pathname)
-const replay = asked && BigInt(asked[1]) > 0n ? { index: BigInt(asked[1]), number: BigInt(asked[1]).toLocaleString('en') } : undefined
-if (replay) {
-  document.getElementById('play').textContent = `play Song ${replay.number} from its beginning`
-  document.getElementById('live').hidden = false
+const replayAt = (path) => {
+  const asked = /^\/s\/(\d{1,400})\/?$/.exec(path)
+  return asked && BigInt(asked[1]) > 0n ? { index: BigInt(asked[1]), number: BigInt(asked[1]).toLocaleString('en') } : undefined
+}
+let replay = replayAt(location.pathname)
+
+// Carrying on (plan "Carry on listening"). A Song heard again ends, and the
+// listener may carry on: to the next Song that aired, and the next, until
+// the song is live again, or straight to live. It is all taken up within
+// this page, on the same sound, because a browser lets a page sound only
+// after a click, and a page loaded again would have to be clicked again. The
+// address follows what is heard, so it can still be shared, and the back
+// button returns to the Song before. Autoplay, carrying on without being
+// asked, is remembered in this browser until it is turned off.
+const autoplayKey = 'ikuradio:autoplay'
+function autoplaying() {
+  try {
+    return localStorage.getItem(autoplayKey) === 'on'
+  } catch {
+    return false
+  }
+}
+function setAutoplay(on) {
+  try {
+    if (on) localStorage.setItem(autoplayKey, 'on')
+    else localStorage.removeItem(autoplayKey)
+  } catch {
+    // a browser that keeps nothing still carries on for as long as the page is open
+  }
+  autoplayOn = on
+  drawAutoplay()
+}
+let autoplayOn = autoplaying()
+
+/** The knob's toggle: shown only while a Song is heard again, for live always carries on. */
+function drawAutoplay() {
+  const toggle = document.getElementById('autoplay')
+  toggle.hidden = !replay
+  toggle.setAttribute('aria-pressed', String(autoplayOn))
+  toggle.textContent = autoplayOn ? 'autoplay: on' : 'autoplay: off'
+}
+document.getElementById('autoplay').addEventListener('click', () => setAutoplay(!autoplayOn))
+
+/** What the page says of the Song it will play from its beginning, or of live. */
+function tellReplay() {
+  document.getElementById('play').textContent = replay ? `play Song ${replay.number} from its beginning` : 'switch on'
+  document.getElementById('live').hidden = !replay
+  document.title = replay ? `Song ${replay.number} · ikuradio` : 'ikuradio'
+  drawAutoplay()
+}
+tellReplay()
+
+// What is being listened to, once the page is switched on: its sound, where
+// its words go, and the loops that keep it going, stopped when it carries on.
+let listening
+const loops = []
+let generation = 0
+function every(ms, then) {
+  loops.push(setInterval(then, ms))
+}
+/** Stops whatever is being listened to, so something else may be taken up. */
+function stopListening() {
+  for (const loop of loops.splice(0)) clearInterval(loop)
+  generation++
+  bridgeEnds()
+  // its sounds are let go; what has been placed on the audio clock plays out
+  songs.clear()
+  showing = undefined
+  // the details the Radio wrote into the page were of the Song it was served for
+  document.getElementById('details').removeAttribute('data-served')
+  tellDetails()
 }
 
+/** Takes up Song `n` from its beginning, in this page. */
+function carryOnTo(n, { push = true } = {}) {
+  stopListening()
+  replay = replayAt(`/s/${n}`)
+  if (push) history.pushState(null, '', `/s/${n}`)
+  tellReplay()
+  listenAgain(listening.output, listening.audioContext)
+}
+
+/** Takes up live, in this page. */
+function tuneLive({ push = true } = {}) {
+  stopListening()
+  replay = undefined
+  if (push) history.pushState(null, '', '/')
+  tellReplay()
+  listenLive(listening.output, listening.audioContext)
+}
+
+/** Carries on after Song `song`: with the next Song that aired after it, or with live. */
+async function carryOn(song) {
+  const mine = generation
+  waiting('finding the next Song')
+  try {
+    const after = await fetch(`${radio}/songs/after?song=${song}`).then((r) => {
+      if (!r.ok) throw new Error(`${r.status}`)
+      return r.json()
+    })
+    if (mine !== generation) return
+    if (after.song) carryOnTo(after.song)
+    else tuneLive()
+  } catch {
+    if (mine !== generation) return
+    offerToCarryOn(song)
+  }
+}
+
+/** Where a Song heard again has ended: two ways to carry on, in place of the hint. */
+function offerToCarryOn(song) {
+  const button = (words, then) => Object.assign(document.createElement('button'), { type: 'button', className: 'carry', textContent: words, onclick: then })
+  document.getElementById('status').replaceChildren(
+    button('autoplay next', () => {
+      setAutoplay(true)
+      carryOn(song)
+    }),
+    button('tune live', () => tuneLive()),
+  )
+}
+
+// the knob's way back to live is taken up in this page, once it is switched on
+document.getElementById('live').addEventListener('click', (event) => {
+  if (!listening) return
+  event.preventDefault()
+  showPanel(false)
+  tuneLive()
+})
+
+// back and forward go to the Song, or live, the address names
+addEventListener('popstate', () => {
+  const asked = replayAt(location.pathname)
+  if (!listening) {
+    replay = asked
+    tellReplay()
+    return
+  }
+  if (asked) carryOnTo(String(asked.index), { push: false })
+  else tuneLive({ push: false })
+})
+
 async function listenAgain(output, audioContext) {
-  const song = String(replay.index)
+  const mine = generation
+  const { index, number: named } = replay
+  const song = String(index)
   let tactus
   try {
     tactus = await askRadio()
@@ -975,35 +1111,39 @@ async function listenAgain(output, audioContext) {
   // only what has been received may be heard again: nothing from the future
   const aired =
     tactus.playing?.song === song ||
-    (await fetch(`${radio}/songs?before=${replay.index + 1n}&count=1`)
+    (await fetch(`${radio}/songs?before=${index + 1n}&count=1`)
       .then((r) => r.json())
       .then((found) => found.some((a) => a.song === song))
       .catch(() => false))
+  if (mine !== generation) return
   if (!aired) {
-    weather(output, `Song ${replay.number} has not been received yet`)
+    weather(output, `Song ${named} has not been received yet`)
     waiting('tune to live from the knob')
     return
   }
   const airing = { song, session: new URL(`sessions/${song}.json`, tactus.archive).href, archive: tactus.archive, begins: Infinity, seconds: 0 }
   const prepared = prepare(airing)
-  const fetching = setInterval(
-    () => waiting(`readying Song ${replay.number}: ${prepared.fetched} of ${prepared.first || '…'} to begin with`),
-    200,
-  )
+  every(200, () => {
+    // throats already open from a Song before are idle, and are asked to sing this one's first takes
+    singSoon()
+    if (!prepared.startable) waiting(`readying Song ${named}: ${prepared.fetched} of ${prepared.first || '…'} to begin with`)
+  })
   await prepared.starting
-  clearInterval(fetching)
+  if (mine !== generation) return
+  for (const loop of loops.splice(0)) clearInterval(loop)
   if (!prepared.startable) {
-    weather(output, `Song ${replay.number} cannot be found in the Archive`)
+    weather(output, `Song ${named} cannot be found in the Archive`)
+    offerToCarryOn(song)
     return
   }
   airing.seconds = prepared.session.seconds
   airing.begins = now() + 1500
   let ended = false
-  setInterval(() => {
+  every(50, () => {
     placeSounds(audioContext)
     singSoon()
     const t = (now() - airing.begins) / 1000
-    if (t < 0) return waiting(`Song ${replay.number} begins in ${Math.ceil(-t)}s`)
+    if (t < 0) return waiting(`Song ${named} begins in ${Math.ceil(-t)}s`)
     if (t < airing.seconds) {
       writeUpTo(output, prepared, t)
       if (prepared.missing && t < 6) waiting('its voices were lost; only its words remain')
@@ -1012,9 +1152,10 @@ async function listenAgain(output, audioContext) {
     if (ended) return
     ended = true
     bridgeEnds()
-    weather(output, `Song ${replay.number} has ended`)
-    waiting('tune to live from the knob')
-  }, 50)
+    weather(output, `Song ${named} has ended`)
+    if (autoplayOn) carryOn(song)
+    else offerToCarryOn(song)
+  })
 }
 
 // Listening, for as long as the page is open. Every few seconds the Radio is
@@ -1024,20 +1165,26 @@ async function listenAgain(output, audioContext) {
 const quiet = '~ the radio is quiet ~'
 const breath = '~ the song holds its breath ~'
 
+/** The first click: the page may sound from now on, and takes up the Song asked for, or live. */
 async function listen() {
   document.getElementById('controls').style.display = 'none'
-  const output = document.getElementById('output')
-  const audioContext = new AudioContext()
+  listening = { output: document.getElementById('output'), audioContext: new AudioContext() }
   // the first page of Songs comes with the first Song, so the dialog opens full
   received.at = Date.now()
   loadPage(0)
-  if (replay) return listenAgain(output, audioContext)
+  if (replay) return listenAgain(listening.output, listening.audioContext)
+  return listenLive(listening.output, listening.audioContext)
+}
+
+async function listenLive(output, audioContext) {
+  const mine = generation
   let said // the last thing said into the quiet, so it is said only once
   let heard = false
 
   const ask = async () => {
     try {
       const tactus = await askRadio()
+      if (mine !== generation) return
       heard = true
       for (const airing of [tactus.playing, tactus.next]) if (airing) prepare(airing)
       forget()
@@ -1047,9 +1194,10 @@ async function listen() {
     }
   }
   await ask()
-  setInterval(ask, 5000)
+  if (mine !== generation) return
+  every(5000, ask)
 
-  setInterval(() => {
+  every(50, () => {
     placeSounds(audioContext)
     singSoon()
     const moment = now()
@@ -1078,7 +1226,7 @@ async function listen() {
         waiting('waiting for the next Song')
       }
     }
-  }, 50)
+  })
 }
 
 document.getElementById('play').addEventListener('click', () => listen())

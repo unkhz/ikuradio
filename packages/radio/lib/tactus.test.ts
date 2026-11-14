@@ -53,3 +53,31 @@ describe('Tactus', () => {
     })
   })
 })
+
+describe('what follows a Song heard again', () => {
+  const minute = 60_000
+  const aired = [
+    { song: '10', begins: 0, seconds: 60 },
+    { song: '12', begins: minute, seconds: 60 },
+    { song: '12', begins: 2 * minute, seconds: 60 },
+    { song: '15', begins: 3 * minute, seconds: 60 },
+    { song: '16', begins: 4 * minute, seconds: 60 },
+  ]
+
+  it('is the next Song that aired to its end, in the order they aired, a Song aired twice counted once', () => {
+    const tactus = new Tactus([...aired], () => 4.5 * minute)
+    expect(tactus.after('10')).toEqual({ song: '12' })
+    expect(tactus.after('12')).toEqual({ song: '15' })
+  })
+
+  it('is live when what follows is playing now, or is still to come, or nothing aired after it', () => {
+    expect(new Tactus([...aired], () => 4.5 * minute).after('15')).toEqual({ live: true })
+    expect(new Tactus([...aired], () => 3.5 * minute).after('12')).toEqual({ live: true })
+    expect(new Tactus([...aired], () => 10 * minute).after('16')).toEqual({ live: true })
+  })
+
+  it('follows a Song the Radio never aired with the next one after it by number', () => {
+    expect(new Tactus([...aired], () => 10 * minute).after('11')).toEqual({ song: '12' })
+    expect(new Tactus([...aired], () => 10 * minute).after('13')).toEqual({ song: '15' })
+  })
+})
