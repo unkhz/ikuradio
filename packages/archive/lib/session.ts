@@ -115,6 +115,18 @@ export type SessionGuide = {
   seconds: number
   /** What was hummed: its notes in MIDI and beats, at its tempo. */
   score: { bpm: number; notes: [number, number][] }
+  /** For a two-voice guide: the lower voice, as its throat was given it, and the body that hummed it. */
+  lower?: { take: SessionTake; body: 'male' | 'female' | 'child' }
+  /**
+   * For a two-voice guide: its chords, explicit, in beats from the section's
+   * beginning: the scale degree each triad stands on, the lower and upper
+   * voices' degrees, and its function. Degrees count from A in the Song's mode.
+   */
+  chords?: { at: number; beats: number; root: number; bass: number; upper: number; function: 'home' | 'away' | 'tension' }[]
+  /** Which of its chords lies furthest from home: the arc's turning point. */
+  furthest?: number
+  /** How its voices were hummed for the Music: in turns, the lower opening each chord and the upper finishing it. */
+  rendering?: 'turns'
 }
 
 export type SessionIteration = {

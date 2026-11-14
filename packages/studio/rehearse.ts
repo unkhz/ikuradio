@@ -37,7 +37,7 @@ import { getEnv, pieces, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
 import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
-import { humGuides } from './lib/guide.js'
+import { guidesFor, humGuides } from './lib/guide.js'
 
 const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT, SYLLABLES_PER_SECOND } = getEnv()
 const given = process.argv.slice(2)
@@ -142,7 +142,7 @@ for (let iteration = 1n; iteration <= last; iteration++) {
     lines,
     mood: composed.mood,
     iteration,
-    guides: await humGuides(composed, lines),
+    guides: await humGuides(composed, lines, sung.at(-1)?.guides),
     bridgeBeds: composed.settings['bridge-beds'],
   })
 }
@@ -159,7 +159,7 @@ if (!dry) {
       const { beds } = await underlay(lines, mood, {
         shelf,
         iteration,
-        guides: new Map(guides.map(({ kind, file }) => [kind, file])),
+        guides: guidesFor(guides),
         bridgeBeds,
       })
       if (beds.length === 0) continue

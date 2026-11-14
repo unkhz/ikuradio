@@ -146,3 +146,23 @@ describe('sections, and the beds that lie under them', () => {
     expect(found[1]).toMatchObject({ from: 'verse', to: 'chorus' })
   })
 })
+
+describe('the shelf, as every section has a guide of its own', () => {
+  it('plays a bed again only for the very guide it grew from, and forgets it with its Song', () => {
+    const shelf = new Shelf()
+    expect(shelf.grownFrom('a', 'guide-1')).toBeUndefined()
+    shelf.keepGuided('a', 'verse', 'guide-1', 'bed-1.wav')
+    expect(shelf.grownFrom('a', 'guide-1')).toBe('bed-1.wav')
+    expect(shelf.grownFrom('a', 'guide-2')).toBeUndefined()
+    expect(shelf.grownFrom('b', 'guide-1')).toBeUndefined()
+    expect(shelf.keepGuided('b', 'verse', 'guide-3', 'bed-3.wav')).toEqual(['bed-1.wav'])
+    expect(shelf.grownFrom('b', 'guide-1')).toBeUndefined()
+  })
+
+  it('forgets a guide when its bed leaves the shelf', () => {
+    const shelf = new Shelf()
+    for (let n = 0; n <= shelfSize; n++) shelf.keepGuided('a', 'verse', `guide-${n}`, `bed-${n}.wav`)
+    expect(shelf.grownFrom('a', 'guide-0')).toBeUndefined()
+    expect(shelf.grownFrom('a', `guide-${shelfSize}`)).toBe(`bed-${shelfSize}.wav`)
+  })
+})

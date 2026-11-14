@@ -23,14 +23,17 @@ export {
   changePoints,
   chordLengths,
   chordPath,
+  stable,
   composeGuide,
   counterpoint,
   guideCosts,
+  inTurns,
   timedLine,
   type ChordFunction,
   type Ending,
   type GuideChord,
   type TimedSyllable,
+  type Turn,
   type TwoVoiceGuide,
 } from './lib/guide.js'
 export { degreeOf, nearestDegree, vocalRange } from './lib/reach.js'

@@ -66,17 +66,41 @@ export async function underlay(
     /**
      * A guide hum for each kind of bed, the lead's slow reading of its
      * melody: what the Music listens to, if given, instead of the sung voice.
+     * A guide given for a section by its place in the iteration, from 0, is
+     * that section's own: the section grows its own bed from it, and plays
+     * an old one only if it grew from the very same guide.
      */
-    guides?: ReadonlyMap<Kind, string>
+    guides?: ReadonlyMap<Kind | number, string>
   } = {},
 ): Promise<{ beds: Placed[]; departed: string[]; grown: number }> {
   const all = sections(lines)
   const song = songOf(mood)
   const beds = new Map<Kind, string>()
+  const own = new Map<number, string>()
   const kinds = [...new Set(all.map(({ kind }) => kind))]
   const departed: string[] = []
   let grown = 0
-  for (const section of all) {
+  for (const [i, section] of all.entries()) {
+    const guided = guides?.get(i)
+    if (guided) {
+      // a section with a guide of its own: its own bed, from the shelf only if it grew from this guide
+      const kept = shelf?.grownFrom(song, guided)
+      if (kept) {
+        own.set(i, kept)
+        continue
+      }
+      const turned = section.part === 'bridge' ? bridgeBeds : undefined
+      const bed = await accompany({
+        vocals: guided,
+        mood: turned?.instead ? `${turned.instead}, ${mood.character.tempo} bpm` : words(mood),
+        seconds: section.seconds + tail,
+        melody: turned?.melody ?? true,
+      })
+      own.set(i, bed)
+      grown++
+      if (shelf) departed.push(...shelf.keepGuided(song, section.kind, guided, bed, Math.min(longest, section.seconds + tail)))
+      continue
+    }
     if (beds.has(section.kind)) continue
     const guide = guides?.get(section.kind)
     if (!guide && !section.lines.some(({ file }) => file)) continue
@@ -102,12 +126,12 @@ export async function underlay(
     grown++
     if (shelf) departed.push(...shelf.keep(song, section.kind, bed, Math.min(longest, section.seconds + tail)))
   }
-  if (beds.size === 0) {
+  if (beds.size === 0 && own.size === 0) {
     console.warn(`no bed grew under ${describe(mood)}: nothing was sung`)
   }
   return {
-    beds: all.flatMap(({ kind, at, seconds }) => {
-      const file = beds.get(kind)
+    beds: all.flatMap(({ kind, at, seconds }, i) => {
+      const file = own.get(i) ?? beds.get(kind)
       return file ? [{ file, at, gain: bedGain, seconds, fade: tail }] : []
     }),
     departed,

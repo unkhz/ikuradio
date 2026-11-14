@@ -152,6 +152,8 @@ export const guideCosts = {
   temperature: 0.7,
   /** How much matching last iteration's chord at the same place gains. */
   guidePull: 0.4,
+  /** What a diminished or augmented chord costs where the path is free: passed through now and then, never a resting place. */
+  unstable: 1.5,
 }
 
 /** The lowest and highest chord in beats and seconds: at least one beat and 0.6 s, at most two bars and 6 s. */
@@ -218,15 +220,28 @@ function moveCost(a: number, b: number): number {
 }
 
 /**
+ * Whether the triad on a degree of the mode is major or minor: a third of
+ * three or four semitones and a perfect fifth. The diminished and augmented
+ * triads are not; a mode has them in different places, dorian on its sixth,
+ * mixolydian on its third, aeolian on its second.
+ */
+export function stable(root: number, mode: readonly number[]): boolean {
+  const above = (steps: number) => (((mode[(root + steps) % 7]! - mode[root]!) % 12) + 12) % 12
+  return (above(2) === 3 || above(2) === 4) && above(4) === 7
+}
+
+/**
  * The roots of `count` chords: the first `departure`, the last the cadence,
  * and those between sampled along the arc, rising to their furthest point
  * late in the section. `previous` is last iteration's roots, a gentle pull.
+ * Given the `mode`, a diminished or augmented chord is passed through only
+ * now and then.
  */
 export function chordPath(
   count: number,
   ending: Ending,
   random: () => number,
-  { departure = 0, previous }: { departure?: number; previous?: readonly number[] } = {},
+  { departure = 0, previous, mode }: { departure?: number; previous?: readonly number[]; mode?: readonly number[] } = {},
 ): number[] {
   if (count <= 0) return []
   if (count === 1) return [ending === 'full' ? 0 : departure]
@@ -246,7 +261,11 @@ export function chordPath(
     return previous[j] === root ? -guideCosts.guidePull : 0
   }
   const node = (i: number, root: number) =>
-    fixed.has(i) ? (fixed.get(i) === root ? 0 : Infinity) : guideCosts.arc * Math.abs(distance[root]! - target(i)) + pull(i, root)
+    fixed.has(i)
+      ? fixed.get(i) === root
+        ? 0
+        : Infinity
+      : guideCosts.arc * Math.abs(distance[root]! - target(i)) + pull(i, root) + (mode && !stable(root, mode) ? guideCosts.unstable : 0)
   const weight = (cost: number) => (Number.isFinite(cost) ? Math.exp(-cost / guideCosts.temperature) : 0)
   // forward: how well each root can be reached at each chord
   const forward: number[][] = []
@@ -394,7 +413,7 @@ export function composeGuide({
 }): TwoVoiceGuide {
   const points = changePoints(syllables, beats, bpm)
   const spans = points.map((at, i) => ({ at, beats: (points[i + 1] ?? beats) - at }))
-  const roots = chordPath(spans.length, ending, random, { departure, previous: previous?.chords.map(({ root }) => root) })
+  const roots = chordPath(spans.length, ending, random, { departure, previous: previous?.chords.map(({ root }) => root), mode })
   const { bass, upper } = counterpoint(roots, ending, mode, random)
   const chords: GuideChord[] = spans.map((span, i) => ({
     ...span,
@@ -446,4 +465,37 @@ export function timedLine(
   }
   if (timed.length) timed[timed.length - 1]!.lineEnd = true
   return timed
+}
+
+/** A guide voice as it is hummed for the Music: [degree, beats], a degree of null being silence. */
+export type Turn = [degree: number | null, beats: number]
+
+/**
+ * How the two voices of a guide are hummed for the Music: taking turns. The
+ * lower voice opens each chord, for half of it and at least half a second,
+ * and falls silent; the upper sings the rest of it. The Music hears one
+ * voice at a time, as clearly as one voice can be heard, and so hears the
+ * root of nearly every chord and its upper note after it (see "Why taking
+ * turns" in studio/lib/guide.ts). A chord too short for both keeps only its
+ * lower voice.
+ */
+export function inTurns(guide: TwoVoiceGuide, bpm: number): { lower: Turn[]; upper: Turn[] } {
+  const half = (0.5 * bpm) / 60
+  const lower: Turn[] = []
+  const upper: Turn[] = []
+  const push = (voice: Turn[], degree: number | null, beats: number) => {
+    const last = voice.at(-1)
+    if (last && last[0] === null && degree === null) last[1] += beats
+    else voice.push([degree, beats])
+  }
+  for (const chord of guide.chords) {
+    const lead = chord.beats >= 2 * half ? Math.min(chord.beats - half, Math.max(half, chord.beats / 2)) : chord.beats
+    push(lower, chord.bass, lead)
+    push(upper, null, lead)
+    if (lead < chord.beats) {
+      push(lower, null, chord.beats - lead)
+      push(upper, chord.upper, chord.beats - lead)
+    }
+  }
+  return { lower, upper }
 }

@@ -32,6 +32,8 @@ type Kept = { bed: string; seconds: number }
 export class Shelf {
   private beds = new Map<Part, Kept[]>()
   private song?: string
+  /** The beds grown from a guide of their own, by the guide they grew from. */
+  private guided = new Map<string, string>()
 
   /**
    * What this iteration does for a kind of bed: grows a new one, or plays
@@ -57,6 +59,23 @@ export class Shelf {
   }
 
   /**
+   * The bed this Song grew from this very guide, if it is still on the
+   * shelf: a section guided by its own guide plays only a bed that grew
+   * from it. A new guide grows a new bed.
+   */
+  grownFrom(song: string, guide: string): string | undefined {
+    return song === this.song ? this.guided.get(guide) : undefined
+  }
+
+  /** Puts a bed grown from its own guide on the shelf, remembering the guide. */
+  keepGuided(song: string, part: Part, guide: string, bed: string, seconds = Infinity): string[] {
+    const departed = this.keep(song, part, bed, seconds)
+    this.guided.set(guide, bed)
+    for (const [g, b] of this.guided) if (departed.includes(b)) this.guided.delete(g)
+    return departed
+  }
+
+  /**
    * Puts a bed on the shelf. Returns the beds that left it: those of an
    * older Song, and the oldest of a part when there are too many.
    */
@@ -65,6 +84,7 @@ export class Shelf {
     if (song !== this.song) {
       departed.push(...this.all)
       this.beds = new Map()
+      this.guided = new Map()
       this.song = song
     }
     const kept = (this.beds.get(part) ?? []).filter((old) => old.bed !== bed)

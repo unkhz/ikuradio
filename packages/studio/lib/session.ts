@@ -141,6 +141,9 @@ export function toSession(
         at: seconds(offset + guide.at),
         seconds: seconds(guide.seconds),
         score: guide.score,
+        ...(guide.lower ? { lower: { take: takeOf(guide.lower.take), body: guide.lower.body } } : {}),
+        ...(guide.composed ? { chords: guide.composed.chords, furthest: guide.composed.furthest } : {}),
+        ...(guide.rendering ? { rendering: guide.rendering } : {}),
       })
     }
     offset += length

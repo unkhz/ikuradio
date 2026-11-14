@@ -23,7 +23,7 @@ import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 import { toSession, type Made } from './lib/session.js'
-import { humGuides } from './lib/guide.js'
+import { guidesFor, humGuides, type Guide } from './lib/guide.js'
 import { sweep } from './lib/sweep.js'
 import { homecoming } from './lib/homecoming.js'
 
@@ -149,8 +149,8 @@ for (const one of composed) sung.push(await perform(one))
 console.log(`sung in ${seconds(sungAt)}`)
 
 // the guide hums: the lead's melody with fewer notes, for the Music alone
-const guides = []
-for (const [i, one] of composed.entries()) guides.push(await humGuides(one, sung[i]))
+const guides: Guide[][] = []
+for (const [i, one] of composed.entries()) guides.push(await humGuides(one, sung[i], guides[i - 1]))
 
 // the Music, with the GPU to itself
 const grownAt = Date.now()
@@ -162,7 +162,7 @@ for (const [i, one] of composed.entries()) {
   const beds = await underlay(lines, one.mood, {
     shelf,
     iteration: one.iteration,
-    guides: new Map(hummed.map(({ kind, file }) => [kind, file])),
+    guides: guidesFor(hummed),
     bridgeBeds: one.settings['bridge-beds'],
   })
     .then(({ beds }) => beds)
