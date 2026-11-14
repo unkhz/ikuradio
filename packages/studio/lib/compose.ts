@@ -14,9 +14,23 @@
 // Settings are what the Studio's hooks follow for the whole Song.
 
 import { firstMood, nextMood, type Mood } from 'mood'
-import { firstLyrics, forgotten, longWear, versesOf, wornDeep, writeLyrics, type Lyrics, type Memories } from 'song'
-import { firstChoir, gather, type Choir } from 'vocals'
-import { evolve, firstTune, keyFor, sidesOf, unfamiliarVerse, variations, vocalRange, wrongness, type Tune } from 'melody'
+import { firstLyrics, forgotten, longWear, versesOf, wornDeep, writeLyrics, type Fitting, type Lyrics, type Memories } from 'song'
+import { countSyllables, firstChoir, gather, type Choir } from 'vocals'
+import {
+  evolve,
+  firstTune,
+  fitToCount,
+  keyFor,
+  mostSyllables,
+  sidesOf,
+  spacing,
+  unfamiliarVerse,
+  variations,
+  vocalRange,
+  wrongness,
+  type Tune,
+} from 'melody'
+import { stressedLine } from './stressed.js'
 import { defaults, perspectivesFor, type Chosen, type Settings } from 'perspectives'
 import type { Diary, Page, SongPlace } from './diary.js'
 
@@ -104,6 +118,32 @@ export function placeOf(
   return { beginsSong: true, number: BigInt(before.number) + 1n, began: iteration }
 }
 
+/**
+ * What a line of the song is written to, at this tempo and rate: each
+ * line's count, from the tune it will be sung to, and the check of how a
+ * written line fits its bars, by its syllables and their stress as the
+ * throat counts them.
+ */
+export function fittingFor(sung: Tune, tempo: number, rate: number): Fitting {
+  const k = spacing(tempo, rate)
+  const phraseOf = (part: 'verse' | 'chorus', line: number) => (part === 'chorus' ? sung.chorus : sung.verse)[line % 4]!
+  const countOf = (phrase: Tune['verse'][number]) => ({ target: phrase.notes.length, most: mostSyllables(phrase, k) })
+  return {
+    verse: sung.verse.map(countOf),
+    chorus: sung.chorus.map(countOf),
+    check: async (part, line, text) => {
+      const syllables = await countSyllables(text).catch(() => 0)
+      if (syllables < 1) return 'refused'
+      const phrase = phraseOf(part, line)
+      const words = await stressedLine(text, syllables)
+      // a line whose stress cannot be read is counted only
+      if (!words) return syllables <= mostSyllables(phrase, k) ? 'fits' : 'refused'
+      const fit = fitToCount(phrase, words, k)
+      return !fit ? 'refused' : fit.grown ? 'grace' : 'fits'
+    },
+  }
+}
+
 export async function composer(
   diary: Diary,
   {
@@ -121,8 +161,29 @@ export async function composer(
   /** Where the song wakes up: the iteration after the last one it wrote down. */
   const wakesAt = last ? BigInt(last.iteration) + 1n : 1n
 
+  /** The tune an iteration sings: its Variation, of the verse the Song plays, which may be written for it alone. */
+  const tuneSung = (tune: Tune, choir: Choir, settings: Settings, mood: Mood, song: string, variation: number): Tune => {
+    // in a Song heard that way, its verse is played to a melody written for it alone;
+    // the tune it remembers, and passes on to the next Song, is the one it had
+    const [lead] = choir
+    const played: Tune = settings['verse-tune'].unfamiliar
+      ? {
+          ...tune,
+          verse: unfamiliarVerse(tune.verse, {
+            key: keyFor(lead!.body, mood.character.mode),
+            range: vocalRange[lead!.body],
+            random: wrongness(`unfamiliar:${song}`),
+          }),
+        }
+      : tune
+    return variations(played, variationCount, song, settings.development)[variation]!
+  }
+
   async function compose(iteration: bigint): Promise<Iteration> {
     const place = placeOf(iteration, last, songLength)
+    // which of the Song's Variations this iteration sings, and how fast its voices may sing
+    const variation = Number(iteration - place.began) % Math.max(1, variationCount)
+    const rate = place.beginsSong || !last?.rate ? rateNow : last.rate
     const { beginsSong } = place
     const song = `${place.number}`
     let mood: Mood
@@ -171,28 +232,13 @@ export async function composer(
         mood.descriptions,
       )
       if (deep.length) console.log(`iteration ${iteration} lets rest the words worn deep: ${deep.join(', ')}`)
-      lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories, { deep })
+      // the words are written to the tune they will be sung to, each line to its count
+      const fitting = fittingFor(tuneSung(tune, choir, settings, mood, song, variation), mood.character.tempo, rate)
+      lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories, { deep, fitting })
     }
     const lasts = place.lasts ?? lastsFor(mood, songLength)
     const where: SongPlace = { number: song, began: `${place.began}`, lasts }
-    const variation =
-      Number(iteration - place.began) % Math.max(1, variationCount)
-    // in a Song heard that way, its verse is played to a melody written for it alone;
-    // the tune it remembers, and passes on to the next Song, is the one it had
-    const [lead] = choir
-    const played: Tune = settings['verse-tune'].unfamiliar
-      ? {
-          ...tune,
-          verse: unfamiliarVerse(tune.verse, {
-            key: keyFor(lead!.body, mood.character.mode),
-            range: vocalRange[lead!.body],
-            random: wrongness(`unfamiliar:${song}`),
-          }),
-        }
-      : tune
-    const sung = variations(played, variationCount, song, settings.development)[variation]!
-    // the rate a Song begins with is the one it keeps, to its end
-    const rate = beginsSong || !last?.rate ? rateNow : last.rate
+    const sung = tuneSung(tune, choir, settings, mood, song, variation)
     last = {
       iteration: iteration.toString(),
       mood,

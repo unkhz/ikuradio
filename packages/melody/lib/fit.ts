@@ -225,12 +225,17 @@ export function paceOf(phrase: Phrase): number {
  * one note. There is no ceiling. Undefined only for a phrase with no
  * reciting note.
  */
-export function growOnReciting(phrase: Phrase, words: readonly Syllables[], k: number): Phrase | undefined {
-  const at = phrase.reciting
+export function growOnReciting(
+  phrase: Phrase,
+  words: readonly Syllables[],
+  k: number,
+  most = Infinity,
+): Phrase | undefined {
+  const at = phrase.reciting ?? recitingOf(phrase)
   if (at === undefined || !phrase.notes[at]) return undefined
   const pace = Math.max(k, paceOf(phrase))
   const syllables = words.reduce((sum, word) => sum + word.stresses.length, 0)
-  for (let bars = 0; bars <= syllables; bars++) {
+  for (let bars = 0; bars <= Math.min(syllables, most); bars++) {
     const grown: Phrase = {
       ...phrase,
       notes: phrase.notes.map(([degree, beats], i): Note => [degree, i === at ? beats + 4 * bars : beats]),
@@ -239,5 +244,52 @@ export function growOnReciting(phrase: Phrase, words: readonly Syllables[], k: n
     if (fitted) return fitted
   }
   return undefined
+}
+
+/**
+ * The note a phrase would chant on if it had to: its own reciting note if
+ * it has one, or else its longest note before the cadence, the first of
+ * them. Undefined for a phrase of one note.
+ */
+export function recitingOf(phrase: Phrase): number | undefined {
+  if (phrase.reciting !== undefined) return phrase.reciting
+  let longest: number | undefined
+  for (let i = 0; i < phrase.notes.length - 1; i++) {
+    if (longest === undefined || phrase.notes[i]![1] > phrase.notes[longest]![1]) longest = i
+  }
+  return longest
+}
+
+/** How a line fits its phrase: in its own bars, with one bar of grace on its reciting note, or not at all. */
+export type Fit = { phrase: Phrase; grown: number } | undefined
+
+/**
+ * Fits a line that is written to its count, a verse's or a chorus line's
+ * after the first: in its own bars if the words fit them, or else with one
+ * whole bar of grace on its reciting note, at the phrase's own pace.
+ * Undefined if it needs more than that: the words were not written to fit.
+ */
+export function fitToCount(phrase: Phrase, words: readonly Syllables[], k: number): Fit {
+  const fitted = fitBars(phrase, words, k)
+  if (fitted) return { phrase: fitted, grown: 0 }
+  const graced = growOnReciting({ ...phrase, reciting: recitingOf(phrase) }, words, k, 1)
+  if (!graced) return undefined
+  const length = (p: Phrase) => p.notes.reduce((sum, [, beats]) => sum + beats, 0) + p.rest
+  return { phrase: graced, grown: Math.round((length(graced) - length(phrase)) / 4) }
+}
+
+/**
+ * The most syllables a line can carry in its phrase's own bars at this
+ * spacing, however its words fall: found by fitting a line of small words,
+ * stressed in turn, one syllable longer at a time.
+ */
+export function mostSyllables(phrase: Phrase, k: number): number {
+  let most = 1
+  for (let n = 2; n <= 64; n++) {
+    const words = Array.from({ length: n }, (_, i) => ({ stresses: [i % 2] }))
+    if (!fitBars(phrase, words, k)) break
+    most = n
+  }
+  return most
 }
 

@@ -22,10 +22,52 @@ export { ofItsAge, timeless } from './lib/timeless.js'
 export { longWear, wornDeep } from './lib/wear.js'
 export { stressedWords, stresses, stressOf, type StressedWord } from './lib/stress.js'
 
+/** How many syllables a line should have, and may have at most, to fit its bars at the Song's tempo and rate. */
+export type Count = { target: number; most: number }
+
+/**
+ * What the song's lines are written to: each line's count, the verse's
+ * four and the chorus's four (its first, the number, is not written by the
+ * mind), and how a line written fits its bars: in them, with a bar of
+ * grace, or not at all. Without it, lines are only asked to be of a
+ * singable length, as they were before time followed the words.
+ */
+export type Fitting = {
+  verse: readonly Count[]
+  chorus: readonly Count[]
+  check: (part: 'verse' | 'chorus', line: number, text: string) => Promise<'fits' | 'grace' | 'refused'>
+}
+
+/** A verse whose lines cannot be fitted to their bars, however the mind writes them. The iteration is made again. */
+export class NoVerseFits extends Error {}
+
+/** How long each line of a verse should be, told to the mind line by line. */
+export function countInstruction(counts: readonly Count[] | undefined, lines: readonly number[] = [0, 1, 2, 3]) {
+  if (!counts?.length) return 'Each line has between eight and fourteen syllables.'
+  const ordinal = ['first', 'second', 'third', 'fourth']
+  return `Count the syllables: ${lines
+    .map((line) => `the ${ordinal[line]} line has about ${counts[line % counts.length]!.target}, and never more than ${counts[line % counts.length]!.most}`)
+    .join('; ')}.`
+}
+
+/** Whether every line of `lines` fits, `from` the line of its part they begin at: in their bars, or, if `grace`, with a bar of grace. */
+async function fitsAll(
+  fitting: Fitting | undefined,
+  part: 'verse' | 'chorus',
+  lines: readonly string[],
+  { from = 0, grace = false }: { from?: number; grace?: boolean } = {},
+) {
+  if (!fitting) return true
+  for (const [i, line] of lines.entries()) {
+    const fit = await fitting.check(part, from + i, line)
+    if (fit === 'refused' || (fit === 'grace' && !grace)) return false
+  }
+  return true
+}
+
 const verseInstruction = [
   'The input is a verse of a song that never ends.',
   'Write the next verse of the song: four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
-  'Each line has between eight and fourteen syllables.',
 ].join(' ')
 
 /** One memory a verse is about, and whose it is: the mind's own, or heard from the robot. */
@@ -68,7 +110,6 @@ export function rememberingInstruction({ own, heard }: Memories, focus?: Focus) 
     `${about} Speak of it as a singer would, in images, not in the words of a machine.`,
     timelessInstruction,
     'Four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
-    'Each line has between eight and fourteen syllables.',
   ].join('\n')
 }
 
@@ -80,13 +121,22 @@ function inMood(instruction: string, mood: readonly string[]) {
 /** How many resting words a verse may still use: one may slip in, as words do. */
 const slips = 1
 
-async function pickVariation(
+/**
+ * Writes the next verse after `input`, in `mood`: without the resting
+ * words, from a memory if there is one, and, with a `fitting`, every line
+ * to its count. A verse whose lines do not fit their bars is asked for
+ * again; when the mind keeps missing, one bar of grace is allowed; then the
+ * old verse is sung again if it still fits; and if it does not, nothing is
+ * sung, and the iteration is made again (NoVerseFits).
+ */
+export async function writeVerse(
   input: string,
   mood: readonly string[],
   resting: readonly string[],
   memories: Memories,
   focus?: Focus,
   deep: readonly string[] = [],
+  fitting?: Fitting,
 ) {
   const rest = resting.length
     ? ` These words have been sung too often lately; let them rest, and find others: ${resting.join(', ')}.`
@@ -95,12 +145,25 @@ async function pickVariation(
     ? ` The song has leaned on these for a long while, in every form of them; find other images: ${deep.join(', ')}.`
     : ''
   const instruction =
-    memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction
-  return editVerse(input, inMood(instruction, mood) + rest + restDeep, 1.2, {
-    // a verse that sings a word of this short age is not sung
-    accept: (lines) =>
-      leansOn(lines, resting) <= slips && leansDeep(lines, deep) <= slips && !lines.some(ofItsAge),
+    (memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction) +
+    `\n${countInstruction(fitting?.verse)}`
+  const asked = inMood(instruction, mood) + rest + restDeep
+  // a verse that sings a word of this short age is not sung, nor one whose lines do not fit their bars
+  const suits = (lines: string[]) =>
+    leansOn(lines, resting) <= slips && leansDeep(lines, deep) <= slips && !lines.some(ofItsAge)
+  const written = await editVerse(input, asked, 1.2, {
+    accept: async (lines) => suits(lines) && (await fitsAll(fitting, 'verse', lines)),
   })
+  if (written !== input || !fitting) return written
+  // the mind could not write a verse that fits: a line may take one bar of grace
+  const graced = await editVerse(input, asked, 1.2, {
+    patience: 4,
+    accept: async (lines) => suits(lines) && (await fitsAll(fitting, 'verse', lines, { grace: true })),
+  })
+  if (graced !== input) return graced
+  // the verse as it was is sung again, if it still fits at this tempo; if not, nothing is sung
+  if (await fitsAll(fitting, 'verse', input.split('\n'), { grace: true })) return input
+  throw new NoVerseFits(`no verse could be written to fit its bars, after "${input.split('\n')[0]}"`)
 }
 
 /**
@@ -127,7 +190,7 @@ const sameShape = 0.5
 /** What the mind is shown where the second line was. */
 const gap = '...'
 
-async function pickChorus(chorus: string, iteration: bigint) {
+async function pickChorus(chorus: string, iteration: bigint, fitting?: Fitting) {
   const opening = chorusOpening(iteration)
   const age = lastWord(opening)
   const [, ...rest] = chorus.split('\n')
@@ -138,8 +201,12 @@ async function pickChorus(chorus: string, iteration: bigint) {
   const plain = pool ? await known(pool.words) : undefined
   const offered = pool && { words: [...(plain ?? pool.words)].slice(0, 30), loosely: pool.loosely }
   const [before = ''] = rest
+  // with their syllables, so the line can be counted to its end
+  const syllablesOf = (word: string) => dictionary?.words.get(word)?.filter((sound) => /\d$/.test(sound)).length
   const hint = offered?.words.length
-    ? `End the second line with one of these words, which ${offered.loosely ? `share the vowel of "${age}"` : `rhyme with "${age}"`}: ${offered.words.join(', ')}.`
+    ? `End the second line with one of these words, which ${offered.loosely ? `share the vowel of "${age}"` : `rhyme with "${age}"`}: ${offered.words
+        .map((word) => (fitting && syllablesOf(word) ? `${word} (${syllablesOf(word)})` : word))
+        .join(', ')}.`
     : ''
   const instruction = [
     'The input is the chorus of a song that never ends. Its second line is missing.',
@@ -148,6 +215,7 @@ async function pickChorus(chorus: string, iteration: bigint) {
     hint,
     'Change a few words in the third and fourth lines but keep their meaning, their tone and their rhyme with each other.',
     'Keep the last line ending with "the song that never ends".',
+    fitting ? countInstruction(fitting.chorus, [1, 2, 3]) : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -164,22 +232,30 @@ async function pickChorus(chorus: string, iteration: bigint) {
   let varied = await editVerse(input, instruction, 1, {
     mayRepeat: true,
     patience: 12,
-    accept: (lines) => {
+    accept: async (lines) => {
       const [, second = ''] = lines
-      return sings(second) && overlap(second, before) < sameShape && !lines.some(ofItsAge)
+      return (
+        sings(second) &&
+        overlap(second, before) < sameShape &&
+        !lines.some(ofItsAge) &&
+        (await fitsAll(fitting, 'chorus', lines.slice(1), { from: 1 }))
+      )
     },
   })
   if (varied === input) {
-    // a line that rhymes is better than a line that is new
+    // a line that rhymes is better than a line that is new, and a line may take a bar of grace
     varied = await editVerse(input, instruction, 1, {
       mayRepeat: true,
       patience: 8,
-      accept: ([, second = '']) => sings(second),
+      accept: async (lines) => sings(lines[1] ?? '') && (await fitsAll(fitting, 'chorus', lines.slice(1), { from: 1, grace: true })),
     })
   }
   if (varied === input) {
-    // the mind could not find a rhyme at all; the old line is sung again
+    // the mind could not find a rhyme at all; the old line is sung again, if it still fits
     varied = [opening, ...rest].join('\n')
+    if (!(await fitsAll(fitting, 'chorus', rest, { from: 1, grace: true }))) {
+      throw new NoVerseFits(`no chorus could be written to fit its bars, after "${rest[0]}"`)
+    }
   }
   const [, ...varying] = varied.split('\n')
   return [opening, ...varying].join('\n')
@@ -218,7 +294,7 @@ export async function writeLyrics(
   mood: readonly string[],
   previous: Lyrics,
   memories: Memories = forgotten,
-  { deep = [] }: { deep?: readonly string[] } = {},
+  { deep = [], fitting }: { deep?: readonly string[]; fitting?: Fitting } = {},
 ): Promise<Lyrics> {
   // each verse tells one memory of its own; the next iteration tells the next ones
   const focuses = focusesOf(memories)
@@ -231,11 +307,11 @@ export async function writeLyrics(
   const resting = worn(versesOf(previous), mood).filter((word) => !deep.includes(stemOf(word)))
   const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus] =
     await Promise.all([
-      pickChorus(previous.chorus, iteration),
-      pickVariation(previous.firstVerse, mood, resting, memories, focusOf(0), deep),
-      pickVariation(previous.secondVerse, mood, resting, memories, focusOf(1), deep),
-      pickVariation(previous.thirdVerse, mood, resting, memories, focusOf(2), deep),
-      pickVariation(previous.finalChorus, mood, resting, memories, focusOf(3), deep),
+      pickChorus(previous.chorus, iteration, fitting),
+      writeVerse(previous.firstVerse, mood, resting, memories, focusOf(0), deep, fitting),
+      writeVerse(previous.secondVerse, mood, resting, memories, focusOf(1), deep, fitting),
+      writeVerse(previous.thirdVerse, mood, resting, memories, focusOf(2), deep, fitting),
+      writeVerse(previous.finalChorus, mood, resting, memories, focusOf(3), deep, fitting),
     ])
   return { chorus, firstVerse, secondVerse, thirdVerse, finalChorus }
 }

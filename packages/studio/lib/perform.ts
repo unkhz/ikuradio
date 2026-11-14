@@ -7,7 +7,7 @@
 
 import { arrange } from 'song'
 import { harmonizeChoir, keyFor, scoreSeconds, setBridge, setLine, wrongness, type Score } from 'melody'
-import { blend, countSyllables, fullness, humanize, keepsPace, record, throatScore, type Take } from 'vocals'
+import { blend, countSyllables, fullness, humanize, keepsPace, quickest, record, throatScore, type Take } from 'vocals'
 import type { Iteration } from './compose.js'
 import { stressedLine } from './stressed.js'
 
@@ -42,6 +42,10 @@ export type SungLine = {
    * the listeners do not.
    */
   unheard?: boolean
+  /** How many whole bars the line grew past its phrase's own: the number's chant, or a bar of grace. */
+  grown?: number
+  /** The shortest time between two of its lead's syllables, in seconds: the price of time, as it was paid. */
+  quickest?: number
 }
 
 /** How often a bridge is hummed aloud, rather than only played, unless a Perspective says otherwise. */
@@ -108,6 +112,14 @@ export async function perform({
         random: wrongness(`harmony:${song.number}:${named}`),
       }),
     ]
+  }
+
+  /** How many whole bars a line grew past its phrase, if any. */
+  const grownOf = (part: 'verse' | 'chorus', index: number, score: Score) => {
+    const phrase = (part === 'chorus' ? tune.chorus : tune.verse)[index % 4]!
+    const beats = (notes: readonly (readonly [number, number])[]) => notes.reduce((sum, [, b]) => sum + b, 0)
+    const grown = Math.round((beats(score.notes) - beats(phrase.notes) - phrase.rest) / 4)
+    return grown > 0 ? { grown } : {}
   }
 
   const takes = new Map<string, Promise<Omit<SungLine, 'at'>>>()
@@ -287,6 +299,8 @@ export async function perform({
       seconds: scoreSeconds(score),
       enters: take.t0,
       voiced: scoreSeconds(score) - rest,
+      ...grownOf(part, index, score),
+      quickest: Math.round(quickest(take) * 1000) / 1000,
     }
   }
 

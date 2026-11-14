@@ -39,8 +39,8 @@ const patience = 8
 export type EditOptions = {
   /** The verse may come back unchanged. True for the chorus, which is meant to stay. */
   mayRepeat?: boolean
-  /** What else a verse must be to be sung, such as rhyming where it should. */
-  accept?: (lines: string[]) => boolean
+  /** What else a verse must be to be sung, such as rhyming where it should, or fitting its bars. */
+  accept?: (lines: string[]) => boolean | Promise<boolean>
   /** How many unsuitable answers to listen to before singing the verse as it was. */
   patience?: number
 }
@@ -79,7 +79,7 @@ export async function editVerse(
         verse.length === 4 &&
         verse.every(fits) &&
         (changed || mayRepeat) &&
-        accept(verse)
+        (await accept(verse))
       ) {
         return verse.join('\n')
       }

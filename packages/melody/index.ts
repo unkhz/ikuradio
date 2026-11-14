@@ -1,4 +1,4 @@
-import { fitBars, fitPhrase, growOnReciting, shortestBeats, spacing, type Phrase, type Syllables } from './lib/fit.js'
+import { fitPhrase, fitToCount, growOnReciting, shortestBeats, spacing, type Phrase, type Syllables } from './lib/fit.js'
 import { chorusHook, verseWalk } from './lib/hooks.js'
 import {
   aeolian,
@@ -32,7 +32,19 @@ export {
 } from './lib/harmony.js'
 export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
-export { fitBars, growOnReciting, paceOf, shortestBeats, spacing, strength, type Syllables } from './lib/fit.js'
+export {
+  fitBars,
+  fitToCount,
+  growOnReciting,
+  mostSyllables,
+  paceOf,
+  recitingOf,
+  shortestBeats,
+  spacing,
+  strength,
+  type Fit,
+  type Syllables,
+} from './lib/fit.js'
 
 export type Singer = 'male' | 'female' | 'child'
 
@@ -122,12 +134,16 @@ export function setLine({
   // is read from may be an old copy, so the mark is read from the hook itself
   const reciting = part === 'chorus' ? chorusHook[line % chorusHook.length]?.reciting : undefined
   const k = rate ? spacing(character.tempo, rate) : 1
-  const { notes, rest } =
-    (rate && words && counted === syllables
-      ? reciting !== undefined
-        ? growOnReciting({ ...phrase, reciting }, words, k)
-        : byBars(phrase, words, k)
-      : undefined) ?? fitPhrase(phrase, syllables, least)
+  let fitted: Phrase | undefined
+  if (rate && words && counted === syllables) {
+    if (reciting !== undefined) fitted = growOnReciting({ ...phrase, reciting }, words, k)
+    else {
+      // a line written to its count: its own bars, or one of grace, and never more
+      fitted = fitToCount(phrase, words, k)?.phrase
+      if (!fitted) throw new NoRoom(`"${lyrics}" does not fit its bars, even with one more`)
+    }
+  }
+  const { notes, rest } = fitted ?? fitPhrase(phrase, syllables, least)
   const key = keyFor(singer, character.mode)
   return {
     bpm: character.tempo,
@@ -142,19 +158,8 @@ export function setLine({
   }
 }
 
-/**
- * A line fitted bar by bar; where its words need more time than its phrase
- * has, the phrase is sung slower, twice as slow at a time, its bars whole.
- */
-function byBars(phrase: Phrase, words: readonly Syllables[], k: number): Phrase | undefined {
-  let slower = phrase
-  for (let times = 0; times < 6; times++) {
-    const fitted = fitBars(slower, words, k)
-    if (fitted) return fitted
-    slower = { notes: slower.notes.map(([degree, beats]) => [degree, beats * 2] as const), rest: slower.rest * 2 }
-  }
-  return undefined
-}
+/** A line whose words do not fit its bars, even with a bar of grace: it was not written to its count, and is not sung. */
+export class NoRoom extends Error {}
 
 /** How many beats a bridge lasts: four bars. */
 export const bridgeBeats = 16

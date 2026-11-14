@@ -1,8 +1,21 @@
 import { describe, it, expect } from 'bun:test'
-import { fitBars, fitPhrase, growOnReciting, paceOf, shortestBeats, spacing, strength, type Phrase, type Syllables } from './fit.js'
+import {
+  fitBars,
+  fitPhrase,
+  fitToCount,
+  growOnReciting,
+  mostSyllables,
+  paceOf,
+  recitingOf,
+  shortestBeats,
+  spacing,
+  strength,
+  type Phrase,
+  type Syllables,
+} from './fit.js'
 import { chorusHook, verseWalk } from './hooks.js'
 import { degreeToMidi, aeolian } from './scale.js'
-import { setLine } from '../index.js'
+import { NoRoom, setLine } from '../index.js'
 
 const beats = (p: Phrase) => p.notes.reduce((s, [, b]) => s + b, 0) + p.rest
 
@@ -243,5 +256,32 @@ describe('growOnReciting', () => {
     expect(grown.notes.at(-1)).toEqual(hook.notes.at(-1))
     expect(degrees[0]).toBe(hook.notes[0]![0])
     expect(grown.rest).toBe(hook.rest)
+  })
+})
+
+describe('fitToCount', () => {
+  const words = (n: number): Syllables[] => Array.from({ length: n }, (_, i) => ({ stresses: [i % 2] }))
+  const phrase = verseWalk[0]!
+
+  it('knows how many syllables a verse line can carry at a spacing, and fits them in its own bars', () => {
+    const most = mostSyllables(phrase, 1)
+    expect(most).toBeGreaterThanOrEqual(phrase.notes.length)
+    expect(mostSyllables(phrase, 2)).toBeLessThan(most)
+    expect(fitToCount(phrase, words(most), 1)).toMatchObject({ grown: 0 })
+  })
+
+  it('gives one bar of grace on the longest note, and no more', () => {
+    expect(recitingOf(phrase)).toBe(3)
+    const most = mostSyllables(phrase, 2)
+    const graced = fitToCount(phrase, words(most + 2), 2)
+    expect(graced?.grown).toBe(1)
+    expect(fitToCount(phrase, words(most + 12), 2)).toBeUndefined()
+  })
+
+  it('refuses to sing a line that was not written to its count', () => {
+    const lyrics = Array.from({ length: 30 }, () => 'la').join(' ')
+    expect(() =>
+      setLine({ part: 'verse', line: 0, lyrics, syllables: 30, singer: 'female', character: { mode: 'aeolian', tempo: 100 }, rate: 6, words: words(30) }),
+    ).toThrow(NoRoom)
   })
 })

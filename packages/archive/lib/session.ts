@@ -146,6 +146,10 @@ export type SessionLine = {
    * there are characters, the last being the line's end.
    */
   typing: number[]
+  /** How many whole bars the line grew past its phrase: the number chanted, or a bar of grace. Missing where it did not. */
+  grown?: number
+  /** The shortest time between two of its syllables' starts, in seconds. Missing on Songs from before it was kept. */
+  quickest?: number
 }
 
 export type SessionRecording = {

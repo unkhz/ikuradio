@@ -86,6 +86,8 @@ export function toSession(
                   line.voiced,
                   `${composed.iteration}:${part.index}:${index}`,
                 ).map((moment) => Math.round(line.enters * 1000 + moment)),
+                ...(line.grown ? { grown: line.grown } : {}),
+                ...(line.quickest !== undefined && Number.isFinite(line.quickest) ? { quickest: line.quickest } : {}),
               })),
       }
     })
