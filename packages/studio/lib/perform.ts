@@ -9,6 +9,7 @@ import { arrange } from 'song'
 import { harmonizeChoir, keyFor, scoreSeconds, setBridge, setLine, wrongness, type Score } from 'melody'
 import { blend, countSyllables, fullness, humanize, keepsPace, record, throatScore, type Take } from 'vocals'
 import type { Iteration } from './compose.js'
+import { stressedLine } from './stressed.js'
 
 export type SungLine = {
   part: 'verse' | 'chorus' | 'bridge'
@@ -212,6 +213,8 @@ export async function perform({
       words = hum(syllables)
       hummed = true
     }
+    // the words with their stress, for fitting them bar by bar
+    const stressed = hummed ? undefined : await stressedLine(line, syllables)
 
     // the lead sings every line; the others the chorus, or, in a Song heard that way, the verses too
     const voices = part === 'chorus' || settings.choir.verses ? choir : choir.slice(0, 1)
@@ -224,6 +227,7 @@ export async function perform({
       character: mood.character,
       tune,
       rate,
+      words: stressed,
     })
     const scores = choirOf(led, voices, lineKey(part, index, line))
     const takes = voices.map((voice, v) => {

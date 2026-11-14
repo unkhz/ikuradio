@@ -1,4 +1,4 @@
-import { fitPhrase, shortestBeats, type Phrase } from './lib/fit.js'
+import { fitBars, fitPhrase, shortestBeats, spacing, type Phrase, type Syllables } from './lib/fit.js'
 import { chorusHook, verseWalk } from './lib/hooks.js'
 import {
   aeolian,
@@ -32,7 +32,7 @@ export {
 } from './lib/harmony.js'
 export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
-export { shortestBeats, spacing } from './lib/fit.js'
+export { fitBars, shortestBeats, spacing, strength, type Syllables } from './lib/fit.js'
 
 export type Singer = 'male' | 'female' | 'child'
 
@@ -93,6 +93,12 @@ export type LineOptions = {
   tune?: Tune
   /** How many syllables a second the voice may sing at most; the line is fitted to the grid that allows. */
   rate?: number
+  /**
+   * The line's words, with each syllable's stress, as many syllables as
+   * `syllables`: with a rate, the line is fitted bar by bar, stressed
+   * syllables on the strong beats.
+   */
+  words?: readonly Syllables[]
 }
 
 /** Sets one line of lyrics to its tune, for one voice. */
@@ -106,10 +112,15 @@ export function setLine({
   harmony = 0,
   tune = firstTune,
   rate,
+  words,
 }: LineOptions): Score {
   const phrases = part === 'chorus' ? tune.chorus : tune.verse
+  const phrase = phrases[line % phrases.length]
   const least = rate ? shortestBeats(character.tempo, rate) : undefined
-  const { notes, rest } = fitPhrase(phrases[line % phrases.length], syllables, least)
+  const counted = words?.reduce((sum, word) => sum + word.stresses.length, 0)
+  const { notes, rest } =
+    (rate && words && counted === syllables ? byBars(phrase, words, spacing(character.tempo, rate)) : undefined) ??
+    fitPhrase(phrase, syllables, least)
   const key = keyFor(singer, character.mode)
   return {
     bpm: character.tempo,
@@ -122,6 +133,20 @@ export function setLine({
       [0, rest],
     ],
   }
+}
+
+/**
+ * A line fitted bar by bar; where its words need more time than its phrase
+ * has, the phrase is sung slower, twice as slow at a time, its bars whole.
+ */
+function byBars(phrase: Phrase, words: readonly Syllables[], k: number): Phrase | undefined {
+  let slower = phrase
+  for (let times = 0; times < 6; times++) {
+    const fitted = fitBars(slower, words, k)
+    if (fitted) return fitted
+    slower = { notes: slower.notes.map(([degree, beats]) => [degree, beats * 2] as const), rest: slower.rest * 2 }
+  }
+  return undefined
 }
 
 /** How many beats a bridge lasts: four bars. */

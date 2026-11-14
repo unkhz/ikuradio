@@ -20,6 +20,7 @@ export {
 } from './lib/thoughts.js'
 export { ofItsAge, timeless } from './lib/timeless.js'
 export { longWear, wornDeep } from './lib/wear.js'
+export { stressedWords, stresses, stressOf, type StressedWord } from './lib/stress.js'
 
 const verseInstruction = [
   'The input is a verse of a song that never ends.',

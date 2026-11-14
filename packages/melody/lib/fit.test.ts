@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { fitPhrase, shortestBeats, spacing, type Phrase } from './fit.js'
+import { fitBars, fitPhrase, shortestBeats, spacing, strength, type Phrase, type Syllables } from './fit.js'
 import { chorusHook, verseWalk } from './hooks.js'
 import { degreeToMidi, aeolian } from './scale.js'
 import { setLine } from '../index.js'
@@ -112,5 +112,79 @@ describe('the grid', () => {
         for (const [, beats] of fitted.notes.slice(0, -1)) expect((beats * 60) / bpm).toBeGreaterThanOrEqual(1 / 6 - 1e-9)
       }
     }
+  })
+})
+
+describe('fitBars', () => {
+  // "This is the song, iteration one," with its stress: the small words never lean
+  const opening: Syllables[] = [
+    { stresses: [0] },
+    { stresses: [0] },
+    { stresses: [0] },
+    { stresses: [1], comma: true },
+    { stresses: [2, 0, 1, 0] },
+    { stresses: [1], comma: true },
+  ]
+  const onsets = (phrase: Phrase) => {
+    let at = 0
+    return phrase.notes.map(([, beats]) => {
+      const start = at * 4
+      at += beats
+      return start
+    })
+  }
+
+  it('keeps the tune as written when the words fit its notes and no word straddles a bar line', () => {
+    const plain: Syllables[] = [1, 0, 1, 0, 1, 0, 1, 0, 1].map((stress) => ({ stresses: [stress] }))
+    expect(fitBars(verseWalk[0]!, plain, 1)).toEqual(verseWalk[0])
+  })
+
+  it('keeps a word inside one bar where it can, even the hook’s own "iteration"', () => {
+    const fitted = fitBars(chorusHook[0]!, opening, 1)!
+    const at = onsets(fitted)
+    // it-er-a-tion are syllables 4 to 7: all of them in the first bar
+    for (const i of [4, 5, 6, 7]) expect(at[i]!).toBeLessThan(16)
+    expect(fitted.notes).toHaveLength(9)
+  })
+
+  it('never starts a syllable sooner than k sixteenths after the one before, and ends on the cadence', () => {
+    const number: Syllables[] = [...opening.slice(0, 5), { stresses: [1] }, { stresses: [1, 0] }, { stresses: [0] }, { stresses: [1, 0] }, { stresses: [1], comma: true }]
+    for (const k of [1, 2]) {
+      const fitted = fitBars(chorusHook[0]!, number, k)
+      if (!fitted) continue
+      expect(fitted.notes).toHaveLength(15)
+      const at = onsets(fitted)
+      for (let i = 1; i < at.length; i++) expect(at[i]! - at[i - 1]!).toBeGreaterThanOrEqual(k)
+      expect(fitted.notes.at(-1)).toEqual(chorusHook[0]!.notes.at(-1))
+      expect(fitted.rest).toBe(chorusHook[0]!.rest)
+    }
+    // fifteen syllables an eighth apart do not fit in the phrase's two bars
+    expect(fitBars(chorusHook[0]!, number, 2)).toBeUndefined()
+  })
+
+  it('puts the stressed syllables on stronger beats than the unstressed ones', () => {
+    const words: Syllables[] = [{ stresses: [0] }, { stresses: [1] }, { stresses: [0] }, { stresses: [1] }, { stresses: [0] }, { stresses: [1] }, { stresses: [0] }, { stresses: [1] }, { stresses: [0] }, { stresses: [1] }, { stresses: [0] }, { stresses: [1] }]
+    const fitted = fitBars(verseWalk[0]!, words, 1)!
+    const at = onsets(fitted)
+    const stressed = at.filter((_, i) => i % 2 === 1 && i < at.length - 1).map(strength)
+    const unstressed = at.filter((_, i) => i % 2 === 0 && i > 0).map(strength)
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length
+    expect(mean(stressed)).toBeGreaterThan(mean(unstressed))
+  })
+
+  it('lets a bar line fall between words rather than inside one', () => {
+    // a long word that could straddle the bar line, and room to keep it whole
+    const words: Syllables[] = [{ stresses: [1] }, { stresses: [0] }, { stresses: [1, 0, 0] }, { stresses: [0] }, { stresses: [1, 0, 1, 0] }, { stresses: [1] }]
+    const fitted = fitBars(verseWalk[1]!, words, 1)!
+    const at = onsets(fitted)
+    const wordOf = words.flatMap((word, w) => word.stresses.map(() => w))
+    for (let i = 1; i < at.length; i++) {
+      const crosses = Math.floor(at[i - 1]! / 16) !== Math.floor(at[i]! / 16) || at[i]! % 16 === 0
+      if (crosses) expect(wordOf[i]).not.toBe(wordOf[i - 1])
+    }
+  })
+
+  it('is the same for the same words', () => {
+    expect(fitBars(verseWalk[2]!, opening, 1)).toEqual(fitBars(verseWalk[2]!, opening, 1))
   })
 })
