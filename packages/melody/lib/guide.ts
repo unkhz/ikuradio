@@ -196,9 +196,13 @@ export function changePoints(syllables: readonly TimedSyllable[], beats: number,
   const [lo, hi] = [Math.round(least * 2), Math.round(most * 2)]
   const best = new Array<{ value: number; from: number }>(grid + 1).fill({ value: -Infinity, from: -1 })
   best[0] = { value: 0, from: -1 }
+  // the last chord, the cadence's arrival, is under the last sung syllable, never only in the rest
+  // after it; it is held through that rest however long it is, as it is held through the tail
+  const lastSung = syllables.length ? Math.round(syllables.at(-1)!.at * 2) : grid
   for (let p = lo; p <= grid; p++) {
-    if (p !== grid && grid - p < lo) continue
-    for (let q = Math.max(0, p - hi); q <= p - lo; q++) {
+    if (p !== grid && (grid - p < lo || p > lastSung)) continue
+    const [first, last] = p === grid ? [Math.min(p - hi, lastSung - lo), Math.min(p - lo, lastSung)] : [p - hi, p - lo]
+    for (let q = Math.max(0, first); q <= last; q++) {
       if (best[q]!.value === -Infinity) continue
       const value = best[q]!.value + (p === grid ? 0 : gain[p]! - guideCosts.change)
       if (value > best[p]!.value) best[p] = { value, from: q }

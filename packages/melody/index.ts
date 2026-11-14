@@ -37,7 +37,7 @@ export {
   type TwoVoiceGuide,
 } from './lib/guide.js'
 export { degreeOf, nearestDegree, vocalRange } from './lib/reach.js'
-export { unfamiliarVerse } from './lib/writer.js'
+export { standing, unfamiliarVerse, writeOverGuide, writerCosts } from './lib/writer.js'
 export {
   harmonizeChoir,
   parallel,

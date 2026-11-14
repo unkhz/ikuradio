@@ -27,13 +27,13 @@ const verse = section(verseWalk)
 const chorus = section(chorusHook)
 
 const midi = (degree: number, mode: readonly number[]) => degreeToMidi(degree, { tonic: 57, mode })
-const cases: { guide: TwoVoiceGuide; ending: Ending; mode: readonly number[]; bpm: number }[] = []
+const cases: { guide: TwoVoiceGuide; ending: Ending; mode: readonly number[]; bpm: number; lastSung?: number }[] = []
 for (const mode of Object.keys(modes) as ModeName[]) {
   for (const bpm of [60, 76, 92, 116]) {
     for (const [name, part, ending] of [['verse', verse, 'half'], ['chorus', chorus, 'full'], ['bridge', { syllables: [], beats: 16 }, 'half']] as const) {
       for (const seed of ['a', 'b', 'c']) {
         const guide = composeGuide({ ...part, bpm, mode: modes[mode], ending, random: wrongness(`guide:${name}:${mode}:${bpm}:${seed}`) })
-        cases.push({ guide, ending, mode: modes[mode], bpm })
+        cases.push({ guide, ending, mode: modes[mode], bpm, lastSung: part.syllables.at(-1)?.at })
       }
     }
   }
@@ -57,6 +57,15 @@ describe('the two-voice guide', () => {
         const was = (midi(a.upper, mode) - midi(a.bass, mode)) % 12
         const is = (midi(b.upper, mode) - midi(b.bass, mode)) % 12
         expect([0, 7].includes(was) && was === is).toBe(false)
+      }
+    }
+  })
+
+  it('arrives at its last chord under the last sung syllable, not in the rest after it', () => {
+    for (const part of [verse, chorus]) {
+      for (const seed of ['a', 'b', 'c', 'd']) {
+        const guide = composeGuide({ ...part, bpm: 76, mode: modes.aeolian, ending: 'full', random: wrongness(seed) })
+        expect(guide.chords.at(-1)!.at).toBeLessThanOrEqual(part.syllables.at(-1)!.at)
       }
     }
   })
@@ -87,12 +96,14 @@ describe('the two-voice guide', () => {
   })
 
   it('changes chord no sooner than a beat and 0.6 s, no later than two bars and 6 s, and holds no note under half a second', () => {
-    for (const { guide, bpm } of cases) {
+    for (const { guide, bpm, lastSung } of cases) {
       const { least, most } = chordLengths(bpm)
       expect(guide.chords.reduce((sum, c) => sum + c.beats, 0)).toBeCloseTo(guide.beats)
-      for (const chord of guide.chords) {
+      for (const [i, chord] of guide.chords.entries()) {
         expect(chord.beats).toBeGreaterThanOrEqual(least - 1e-9)
-        expect(chord.beats).toBeLessThanOrEqual(most + 1e-9)
+        // the last chord is held through the rest after the last sung syllable, however long
+        if (i === guide.chords.length - 1 && lastSung !== undefined && chord.beats > most) expect(chord.at).toBeGreaterThanOrEqual(lastSung - least - 1e-9)
+        else expect(chord.beats).toBeLessThanOrEqual(most + 1e-9)
       }
       for (const [, beats] of [...guide.lower, ...guide.upper]) expect((beats * 60) / bpm).toBeGreaterThanOrEqual(0.5 - 1e-9)
     }
