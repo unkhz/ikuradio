@@ -995,7 +995,7 @@ function drawAutoplay() {
   const toggle = document.getElementById('autoplay')
   toggle.hidden = !replay
   toggle.setAttribute('aria-pressed', String(autoplayOn))
-  toggle.textContent = autoplayOn ? 'autoplay: on' : 'autoplay: off'
+  toggle.textContent = autoplayOn ? 'autoplay ✓' : 'autoplay'
 }
 document.getElementById('autoplay').addEventListener('click', () => setAutoplay(!autoplayOn))
 
