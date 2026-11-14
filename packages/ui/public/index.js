@@ -731,8 +731,10 @@ function songRow(song, index) {
     item.textContent = '…'
     return item
   }
-  // the latest Song is not looked back on: it is where the receiver tunes in live
-  const latest = index === 0
+  // the Song on now is not looked back on: it is where the receiver tunes in live.
+  // Only the Radio knows which is on; when the song holds its breath, none is,
+  // and the newest is a Song like any other, to be played from its beginning
+  const latest = index === 0 && song.on === true
   const link = Object.assign(document.createElement('a'), { href: latest ? '/' : `/s/${song.song}` })
   link.append(document.createTextNode(latest ? 'tune live' : `Song ${number(song.song)}`))
   const about = song.mood ? `${song.mood.join(' + ')} · ${Math.round(song.seconds / 60)} min` : '…'
