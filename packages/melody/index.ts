@@ -19,6 +19,20 @@ export { wrongness } from './lib/wrongness.js'
 export { guideStep, slowPhrase, slowSection } from './lib/guide.js'
 export { bridgeForm, journey, walkingDistance, type BridgeForm, type Pitches } from './lib/bridge.js'
 export { atonal, pitchNames, rowName, toneRow } from './lib/atonal.js'
+export {
+  changePoints,
+  chordLengths,
+  chordPath,
+  composeGuide,
+  counterpoint,
+  guideCosts,
+  timedLine,
+  type ChordFunction,
+  type Ending,
+  type GuideChord,
+  type TimedSyllable,
+  type TwoVoiceGuide,
+} from './lib/guide.js'
 export { degreeOf, nearestDegree, vocalRange } from './lib/reach.js'
 export { unfamiliarVerse } from './lib/writer.js'
 export {
