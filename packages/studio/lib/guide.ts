@@ -65,6 +65,7 @@ import type { Iteration } from './compose.js'
 import { hum, type SungLine } from './perform.js'
 import { stressedLine } from './stressed.js'
 import type { Written } from './written.js'
+import { progressionOf, type UsedProgression } from './progression.js'
 
 /**
  * Whether each section's guide is the two-voice guide, hummed in turns, the
@@ -98,6 +99,8 @@ export type Guide = {
   rendering?: 'turns'
   /** For a section whose melody was written over its guide: the share of standing syllables on a chord tone, and the most syllables in a row on one pitch. */
   melody?: { onChord: number; run: number }
+  /** For a two-voice guide: what its chords were chosen by, roaming or known, and the roots a known one took. */
+  progression?: UsedProgression
 }
 
 /**
@@ -260,7 +263,7 @@ function within(score: Score, body: Singer): Score {
  * ago. A section the voices cannot hum is left out, and its bed grows as
  * the old guide would have it.
  */
-export async function humTwoVoices({ mood, choir, settings, iteration }: Iteration, lines: SungLine[], previous: readonly Guide[]): Promise<Guide[]> {
+export async function humTwoVoices({ mood, choir, settings, iteration, song }: Iteration, lines: SungLine[], previous: readonly Guide[]): Promise<Guide[]> {
   const bpm = mood.character.tempo
   const key = keyOf(mood.character.mode)
   const [lead] = choir
@@ -276,6 +279,9 @@ export async function humTwoVoices({ mood, choir, settings, iteration }: Iterati
     all.map(async (section, i): Promise<Guide | undefined> => {
       const written = section.lines.flatMap((line) => (line.written ? [line.written] : []))
       const name = written[0]?.section ?? named[i]!
+      const progression =
+        written[0]?.progression ??
+        (await progressionOf(settings.progression[section.part], { part: section.part, place: Number(named[i]!.split(':')[1]), song: song.number }))
       // a section whose melody was written over its guide hums that guide; any other composes its own
       const composed = written[0]?.guide ?? composeGuide({
         syllables: await syllablesOf(section, bpm),
@@ -286,6 +292,7 @@ export async function humTwoVoices({ mood, choir, settings, iteration }: Iterati
         ending: section.part === 'chorus' || i === all.length - 1 ? 'full' : 'half',
         random: wrongness(`guide:${iteration}:${name}`),
         previous: previous.find((guide) => guide.name === name)?.composed,
+        progression,
       })
       const turns = inTurns(composed, bpm)
       const lowest = Math.min(...turns.lower.flatMap(([d]) => (d === null ? [] : [degreeToMidi(d, key)])))
@@ -323,6 +330,7 @@ export async function humTwoVoices({ mood, choir, settings, iteration }: Iterati
           composed,
           rendering: 'turns',
           ...(written.length ? { melody: melodyOf(written) } : {}),
+          progression,
         }
       } catch (error) {
         console.warn(`the voices could not hum the guide for ${name}: ${error}`)

@@ -17,6 +17,7 @@ import type { Iteration } from './compose.js'
 import { stressedLine } from './stressed.js'
 import { twoVoices } from './guide.js'
 import { sungAs, writeSections, type Fitted, type Unwritten, type Written } from './written.js'
+import { progressionOf } from './progression.js'
 
 export type SungLine = {
   part: 'verse' | 'chorus' | 'bridge'
@@ -356,6 +357,8 @@ export async function perform(
         name: `${part}:${n}`,
         // a chorus comes home, and so does the iteration; everything else leaves it open, on the fifth
         ending: part === 'chorus' || s === parts.length - 1 ? 'full' : 'half',
+        // which chords: the part's progression, coming home to a favourite if a Perspective says so
+        progression: await progressionOf(settings.progression[part], { part, place: n, song: song.number }),
         lines: await Promise.all(
           linesOf(content).map(async ({ line, index }) => {
             const key = lineKey(part, index, line)

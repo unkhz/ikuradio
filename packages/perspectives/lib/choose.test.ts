@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { defaults, facets } from './facets.js'
 import {
+  clash,
   describePerspectives,
   draw,
   howMany,
@@ -117,14 +118,16 @@ describe('draw', () => {
     expect(draw(drafts, '1', 2)).toEqual([])
   })
 
-  it('never puts two Perspectives on one Facet, and draws as many as asked', () => {
+  it('never puts two Perspectives on one Facet, or one part of it, and draws as many as asked', () => {
+    const turned = (r: PerspectiveRecord) => (r.part ? `${r.facet}:${r.part}` : r.facet)
     for (let song = 1; song <= 200; song++) {
       const drawn = draw(heard, `${song}`, 3)
       expect(drawn).toHaveLength(3)
-      expect(new Set(drawn.map((r) => r.facet)).size).toBe(3)
+      expect(new Set(drawn.map(turned)).size).toBe(3)
+      for (const [i, r] of drawn.entries()) for (const d of drawn.slice(0, i)) expect(clash(d, r)).toBe(false)
     }
-    // with every Facet taken, no more can be drawn
-    expect(draw(heard, '1', 10)).toHaveLength(facets.length)
+    // with every Facet, and every part of one, taken, no more can be drawn
+    expect(draw(heard, '1', 30)).toHaveLength(new Set(heard.map(turned)).size)
   })
 
   it('is the same for the same Song', () => {
@@ -154,5 +157,32 @@ describe('describePerspectives', () => {
     const { perspectives } = await resolve(records, '3', 3)
     expect(describePerspectives(perspectives)).toMatch(/^Atonal bridges: .+, A lone singer$|^A lone singer, Atonal bridges: .+$/)
     expect(describePerspectives([])).toBe('plainly')
+  })
+})
+
+describe('the progression Perspectives', () => {
+  it('may be heard together on different parts, never two on one part', async () => {
+    const { perspectivesFor, readPerspectives, clash } = await import('./choose.js')
+    const records = readPerspectives().filter((r) => r.facet === 'progression')
+    expect(records.every((r) => r.part)).toBe(true)
+    const both = await perspectivesFor('5', { choirSize: 3, only: ['progression-chorus-homecoming', 'progression-walking-verses'] })
+    expect(both.settings.progression.chorus.style).toBe('known')
+    expect(both.settings.progression.verse.known?.roots?.length).toBeGreaterThan(2)
+    expect(both.settings.progression.bridge.style).toBe('roaming')
+    await expect(perspectivesFor('5', { choirSize: 3, only: ['progression-chorus-homecoming', 'progression-settled-chorus'] })).rejects.toThrow()
+    const chorus = records.filter((r) => r.part === 'chorus')
+    expect(clash(chorus[0]!, chorus[1]!)).toBe(true)
+  })
+
+  it('each turn only its own part', async () => {
+    const { perspectivesFor, readPerspectives } = await import('./choose.js')
+    const { defaults } = await import('./facets.js')
+    for (const record of readPerspectives().filter((r) => r.facet === 'progression')) {
+      const { settings } = await perspectivesFor('9', { choirSize: 3, only: [record.slug] })
+      for (const part of ['verse', 'chorus', 'bridge'] as const) {
+        if (part !== record.part) expect(settings.progression[part]).toEqual(defaults(3).progression[part])
+      }
+      expect(settings.progression[record.part!]).not.toEqual(defaults(3).progression[record.part!])
+    }
   })
 })

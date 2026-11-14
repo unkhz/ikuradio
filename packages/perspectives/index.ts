@@ -7,10 +7,12 @@
 export {
   defaults,
   facets,
+  parts,
   pick,
   turning,
   type Actions,
   type Facet,
+  type Part,
   type Settings,
   type Turn,
   type TurnContext,
@@ -18,6 +20,7 @@ export {
 } from './lib/facets.js'
 export {
   describePerspectives,
+  clash,
   draw,
   howMany,
   perspectiveOdds,

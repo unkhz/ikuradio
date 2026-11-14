@@ -8,7 +8,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { wrongness } from 'melody'
-import { defaults, facets, type Actions, type Facet, type Settings } from './facets.js'
+import { defaults, facets, parts, type Actions, type Facet, type Part, type Settings } from './facets.js'
 
 /** Where the Perspectives live: a folder each, beside this package's own code. */
 export const perspectivesHome = fileURLToPath(new URL('../', import.meta.url))
@@ -20,6 +20,8 @@ export type PerspectiveRecord = {
   facet: Facet
   weight: number
   state: 'draft' | 'active' | 'retired'
+  /** For a Facet kept per part: the one part it turns. Two on one Facet may be heard together only on different parts. */
+  part?: Part
   /** Its folder, where actions.ts and prompts.json are. */
   dir: string
 }
@@ -42,8 +44,13 @@ export function parseRecord(text: string, dir: string): PerspectiveRecord {
   if (!facets.includes(facet)) throw new Error(`${dir}: no such Facet: ${fields.facet}`)
   const weight = Number(fields.weight)
   if (!Number.isInteger(weight) || weight < 1 || weight > 10) throw new Error(`${dir}: weight is 1 to 10`)
-  return { slug: fields.slug, title, facet, weight, state: fields.state as PerspectiveRecord['state'], dir }
+  const part = fields.part as Part | undefined
+  if (part !== undefined && !parts.includes(part)) throw new Error(`${dir}: no such part: ${fields.part}`)
+  return { slug: fields.slug, title, facet, weight, state: fields.state as PerspectiveRecord['state'], ...(part ? { part } : {}), dir }
 }
+
+/** Whether two Perspectives would turn the same thing: one Facet, and not two different parts of it. */
+export const clash = (a: PerspectiveRecord, b: PerspectiveRecord) => a.facet === b.facet && (!a.part || !b.part || a.part === b.part)
 
 /** Every Perspective there is, in the order of their names. */
 export function readPerspectives(home = perspectivesHome): PerspectiveRecord[] {
@@ -79,7 +86,7 @@ export function draw(records: readonly PerspectiveRecord[], song: string, count:
   const drawn: PerspectiveRecord[] = []
   for (let k = 0; k < count; k++) {
     const open = records.filter(
-      (r) => r.state === 'active' && !drawn.some((d) => d.facet === r.facet),
+      (r) => r.state === 'active' && !drawn.some((d) => clash(d, r)),
     )
     if (open.length === 0) break
     let left = random() * open.reduce((sum, r) => sum + r.weight, 0)
@@ -153,8 +160,8 @@ export async function perspectivesFor(
     if (!record) throw new Error(`there is no Perspective ${slug}`)
     return record
   })
-  if (new Set(named.map((r) => r.facet)).size < named.length) {
-    throw new Error('a Song is heard from only one Perspective on each Facet')
+  if (named.some((r, i) => named.slice(0, i).some((d) => clash(d, r)))) {
+    throw new Error('a Song is heard from only one Perspective on each Facet, or each part of one')
   }
   return resolve(named, song, choirSize)
 }

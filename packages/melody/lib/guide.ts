@@ -235,17 +235,53 @@ export function stable(root: number, mode: readonly number[]): boolean {
 }
 
 /**
+ * Which chords a section's guide takes (plan "Progressions, roaming and
+ * coming home"): sampled along the arc, roaming, as `temperature` allows and
+ * pulled by last iteration's chords as much as `pull`; or a known
+ * progression's roots, in degrees of whatever mode the Song is in, laid over
+ * the words' change points by place. A known progression without its roots
+ * names where they are to be found, `scientist` for a critic's favourites.
+ */
+export type Progression = {
+  style: 'roaming' | 'known'
+  known?: { from: string; roots?: number[] }
+  temperature: number
+  pull: number
+}
+
+/** How a section's chords are chosen unless a Perspective says otherwise: roaming, as the guide always has. */
+export const roaming: Progression = { style: 'roaming', temperature: guideCosts.temperature, pull: guideCosts.guidePull }
+
+/** Where among `length` things the `i`th of `count` places falls, by its relative position. */
+const byPlace = (i: number, count: number, length: number) => Math.round((i / Math.max(1, count - 1)) * (length - 1))
+
+/**
+ * A known progression's roots over `count` change points, by relative
+ * place: a long progression is thinned, a short one held longer. Where the
+ * section is `fixed` (its departure, its cadence), the progression gives way.
+ */
+export function laidByPlace(count: number, roots: readonly number[], fixed: ReadonlyMap<number, number> = new Map()): number[] {
+  return Array.from({ length: count }, (_, i) => fixed.get(i) ?? roots[byPlace(i, count, roots.length)]!)
+}
+
+/**
  * The roots of `count` chords: the first `departure`, the last the cadence,
  * and those between sampled along the arc, rising to their furthest point
  * late in the section. `previous` is last iteration's roots, a gentle pull.
  * Given the `mode`, a diminished or augmented chord is passed through only
- * now and then.
+ * now and then. Given a known `progression` with its roots, those fill
+ * the places between the departure and the cadence instead.
  */
 export function chordPath(
   count: number,
   ending: Ending,
   random: () => number,
-  { departure = 0, previous, mode }: { departure?: number; previous?: readonly number[]; mode?: readonly number[] } = {},
+  {
+    departure = 0,
+    previous,
+    mode,
+    progression = roaming,
+  }: { departure?: number; previous?: readonly number[]; mode?: readonly number[]; progression?: Progression } = {},
 ): number[] {
   if (count <= 0) return []
   if (count === 1) return [ending === 'full' ? 0 : departure]
@@ -255,14 +291,15 @@ export function chordPath(
     fixed.set(count - 2, 4)
   } else fixed.set(count - 1, 4)
   if (count === 2 && ending === 'full') fixed.delete(0)
+  const known = progression.style === 'known' ? progression.known?.roots : undefined
+  if (known?.length) return laidByPlace(count, known, fixed)
   const target = (i: number) => {
     const x = count === 1 ? 0 : i / (count - 1)
     return x <= 0.75 ? (1.6 * x) / 0.75 : 1.6
   }
   const pull = (i: number, root: number) => {
     if (!previous?.length) return 0
-    const j = Math.round((i / Math.max(1, count - 1)) * (previous.length - 1))
-    return previous[j] === root ? -guideCosts.guidePull : 0
+    return previous[byPlace(i, count, previous.length)] === root ? -progression.pull : 0
   }
   const node = (i: number, root: number) =>
     fixed.has(i)
@@ -270,7 +307,7 @@ export function chordPath(
         ? 0
         : Infinity
       : guideCosts.arc * Math.abs(distance[root]! - target(i)) + pull(i, root) + (mode && !stable(root, mode) ? guideCosts.unstable : 0)
-  const weight = (cost: number) => (Number.isFinite(cost) ? Math.exp(-cost / guideCosts.temperature) : 0)
+  const weight = (cost: number) => (Number.isFinite(cost) ? Math.exp(-cost / progression.temperature) : 0)
   // forward: how well each root can be reached at each chord
   const forward: number[][] = []
   for (let i = 0; i < count; i++) {
@@ -388,6 +425,64 @@ export function counterpoint(
   return { bass: chosen.map(({ bass }) => bass), upper: chosen.map(({ upper }) => upper) }
 }
 
+/** What a bar's note outside the chord costs, a beat of it; what one on the root gains; how far from home costs; what holding the chord through a bar costs; how much more the note on the bar's first beat counts. */
+const hearing = { outside: 3, root: 0.15, away: 0.3, stay: 0.2, downbeat: 2 }
+
+/**
+ * The chords an old one-voice guide implies: its notes, in MIDI and beats,
+ * heard in `mode` on A, a bar at a time, each bar's triad the one that
+ * covers its notes best, the note on the bar's first beat most, by the
+ * guide's own costs of moving from chord to chord. A root a bar, in order,
+ * a chord held through two bars named twice, so that laid by place over
+ * new words it keeps its length. The same notes always give the same
+ * roots, so nothing need be kept.
+ */
+export function harmonizeHum(notes: readonly (readonly [number, number])[], mode: readonly number[]): number[] {
+  const degreeOf = (midi: number) => mode.indexOf(((((midi - 57) % 12) + 12) % 12) as never)
+  // each bar's notes, by how long each degree sounds in it
+  const bars: number[][] = []
+  let at = 0
+  for (const [midi, beats] of notes) {
+    const d = midi > 0 ? degreeOf(Math.round(midi)) : -1
+    let left = beats
+    while (left > 1e-9) {
+      const bar = Math.floor(at / 4 + 1e-9)
+      const take = Math.min(left, (bar + 1) * 4 - at)
+      bars[bar] ??= new Array(7).fill(0)
+      if (d >= 0) bars[bar]![d]! += take * (Math.abs(at - bar * 4) < 1e-9 ? hearing.downbeat : 1)
+      at += take
+      left -= take
+    }
+  }
+  const heard = bars.filter((bar) => bar.some((b) => b > 0))
+  if (!heard.length) return []
+  const node = (bar: number[], root: number) =>
+    bar.reduce((sum, b, d) => sum + b * (inChord(d, root) ? (d === root ? -hearing.root : 0) : hearing.outside), 0) +
+    hearing.away * distance[root]! +
+    (stable(root, mode) ? 0 : guideCosts.unstable)
+  const move = (a: number, b: number) => (a === b ? hearing.stay : moveCost(a, b))
+  const best: { cost: number; from: number }[][] = [Array.from({ length: 7 }, (_, r) => ({ cost: node(heard[0]!, r), from: -1 }))]
+  for (let i = 1; i < heard.length; i++) {
+    best.push(
+      Array.from({ length: 7 }, (_, r) => {
+        let cheapest = { cost: Infinity, from: 0 }
+        for (let q = 0; q < 7; q++) {
+          const cost = best[i - 1]![q]!.cost + move(q, r)
+          if (cost < cheapest.cost) cheapest = { cost, from: q }
+        }
+        return { cost: cheapest.cost + node(heard[i]!, r), from: cheapest.from }
+      }),
+    )
+  }
+  const roots: number[] = []
+  let r = best.at(-1)!.reduce((b, x, k, all) => (x.cost < all[b]!.cost ? k : b), 0)
+  for (let i = heard.length - 1; i >= 0; i--) {
+    roots.unshift(r)
+    r = best[i]![r]!.from
+  }
+  return roots
+}
+
 /**
  * The two-voice guide for a section: `syllables` its words as they are
  * timed, `beats` its length, `bpm` its tempo, `mode` its scale, `ending`
@@ -405,6 +500,7 @@ export function composeGuide({
   random,
   departure = 0,
   previous,
+  progression,
 }: {
   syllables: readonly TimedSyllable[]
   beats: number
@@ -414,10 +510,12 @@ export function composeGuide({
   random: () => number
   departure?: number
   previous?: TwoVoiceGuide
+  /** Which chords: roaming unless given. Where they change is always the words'. */
+  progression?: Progression
 }): TwoVoiceGuide {
   const points = changePoints(syllables, beats, bpm)
   const spans = points.map((at, i) => ({ at, beats: (points[i + 1] ?? beats) - at }))
-  const roots = chordPath(spans.length, ending, random, { departure, previous: previous?.chords.map(({ root }) => root), mode })
+  const roots = chordPath(spans.length, ending, random, { departure, previous: previous?.chords.map(({ root }) => root), mode, progression })
   const { bass, upper } = counterpoint(roots, ending, mode, random)
   const chords: GuideChord[] = spans.map((span, i) => ({
     ...span,

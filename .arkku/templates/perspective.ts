@@ -9,7 +9,7 @@ import { existsSync } from "node:fs";
 // See plans/2026-11-13-perspectives.md.
 
 /** The Facets that have a hook in the Studio. Keep in step with packages/perspectives/lib/facets.ts. */
-const facets = ["development", "choir", "humanness", "harmony", "bridge-singers", "bridge-voice", "bridge-beds", "verse-tune", "drift"];
+const facets = ["development", "choir", "humanness", "harmony", "bridge-singers", "bridge-voice", "bridge-beds", "verse-tune", "drift", "progression"];
 
 /** The project's root, from this module: .arkku/templates/ is two folders down. */
 const root = new URL("../../", import.meta.url).pathname;
@@ -31,6 +31,11 @@ export default {
         type: "string",
         enum: facets,
         description: "The part of the Studio's work this Perspective changes: one hook in the code.",
+      },
+      part: {
+        type: "string",
+        enum: ["verse", "chorus", "bridge"],
+        description: "For a Facet kept per part (progression): the one part this Perspective turns. Perspectives on different parts of one Facet may be heard together.",
       },
       weight: {
         type: "integer",

@@ -6,7 +6,7 @@
 //
 // Keep the list in step with .arkku/templates/perspective.ts.
 
-import { traditional, type Harmony } from 'melody'
+import { roaming, traditional, type Harmony, type Progression } from 'melody'
 
 export const facets = [
   'development',
@@ -18,6 +18,7 @@ export const facets = [
   'bridge-beds',
   'verse-tune',
   'drift',
+  'progression',
 ] as const
 
 export type Facet = (typeof facets)[number]
@@ -73,7 +74,19 @@ export type Settings = {
   'verse-tune': { unfamiliar: boolean }
   /** How many of the Mood's descriptions let go when the Song begins. Hooked in `nextMood`. */
   drift: { letGo: number }
+  /**
+   * Which chords each part's guide takes, a Setting a part: roaming along
+   * the arc, with its temperature and its pull toward last iteration's
+   * chords, or a known progression laid over the words' change points.
+   * Where the chords change is always the words'. Hooked where a section's
+   * guide is composed (`composeGuide`), before its melody is written.
+   */
+  progression: { verse: Progression; chorus: Progression; bridge: Progression }
 }
+
+/** The parts a Setting may be kept for, one each: Perspectives on different parts of one Facet may be heard together. */
+export const parts = ['verse', 'chorus', 'bridge'] as const
+export type Part = (typeof parts)[number]
 
 /** What the Studio does when no Perspective turns a Facet. */
 export function defaults(choirSize: number): Settings {
@@ -87,6 +100,7 @@ export function defaults(choirSize: number): Settings {
     'bridge-beds': { melody: true },
     'verse-tune': { unfamiliar: false },
     drift: { letGo: 1 },
+    progression: { verse: { ...roaming }, chorus: { ...roaming }, bridge: { ...roaming } },
   }
 }
 

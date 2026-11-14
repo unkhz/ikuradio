@@ -129,6 +129,14 @@ export type SessionGuide = {
   rendering?: 'turns'
   /** For a section whose melody was written over this guide: the share of its standing syllables on a chord tone, and the most syllables in a row it sang on one pitch. */
   melody?: { onChord: number; run: number }
+  /**
+   * For a two-voice guide: what its chords were chosen by. Roaming along the
+   * arc, with its temperature and pull; or known, with where its roots came
+   * from (`scientist:45`, `scientist:45:3`, `classic:ii-V-I`) and the roots
+   * themselves, degrees of the Song's mode; or a homecoming that found no
+   * favourite it could use, and roamed (`unfound`, the critic it looked to).
+   */
+  progression?: { style: 'roaming' | 'known'; temperature: number; pull: number; from?: string; roots?: number[]; unfound?: string }
 }
 
 export type SessionIteration = {

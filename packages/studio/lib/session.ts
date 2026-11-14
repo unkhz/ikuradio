@@ -33,6 +33,15 @@ const takeOf = ({ bpm, lyrics, notes, t0, vibrato, pressure, tension, breathines
 })
 
 /** How long an iteration lasts: until its last line has had its place. */
+/** A section's progression as the Session keeps it: the style and its numbers, and, if known, where its roots came from and what they were. */
+export const progressionRecord = ({ style, temperature, pull, known, unfound }: NonNullable<Guide['progression']>) => ({
+  style,
+  temperature,
+  pull,
+  ...(known?.roots ? { from: known.from, roots: known.roots } : {}),
+  ...(unfound ? { unfound } : {}),
+})
+
 export function lengthOf(lines: readonly SungLine[]) {
   return Math.max(0, ...lines.map(({ at, seconds }) => at + seconds))
 }
@@ -145,6 +154,7 @@ export function toSession(
         ...(guide.composed ? { chords: guide.composed.chords, furthest: guide.composed.furthest } : {}),
         ...(guide.rendering ? { rendering: guide.rendering } : {}),
         ...(guide.melody ? { melody: guide.melody } : {}),
+        ...(guide.progression ? { progression: progressionRecord(guide.progression) } : {}),
       })
     }
     offset += length

@@ -8,6 +8,7 @@
 // from the chords each time, and last iteration's line only pulls at its
 // contour, so it drifts instead of jumping.
 
+import type { UsedProgression } from './progression.js'
 import {
   composeGuide,
   degreeToMidi,
@@ -36,6 +37,8 @@ export type Written = {
   onChord: number
   /** The most syllables in a row it sang on one pitch. */
   run: number
+  /** What its section's chords were chosen by. */
+  progression?: UsedProgression
 }
 
 /** A line fitted to its bars, before it has pitches of its own: the lead's score, and its words' stresses. */
@@ -105,6 +108,8 @@ export type Unwritten = {
   name: string
   ending: 'half' | 'full'
   lines: { key: string; index: number; fitted: Fitted }[]
+  /** Which chords its guide takes: roaming, unless its part's progression says otherwise. */
+  progression?: UsedProgression
 }
 
 /**
@@ -141,14 +146,14 @@ export function writeSections({
   const semitones = (a: number, b: number) => Math.abs(degreeToMidi(a, lead.key) - degreeToMidi(b, lead.key))
   const written = new Map<string, Written>()
   const shared = new Map<string, TwoVoiceGuide>()
-  for (const { name, ending, lines } of sections) {
+  for (const { name, ending, lines, progression } of sections) {
     const timed: TimedSyllable[][] = []
     let beats = 0
     for (const { fitted } of lines) {
       timed.push(timedLine(fitted, beats, bpm))
       beats += beatsOf(fitted, bpm)
     }
-    const same = `${ending}|${lines.map(({ key }) => key).join('|')}`
+    const same = `${ending}|${JSON.stringify(progression ?? null)}|${lines.map(({ key }) => key).join('|')}`
     const guide =
       shared.get(same) ??
       composeGuide({
@@ -159,6 +164,7 @@ export function writeSections({
         ending,
         random: wrongness(`guide:${iteration}:${name}`),
         previous: [...before.values()].find((w) => w.section === name)?.guide,
+        progression,
       })
     shared.set(same, guide)
     let from: number | undefined
@@ -181,7 +187,14 @@ export function writeSections({
         sprinkle,
         pull,
       })
-      written.set(key, { section: name, guide, degrees, ...standingOnChord(timed[i]!, degrees, guide), run: longestRun(degrees) })
+      written.set(key, {
+        section: name,
+        guide,
+        degrees,
+        ...standingOnChord(timed[i]!, degrees, guide),
+        run: longestRun(degrees),
+        ...(progression ? { progression } : {}),
+      })
       from = degrees.at(-1)
     }
   }
