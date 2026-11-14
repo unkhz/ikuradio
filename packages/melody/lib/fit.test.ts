@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test'
-import { fitBars, fitPhrase, shortestBeats, spacing, strength, type Phrase, type Syllables } from './fit.js'
+import { fitBars, fitPhrase, growOnReciting, paceOf, shortestBeats, spacing, strength, type Phrase, type Syllables } from './fit.js'
 import { chorusHook, verseWalk } from './hooks.js'
 import { degreeToMidi, aeolian } from './scale.js'
 import { setLine } from '../index.js'
@@ -186,5 +186,62 @@ describe('fitBars', () => {
 
   it('is the same for the same words', () => {
     expect(fitBars(verseWalk[2]!, opening, 1)).toEqual(fitBars(verseWalk[2]!, opening, 1))
+  })
+})
+
+describe('growOnReciting', () => {
+  // "This is the song, iteration" and a number of `n` more syllables, stressed now and then, then a comma
+  const line = (n: number): Syllables[] => [
+    { stresses: [0] },
+    { stresses: [0] },
+    { stresses: [0] },
+    { stresses: [1], comma: true },
+    { stresses: [2, 0, 1, 0] },
+    ...Array.from({ length: n }, (_, i) => ({ stresses: [i % 3 === 0 ? 1 : 0], comma: i === n - 1 })),
+  ]
+  const hook = chorusHook[0]!
+  const sixteenths = (phrase: Phrase) => phrase.notes.reduce((sum, [, beats]) => sum + beats, 0) * 4 + phrase.rest * 4
+  const starts = (phrase: Phrase) => {
+    let at = 0
+    return phrase.notes.map(([, beats]) => {
+      const start = at * 4
+      at += beats
+      return start
+    })
+  }
+
+  it('is marked on the chorus’s first line only, at the note under "iteration"', () => {
+    expect(hook.reciting).toBe(4)
+    expect(chorusHook.slice(1).every((phrase) => phrase.reciting === undefined)).toBe(true)
+    expect(verseWalk.every((phrase) => phrase.reciting === undefined)).toBe(true)
+  })
+
+  it('sings at the phrase’s own pace, eighths, never quicker, however long the number', () => {
+    expect(paceOf(hook)).toBe(2)
+    for (const n of [1, 9, 14, 26, 50]) {
+      for (const k of [1, 2]) {
+        const grown = growOnReciting(hook, line(n), k)!
+        const at = starts(grown)
+        for (let i = 1; i < at.length; i++) expect(at[i]! - at[i - 1]!).toBeGreaterThanOrEqual(2)
+        expect(grown.notes).toHaveLength(8 + n)
+      }
+    }
+  })
+
+  it('grows by whole bars only when the number needs them, and keeps growing with it', () => {
+    const bars = [1, 9, 14, 26, 50].map((n) => sixteenths(growOnReciting(hook, line(n), 1)!) / 16)
+    for (const count of bars) expect(Number.isInteger(count)).toBe(true)
+    expect(bars[0]).toBe(2)
+    for (let i = 1; i < bars.length; i++) expect(bars[i]!).toBeGreaterThan(bars[i - 1]!)
+  })
+
+  it('chants the number on the reciting note, and keeps the departure and the cadence', () => {
+    const grown = growOnReciting(hook, line(26), 1)!
+    const degrees = grown.notes.map(([degree]) => degree)
+    const reciting = hook.notes[4]![0]
+    expect(degrees.filter((d) => d === reciting).length).toBeGreaterThan(20)
+    expect(grown.notes.at(-1)).toEqual(hook.notes.at(-1))
+    expect(degrees[0]).toBe(hook.notes[0]![0])
+    expect(grown.rest).toBe(hook.rest)
   })
 })

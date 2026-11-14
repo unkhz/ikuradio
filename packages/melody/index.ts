@@ -1,4 +1,4 @@
-import { fitBars, fitPhrase, shortestBeats, spacing, type Phrase, type Syllables } from './lib/fit.js'
+import { fitBars, fitPhrase, growOnReciting, shortestBeats, spacing, type Phrase, type Syllables } from './lib/fit.js'
 import { chorusHook, verseWalk } from './lib/hooks.js'
 import {
   aeolian,
@@ -32,7 +32,7 @@ export {
 } from './lib/harmony.js'
 export type { Phrase, Key, ModeName }
 export type { Note } from './lib/fit.js'
-export { fitBars, shortestBeats, spacing, strength, type Syllables } from './lib/fit.js'
+export { fitBars, growOnReciting, paceOf, shortestBeats, spacing, strength, type Syllables } from './lib/fit.js'
 
 export type Singer = 'male' | 'female' | 'child'
 
@@ -118,9 +118,16 @@ export function setLine({
   const phrase = phrases[line % phrases.length]
   const least = rate ? shortestBeats(character.tempo, rate) : undefined
   const counted = words?.reduce((sum, word) => sum + word.stresses.length, 0)
+  // the line that carries the number grows on its reciting note; the tune it
+  // is read from may be an old copy, so the mark is read from the hook itself
+  const reciting = part === 'chorus' ? chorusHook[line % chorusHook.length]?.reciting : undefined
+  const k = rate ? spacing(character.tempo, rate) : 1
   const { notes, rest } =
-    (rate && words && counted === syllables ? byBars(phrase, words, spacing(character.tempo, rate)) : undefined) ??
-    fitPhrase(phrase, syllables, least)
+    (rate && words && counted === syllables
+      ? reciting !== undefined
+        ? growOnReciting({ ...phrase, reciting }, words, k)
+        : byBars(phrase, words, k)
+      : undefined) ?? fitPhrase(phrase, syllables, least)
   const key = keyFor(singer, character.mode)
   return {
     bpm: character.tempo,

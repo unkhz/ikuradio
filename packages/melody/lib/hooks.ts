@@ -15,9 +15,12 @@ import type { Phrase } from './fit.js'
 // prettier-ignore
 export const chorusHook: readonly Phrase[] = [
   // This is the song, iteration one,
+  // the note under "iteration" is the reciting tone: when the number
+  // outgrows the line, it is chanted there, a whole bar at a time
   {
     notes: [[4, 0.5], [4, 0.5], [4, 0.5], [5, 1], [4, 0.5], [3, 0.5], [2, 0.5], [1, 0.5], [0, 2]],
     rest: 1.5,
+    reciting: 4,
   },
   // Yes, it goes on and on, it's just begun,
   {

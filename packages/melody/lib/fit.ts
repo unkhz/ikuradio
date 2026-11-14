@@ -12,6 +12,12 @@ export type Phrase = {
   notes: readonly Note[]
   /** Silence after the last note, in beats. Breath before the next line. */
   rest: number
+  /**
+   * The note a line may chant on when its words outgrow the phrase, by its
+   * place among the notes: whole bars are added to it, a psalm tone that
+   * takes as many syllables as it needs. Only the chorus's first line has one.
+   */
+  reciting?: number
 }
 
 /** Below this length a note is not split any further, unless a tempo and a rate say otherwise; the phrase slows down instead. */
@@ -68,7 +74,7 @@ export function fitPhrase(phrase: Phrase, syllables: number, least = shortest): 
   // a sung note quicker than the grid allows, an ornament's, is slowed too
   while (notes.slice(0, -1).some(([, beats]) => beats < least - 1e-9)) slower()
 
-  return { notes, rest }
+  return { ...phrase, notes, rest }
 }
 
 function foldShortest(notes: Note[]): Note[] {
@@ -200,5 +206,38 @@ export function fitBars(phrase: Phrase, words: readonly Syllables[], k: number):
     s === count - 1 ? [phrase.notes.at(-1)![0], phrase.notes.at(-1)![1]] : [pitchAt(p), (placed[s + 1]! - p) / 4],
   )
   return { notes, rest: phrase.rest }
+}
+
+/** The pace a phrase moves at: its notes' middle length, the cadence aside, in sixteenths. */
+export function paceOf(phrase: Phrase): number {
+  const lengths = phrase.notes
+    .slice(0, -1)
+    .map(([, beats]) => Math.round(beats * 4))
+    .sort((a, b) => a - b)
+  return lengths[Math.floor(lengths.length / 2)] ?? 2
+}
+
+/**
+ * A line that grows: the words fitted bar by bar at the phrase's own pace,
+ * never quicker than `k` sixteenths, and where they do not fit, whole bars
+ * added on its reciting note, one at a time, until they do. The departure
+ * and the cadence keep their shape; the words between are chanted on the
+ * one note. There is no ceiling. Undefined only for a phrase with no
+ * reciting note.
+ */
+export function growOnReciting(phrase: Phrase, words: readonly Syllables[], k: number): Phrase | undefined {
+  const at = phrase.reciting
+  if (at === undefined || !phrase.notes[at]) return undefined
+  const pace = Math.max(k, paceOf(phrase))
+  const syllables = words.reduce((sum, word) => sum + word.stresses.length, 0)
+  for (let bars = 0; bars <= syllables; bars++) {
+    const grown: Phrase = {
+      ...phrase,
+      notes: phrase.notes.map(([degree, beats], i): Note => [degree, i === at ? beats + 4 * bars : beats]),
+    }
+    const fitted = fitBars(grown, words, pace)
+    if (fitted) return fitted
+  }
+  return undefined
 }
 

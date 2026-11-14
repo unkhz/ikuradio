@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, rm, stat } from 'node:fs/promises'
 import { describe, type Mood } from 'mood'
 import { mixdown, type Placed } from 'vocals'
-import { accompany, musicDir, tail, words } from './bed.js'
+import { accompany, longest, musicDir, tail, words } from './bed.js'
 import { sections, type Kind, type Line } from './sections.js'
 import type { Shelf } from './shelf.js'
 
@@ -80,7 +80,8 @@ export async function underlay(
     if (beds.has(section.kind)) continue
     const guide = guides?.get(section.kind)
     if (!guide && !section.lines.some(({ file }) => file)) continue
-    const choice = shelf?.choose(iteration, song, section.kind, kinds)
+    // a bed from the shelf must last as long as this section, and fade under what follows
+    const choice = shelf?.choose(iteration, song, section.kind, kinds, section.seconds + tail)
     if (choice && !choice.grow) {
       beds.set(section.kind, choice.bed)
       continue
@@ -99,7 +100,7 @@ export async function underlay(
     }).finally(() => (guide ? undefined : rm(vocals, { force: true })))
     beds.set(section.kind, bed)
     grown++
-    if (shelf) departed.push(...shelf.keep(song, section.kind, bed))
+    if (shelf) departed.push(...shelf.keep(song, section.kind, bed, Math.min(longest, section.seconds + tail)))
   }
   if (beds.size === 0) {
     console.warn(`no bed grew under ${describe(mood)}: nothing was sung`)

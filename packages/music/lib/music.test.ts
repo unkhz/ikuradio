@@ -111,6 +111,22 @@ describe('the shelf', () => {
   })
 })
 
+describe('the shelf, as lines grow', () => {
+  it('never plays again a bed too short for the section, and grows a new one instead', () => {
+    const shelf = new Shelf()
+    shelf.keep('a', 'chorus', 'short', 20)
+    shelf.keep('a', 'verse', 'v0', 40)
+    for (let iteration = 0n; iteration < 12n; iteration++) {
+      const choice = shelf.choose(iteration, 'a', 'chorus', ['verse', 'chorus'], 24)
+      expect(choice).toEqual({ grow: true })
+    }
+    shelf.keep('a', 'chorus', 'long', 30)
+    const played = [...Array(12).keys()].map((i) => shelf.choose(BigInt(i), 'a', 'chorus', ['verse', 'chorus'], 24))
+    expect(played.some((choice) => !choice.grow && choice.bed === 'long')).toBe(true)
+    expect(played.some((choice) => !choice.grow && choice.bed === 'short')).toBe(false)
+  })
+})
+
 describe('sections, and the beds that lie under them', () => {
   it('knows a bridge by the parts it leaves and leads to', () => {
     const found = sections([
