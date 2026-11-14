@@ -45,6 +45,14 @@ const envSchema = z.object({
    */
   SYLLABLES_PER_SECOND: z.coerce.number().min(1).max(12).default(6),
   VARIATION_COUNT: z.coerce.number().int().min(1).default(2),
+  /**
+   * How far the melody writer roams among the lines that keep its rules:
+   * at 0 it always sings the cheapest, at 1 it samples them, the cheaper the
+   * likelier. Only with the two-voice guide.
+   */
+  MELODY_SPRINKLE: z.coerce.number().min(0).max(4).default(1),
+  /** How strongly last iteration's melody pulls at the contour of the one written now. */
+  MELODY_GUIDE: z.coerce.number().min(0).max(4).default(1),
 })
 
 export function getEnv(env = process.env) {

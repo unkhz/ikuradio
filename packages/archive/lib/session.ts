@@ -127,6 +127,8 @@ export type SessionGuide = {
   furthest?: number
   /** How its voices were hummed for the Music: in turns, the lower opening each chord and the upper finishing it. */
   rendering?: 'turns'
+  /** For a section whose melody was written over this guide: the share of its standing syllables on a chord tone, and the most syllables in a row it sang on one pitch. */
+  melody?: { onChord: number; run: number }
 }
 
 export type SessionIteration = {

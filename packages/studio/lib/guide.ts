@@ -31,8 +31,10 @@
 // prompt and seed; thoughts/robot/2026-11.md, "What the band can hear").
 // The balance turning between two voices that both sound did as well on
 // the root and a little worse on chord tones, and needs a gain that moves;
-// taking turns needs nothing but rests. The ear has not chosen yet:
-// `twoVoices` stays off until it has.
+// taking turns needs nothing but rests. The scientist's ear chose taking
+// turns, and with it the melody written over the guide (./written.ts): a
+// section's guide is composed before its lines are sung, from their fitted
+// rhythm, and hummed here from what was composed.
 
 import {
   atonal,
@@ -62,14 +64,15 @@ import { mixdown, record, throatScore, vocalsDir, type Take, type Throat } from 
 import type { Iteration } from './compose.js'
 import { hum, type SungLine } from './perform.js'
 import { stressedLine } from './stressed.js'
+import type { Written } from './written.js'
 
 /**
- * Whether each section's guide is the two-voice guide, hummed in turns, and
- * each section grows its own bed from it. Off, the Music grows a bed for the
- * first section of each kind from the lead's slow reading of its melody, as
- * before. It waits for the scientist's ear: the numbers favour taking turns.
+ * Whether each section's guide is the two-voice guide, hummed in turns, the
+ * lead's melody written over it, and each section grows its own bed from it.
+ * Off, the lead sings its tune, and the Music grows a bed for the first
+ * section of each kind from the lead's slow reading of its melody.
  */
-export const twoVoices = false
+export const twoVoices = true
 
 export type Guide = {
   /** The kind of bed it guided. */
@@ -93,6 +96,8 @@ export type Guide = {
   composed?: TwoVoiceGuide
   /** How the voices were hummed for the Music. */
   rendering?: 'turns'
+  /** For a section whose melody was written over its guide: the share of standing syllables on a chord tone, and the most syllables in a row on one pitch. */
+  melody?: { onChord: number; run: number }
 }
 
 /**
@@ -269,8 +274,10 @@ export async function humTwoVoices({ mood, choir, settings, iteration }: Iterati
   const { row } = settings['bridge-beds']
   const guides = await Promise.all(
     all.map(async (section, i): Promise<Guide | undefined> => {
-      const name = named[i]!
-      const composed = composeGuide({
+      const written = section.lines.flatMap((line) => (line.written ? [line.written] : []))
+      const name = written[0]?.section ?? named[i]!
+      // a section whose melody was written over its guide hums that guide; any other composes its own
+      const composed = written[0]?.guide ?? composeGuide({
         syllables: await syllablesOf(section, bpm),
         beats: (section.seconds * bpm) / 60,
         bpm,
@@ -315,6 +322,7 @@ export async function humTwoVoices({ mood, choir, settings, iteration }: Iterati
           lower: { take: throatScore(lowerTake), body: low.body },
           composed,
           rendering: 'turns',
+          ...(written.length ? { melody: melodyOf(written) } : {}),
         }
       } catch (error) {
         console.warn(`the voices could not hum the guide for ${name}: ${error}`)
@@ -325,6 +333,12 @@ export async function humTwoVoices({ mood, choir, settings, iteration }: Iterati
   return guides.filter((guide) => guide !== undefined)
 }
 
+/** How a section's written melody kept the writer's rules: the share of its standing syllables on a chord tone, and its longest run on one pitch. */
+export function melodyOf(written: readonly Written[]) {
+  const standing = written.reduce((sum, w) => sum + w.standing, 0)
+  const onChord = written.reduce((sum, w) => sum + w.onChord, 0)
+  return { onChord: standing ? Math.round((onChord / standing) * 1000) / 1000 : 1, run: Math.max(...written.map((w) => w.run)) }
+}
 
 /** What the Music is given to listen to: a two-voice guide by its section, an old one by its kind. */
 export const guidesFor = (hummed: readonly Guide[]): Map<Kind | number, string> =>

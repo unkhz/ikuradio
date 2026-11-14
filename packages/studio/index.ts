@@ -21,7 +21,7 @@ import { openArchive } from 'archive'
 import { describePerspectives } from 'perspectives'
 import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
-import { perform } from './lib/perform.js'
+import { perform, type SungLine } from './lib/perform.js'
 import { toSession, type Made } from './lib/session.js'
 import { guidesFor, humGuides, type Guide } from './lib/guide.js'
 import { sweep } from './lib/sweep.js'
@@ -144,11 +144,11 @@ console.log(
 
 // the voices
 const sungAt = Date.now()
-const sung = []
-for (const one of composed) sung.push(await perform(one))
+const sung: SungLine[][] = []
+for (const one of composed) sung.push(await perform(one, sung.at(-1)))
 console.log(`sung in ${seconds(sungAt)}`)
 
-// the guide hums: the lead's melody with fewer notes, for the Music alone
+// the guide hums, for the Music alone: what the lead's melody was written over, in two voices
 const guides: Guide[][] = []
 for (const [i, one] of composed.entries()) guides.push(await humGuides(one, sung[i], guides[i - 1]))
 

@@ -4,12 +4,19 @@
 // The lead sings every line. The rest of the choir joins in the chorus.
 // Every voice sings its own take, a little wrong in its own way, and the
 // takes are blended into one recording per line.
+//
+// With two voices (`twoVoices`), every line is fitted to its bars first,
+// and the lead's pitches are written over its section's guide before
+// anyone sings (./written.ts).
 
 import { arrange } from 'song'
-import { harmonizeChoir, keyFor, scoreSeconds, setBridge, setLine, wrongness, type Score } from 'melody'
+import { getEnv } from 'tools'
+import { harmonizeChoir, keyFor, scoreSeconds, setBridge, setLine, wrongness, type Score, type Syllables } from 'melody'
 import { blend, countSyllables, fullness, humanize, keepsPace, quickest, record, throatScore, type Take } from 'vocals'
 import type { Iteration } from './compose.js'
 import { stressedLine } from './stressed.js'
+import { twoVoices } from './guide.js'
+import { sungAs, writeSections, type Fitted, type Unwritten, type Written } from './written.js'
 
 export type SungLine = {
   part: 'verse' | 'chorus' | 'bridge'
@@ -46,6 +53,8 @@ export type SungLine = {
   grown?: number
   /** The shortest time between two of its lead's syllables, in seconds: the price of time, as it was paid. */
   quickest?: number
+  /** For a line written over its section's guide: the guide, and what the lead was written. */
+  written?: Written
 }
 
 /** How often a bridge is hummed aloud, rather than only played, unless a Perspective says otherwise. */
@@ -78,16 +87,15 @@ export function scat(syllables: readonly string[], random: () => number) {
 export const lineKey = (part: string, index: number, lyrics: string) =>
   `${part}:${index}:${lyrics}`
 
-export async function perform({
-  iteration,
-  lyrics,
-  mood,
-  choir,
-  sung: tune,
-  song,
-  settings,
-  rate,
-}: Iteration): Promise<SungLine[]> {
+/**
+ * Every line of an iteration, sung. `before` is the iteration before it, as
+ * it was sung: with two voices, each line's melody is pulled toward the one
+ * it had there, and each section's guide toward its guide.
+ */
+export async function perform(
+  { iteration, lyrics, mood, choir, sung: tune, song, settings, rate }: Iteration,
+  before: readonly SungLine[] = [],
+): Promise<SungLine[]> {
   // the Song's Perspectives, as its hooks here follow them
   const humanness = settings.humanness.scale
   const bridging = settings['bridge-singers']
@@ -211,11 +219,11 @@ export async function perform({
     }
   }
 
-  const sing = async (
-    part: 'verse' | 'chorus',
-    index: number,
-    line: string,
-  ): Promise<Omit<SungLine, 'at'>> => {
+  /** The lead sings every line; the others the chorus, or, in a Song heard that way, the verses too. */
+  const singersOf = (part: 'verse' | 'chorus') => (part === 'chorus' || settings.choir.verses ? choir : choir.slice(0, 1))
+
+  /** A line fitted to its bars: the lead's score, to its tune, and the words' stresses. */
+  const fit = async (part: 'verse' | 'chorus', index: number, line: string): Promise<Fitted & { hummed: boolean }> => {
     // a line with nothing a throat can sing is hummed: one "ooh" for every note of its tune
     let syllables = await countSyllables(line).catch(() => 0)
     let words = line
@@ -226,21 +234,32 @@ export async function perform({
       hummed = true
     }
     // the words with their stress, for fitting them bar by bar
-    const stressed = hummed ? undefined : await stressedLine(line, syllables)
-
-    // the lead sings every line; the others the chorus, or, in a Song heard that way, the verses too
-    const voices = part === 'chorus' || settings.choir.verses ? choir : choir.slice(0, 1)
-    const led = setLine({
+    const stressed: Syllables[] | undefined = hummed ? undefined : await stressedLine(line, syllables)
+    const score = setLine({
       part,
       line: index,
       lyrics: words,
       syllables,
-      singer: voices[0]!.body,
+      singer: singersOf(part)[0]!.body,
       character: mood.character,
       tune,
       rate,
       words: stressed,
     })
+    return { score, words: stressed, hummed }
+  }
+
+  const sing = async (
+    part: 'verse' | 'chorus',
+    index: number,
+    line: string,
+    fitted: Promise<Fitted & { hummed: boolean }>,
+    written?: Written,
+  ): Promise<Omit<SungLine, 'at'>> => {
+    const { score: tuned, hummed } = await fitted
+    const voices = singersOf(part)
+    // written over its guide, the lead sings the writer's pitches to the tune's rhythm
+    const led = written ? sungAs(tuned, written.degrees, keyFor(voices[0]!.body, mood.character.mode)) : tuned
     const scores = choirOf(led, voices, lineKey(part, index, line))
     const takes = voices.map((voice, v) => {
       const score = scores[v]!
@@ -301,10 +320,64 @@ export async function perform({
       voiced: scoreSeconds(score) - rest,
       ...grownOf(part, index, score),
       quickest: Math.round(quickest(take) * 1000) / 1000,
+      ...(written ? { written } : {}),
     }
   }
 
   const parts = arrange(lyrics)
+  /** Every line fitted to its bars first, by its key: the same line in the same place is fitted once. */
+  const fits = new Map<string, Promise<Fitted & { hummed: boolean }>>()
+  const linesOf = (content: string) =>
+    content
+      .split('\n')
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => line.trim())
+  for (const { type: part, content } of parts) {
+    if (part === 'bridge') continue
+    for (const { line, index } of linesOf(content)) {
+      const key = lineKey(part, index, line)
+      if (fits.has(key)) continue
+      const fitting = fit(part, index, line)
+      // a line that cannot be fitted fails the iteration when it is sung, not before
+      fitting.catch(() => {})
+      fits.set(key, fitting)
+    }
+  }
+  // with two voices, the lead's melody is written over each section's guide before anyone sings
+  let written = new Map<string, Written>()
+  if (twoVoices) {
+    const counted = new Map<string, number>()
+    const unwritten: Unwritten[] = []
+    for (const [s, { type: part, content }] of parts.entries()) {
+      const n = counted.get(part) ?? 0
+      counted.set(part, n + 1)
+      if (part === 'bridge') continue
+      unwritten.push({
+        name: `${part}:${n}`,
+        // a chorus comes home, and so does the iteration; everything else leaves it open, on the fifth
+        ending: part === 'chorus' || s === parts.length - 1 ? 'full' : 'half',
+        lines: await Promise.all(
+          linesOf(content).map(async ({ line, index }) => {
+            const key = lineKey(part, index, line)
+            return { key, index, fitted: await fits.get(key)! }
+          }),
+        ),
+      })
+    }
+    const { MELODY_SPRINKLE, MELODY_GUIDE } = getEnv()
+    const [lead] = choir
+    written = writeSections({
+      sections: unwritten,
+      iteration,
+      mode: mood.character.mode,
+      bpm: mood.character.tempo,
+      lead: { key: keyFor(lead!.body, mood.character.mode), body: lead!.body },
+      before: new Map(before.flatMap((line) => (line.written ? [[`${line.written.section}:${line.index}`, line.written] as const] : []))),
+      sprinkle: MELODY_SPRINKLE,
+      pull: MELODY_GUIDE,
+    })
+  }
+
   for (const { type: part, content, index: section } of parts) {
     if (part === 'bridge') {
       const from = parts[section - 1]?.type === 'chorus' ? 'chorus' : 'verse'
@@ -314,10 +387,9 @@ export async function perform({
       order.push(takes.get(key)!)
       continue
     }
-    for (const [index, line] of content.split('\n').entries()) {
-      if (!line.trim()) continue
+    for (const { line, index } of linesOf(content)) {
       const key = lineKey(part, index, line)
-      if (!takes.has(key)) takes.set(key, sing(part, index, line))
+      if (!takes.has(key)) takes.set(key, sing(part, index, line, fits.get(key)!, written.get(key)))
       order.push(takes.get(key)!)
     }
   }

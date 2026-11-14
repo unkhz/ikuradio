@@ -102,7 +102,7 @@ for (let iteration = 1n; iteration <= last; iteration++) {
   const started = Date.now()
   const composed = await compose(iteration)
   const written = Date.now()
-  const lines = await perform(composed)
+  const lines = await perform(composed, sung.at(-1)?.lines)
   if (composed.beginsSong) {
     console.log(`\n~ ${describe(composed.mood)} ~ heard ${describePerspectives(composed.perspectives)}`)
     console.log(`  sung by ${introduce(composed.choir)}`)
