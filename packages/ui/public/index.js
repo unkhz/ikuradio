@@ -84,6 +84,9 @@ function openThroats() {
     )
     choir.idle = opened.filter(Boolean)
     if (!choir.idle.length) throw new Error('no throat would open')
+    // takes may already be waiting, and a Song played from its beginning waits
+    // for its first ones before its clock starts: the throats begin at once
+    singSoon()
   })().catch((error) => {
     // a page that cannot sing still plays the Music and types the words
     console.warn(`the page cannot sing: ${error}`)
