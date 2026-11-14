@@ -603,6 +603,8 @@ function tellThought(thought) {
 function tellDetails() {
   const details = document.getElementById('details')
   if (!showing) {
+    // a Song's page comes with what the Radio knows of it: kept until the Song plays
+    if (details.hasAttribute('data-served')) return
     details.replaceChildren(row('receiving', replay ? `Song ${replay.number}, soon` : 'nothing yet'))
     tellThought(undefined)
     return

@@ -46,6 +46,7 @@ import { getEnv } from 'tools'
 import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
+import { cardOf, speak, type Card } from './lib/speaks.js'
 
 const { SERVER_PORT, CACHE_PATH } = getEnv()
 
@@ -258,22 +259,46 @@ const telling = 'A lost receiver, adrift online, still tuned to a song that neve
 const escaped = (text: string) =>
   text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
+/**
+ * What a Song's page tells of it, by its number, for the Songs whose pages
+ * were last asked for. A Session never changes once it is published, so
+ * what was read once is kept; only its card is, a few hundred bytes, never
+ * the Session with all its takes.
+ */
+const cards = new Map<string, Card>()
+const keptCards = 500
+async function cardFor(song: string): Promise<Card | undefined> {
+  const kept = cards.get(song)
+  if (kept) {
+    // the newest asked is the last let go
+    cards.delete(song)
+    cards.set(song, kept)
+    return kept
+  }
+  const session = await read<Session>(paths.session(song))
+  if (!session) return undefined
+  const card = cardOf(session)
+  cards.set(song, card)
+  if (cards.size > keptCards) cards.delete(cards.keys().next().value!)
+  return card
+}
+
 async function page(request: Request, url: URL, song?: bigint) {
   // behind Cloudflare and Traefik the Radio is reached over https, whatever it sees
   const scheme = request.headers.get('x-forwarded-proto') ?? url.protocol.slice(0, -1)
   const origin = `${scheme}://${request.headers.get('host') ?? url.host}`
   let title = site
   let description = telling
+  // only a Song that has aired is told about: nothing from the future
+  let card: Card | undefined
   if (song !== undefined) {
     const named = song.toLocaleString('en')
     title = `Song ${named} · ${site}`
-    const session = tactus.history.some((a) => a.song === `${song}` && a.begins <= Date.now())
-      ? await read<Session>(paths.session(`${song}`))
-      : undefined
-    if (session) {
+    card = tactus.history.some((a) => a.song === `${song}` && a.begins <= Date.now()) ? await cardFor(`${song}`) : undefined
+    if (card) {
       description =
-        `${session.mood.join(' + ')}: ${session.mode}, ${session.tempo} bpm, sung by ${session.choir}.` +
-        ` ${Math.round(session.seconds / 60)} minutes, received from far away.`
+        `${card.mood.join(' + ')}: ${card.mode}, ${card.tempo} bpm, sung by ${card.choir}.` +
+        ` ${Math.round(card.seconds / 60)} minutes, received from far away.`
     }
   }
   const meta = [
@@ -290,7 +315,8 @@ async function page(request: Request, url: URL, song?: bigint) {
     `<meta property="og:image:alt" content="A lost receiver from another world, a little broken" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
   ].join('\n    ')
-  return new Response(pageText.replace(/<!--meta-->[\s\S]*<!--\/meta-->/, meta), {
+  const told = speak(pageText.replace(/<!--meta-->[\s\S]*<!--\/meta-->/, () => meta), card, origin + url.pathname)
+  return new Response(told, {
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
   })
 }
