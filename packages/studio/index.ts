@@ -26,6 +26,18 @@ import { toSession, type Made } from './lib/session.js'
 import { guidesFor, humGuides, type Guide } from './lib/guide.js'
 import { sweep } from './lib/sweep.js'
 import { homecoming } from './lib/homecoming.js'
+import { holdStudio, StudioBusy } from './lib/lock.js'
+
+// one Studio to a machine: before anything is read, swept or written, the
+// machine's lock is held, or this Studio stops at once. It is held until the
+// Studio ends, and let go by the kernel however it ends.
+try {
+  holdStudio()
+} catch (error) {
+  if (!(error instanceof StudioBusy)) throw error
+  console.error(error.message)
+  process.exit(1)
+}
 
 const {
   ITERATION_COUNT,
