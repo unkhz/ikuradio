@@ -437,19 +437,65 @@ function turnPage(output) {
   }
 }
 let el
-function switchStoryElement(parent, kind = 'verse') {
+function switchStoryElement(parent, kind = 'verse', lines = []) {
   el = document.createElement('p')
   el.className = kind
   parent.appendChild(el)
+  if (lines.length) {
+    // every line is known before it is typed, so where the rows break is
+    // known too, and the page does not jump as the words arrive
+    el.lines = lines.map((line) => line.text)
+    setLines(el)
+  }
 }
 function appendStoryElement(text) {
   const last = el.lastChild
   if (last && last.nodeType === Node.TEXT_NODE) last.appendData(text)
   else el.appendChild(document.createTextNode(text))
 }
+/**
+ * The end of a line: a seam, which either ends its row or, where the line
+ * wrapped and left its last row short, lets the next line run on after it.
+ */
 function breakLine() {
-  el.appendChild(document.createElement('br'))
+  const seam = document.createElement('span')
+  seam.className = 'seam'
+  seam.textContent = ' '
+  el.appendChild(seam)
+  setSeam(el, el.querySelectorAll('.seam').length - 1, seam)
 }
+function setSeam(paragraph, index, seam) {
+  seam.classList.toggle('run', paragraph.breaks?.[index] === false)
+}
+
+// Where each line of a paragraph ends its row, measured in the page's own
+// letters (verses.js) rather than by laying the page out to see. Without the
+// measure every line is a row of its own, as it always was.
+/** The extra room a line running on is set after the one before, in em; as `.seam.run` sets it. */
+const runOn = 0.6
+function setLines(paragraph) {
+  if (!paragraph.lines || !globalThis.verses) return
+  const style = getComputedStyle(paragraph)
+  const width = paragraph.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+  if (width <= 0) return
+  const size = parseFloat(style.fontSize)
+  const font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  paragraph.breaks = verses.breaks(paragraph.lines, font, width, runOn * size)
+  paragraph.querySelectorAll('.seam').forEach((seam, i) => setSeam(paragraph, i, seam))
+}
+function setAllLines() {
+  document.querySelectorAll('#output p').forEach(setLines)
+}
+// the page's width changes, and its letters arrive after the first words may have
+let settingLines = 0
+addEventListener('resize', () => {
+  cancelAnimationFrame(settingLines)
+  settingLines = requestAnimationFrame(setAllLines)
+})
+document.fonts?.addEventListener('loadingdone', () => {
+  globalThis.verses?.forget()
+  setAllLines()
+})
 function weather(output, words) {
   bridgeEnds()
   switchStoryElement(output, 'weather')
@@ -493,7 +539,7 @@ function writeUpTo(output, song, t) {
     if (cursor.c < 0) {
       if (t < part.at) return
       bridgeEnds()
-      switchStoryElement(output, part.type)
+      switchStoryElement(output, part.type, part.lines)
       if (part.type === 'bridge' && t < part.at + part.seconds) bridgeBegins(el)
       cursor.c = 0
     }

@@ -88,6 +88,15 @@
         overflow-wrap: anywhere;
         flex-shrink: 0;
       }
+      /* the end of a line ends its row, unless the line wrapped and left its
+         last row short: then the next line runs on after it, a little apart */
+      .seam {
+        display: block;
+      }
+      .seam.run {
+        display: inline;
+        word-spacing: 0.6em;
+      }
       /* the verses walk; the chorus is the anchor, set a little apart */
       p.chorus {
         color: var(--chorus);
@@ -406,6 +415,7 @@
       </div>
     </dialog>
     <script type="module" src="/space.js"></script>
+    <script src="/verses.js"></script>
     <script src="/index.js"></script>
   </body>
 </html>

@@ -8,5 +8,5 @@
       "bun"
     ]
   },
-  "include": ["drawing"]
+  "include": ["drawing", "verses"]
 }

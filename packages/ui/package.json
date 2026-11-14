@@ -5,5 +5,8 @@
   "type": "module",
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@chenglou/pretext": "1.0.0"
+  }
 }

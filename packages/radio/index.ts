@@ -21,6 +21,8 @@ import pageHtmlFile from '../ui/public/index.html' with { type: 'file' }
 import pageJsFile from '../ui/public/index.js' with { type: 'file' }
 // @ts-expect-error: the page's space is plain JavaScript, imported only as a file
 import pageSpaceFile from '../ui/public/space.js' with { type: 'file' }
+// @ts-expect-error: the page's measure of its lines is built JavaScript, imported only as a file
+import pageVersesFile from '../ui/public/verses.js' with { type: 'file' }
 import pageIcon from '../ui/public/favicon.ico' with { type: 'file' }
 import pageReceiver from '../ui/public/receiver.svg' with { type: 'file' }
 import pageCard from '../ui/public/card.png' with { type: 'file' }
@@ -176,6 +178,7 @@ const pageFiles: Record<string, { file: string; type: string }> = {
   'index.html': { file: pageHtml, type: 'text/html; charset=utf-8' },
   'index.js': { file: pageJs, type: 'text/javascript; charset=utf-8' },
   'space.js': { file: pageSpaceFile as unknown as string, type: 'text/javascript; charset=utf-8' },
+  'verses.js': { file: pageVersesFile as unknown as string, type: 'text/javascript; charset=utf-8' },
   'favicon.ico': { file: pageIcon, type: 'image/x-icon' },
   'receiver.svg': { file: pageReceiver, type: 'image/svg+xml' },
   'card.png': { file: pageCard, type: 'image/png' },

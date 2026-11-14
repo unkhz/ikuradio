@@ -12,6 +12,7 @@
     "studio": "bun run throat && cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local index.ts",
     "rehearse": "bun run throat && cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local rehearse.ts",
     "draw": "bun packages/ui/drawing/draw.ts",
+    "verses": "bun build packages/ui/verses/verses.ts --format=iife --minify --outfile packages/ui/public/verses.js",
     "listen": "bun --env-file=.env --env-file=.env.local packages/cli/index.ts",
     "test": "bun test ./packages/archive ./packages/cli/lib ./packages/heart ./packages/melody ./packages/mood ./packages/music/lib ./packages/perspectives ./packages/radio ./packages/song ./packages/studio ./packages/tools ./packages/ui ./packages/vocals/lib",
     "lint": "for p in archive cli heart melody mood music perspectives radio song studio tools ui vocals; do (cd packages/$p && tsc --noEmit) || exit 1; done",
