@@ -42,5 +42,23 @@ time. A dev box has room for only one mind, so never build or run the song from 
 checkout or session while another is using it. How a developer reaches their own dev box
 is local, and belongs in `private/`.
 
+## Issues
+
+The loop never stops to ask. An open question or a problem is written down as an issue
+record, and the loop carries on; issues are talked through in conversation instead.
+
+```sh
+arkku record create issue --slug <slug> --title "<the question or problem>"
+```
+
+It lands in `issues/todo/<id>-<slug>.md`. Once it has been answered or solved:
+
+```sh
+arkku meta set issue:<slug> state done
+arkku record reconcile issue:<slug>
+```
+
+The state is the folder, so reconciling moves it to `issues/done/`.
+
 This file belongs to the project. Adapt it with project-specific guidance as
 needed; subsequent `arkku init` calls will not overwrite it or other instructions.
