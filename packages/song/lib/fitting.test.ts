@@ -62,3 +62,37 @@ describe('writeVerse, written to its count', () => {
     await expect(writeVerse(longOld, ['snow'], [], forgotten, undefined, [], fitting)).rejects.toBeInstanceOf(NoVerseFits)
   })
 })
+
+describe('the mind, told how its lines missed', () => {
+  // as the throat counts them: two syllables a word
+  const measured = { ...fitting, measure: async (text: string) => 2 * text.split(/\s+/).length }
+
+  it('is told which lines did not fit, how many syllables each had, and the most each may have', async () => {
+    const long = verse(5, 'long')
+    long[2] = 'quietly '.repeat(9).trim()
+    answers = [long, verse(6, 'new')]
+    asked = []
+    expect(await writeVerse(old, ['snow'], [], forgotten, undefined, [], measured)).toBe(verse(6, 'new').join('\n'))
+    expect(asked[0]).not.toContain('did not fit')
+    expect(asked[1]).toContain('What you wrote last did not fit its bars: the third line has 18 syllables, and may have no more than 12.')
+    expect(asked[1]!.split('did not fit')[1]).not.toContain('first line')
+  })
+
+  it('is told about the last try only, and nothing when the lines fit but the verse was refused for another reason', async () => {
+    const long = verse(9, 'long')
+    // a resting word sung twice: the verse is refused, but its lines fit
+    const resting = verse(5, 'snow').map((line) => `snow ${line}`)
+    answers = [long, resting, verse(6, 'new')]
+    asked = []
+    await writeVerse(old, ['snow'], ['snow'], forgotten, undefined, [], measured)
+    expect(asked[1]).toContain('did not fit')
+    expect(asked[2]).not.toContain('did not fit')
+  })
+
+  it('without a way to count, is asked again as before', async () => {
+    answers = [verse(9, 'long'), verse(6, 'new')]
+    asked = []
+    await writeVerse(old, ['snow'], [], forgotten, undefined, [], fitting)
+    expect(asked[1]).not.toContain('did not fit')
+  })
+})

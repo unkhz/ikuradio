@@ -43,6 +43,11 @@ export type EditOptions = {
   accept?: (lines: string[]) => boolean | Promise<boolean>
   /** How many unsuitable answers to listen to before singing the verse as it was. */
   patience?: number
+  /**
+   * What to tell the mind about a verse that was not accepted, so that its
+   * next try may do better: said with the next asking, and only that one.
+   */
+  advise?: (lines: string[]) => Promise<string | undefined> | string | undefined
 }
 
 /**
@@ -67,13 +72,15 @@ export async function editVerse(
     mayRepeat = false,
     accept = () => true,
     patience: enough = patience,
+    advise,
   }: EditOptions = {},
 ) {
   let unsuitable = 0
   let unreachable = 0
+  let note: string | undefined
   while (unsuitable < enough) {
     try {
-      const verse = (await askVerse(instruction, input, temperature)).map(clean)
+      const verse = (await askVerse(note ? `${instruction}\n${note}` : instruction, input, temperature)).map(clean)
       const changed = !echoes(verse, input.split('\n'))
       if (
         verse.length === 4 &&
@@ -83,6 +90,8 @@ export async function editVerse(
       ) {
         return verse.join('\n')
       }
+      // a verse of the right shape that was not taken: the mind is told why, if it can be told
+      note = verse.length === 4 && advise ? await advise(verse) : undefined
       unsuitable++
     } catch (error) {
       if (error instanceof Unshapely) {

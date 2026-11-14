@@ -36,6 +36,8 @@ export type Fitting = {
   verse: readonly Count[]
   chorus: readonly Count[]
   check: (part: 'verse' | 'chorus', line: number, text: string) => Promise<'fits' | 'grace' | 'refused'>
+  /** How many syllables a line has, as the throat counts them: what the mind is told when a line does not fit. */
+  measure?: (text: string) => Promise<number>
 }
 
 /** A verse whose lines cannot be fitted to their bars, however the mind writes them. The iteration is made again. */
@@ -63,6 +65,36 @@ async function fitsAll(
     if (fit === 'refused' || (fit === 'grace' && !grace)) return false
   }
   return true
+}
+
+/**
+ * What the mind is told when lines it wrote did not fit their bars: which
+ * lines, how many syllables each had, and the most each may have. A mind
+ * that is only asked again guesses again; one that is told can count.
+ */
+export async function counted(
+  fitting: Fitting | undefined,
+  part: 'verse' | 'chorus',
+  lines: readonly string[],
+  { from = 0, grace = false }: { from?: number; grace?: boolean } = {},
+): Promise<string | undefined> {
+  if (!fitting?.measure) return undefined
+  const ordinal = ['first', 'second', 'third', 'fourth']
+  const counts = part === 'chorus' ? fitting.chorus : fitting.verse
+  const told: string[] = []
+  for (const [i, line] of lines.entries()) {
+    const fit = await fitting.check(part, from + i, line)
+    if (fit === 'fits' || (fit === 'grace' && grace)) continue
+    const syllables = await fitting.measure(line).catch(() => undefined)
+    const most = counts[(from + i) % counts.length]?.most
+    if (syllables === undefined || most === undefined) continue
+    told.push(
+      syllables > most
+        ? `the ${ordinal[from + i]} line has ${syllables} syllables, and may have no more than ${most}`
+        : `the ${ordinal[from + i]} line has ${syllables} syllables, but its stresses do not fall on the beats; say it more simply, in fewer syllables`,
+    )
+  }
+  return told.length ? `What you wrote last did not fit its bars: ${told.join('; ')}. Count every line again.` : undefined
 }
 
 const verseInstruction = [
@@ -153,12 +185,14 @@ export async function writeVerse(
     leansOn(lines, resting) <= slips && leansDeep(lines, deep) <= slips && !lines.some(ofItsAge)
   const written = await editVerse(input, asked, 1.2, {
     accept: async (lines) => suits(lines) && (await fitsAll(fitting, 'verse', lines)),
+    advise: (lines) => counted(fitting, 'verse', lines),
   })
   if (written !== input || !fitting) return written
   // the mind could not write a verse that fits: a line may take one bar of grace
   const graced = await editVerse(input, asked, 1.2, {
     patience: 4,
     accept: async (lines) => suits(lines) && (await fitsAll(fitting, 'verse', lines, { grace: true })),
+    advise: (lines) => counted(fitting, 'verse', lines, { grace: true }),
   })
   if (graced !== input) return graced
   // the verse as it was is sung again, if it still fits at this tempo; if not, nothing is sung
@@ -241,6 +275,7 @@ async function pickChorus(chorus: string, iteration: bigint, fitting?: Fitting) 
         (await fitsAll(fitting, 'chorus', lines.slice(1), { from: 1 }))
       )
     },
+    advise: (lines) => counted(fitting, 'chorus', lines.slice(1), { from: 1 }),
   })
   if (varied === input) {
     // a line that rhymes is better than a line that is new, and a line may take a bar of grace
@@ -248,6 +283,7 @@ async function pickChorus(chorus: string, iteration: bigint, fitting?: Fitting) 
       mayRepeat: true,
       patience: 8,
       accept: async (lines) => sings(lines[1] ?? '') && (await fitsAll(fitting, 'chorus', lines.slice(1), { from: 1, grace: true })),
+      advise: (lines) => counted(fitting, 'chorus', lines.slice(1), { from: 1, grace: true }),
     })
   }
   if (varied === input) {

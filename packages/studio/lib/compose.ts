@@ -141,6 +141,7 @@ export function fittingFor(sung: Tune, tempo: number, rate: number): Fitting {
       const fit = fitToCount(phrase, words, k)
       return !fit ? 'refused' : fit.grown ? 'grace' : 'fits'
     },
+    measure: (text) => countSyllables(text),
   }
 }
 
