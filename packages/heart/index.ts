@@ -72,14 +72,32 @@ function keep(child: ChildProcess) {
 let studio: ChildProcess | undefined
 let resting = false
 let deaf = false
+/**
+ * Whether a beat is listening now. A beat waits on the Archive and the Radio
+ * before it calls a Studio, and the beats come both from the clock and after
+ * a Studio ends; two of them listening at once would both find no Studio at
+ * work, and both call one. Two Studios writing one diary make the same Song
+ * twice. So a beat that finds another listening lets it be.
+ */
+let listening = false
 
 /** One beat: listen, and call a Studio if too few Songs are waiting. */
 async function beat() {
-  if (resting || studio) return
+  if (resting || studio || listening) return
+  listening = true
+  try {
+    await listen()
+  } finally {
+    listening = false
+  }
+}
+
+async function listen() {
   const [index, radio] = await Promise.all([
     read<ArchiveIndex>(new URL(paths.index, archive)),
     reached(),
   ])
+  if (resting || studio) return
   if (radio === undefined) {
     if (!deaf) console.warn(`the Radio cannot be heard at ${RADIO_URL}; the Heart waits for it`)
     deaf = true
@@ -90,13 +108,15 @@ async function beat() {
   const waiting = waitingAfter(index?.songs ?? [], radio)
   if (waiting >= SONGS_AHEAD) return
   console.log(`${waiting} Songs waiting, ${SONGS_AHEAD} wanted: the Studio is called in`)
-  studio = spawn('bun', [`${studioHome}index.ts`], { cwd: studioHome, stdio: ['ignore', 'pipe', 'pipe'] })
+  const called = spawn('bun', [`${studioHome}index.ts`], { cwd: studioHome, stdio: ['ignore', 'pipe', 'pipe'] })
+  studio = called
   // what the Studio says is heard here, and kept: the last Studio's words in
   // studio.log, the one before it in studio.log.1
-  keep(studio)
-  studio.on('exit', (code) => {
+  keep(called)
+  called.on('exit', (code) => {
     if (code) console.warn(`the Studio stopped (${code})`)
-    studio = undefined
+    // only the Studio at work frees the Heart to call another
+    if (studio === called) studio = undefined
     // a Studio that made its Song may not be the last one needed
     if (!resting) setTimeout(beat, code ? 30_000 : 0)
   })
