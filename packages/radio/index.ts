@@ -9,7 +9,9 @@
 //
 //   GET /tactus     the time, and the Songs playing and coming, with links to their Sessions
 //   GET /songs      Songs that have aired, newest first, for looking back
-//   GET /songs/page every Song received, the one on now first, a slice at a time
+//   GET /songs/page every Song received, the one on now first, a slice at a time,
+//                   found by mode and by how it was heard (?mode=dorian&heard=plainly|<slug>)
+//   GET /songs/options  both filters' options, each counted given the other
 //   GET /pulse      whether the song is alive (200) or not (503)
 //   GET /           the Receiver, for a browser
 //   GET /s/<n>      the Receiver, tuned to Song n from its beginning
@@ -43,8 +45,9 @@ import pageThroatWordsLicense from '../ui/public/throat/CMUDICT-LICENSE.txt' wit
 import { getEnv } from 'tools'
 import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
+import { SongCache } from './lib/cache.js'
 
-const { SERVER_PORT } = getEnv()
+const { SERVER_PORT, CACHE_HOST, CACHE_PORT, CACHE_USER, CACHE_PASSWORD, CACHE_DATABASE, CACHE_TLS } = getEnv()
 
 const memory = 'memory/tactus.jsonl'
 
@@ -129,6 +132,7 @@ async function listen() {
   const { song, session } = found
   const airing = tactus.announce(song, session.seconds)
   if (!airing) return
+  void keepCache()
   await mkdir('memory', { recursive: true })
   await appendFile(memory, `${JSON.stringify(airing)}\n`)
   const late = Math.max(0, airing.begins - Date.now()) / 1000
@@ -139,6 +143,47 @@ async function listen() {
 
 await listen()
 setInterval(listen, 2000)
+
+// The cache of the Songs received, for searching them. The song never waits
+// for it: it is filled in the background, and while it is away the list is
+// read from the Tactus, without search.
+const cache = CACHE_HOST
+  ? new SongCache({ host: CACHE_HOST, port: CACHE_PORT, user: CACHE_USER, password: CACHE_PASSWORD, database: CACHE_DATABASE, tls: CACHE_TLS })
+  : undefined
+/** Whether the cache answered last time it was asked. */
+let cached = false
+let keeping = false
+/** Readies the cache if it was away, and fills in every Song announced that it does not hold. */
+async function keepCache() {
+  if (!cache || keeping) return
+  keeping = true
+  try {
+    if (!cached) {
+      await cache.prepare()
+      cached = true
+      console.log('the cache of the Songs received is there')
+    }
+    const added = await cache.fill(tactus.history, (song) => read<Session>(paths.session(song)))
+    if (added) console.log(`the cache keeps ${added} more Songs`)
+  } catch (error) {
+    if (cached) console.warn(`the cache of the Songs received is away: ${(error as Error).message}`)
+    cached = false
+  } finally {
+    keeping = false
+  }
+}
+void keepCache()
+setInterval(keepCache, 60_000)
+
+/** What a search asks for, if it asks for something that could be there. */
+const searchOf = (url: URL) => {
+  const mode = url.searchParams.get('mode') ?? ''
+  const heard = url.searchParams.get('heard') ?? ''
+  return {
+    ...(/^[a-z]{1,40}$/.test(mode) ? { mode } : {}),
+    ...(/^[a-z0-9-]{1,100}$/.test(heard) ? { heard } : {}),
+  }
+}
 
 
 const told = (airing: Airing | undefined, archive: string) =>
@@ -274,14 +319,36 @@ Bun.serve({
       return json(aired.map((a) => told(a, archive)))
     }
 
+    if (url.pathname === '/songs/options') {
+      if (cache && cached) {
+        try {
+          return json(await cache.options(searchOf(url)))
+        } catch (error) {
+          console.warn(`the cache of the Songs received is away: ${(error as Error).message}`)
+          cached = false
+        }
+      }
+      // without its cache the Radio offers no search, and the page hides it
+      return json({ error: 'no search without the cache' }, 503)
+    }
+
     if (url.pathname === '/songs/page') {
-      // every Song received so far, newest first, the one on now among them:
-      // for now an array, and a page is a slice of it
+      // every Song received so far, newest first, the one on now among them,
+      // found in the cache by what was asked; without it, from the Tactus, all of them
       const now = Date.now()
+      const requested = Math.max(0, Math.floor(Number(url.searchParams.get('offset')) || 0))
+      const count = Math.min(50, Math.max(1, Math.floor(Number(url.searchParams.get('count')) || 12)))
+      if (cache && cached) {
+        try {
+          return json({ ...(await cache.page(searchOf(url), requested, count, now)), searched: true })
+        } catch (error) {
+          console.warn(`the cache of the Songs received is away: ${(error as Error).message}`)
+          cached = false
+        }
+      }
       const received = tactus.history.filter((a) => a.begins <= now).reverse()
       const total = received.length
-      const offset = Math.min(total, Math.max(0, Math.floor(Number(url.searchParams.get('offset')) || 0)))
-      const count = Math.min(50, Math.max(1, Math.floor(Number(url.searchParams.get('count')) || 12)))
+      const offset = Math.min(total, requested)
       const songs = await Promise.all(
         received.slice(offset, offset + count).map(async (a) => ({
           song: a.song,

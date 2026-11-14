@@ -30,6 +30,18 @@ const envSchema = z.object({
   ARCHIVE_URL: z.string().url().optional(),
   /** Where the Radio sends Receivers for the Archive, if not where it reads it from. */
   PUBLIC_ARCHIVE_URL: z.string().url().optional(),
+  /**
+   * The Radio's cache of the Songs received, for searching them: a Postgres
+   * that may be dropped at any moment. Without CACHE_HOST the Radio lists
+   * the Songs from the Tactus alone, and offers no search.
+   */
+  CACHE_HOST: z.string().optional(),
+  CACHE_PORT: z.coerce.number().int().default(5432),
+  CACHE_USER: z.string().default('radio'),
+  CACHE_PASSWORD: z.string().optional(),
+  CACHE_DATABASE: z.string().default('songs'),
+  /** Whether the cache is spoken to over TLS, its certificate unchecked: the operator's Postgres makes its own. */
+  CACHE_TLS: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
   /** How many Songs the Studio keeps ready ahead of the one the Radio plays. */
   SONGS_AHEAD: z.coerce.number().int().min(1).default(2),
   /** How many iterations one Song lasts, all in the same Mood. */

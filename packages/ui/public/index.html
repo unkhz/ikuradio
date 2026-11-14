@@ -304,6 +304,57 @@
         align-items: center;
         margin-bottom: 0.6rem;
       }
+      /* the search: two filters, stacked on a phone, side by side on a wide screen */
+      #song-search {
+        display: grid;
+        gap: 0.4rem;
+        margin-bottom: 0.5rem;
+      }
+      #song-search[hidden],
+      #song-found[hidden] {
+        display: none;
+      }
+      #song-search label {
+        display: grid;
+        gap: 0.15rem;
+      }
+      #song-search span {
+        color: var(--edge);
+        font-size: 0.8em;
+      }
+      #song-search select {
+        width: 100%;
+        min-height: 44px;
+        box-sizing: border-box;
+        font: inherit;
+        color: var(--words);
+        background: var(--hull);
+        border: 2px dotted #34434f;
+        border-radius: 0.4rem;
+        padding: 0.3rem 0.5rem;
+      }
+      @media (min-width: 600px) {
+        #song-search {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      /* what the search shows, each part with its own way out */
+      #song-found {
+        margin: 0 0 0.5rem;
+        color: var(--chorus);
+      }
+      #songs #song-found button {
+        border: none;
+        padding: 0 0.3rem;
+        min-width: 1.6rem;
+        min-height: 1.6rem;
+        color: var(--edge);
+      }
+      #songs #song-found button.clear {
+        border: 2px dotted #34434f;
+        margin-left: 0.4rem;
+        padding: 0 0.5rem;
+      }
       /* a window onto the Songs: never scrolled, only moved, a slice at a time */
       #song-window {
         position: relative;
@@ -408,6 +459,11 @@
         <span>every Song received, newest first</span>
         <button id="close-songs" type="button" aria-label="Close">×</button>
       </header>
+      <form id="song-search" hidden>
+        <label><span>mode</span><select id="search-mode" name="mode"></select></label>
+        <label><span>heard</span><select id="search-heard" name="heard"></select></label>
+      </form>
+      <p id="song-found" hidden></p>
       <div id="song-window">
         <ul id="song-list"></ul>
         <button id="page-up" class="pager" type="button" aria-label="Newer Songs">▲</button>

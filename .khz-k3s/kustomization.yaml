@@ -5,6 +5,7 @@ kind: Kustomization
 namespace: apps
 resources:
   - radio.yaml
+  - cache.yaml
 images:
   - name: ghcr.io/unkhz/ikuradio/radio
     newTag: "557a78c0f4d59fd41dca4e10b1b4294d27b5cc00"

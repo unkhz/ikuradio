@@ -695,22 +695,129 @@ function bridgeEnds() {
 // time; the dialog is a window onto them, showing only the rows that fit,
 // and is moved, never scrolled: by the wheel, a finger, the keys, or the
 // buttons at its corners. The page in view is fetched, and the one after it.
+//
+// They can be searched, by two filters that know each other: the mode a Song
+// was sung in, and how it was heard. Each filter's options are counted given
+// the other, and one that would find nothing is shown with its 0 and cannot
+// be chosen, so a search never leads nowhere. What is chosen is kept in the
+// address, so a search can be passed on. A Radio without its cache offers no
+// search, and the filters are not shown.
 const rowPx = 52
 const received = { total: undefined, rows: [], asked: new Set(), at: 0 }
 let firstShown = 0 // the first row in the window
 
-/** How many rows fit in the window, from the dialog's height. */
-const pageRows = () => Math.max(3, Math.floor((Math.min(640, innerHeight - 64) - 72) / rowPx))
+/** What is searched for, from the address: a mode, and how a Song was heard, `plainly` or a Perspective's slug. */
+const asking = new URLSearchParams(location.search)
+const search = { mode: asking.get('mode') || '', heard: asking.get('heard') || '' }
+/** The filters' options, as the Radio last counted them; undefined while it offers no search. */
+let searching
+
+/** The search as the Radio is asked it, `&mode=…&heard=…`, empty without its cache. */
+const searchQuery = () =>
+  searching ? ['mode', 'heard'].filter((k) => search[k]).map((k) => `&${k}=${encodeURIComponent(search[k])}`).join('') : ''
+
+/** The height the search takes above the list, when it is shown. */
+const searchPx = () =>
+  ['song-search', 'song-found'].reduce((sum, id) => {
+    const element = document.getElementById(id)
+    return sum + (element.hidden ? 0 : element.offsetHeight + 8)
+  }, 0)
+
+/** How many rows fit in the window, from the dialog's height and what the search takes of it. */
+const pageRows = () => Math.max(3, Math.floor((Math.min(640, innerHeight - 64) - 72 - searchPx()) / rowPx))
+
+/** Asks the Radio for both filters' options, counted given the other, and shows them; hides them if it offers none. */
+async function loadOptions() {
+  try {
+    const response = await fetch(`${radio}/songs/options?${new URLSearchParams(search)}`)
+    if (!response.ok) throw new Error(`${response.status}`)
+    searching = await response.json()
+  } catch {
+    searching = undefined
+  }
+  drawSearch()
+}
+
+/** What a choice in the address is called when no Song received knows it: its name is the machinery's, and is not shown. */
+const unknownWay = 'nothing received'
+
+/** One filter's options: "any", then each with its count, those that would find nothing shown but not chosen. */
+function fillFilter(select, options, any, chosen) {
+  const choices = [{ value: '', label: any.label, count: any.count }, ...options]
+  // a choice in the address that the Songs no longer know is kept, with its 0, so it can be seen and cleared
+  if (chosen && !choices.some((o) => o.value === chosen)) choices.push({ value: chosen, label: unknownWay, count: 0 })
+  select.replaceChildren(
+    ...choices.map(({ value, label, count }) => {
+      const option = Object.assign(document.createElement('option'), { value, textContent: `${label} (${count.toLocaleString('en')})` })
+      option.disabled = count === 0 && value !== chosen && value !== ''
+      option.selected = value === chosen
+      return option
+    }),
+  )
+}
+
+/** Shows the filters and the line that says what they find, or hides them both. */
+function drawSearch() {
+  const form = document.getElementById('song-search')
+  const found = document.getElementById('song-found')
+  form.hidden = !searching
+  if (!searching) {
+    found.hidden = true
+    return drawSongs()
+  }
+  fillFilter(document.getElementById('search-mode'), searching.modes, { label: 'any mode', count: searching.any.mode }, search.mode)
+  fillFilter(document.getElementById('search-heard'), searching.heard, { label: 'any way', count: searching.any.heard }, search.heard)
+  const named = (options, value) => options.find((o) => o.value === value)?.label ?? unknownWay
+  const parts = [
+    search.mode && { key: 'mode', label: named(searching.modes, search.mode) },
+    search.heard && { key: 'heard', label: named(searching.heard, search.heard) },
+  ].filter(Boolean)
+  found.hidden = parts.length === 0
+  if (parts.length) {
+    const out = (key, label) =>
+      Object.assign(document.createElement('button'), { type: 'button', textContent: '×', ariaLabel: `Clear ${label}`, onclick: () => choose({ [key]: '' }) })
+    const pieces = []
+    for (const [i, { key, label }] of parts.entries()) {
+      if (i) pieces.push(document.createTextNode(' · '))
+      pieces.push(document.createTextNode(label), out(key, label))
+    }
+    const count = received.total
+    pieces.push(document.createTextNode(count === undefined ? ': …' : `: ${count.toLocaleString('en')} Song${count === 1 ? '' : 's'}`))
+    const clear = Object.assign(document.createElement('button'), { type: 'button', className: 'clear', textContent: 'clear', onclick: () => choose({ mode: '', heard: '' }) })
+    found.replaceChildren(...pieces, clear)
+  }
+  drawSongs()
+}
+
+/** Chooses in the search: the address remembers it, the list starts again from its newest, and both filters are counted again. */
+function choose(changes) {
+  Object.assign(search, changes)
+  const address = new URLSearchParams(location.search)
+  for (const key of ['mode', 'heard']) search[key] ? address.set(key, search[key]) : address.delete(key)
+  const query = address.toString()
+  history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}`)
+  Object.assign(received, { total: undefined, rows: [], asked: new Set(), at: Date.now() })
+  firstShown = 0
+  loadOptions()
+}
+document.getElementById('search-mode').addEventListener('change', (event) => choose({ mode: event.target.value }))
+document.getElementById('search-heard').addEventListener('change', (event) => choose({ heard: event.target.value }))
+document.getElementById('song-search').addEventListener('submit', (event) => event.preventDefault())
 
 async function loadPage(page) {
   const size = pageRows()
   if (page < 0 || (received.total !== undefined && page * size >= received.total)) return
-  const key = `${size}:${page}`
+  const query = searchQuery()
+  const key = `${size}:${page}:${query}`
   if (received.asked.has(key)) return
   received.asked.add(key)
   try {
-    const found = await fetch(`${radio}/songs/page?offset=${page * size}&count=${size}`).then((r) => r.json())
+    const found = await fetch(`${radio}/songs/page?offset=${page * size}&count=${size}${query}`).then((r) => r.json())
+    // a page asked for before the search changed is not this search's
+    if (query !== searchQuery()) return
+    const counted = received.total
     received.total = found.total
+    if (counted !== found.total && searching) drawSearch()
     found.songs.forEach((song, i) => (received.rows[found.offset + i] = song))
     drawSongs()
   } catch {
@@ -745,13 +852,16 @@ function songRow(song, index) {
 
 function drawSongs() {
   if (!songsDialog.open) return
+  // rows fetched for another search, or before the Radio said it could search, are not these
+  if (received.query !== searchQuery()) Object.assign(received, { total: undefined, rows: [], asked: new Set(), query: searchQuery() })
   const size = pageRows()
   const total = received.total ?? 0
   const list = document.getElementById('song-list')
   document.getElementById('song-window').style.height = `${size * rowPx}px`
   firstShown = Math.max(0, Math.min(firstShown, Math.max(0, total - size)))
   if (received.total === 0) {
-    list.replaceChildren(Object.assign(document.createElement('li'), { className: 'unknown', textContent: 'nothing received yet' }))
+    const nothing = searchQuery() ? 'no Song received was heard that way' : 'nothing received yet'
+    list.replaceChildren(Object.assign(document.createElement('li'), { className: 'unknown', textContent: nothing }))
   } else {
     const shown = Math.min(size, received.total === undefined ? size : total - firstShown)
     list.replaceChildren(...Array.from({ length: shown }, (_, i) => songRow(received.rows[firstShown + i], firstShown + i)))
@@ -839,7 +949,7 @@ document.getElementById('open-songs').addEventListener('click', () => {
   freshen()
   firstShown = 0
   songsDialog.showModal()
-  drawSongs()
+  loadOptions()
 })
 document.getElementById('close-songs').addEventListener('click', () => songsDialog.close())
 
