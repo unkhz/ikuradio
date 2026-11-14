@@ -47,7 +47,7 @@ import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
 
-const { SERVER_PORT, CACHE_HOST, CACHE_PORT, CACHE_USER, CACHE_PASSWORD, CACHE_DATABASE, CACHE_TLS } = getEnv()
+const { SERVER_PORT, CACHE_PATH } = getEnv()
 
 const memory = 'memory/tactus.jsonl'
 
@@ -147,9 +147,14 @@ setInterval(listen, 2000)
 // The cache of the Songs received, for searching them. The song never waits
 // for it: it is filled in the background, and while it is away the list is
 // read from the Tactus, without search.
-const cache = CACHE_HOST
-  ? new SongCache({ host: CACHE_HOST, port: CACHE_PORT, user: CACHE_USER, password: CACHE_PASSWORD, database: CACHE_DATABASE, tls: CACHE_TLS })
-  : undefined
+const cache = (() => {
+  try {
+    return new SongCache(CACHE_PATH)
+  } catch (error) {
+    console.warn(`the cache of the Songs received cannot be kept at ${CACHE_PATH}: ${(error as Error).message}`)
+    return undefined
+  }
+})()
 /** Whether the cache answered last time it was asked. */
 let cached = false
 let keeping = false

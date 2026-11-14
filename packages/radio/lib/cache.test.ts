@@ -1,12 +1,9 @@
-// The cache is tested against a real Postgres, when one is given by its
-// unix socket in CACHE_TEST_SOCKET (on the dev box, a throwaway one). Its
-// tables are dropped and made again for every test. With none given, only
-// the cache that cannot be reached is tested.
+// The cache is tested as the Radio keeps it, in SQLite, a new one in memory
+// for every test.
 import { beforeEach, describe, expect, it } from 'bun:test'
 import type { Session } from 'archive'
 import { cachedFrom, modeName, schemaVersion, SongCache } from './cache.js'
 
-const socket = process.env.CACHE_TEST_SOCKET
 const minute = 60_000
 const t0 = Date.parse('2026-11-14T00:00:00Z')
 
@@ -52,23 +49,17 @@ describe('cachedFrom', () => {
   })
 })
 
-describe('a cache that cannot be reached', () => {
-  it('fails at once, so the Radio can answer from the Tactus instead', async () => {
-    const away = new SongCache({ path: '/tmp/nowhere-at-all/.s.PGSQL.5432', user: 'radio', database: 'songs' })
-    const started = Date.now()
-    await expect(away.prepare()).rejects.toThrow()
-    expect(Date.now() - started).toBeLessThan(6000)
-    await away.close().catch(() => {})
+describe('a cache that cannot be kept', () => {
+  it('fails at once, so the Radio can answer from the Tactus instead', () => {
+    expect(() => new SongCache('/nowhere-at-all/songs.sqlite')).toThrow()
   })
 })
 
-describe.skipIf(!socket)('the cache', () => {
-  const cache = () => new SongCache({ path: socket!, user: 'postgres', database: 'postgres' })
+describe('the cache', () => {
   let db: SongCache
 
   beforeEach(async () => {
-    db = cache()
-    await db.db.unsafe('drop table if exists song_perspectives; drop table if exists songs; drop table if exists cache_meta;')
+    db = new SongCache()
     await db.prepare()
   })
 
@@ -134,16 +125,29 @@ describe.skipIf(!socket)('the cache', () => {
     await db.fill(airings, async (song) => sessions[song])
     await db.prepare()
     expect((await db.held()).size).toBe(6)
-    await db.db`update cache_meta set value = ${'0'} where key = 'schema'`
+    db.db.exec('pragma user_version = 0')
     await db.prepare()
     expect((await db.held()).size).toBe(0)
-    const [{ value }] = await db.db`select value from cache_meta where key = 'schema'`
-    expect(value).toBe(schemaVersion)
+    expect(db.db.query('pragma user_version').get()).toEqual({ user_version: schemaVersion })
   })
 
-  it('keeps a Song with a number past any integer', async () => {
+  it('keeps a Song with a number past any integer, and orders Songs of one moment as numbers', async () => {
     const huge = '123456789012345678901234567890'
     await db.add(cachedFrom(session('lydian'), { song: huge, begins: now - 1000, seconds: 300 }))
-    expect((await db.page({ mode: 'lydian' }, 0, 1, now)).songs[0]!.song).toBe(huge)
+    await db.add(cachedFrom(session('lydian'), { song: '99', begins: now - 1000, seconds: 300 }))
+    expect((await db.page({ mode: 'lydian' }, 0, 2, now)).songs.map((s) => s.song)).toEqual([huge, '99'])
+  })
+
+  it('keeps itself in a file, and finds its tables there again', async () => {
+    const file = `/tmp/radio-cache-test-${process.pid}.sqlite`
+    const kept = new SongCache(file)
+    await kept.prepare()
+    await kept.fill(airings, async (song) => sessions[song])
+    await kept.close()
+    const again = new SongCache(file)
+    await again.prepare()
+    expect((await again.held()).size).toBe(6)
+    await again.close()
+    for (const end of ['', '-wal', '-shm']) await Bun.file(`${file}${end}`).delete().catch(() => {})
   })
 })

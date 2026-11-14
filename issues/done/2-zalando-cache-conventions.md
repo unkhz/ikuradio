@@ -1,5 +1,5 @@
 ---
-state: todo
+state: done
 id: 2
 kind: issue
 slug: zalando-cache-conventions
@@ -22,3 +22,5 @@ Things to check once Argo has synced:
 Meanwhile: the Radio reads the Secret with `optional: true`, so a wrong name only means no search. The list still works from the Tactus. The Radio speaks TLS without checking the certificate, since the operator's Postgres makes its own (`CACHE_TLS`).
 
 To see whether it works, ask the Radio for `/songs/options`: 200 means the cache is there, 503 means it is away. The Radio's log says "the cache of the Songs received is there" and how many Songs it filled.
+
+**Closed:** the cache moved to SQLite on an emptyDir (see the plan's "Decided" section), so there is no postgresql resource left to check.

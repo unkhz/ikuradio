@@ -130,3 +130,12 @@ Endpoints:
 2. The `postgresql` resource and the Radio's env in `.khz-k3s/`. Check after Argo syncs that the Radio fills its cache from every aired Song.
 3. The API: filters, and options counted given the other filter.
 4. The filters in the window. Check on a phone-sized screen as well as a wide one, by finding the homecoming Songs.
+
+## Decided: SQLite, not Postgres (2026-11-14, robot)
+
+The scientist allowed SQLite on an `emptyDir` if Postgres got too complicated, and it did. The Postgres cache was built and tested against a real Postgres 16, but nobody could see the cluster's postgres-operator. Its team, Secret name, TLS and backups were guesses that could only be checked after deploying. SQLite (`bun:sqlite`, built into Bun) needs no operator, no Secret, no TLS and no second pod. Its tests run everywhere, instead of being skipped without a database server. And a cache that is rebuilt on every pod start is exactly what this cache was meant to be.
+
+- **Where:** `CACHE_PATH=/cache/songs.sqlite` on an `emptyDir` (`sizeLimit: 64Mi`) in the Radio's pod. Without `CACHE_PATH` it is kept in memory.
+- **The same:** the two tables, their indexes, the fallback to the Tactus, `/songs/page` and `/songs/options`, and the window.
+- **Different:** a Song number is kept as text, beside a sortable form (its length, then its digits), so numbers of any length still sort as numbers. The mood is kept as JSON text. The schema version is SQLite's `user_version`.
+

@@ -37,30 +37,18 @@ spec:
               value: https://hel1.your-objectstorage.com/ikuradio/
             - name: PUBLIC_ARCHIVE_URL
               value: https://hel1.your-objectstorage.com/ikuradio/
-            # the cache of the Songs received (cache.yaml): while its Secret
-            # is not there yet, the Radio lists from the Tactus, without search
-            - name: CACHE_HOST
-              value: ikuradio-cache
-            - name: CACHE_DATABASE
-              value: songs
-            - name: CACHE_USER
-              valueFrom:
-                secretKeyRef:
-                  name: radio.ikuradio-cache.credentials.postgresql.acid.zalan.do
-                  key: username
-                  optional: true
-            - name: CACHE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: radio.ikuradio-cache.credentials.postgresql.acid.zalan.do
-                  key: password
-                  optional: true
+            # the cache of the Songs received, for searching them: lost with
+            # the pod, and filled again from the Tactus and the Archive
+            - name: CACHE_PATH
+              value: /cache/songs.sqlite
           ports:
             - name: http
               containerPort: 3000
           volumeMounts:
             - name: memory
               mountPath: /song/packages/radio/memory
+            - name: cache
+              mountPath: /cache
           resources:
             requests:
               cpu: 25m
@@ -86,6 +74,9 @@ spec:
         - name: memory
           persistentVolumeClaim:
             claimName: ikuradio-radio-memory
+        - name: cache
+          emptyDir:
+            sizeLimit: 64Mi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
