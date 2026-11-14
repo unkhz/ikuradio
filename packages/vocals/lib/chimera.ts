@@ -4,10 +4,10 @@
 //
 // It is built from source, pinned to one revision, by `bun run throat`.
 
-import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises'
+import { createHash, randomUUID } from 'node:crypto'
+import { mkdir, mkdtemp, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Score, Singer } from 'melody'
 import { sing } from './exec.js'
@@ -42,6 +42,39 @@ async function exists(file: string) {
   } catch {
     return false
   }
+}
+
+/** Recordings being made now, by their file: one asked for twice at once is made once. */
+const making = new Map<string, Promise<string>>()
+
+/**
+ * Makes a recording named by what it holds, once, however many ask for it
+ * at the same moment: the same take in two sections that share a guide is
+ * sung once. It is written under a name of its own and moved to its true
+ * name only when it is whole, so nobody ever reads it half made.
+ */
+export async function makeOnce(file: string, make: (partial: string) => Promise<void>): Promise<string> {
+  const going = making.get(file)
+  if (going) return going
+  if (await exists(file)) return file
+  // asked for again while its existence was being looked for
+  const raced = making.get(file)
+  if (raced) return raced
+  const made = (async () => {
+    await mkdir(dirname(file), { recursive: true })
+    // the same extension, so whatever writes it knows what to write
+    const partial = file.replace(/(\.[a-z0-9]+)?$/i, (ext) => `.${randomUUID()}.partial${ext}`)
+    try {
+      await make(partial)
+      await rename(partial, file)
+    } catch (error) {
+      await rm(partial, { force: true })
+      throw error
+    }
+    return file
+  })().finally(() => making.delete(file))
+  making.set(file, made)
+  return made
 }
 
 async function withScratch<T>(work: (dir: string) => Promise<T>): Promise<T> {
@@ -132,10 +165,7 @@ export async function record(score: Score, singer: Singer): Promise<string> {
     .update(JSON.stringify({ singer, ...sung }))
     .digest('hex')
   const file = `${vocalsDir}/${name}.m4a`
-  if (await exists(file)) return file
-
-  await mkdir(vocalsDir, { recursive: true })
-  await withScratch(async (dir) => {
+  return makeOnce(file, (partial) => withScratch(async (dir) => {
     const input = join(dir, 'score.json')
     await writeFile(input, JSON.stringify(sung))
     await sing(chimera(), ['render', 'notes', input, join(dir, 'line'), singer])
@@ -149,8 +179,7 @@ export async function record(score: Score, singer: Singer): Promise<string> {
       'aac',
       '-b:a',
       '64k',
-      file,
+      partial,
     ])
-  })
-  return file
+  }))
 }

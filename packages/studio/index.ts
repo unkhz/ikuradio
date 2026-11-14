@@ -16,7 +16,7 @@ import { attentions, keepThought, readMemories, readThoughts, recall, words, wri
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
-import { musicDir, Shelf, underlay } from 'music'
+import { musicDir, restBand, Shelf, underlay, wakeBand } from 'music'
 import { openArchive } from 'archive'
 import { describePerspectives } from 'perspectives'
 import { Diary } from './lib/diary.js'
@@ -164,8 +164,12 @@ console.log(`sung in ${seconds(sungAt)}`)
 const guides: Guide[][] = []
 for (const [i, one] of composed.entries()) guides.push(await humGuides(one, sung[i], guides[i - 1]))
 
-// the Music, with the GPU to itself
+// the Music, with the GPU to itself: the band is woken once for all the Song's beds
 const grownAt = Date.now()
+await wakeBand().then(
+  () => console.log(`the band is awake in ${seconds(grownAt)}`),
+  (error: Error) => console.warn(`the band would not stay awake, and wakes for each bed: ${error.message}`),
+)
 const shelf = new Shelf()
 const made: Made[] = []
 for (const [i, one] of composed.entries()) {
@@ -184,6 +188,7 @@ for (const [i, one] of composed.entries()) {
     })
   made.push({ composed: one, lines, beds, guides: hummed })
 }
+await restBand()
 console.log(`accompanied in ${seconds(grownAt)}`)
 
 // into the Archive: the Music's Recordings first, then the Session that names

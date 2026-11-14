@@ -5,11 +5,13 @@
 // GPU, and the mind that writes the words needs most of it, so the two take
 // turns: the words of an iteration are written first, and its beds after.
 
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { mkdir, stat } from 'node:fs/promises'
+import { setPriority } from 'node:os'
+import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import type { Mood } from 'mood'
-import { run, Turns } from 'vocals'
+import { makeOnce, run, Turns } from 'vocals'
 
 /** Where beds are kept, relative to the process, beside the voices. */
 export const musicDir = 'audio/music'
@@ -49,16 +51,95 @@ export function words({ descriptions, character }: Mood): string {
   return [...sound, `${character.tempo} bpm`, key].join(', ')
 }
 
-async function exists(file: string) {
-  try {
-    return (await stat(file)).isFile()
-  } catch {
-    return false
-  }
-}
-
 /** One GPU: one bed at a time. */
 const gpu = new Turns(1)
+
+/** A bed as the band is asked for it. */
+type Job = { vocals: string; mood: string; seconds: number; out: string; melody: boolean }
+
+/**
+ * The band, awake: one MusicGen kept on the GPU for all the beds of a Song,
+ * instead of woken and let go again for every bed. It is asked one bed at a
+ * time, a line of JSON each way. It lets go when it is told to rest, and
+ * also if the Studio falls, for then its stdin closes and it ends.
+ */
+type Band = { child: ChildProcessWithoutNullStreams; asked?: { resolve: () => void; reject: (error: Error) => void }; gone: boolean }
+let band: Band | undefined
+
+/** Wakes the band for a while. Resolves once it is awake; a band that will not wake leaves each bed to wake its own. */
+export async function wakeBand(): Promise<void> {
+  if (band && !band.gone) return
+  const child = spawn('uv', ['run', '--project', home, `${home}accompany.py`, '--serve'])
+  // the Music works beneath everything else on the machine, as each bed always has
+  if (child.pid !== undefined) setPriority(child.pid, 10)
+  const awake: Band = { child, gone: false }
+  let complaint = ''
+  child.stderr.on('data', (data) => (complaint = (complaint + data).slice(-4000)))
+  await new Promise<void>((resolve, reject) => {
+    const lines = createInterface({ input: child.stdout })
+    lines.on('line', (line) => {
+      if (!line.startsWith('{')) return
+      const said = JSON.parse(line) as { awake?: number; out?: string; error?: string }
+      if (said.awake !== undefined) return resolve()
+      const asked = awake.asked
+      awake.asked = undefined
+      if (said.error) asked?.reject(new Error(said.error))
+      else asked?.resolve()
+    })
+    child.on('exit', (code) => {
+      awake.gone = true
+      const error = new Error(`the band fell silent (${code}): ${complaint.trim().split('\n').at(-1) ?? ''}`)
+      awake.asked?.reject(error)
+      awake.asked = undefined
+      reject(error)
+    })
+    child.on('error', reject)
+  })
+  band = awake
+}
+
+/** Lets the band go, and the GPU with it. */
+export async function restBand(): Promise<void> {
+  const resting = band
+  band = undefined
+  if (!resting || resting.gone) return
+  const ended = new Promise((resolve) => resting.child.once('exit', resolve))
+  resting.child.stdin.end()
+  await Promise.race([ended, new Promise((resolve) => setTimeout(resolve, 10_000))])
+  if (!resting.gone) resting.child.kill()
+}
+
+/** One bed from the awake band. */
+function fromBand(awake: Band, job: Job): Promise<void> {
+  return new Promise((resolve, reject) => {
+    awake.asked = { resolve, reject }
+    awake.child.stdin.write(`${JSON.stringify(job)}\n`)
+  })
+}
+
+/** One bed, from the band if it is awake, or from a model woken for it alone. */
+function grow(job: Job): Promise<void> {
+  if (band && !band.gone) return fromBand(band, job)
+  return run(
+    'uv',
+    [
+      'run',
+      '--project',
+      home,
+      `${home}accompany.py`,
+      '--vocals',
+      job.vocals,
+      '--mood',
+      job.mood,
+      '--seconds',
+      `${job.seconds}`,
+      '--out',
+      job.out,
+      ...(job.melody ? [] : ['--no-melody']),
+    ],
+    { gentle: true },
+  ).then(() => undefined)
+}
 
 /**
  * Grows a bed under a recorded voice. The same voice in the same words is
@@ -84,29 +165,6 @@ export async function accompany({
   const name = createHash('sha256')
     .update(JSON.stringify({ model, vocals, mood, seconds, ...(melody ? {} : { melody }) }))
     .digest('hex')
-  const file = `${musicDir}/${name}.m4a`
-  if (await exists(file)) return file
-  await mkdir(musicDir, { recursive: true })
-  await gpu.take(() =>
-    run(
-      'uv',
-      [
-        'run',
-        '--project',
-        home,
-        `${home}accompany.py`,
-        '--vocals',
-        vocals,
-        '--mood',
-        mood,
-        '--seconds',
-        `${seconds}`,
-        '--out',
-        file,
-        ...(melody ? [] : ['--no-melody']),
-      ],
-      { gentle: true },
-    ),
-  )
-  return file
+  // the same bed asked for twice at once is grown once, and nobody hears it half grown
+  return makeOnce(`${musicDir}/${name}.m4a`, (partial) => gpu.take(() => grow({ vocals, mood, seconds, out: partial, melody })))
 }

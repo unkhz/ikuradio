@@ -58,9 +58,8 @@ import {
   type TwoVoiceGuide,
 } from 'melody'
 import { createHash } from 'node:crypto'
-import { mkdir } from 'node:fs/promises'
 import { sections, tail, type Kind, type Section } from 'music'
-import { mixdown, record, throatScore, vocalsDir, type Take, type Throat } from 'vocals'
+import { makeOnce, mixdown, record, throatScore, vocalsDir, type Take, type Throat } from 'vocals'
 import type { Iteration } from './compose.js'
 import { hum, type SungLine } from './perform.js'
 import { stressedLine } from './stressed.js'
@@ -313,9 +312,10 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
       const lowerTake = sung(lower, low.throat)
       try {
         const [high, deep] = await Promise.all([record(upperTake, lead.body), record(lowerTake, low.body)])
-        const file = `${vocalsDir}/${createHash('sha256').update(JSON.stringify({ high, deep })).digest('hex')}.m4a`
-        await mkdir(vocalsDir, { recursive: true })
-        await mixdown([{ file: high, at: 0 }, { file: deep, at: 0 }], file)
+        // two sections that share a guide hum it at the same moment: it is mixed once, and read only whole
+        const file = await makeOnce(`${vocalsDir}/${createHash('sha256').update(JSON.stringify({ high, deep })).digest('hex')}.m4a`, (partial) =>
+          mixdown([{ file: high, at: 0 }, { file: deep, at: 0 }], partial),
+        )
         return {
           kind: section.kind,
           part: section.part,

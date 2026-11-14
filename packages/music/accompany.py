@@ -11,10 +11,16 @@ voice later.
         --seconds 30 --out bed.m4a
 
 The model is woken for the bed and let go after it, so that the mind which
-writes the words can have the GPU back.
+writes the words can have the GPU back. Or, with --serve, it stays awake for
+all the beds of a Song: one bed a line on stdin, as JSON, one answer a line
+on stdout, until stdin closes, and then it lets go.
+
+    uv run accompany.py --serve
+    {"vocals": "take.m4a", "mood": "eternity", "seconds": 30, "out": "bed.m4a", "melody": true}
 """
 
 import argparse
+import json
 import math
 import sys
 import time
@@ -92,19 +98,30 @@ def join(pieces: list[np.ndarray], rate: int, starts: list[float]) -> np.ndarray
     return bed
 
 
-def accompany(vocals: str, mood: str, seconds: float, out: str, melody: bool = True):
+def wake():
+    """The model, on the GPU, and what prepares what it hears."""
     if not torch.cuda.is_available():
         sys.exit("the Music needs a GPU, and this machine lends it none")
-
-    woke = time.time()
     processor = MusicgenMelodyProcessor.from_pretrained(MODEL)
     model = MusicgenMelodyForConditionalGeneration.from_pretrained(
         MODEL, torch_dtype=torch.float16
     ).to("cuda")
+    return processor, model
+
+
+def accompany(vocals: str, mood: str, seconds: float, out: str, melody: bool = True):
+    woke = time.time()
+    processor, model = wake()
+    return grow(processor, model, vocals, mood, seconds, out, melody, woke)
+
+
+def grow(processor, model, vocals: str, mood: str, seconds: float, out: str, melody: bool = True, woke: float | None = None) -> str:
+    """One bed, from an awake model; says how it went."""
     rate = model.config.audio_encoder.sampling_rate
     voice = listen(vocals, rate)
 
     began = time.time()
+    woke = began if woke is None else woke
     pieces, starts = [], []
     # a section longer than the model can hear is grown in windows, each
     # hearing its own stretch of the voice, and joined where they overlap
@@ -136,19 +153,38 @@ def accompany(vocals: str, mood: str, seconds: float, out: str, melody: bool = T
     # never louder than a recording can hold
     peak = float(np.max(np.abs(audio))) or 1.0
     keep(out, audio / max(1.0, peak), rate)
-    print(
+    said = (
         f"{out}: {len(audio) / rate:.1f}s of {mood!r} in {len(pieces)} windows,"
         f" woke in {began - woke:.1f}s, made in {made - began:.1f}s,"
         f" {torch.cuda.max_memory_allocated() / 2**30:.1f} GiB at most"
     )
+    print(said, file=sys.stderr)
+    return said
+
+
+def serve():
+    """Stays awake for one bed a line, until stdin closes: then the GPU is let go with the process."""
+    woke = time.time()
+    processor, model = wake()
+    print(json.dumps({"awake": round(time.time() - woke, 1)}), flush=True)
+    for line in sys.stdin:
+        if not line.strip():
+            continue
+        try:
+            job = json.loads(line)
+            said = grow(processor, model, job["vocals"], job["mood"], float(job["seconds"]), job["out"], bool(job.get("melody", True)))
+            print(json.dumps({"out": job["out"], "said": said}), flush=True)
+        except Exception as error:  # a bed that fails is said so; the band stays awake for the next
+            print(json.dumps({"error": f"{type(error).__name__}: {error}"}), flush=True)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--vocals", required=True, help="the voice to accompany")
-    parser.add_argument("--mood", required=True, help="the weather, in words")
+    parser.add_argument("--serve", action="store_true", help="stay awake: one bed a line on stdin, as JSON")
+    parser.add_argument("--vocals", help="the voice to accompany")
+    parser.add_argument("--mood", help="the weather, in words")
     parser.add_argument("--seconds", type=float, default=LONGEST, help="as long as the section")
-    parser.add_argument("--out", required=True, help="where the bed is written (.wav, or .m4a)")
+    parser.add_argument("--out", help="where the bed is written (.wav, or .m4a)")
     parser.add_argument(
         "--no-melody",
         dest="melody",
@@ -156,4 +192,9 @@ if __name__ == "__main__":
         help="do not follow the voice's melody: grow from the words alone",
     )
     args = parser.parse_args()
-    accompany(args.vocals, args.mood, args.seconds, args.out, args.melody)
+    if args.serve:
+        serve()
+    elif not (args.vocals and args.mood and args.out):
+        parser.error("a bed needs --vocals, --mood and --out, unless the band is to --serve")
+    else:
+        accompany(args.vocals, args.mood, args.seconds, args.out, args.melody)

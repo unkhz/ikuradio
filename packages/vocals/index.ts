@@ -5,6 +5,7 @@ export {
   recordingName,
   throatScore,
   vocalsDir,
+  makeOnce,
 } from './lib/chimera.js'
 export { throatFingerprint, throatName } from './lib/throat.js'
 export { play } from './lib/play.js'

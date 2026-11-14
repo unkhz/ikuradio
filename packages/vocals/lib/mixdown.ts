@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
-import { mkdir, stat } from 'node:fs/promises'
 import { sing } from './exec.js'
-import { vocalsDir } from './chimera.js'
+import { makeOnce, vocalsDir } from './chimera.js'
 
 export type Placed = {
   file: string
@@ -51,14 +50,6 @@ export async function mixdown(lines: Placed[], out: string) {
   ])
 }
 
-async function exists(file: string) {
-  try {
-    return (await stat(file)).isFile()
-  } catch {
-    return false
-  }
-}
-
 /** How much louder a whole choir may be than its lead alone. */
 export const fullness = 1.5
 
@@ -73,15 +64,13 @@ export async function blend(
   const name = createHash('sha256')
     .update(JSON.stringify({ fullness, voices }))
     .digest('hex')
-  const file = `${vocalsDir}/${name}.m4a`
-  if (await exists(file)) return file
-  await mkdir(vocalsDir, { recursive: true })
   // many voices are fuller than one, but not louder than a throat can bear
   const total = voices.reduce((sum, { gain }) => sum + gain, 0)
   const headroom = Math.min(1, fullness / total)
-  await mixdown(
-    voices.map(({ file, gain }) => ({ file, gain: gain * headroom, at: 0 })),
-    file,
+  return makeOnce(`${vocalsDir}/${name}.m4a`, (partial) =>
+    mixdown(
+      voices.map(({ file, gain }) => ({ file, gain: gain * headroom, at: 0 })),
+      partial,
+    ),
   )
-  return file
 }
