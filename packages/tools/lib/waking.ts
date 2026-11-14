@@ -89,7 +89,15 @@ export function wakeMind(log = 'memory/mind.log'): Waking {
       }),
       { stdio: ['ignore', out, out] },
     )
+    // whoever woke the mind takes it down when it ends, however it ends: a
+    // mind left awake by a Studio that fell holds the GPU, and the next
+    // Studio, finding it awake, only asks it and never lets it rest, so the
+    // Music has no room
+    const mind = child
+    const letGo = () => void mind.kill('SIGTERM')
+    process.once('exit', letGo)
     child.on('exit', (code) => {
+      process.off('exit', letGo)
       if (code) console.warn(`the mind stopped (${code}); see ${log}`)
       child = undefined
     })
