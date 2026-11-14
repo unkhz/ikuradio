@@ -15,3 +15,28 @@ Plan "Time follows lyrics", step 5: the Archive analysed again on the Songs made
 What I did meanwhile: when a verse or chorus line doesn't fit its bars, the mind is now told, in its next try, which line missed, how many syllables it had, and the most it may have. Before, it was asked again blind, eight times, and then allowed a grace bar.
 
 To do: after about a day of Songs from the commit that adds this, measure again with the same script: grown verse lines over all verse lines, by Song. If it is still above 1%, the next lever is a longer first round (patience), or asking the mind to rewrite only the line that missed.
+
+The measurement, run on any machine, the Songs given as a range:
+
+```python
+import json, sys, urllib.request
+from concurrent.futures import ThreadPoolExecutor
+
+base = "https://hel1.your-objectstorage.com/ikuradio/sessions/"
+def lines(n):
+    try:
+        with urllib.request.urlopen(f"{base}{n}.json", timeout=60) as r:
+            s = json.load(r)
+    except Exception:
+        return []
+    return [(s.get("rate"), p["type"], i, l.get("quickest"), l.get("grown")) for it in s["iterations"] for p in it["parts"] if p["type"] != "bridge" for i, l in enumerate(p["lines"])]
+
+lo, hi = int(sys.argv[1]), int(sys.argv[2])
+with ThreadPoolExecutor(8) as pool:
+    sung = [l for ls in pool.map(lines, range(lo, hi + 1)) for l in ls]
+fast = sum(1 for rate, _, _, q, _ in sung if rate and q is not None and q < 1 / rate - 0.002)
+verse = [g for _, t, _, _, g in sung if t == "verse"]
+rest = [g for _, t, i, _, g in sung if t == "chorus" and i > 0]
+print(f"{len(sung)} lines, {fast} too fast")
+print(f"grace: verse {sum(1 for g in verse if g)}/{len(verse)}, chorus 2-4 {sum(1 for g in rest if g)}/{len(rest)}")
+```
