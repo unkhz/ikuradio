@@ -32,6 +32,8 @@ export type Written = {
   guide: TwoVoiceGuide
   /** The lead's pitches, one a syllable, in degrees of the Song's key. */
   degrees: number[]
+  /** How far into its section the line begins, in beats at the Song's tempo: where its chords are found in the guide. */
+  offset: number
   /** How many of its standing syllables there were, and how many stood on a tone of the guide's chord. */
   standing: number
   onChord: number
@@ -148,8 +150,10 @@ export function writeSections({
   const shared = new Map<string, TwoVoiceGuide>()
   for (const { name, ending, lines, progression } of sections) {
     const timed: TimedSyllable[][] = []
+    const offsets: number[] = []
     let beats = 0
     for (const { fitted } of lines) {
+      offsets.push(beats)
       timed.push(timedLine(fitted, beats, bpm))
       beats += beatsOf(fitted, bpm)
     }
@@ -191,6 +195,7 @@ export function writeSections({
         section: name,
         guide,
         degrees,
+        offset: offsets[i]!,
         ...standingOnChord(timed[i]!, degrees, guide),
         run: longestRun(degrees),
         ...(progression ? { progression } : {}),

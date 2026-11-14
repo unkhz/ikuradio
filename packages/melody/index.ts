@@ -27,6 +27,7 @@ export {
   composeGuide,
   counterpoint,
   guideCosts,
+  chordsHeard,
   harmonizeHum,
   laidByPlace,
   roaming,

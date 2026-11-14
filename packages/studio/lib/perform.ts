@@ -11,7 +11,7 @@
 
 import { arrange } from 'song'
 import { getEnv } from 'tools'
-import { harmonizeChoir, keyFor, scoreSeconds, setBridge, setLine, wrongness, type Score, type Syllables } from 'melody'
+import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Score, type Syllables } from 'melody'
 import { blend, countSyllables, fullness, humanize, keepsPace, quickest, record, throatScore, type Take } from 'vocals'
 import type { Iteration } from './compose.js'
 import { stressedLine } from './stressed.js'
@@ -106,7 +106,7 @@ export async function perform(
    * Every singer's score for a line, from the lead's: the lead as it is, the
    * others beside it by the harmonizer, the same for the same line.
    */
-  const choirOf = (lead: Score, singers: typeof choir, named: string): Score[] => {
+  const choirOf = (lead: Score, singers: typeof choir, named: string, chords?: ChordSource): Score[] => {
     const [first, ...others] = singers
     if (!first || others.length === 0) return [lead]
     return [
@@ -119,6 +119,7 @@ export async function perform(
         voices: others,
         harmony: settings.harmony,
         random: wrongness(`harmony:${song.number}:${named}`),
+        chords,
       }),
     ]
   }
@@ -261,7 +262,11 @@ export async function perform(
     const voices = singersOf(part)
     // written over its guide, the lead sings the writer's pitches to the tune's rhythm
     const led = written ? sungAs(tuned, written.degrees, keyFor(voices[0]!.body, mood.character.mode)) : tuned
-    const scores = choirOf(led, voices, lineKey(part, index, line))
+    // written over its guide, the choir hears the guide's chords too, and leans on them
+    const chords = written
+      ? chordsHeard(written.guide, modes[mood.character.mode], { offset: written.offset, bpm: mood.character.tempo, lineBpm: led.bpm })
+      : undefined
+    const scores = choirOf(led, voices, lineKey(part, index, line), chords)
     const takes = voices.map((voice, v) => {
       const score = scores[v]!
       const take = {

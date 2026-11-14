@@ -569,6 +569,26 @@ export function timedLine(
   return timed
 }
 
+/**
+ * A guide's chords as the choir's harmonizer hears them (its `ChordSource`):
+ * the pitch classes of the triad sounding at a beat of one line, the line
+ * beginning `offset` beats into its section, its beats counted at
+ * `lineBpm` against the guide's `bpm`. The triad is in the Song's mode, on
+ * A, where every voice sings.
+ */
+export function chordsHeard(
+  guide: TwoVoiceGuide,
+  mode: readonly number[],
+  { offset, bpm, lineBpm }: { offset: number; bpm: number; lineBpm: number },
+): (beat: number) => readonly number[] | undefined {
+  const tones = guide.chords.map(({ root }) => [0, 2, 4].map((k) => (frameTonic + degreeToMidi(root + k, { tonic: 0, mode })) % 12))
+  return (beat) => {
+    const at = offset + (beat * bpm) / lineBpm
+    const i = guide.chords.findLastIndex((c) => c.at <= at + 1e-9)
+    return tones[Math.max(0, i)]
+  }
+}
+
 /** A guide voice as it is hummed for the Music: [degree, beats], a degree of null being silence. */
 export type Turn = [degree: number | null, beats: number]
 

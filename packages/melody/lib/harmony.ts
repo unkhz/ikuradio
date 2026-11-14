@@ -15,8 +15,9 @@
 // Its base settings are a Facet the Perspectives may turn: which side of
 // the lead the voices sing on, how far the first one above stands, and how
 // widely the voices below spread. The defaults are traditional: below, and
-// close. A chord source, heard from the band someday, may be plugged in, so
-// that the voices prefer the notes the band is playing.
+// close. A chord source may be plugged in, so that the voices prefer the
+// notes of the chord sounding under them: the two-voice guide's, the same
+// chords the melody was written over and the band grew its bed from.
 
 import type { Score, Singer } from '../index.js'
 import { degreeOf, nearestDegree, vocalRange } from './reach.js'
