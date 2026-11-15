@@ -21,6 +21,10 @@ const visitor = {
   'x-forwarded-for': '203.0.113.7, 198.51.100.1',
   'cf-ipcountry': 'FI',
   'cf-ipcity': 'Helsinki',
+  'cf-iplatitude': '60.16952',
+  'cf-iplongitude': '24.93545',
+  'cf-postal-code': '00100',
+  'cf-metro-code': '7777',
   'cf-ray': '8c1-HEL',
   'user-agent': 'a lost listener',
   'accept-language': 'fi, en',
@@ -37,6 +41,39 @@ const everything = (log: RequestLog) =>
   )
 
 describe('the Radio’s log', () => {
+  it('knows where a request came from no finer than its city', async () => {
+    const path = file()
+    const log = new RequestLog(path, { flushEvery: 0 })
+    log.record(visit('/s/7', visitor))
+    log.record(visit('/tactus', visitor))
+    log.flush()
+    const columns = (log.db.query("select name from pragma_table_info('requests')").all() as { name: string }[]).map(({ name }) => name)
+    for (const fine of ['latitude', 'longitude', 'postal_code', 'metro_code']) expect(columns).not.toContain(fine)
+    expect(columns).toEqual(expect.arrayContaining(['country', 'continent', 'region', 'region_code', 'city', 'timezone']))
+    const held = JSON.stringify([log.db.query('select * from requests').all(), log.db.query('select * from tactus').all()])
+    for (const value of ['60.16952', '24.93545', '00100', '7777']) expect(held).not.toContain(value)
+    log.close()
+    const bytes = await readFile(path)
+    for (const value of ['60.16952', '24.93545', '00100', '7777']) expect(bytes.includes(Buffer.from(value))).toBe(false)
+    await gone(path)
+  })
+
+  it('begins again a database of the shape that kept finer places, leaving none of them in the file', async () => {
+    const path = file()
+    const old = new Database(path, { create: true })
+    old.exec(`create table requests (id integer primary key, at integer, path text, latitude text, longitude text, postal_code text);
+      insert into requests (at, path, latitude, longitude, postal_code) values (1, '/', '61.49911', '23.78712', '33100');
+      create table tactus (minute integer, country text, city text, count integer);
+      pragma user_version = 1;`)
+    old.close()
+    const log = new RequestLog(path, { flushEvery: 0 })
+    expect(log.db.query('select count(*) as n from requests').get()).toEqual({ n: 0 })
+    log.close()
+    const bytes = await readFile(path)
+    for (const value of ['61.49911', '23.78712', '33100']) expect(bytes.includes(Buffer.from(value))).toBe(false)
+    await gone(path)
+  })
+
   it('writes a request down with what it says of where it came from and what asked', async () => {
     const path = file()
     const log = new RequestLog(path, { flushEvery: 0 })

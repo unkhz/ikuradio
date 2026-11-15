@@ -2,7 +2,7 @@
 // anyone listened. Now every request the Radio answers is written down in
 // SQLite on its volume, where it outlives the pod: when, what was asked,
 // how it was answered and how fast, and what the request says of where in
-// the world it came from and what asked. No address is kept, in any form:
+// the world it came from, no finer than its city, and what asked. No address is kept, in any form:
 // nothing in it can tell one visitor from another. The receivers'
 // heartbeat, /tactus every few seconds, is counted per minute by country
 // and city instead of written down each time. The log is never served.
@@ -12,7 +12,7 @@
 import { Database } from 'bun:sqlite'
 
 /** The shape of the tables. A log of another shape is begun again when it is opened. */
-const schemaVersion = 1
+const schemaVersion = 2
 const schema = `
   drop table if exists requests;
   drop table if exists tactus;
@@ -29,11 +29,7 @@ const schema = `
     continent text,
     region text,
     region_code text,
-    metro_code text,
-    postal_code text,
     timezone text,
-    latitude text,
-    longitude text,
     ray text,
     cf_visitor text,
     forwarded_proto text,
@@ -62,11 +58,7 @@ const located = {
   continent: 'cf-ipcontinent',
   region: 'cf-region',
   region_code: 'cf-region-code',
-  metro_code: 'cf-metro-code',
-  postal_code: 'cf-postal-code',
   timezone: 'cf-timezone',
-  latitude: 'cf-iplatitude',
-  longitude: 'cf-iplongitude',
 } as const
 
 /** The rest of what a request says of itself, each to its column. */
