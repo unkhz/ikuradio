@@ -277,7 +277,12 @@ export function writeOverGuide({
   if (n === 0) return []
   const c = writerCosts
   const degrees = Array.from({ length: high - low + 1 }, (_, k) => low + k)
-  const middle = (low + high) / 2
+  // the whole line's register follows the ceiling: the middle every note leans to moves with it,
+  // half a step for each step the ceiling moves from where the song always had it
+  const usualCeiling = 2
+  const middle = (low + high) / 2 + (usualCeiling - ceiling) / 2
+  // and above the usual ceiling, the weightiest word is pulled up the harder, a summit's worth more each step
+  const summitPull = c.summit * (1 + Math.max(0, usualCeiling - ceiling))
   const at = syllables.map((s) => guideAt(guide, s.at))
   const finalUpper = guide.upper.at(-1)![0]
   // the weightiest word: the longest stressed syllable, the later where two are as long
@@ -297,7 +302,7 @@ export function writeOverGuide({
       cost += step === 4 ? c.breathFifth : step === 0 || step === 2 ? 0 : c.breathOff
     }
     if (closes && i === n - 1 && cls(d) !== cls(finalUpper)) cost += c.cadence
-    if (i === summit) cost += c.summit * Math.max(0, high - ceiling - d)
+    if (i === summit) cost += summitPull * Math.max(0, high - ceiling - d)
     // two steps above the ceiling the line may rise, as it always could; past that, it pays
     cost += c.overCeiling * Math.max(0, d - (high - ceiling + 2))
     return cost

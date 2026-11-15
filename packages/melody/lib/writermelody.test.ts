@@ -44,7 +44,8 @@ describe('the melody Facet in the writer', () => {
     const low = mean(peaks({ ceiling: 5 }))
     const top = mean(peaks({ ceiling: 0 }))
     expect(low).toBeLessThan(usual - 1)
-    expect(top).toBeGreaterThan(usual)
+    // the ceiling pulls up as well as it holds down: a step or more either way
+    expect(top).toBeGreaterThan(usual + 1)
     expect(Math.max(...peaks({ ceiling: 5 }))).toBeLessThanOrEqual(9 - 5 + 3)
   })
 
