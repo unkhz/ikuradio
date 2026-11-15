@@ -36,6 +36,8 @@ const envSchema = z.object({
    * from the Tactus and the Archive. Without it, the cache is kept in memory.
    */
   CACHE_PATH: z.string().default(':memory:'),
+  /** Where the Radio keeps its log of every request it answers: SQLite, on a volume of its own. */
+  LOG_PATH: z.string().default('log/radio.db'),
   /** How many Songs the Studio keeps ready ahead of the one the Radio plays. */
   SONGS_AHEAD: z.coerce.number().int().min(1).default(2),
   /** How many iterations one Song lasts, all in the same Mood. */

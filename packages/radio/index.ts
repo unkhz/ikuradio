@@ -18,7 +18,7 @@
 //   GET /s/<n>      the Receiver, tuned to Song n from its beginning
 
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
-import { normalize } from 'node:path'
+import { dirname, normalize } from 'node:path'
 import pageHtmlFile from '../ui/public/index.html' with { type: 'file' }
 // @ts-expect-error: the page's script is plain JavaScript, imported only as a file
 import pageJsFile from '../ui/public/index.js' with { type: 'file' }
@@ -48,8 +48,9 @@ import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
 import { cardOf, speak, type Card } from './lib/speaks.js'
+import { RequestLog } from './lib/log.js'
 
-const { SERVER_PORT, CACHE_PATH } = getEnv()
+const { SERVER_PORT, CACHE_PATH, LOG_PATH } = getEnv()
 
 const memory = 'memory/tactus.jsonl'
 
@@ -323,119 +324,146 @@ async function page(request: Request, url: URL, song?: bigint) {
   })
 }
 
+// Every request answered is written down (./lib/log.ts); a log that cannot be opened is done without
+const requests = await (async () => {
+  try {
+    await mkdir(dirname(LOG_PATH), { recursive: true })
+    return new RequestLog(LOG_PATH)
+  } catch (error) {
+    console.warn(`the Radio keeps no log: ${(error as Error).message}`)
+    return undefined
+  }
+})()
+
 Bun.serve({
   port: SERVER_PORT,
   hostname: '0.0.0.0',
   async fetch(request) {
-    const url = new URL(request.url)
-    const archive = sending
-
-    if (url.pathname === '/tactus') {
-      return json({
-        now: Date.now(),
-        archive,
-        playing: told(tactus.playing, archive) ?? null,
-        next: told(tactus.next, archive) ?? null,
-      })
+    const at = Date.now()
+    const started = performance.now()
+    let status = 500
+    try {
+      const response = await answer(request)
+      status = response.status
+      return response
+    } finally {
+      requests?.record({ at, method: request.method, url: new URL(request.url), status, ms: performance.now() - started, headers: request.headers })
     }
-
-    if (url.pathname === '/songs') {
-      // Songs that have aired to the end, newest first: nothing before its time
-      const before = url.searchParams.get('before')
-      const count = Math.min(30, Math.max(1, Number(url.searchParams.get('count')) || 12))
-      const now = Date.now()
-      const aired = tactus.history
-        .filter((a) => endOf(a) <= now)
-        .filter((a) => !before || !/^\d{1,400}$/.test(before) || BigInt(a.song) < BigInt(before))
-        .slice(-count)
-        .reverse()
-      return json(aired.map((a) => told(a, archive)))
-    }
-
-    if (url.pathname === '/songs/after') {
-      const song = url.searchParams.get('song') ?? ''
-      if (!/^\d{1,400}$/.test(song)) return json({ error: 'a Song is asked for by its number' }, 400)
-      return json(tactus.after(song))
-    }
-
-    if (url.pathname === '/songs/options') {
-      if (cache && cached) {
-        try {
-          return json(await cache.options(searchOf(url)))
-        } catch (error) {
-          console.warn(`the cache of the Songs received is away: ${(error as Error).message}`)
-          cached = false
-        }
-      }
-      // without its cache the Radio offers no search, and the page hides it
-      return json({ error: 'no search without the cache' }, 503)
-    }
-
-    if (url.pathname === '/songs/page') {
-      // every Song received so far, newest first, the one on now among them,
-      // found in the cache by what was asked; without it, from the Tactus, all of them
-      const now = Date.now()
-      const requested = Math.max(0, Math.floor(Number(url.searchParams.get('offset')) || 0))
-      const count = Math.min(50, Math.max(1, Math.floor(Number(url.searchParams.get('count')) || 12)))
-      if (cache && cached) {
-        try {
-          return json({ ...(await cache.page(searchOf(url), requested, count, now)), searched: true })
-        } catch (error) {
-          console.warn(`the cache of the Songs received is away: ${(error as Error).message}`)
-          cached = false
-        }
-      }
-      const received = tactus.history.filter((a) => a.begins <= now).reverse()
-      const total = received.length
-      const offset = Math.min(total, requested)
-      const songs = await Promise.all(
-        received.slice(offset, offset + count).map(async (a) => ({
-          song: a.song,
-          begins: a.begins,
-          seconds: a.seconds,
-          on: endOf(a) > now,
-          ...(await summary(a.song)),
-        })),
-      )
-      return json({ total, offset, songs })
-    }
-
-    if (url.pathname === '/pulse') {
-      const pulse = tactus.pulse()
-      const playing = tactus.playing
-      return json(
-        {
-          ...pulse,
-          song: playing ? playing.song : undefined,
-          beganAgo: playing ? Math.round((Date.now() - playing.begins) / 1000) : undefined,
-          lasts: playing ? Math.round(playing.seconds) : undefined,
-        },
-        pulse.alive ? 200 : 503,
-      )
-    }
-
-    if (url.pathname === '/' || url.pathname === '/index.html') return page(request, url)
-    const asked = /^\/s\/(\d{1,400})\/?$/.exec(url.pathname)
-    if (asked) return page(request, url, BigInt(asked[1]) > 0n ? BigInt(asked[1]) : undefined)
-
-    const name = normalize(url.pathname).slice(1)
-    const part = pageFiles[name]
-    if (part) {
-      // the throat is two megabytes that change only when the throat is moved
-      // on, and the letters, which change less: kept a day, so a listener who
-      // comes back does not fetch them again
-      const cache = name.startsWith('throat/') || name.startsWith('fonts/') ? 'public, max-age=86400' : 'no-cache'
-      return new Response(Bun.file(part.file), {
-        headers: { 'Content-Type': part.type, 'Cache-Control': cache },
-      })
-    }
-    return new Response(null, { status: 404 })
   },
 })
+
+/** The Radio's answer to a request. */
+async function answer(request: Request): Promise<Response> {
+  const url = new URL(request.url)
+  const archive = sending
+
+  if (url.pathname === '/tactus') {
+    return json({
+      now: Date.now(),
+      archive,
+      playing: told(tactus.playing, archive) ?? null,
+      next: told(tactus.next, archive) ?? null,
+    })
+  }
+
+  if (url.pathname === '/songs') {
+    // Songs that have aired to the end, newest first: nothing before its time
+    const before = url.searchParams.get('before')
+    const count = Math.min(30, Math.max(1, Number(url.searchParams.get('count')) || 12))
+    const now = Date.now()
+    const aired = tactus.history
+      .filter((a) => endOf(a) <= now)
+      .filter((a) => !before || !/^\d{1,400}$/.test(before) || BigInt(a.song) < BigInt(before))
+      .slice(-count)
+      .reverse()
+    return json(aired.map((a) => told(a, archive)))
+  }
+
+  if (url.pathname === '/songs/after') {
+    const song = url.searchParams.get('song') ?? ''
+    if (!/^\d{1,400}$/.test(song)) return json({ error: 'a Song is asked for by its number' }, 400)
+    return json(tactus.after(song))
+  }
+
+  if (url.pathname === '/songs/options') {
+    if (cache && cached) {
+      try {
+        return json(await cache.options(searchOf(url)))
+      } catch (error) {
+        console.warn(`the cache of the Songs received is away: ${(error as Error).message}`)
+        cached = false
+      }
+    }
+    // without its cache the Radio offers no search, and the page hides it
+    return json({ error: 'no search without the cache' }, 503)
+  }
+
+  if (url.pathname === '/songs/page') {
+    // every Song received so far, newest first, the one on now among them,
+    // found in the cache by what was asked; without it, from the Tactus, all of them
+    const now = Date.now()
+    const requested = Math.max(0, Math.floor(Number(url.searchParams.get('offset')) || 0))
+    const count = Math.min(50, Math.max(1, Math.floor(Number(url.searchParams.get('count')) || 12)))
+    if (cache && cached) {
+      try {
+        return json({ ...(await cache.page(searchOf(url), requested, count, now)), searched: true })
+      } catch (error) {
+        console.warn(`the cache of the Songs received is away: ${(error as Error).message}`)
+        cached = false
+      }
+    }
+    const received = tactus.history.filter((a) => a.begins <= now).reverse()
+    const total = received.length
+    const offset = Math.min(total, requested)
+    const songs = await Promise.all(
+      received.slice(offset, offset + count).map(async (a) => ({
+        song: a.song,
+        begins: a.begins,
+        seconds: a.seconds,
+        on: endOf(a) > now,
+        ...(await summary(a.song)),
+      })),
+    )
+    return json({ total, offset, songs })
+  }
+
+  if (url.pathname === '/pulse') {
+    const pulse = tactus.pulse()
+    const playing = tactus.playing
+    return json(
+      {
+        ...pulse,
+        song: playing ? playing.song : undefined,
+        beganAgo: playing ? Math.round((Date.now() - playing.begins) / 1000) : undefined,
+        lasts: playing ? Math.round(playing.seconds) : undefined,
+      },
+      pulse.alive ? 200 : 503,
+    )
+  }
+
+  if (url.pathname === '/' || url.pathname === '/index.html') return page(request, url)
+  const asked = /^\/s\/(\d{1,400})\/?$/.exec(url.pathname)
+  if (asked) return page(request, url, BigInt(asked[1]) > 0n ? BigInt(asked[1]) : undefined)
+
+  const name = normalize(url.pathname).slice(1)
+  const part = pageFiles[name]
+  if (part) {
+    // the throat is two megabytes that change only when the throat is moved
+    // on, and the letters, which change less: kept a day, so a listener who
+    // comes back does not fetch them again
+    const cache = name.startsWith('throat/') || name.startsWith('fonts/') ? 'public, max-age=86400' : 'no-cache'
+    return new Response(Bun.file(part.file), {
+      headers: { 'Content-Type': part.type, 'Cache-Control': cache },
+    })
+  }
+  return new Response(null, { status: 404 })
+}
 
 console.log(`The Radio is on, on port ${SERVER_PORT}, reading the Archive at ${reading}`)
 
 function rest(signal: string) {
+  // what the log has waiting is written before the Radio goes
+  requests?.close()
   console.log(`The Radio rests (${signal}). The Tactus is remembered.`)
   process.exit(0)
 }

@@ -22,6 +22,29 @@ spec:
     spec:
       imagePullSecrets:
         - name: github-registry-secret
+      # the Radio's database lies on this node's own disk (the log volume
+      # below), so the Radio always runs here
+      nodeSelector:
+        kubernetes.io/hostname: k3s-agent-medium-gpj
+      # the directory Kubernetes makes for the database belongs to root;
+      # it is given to the Radio's user before the Radio starts
+      initContainers:
+        - name: log-owner
+          image: busybox:1.37.0
+          command: ["sh", "-c", "chown 1000:1000 /log && chmod 750 /log"]
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+          volumeMounts:
+            - name: log
+              mountPath: /log
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -41,6 +64,10 @@ spec:
             # the pod, and filled again from the Tactus and the Archive
             - name: CACHE_PATH
               value: /cache/songs.sqlite
+            # its log of the requests it answers, with no address in it,
+            # on the node's own disk, where it outlives every deploy
+            - name: LOG_PATH
+              value: /song/packages/radio/log/radio.db
           ports:
             - name: http
               containerPort: 3000
@@ -49,6 +76,8 @@ spec:
               mountPath: /song/packages/radio/memory
             - name: cache
               mountPath: /cache
+            - name: log
+              mountPath: /song/packages/radio/log
           resources:
             requests:
               cpu: 25m
@@ -77,6 +106,10 @@ spec:
         - name: cache
           emptyDir:
             sizeLimit: 64Mi
+        - name: log
+          hostPath:
+            path: /var/lib/ikuradio/log
+            type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
