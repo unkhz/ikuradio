@@ -30,11 +30,11 @@ looked into.
    took.
 2. **Every useful header, for now.** Keep everything that says who asked and from where;
    it will be cleaned up later, once it is clear what matters:
-   - **Where from:** `cf-ipcountry`, and Cloudflare's visitor location headers
-     `cf-ipcity`, `cf-ipcontinent`, `cf-region`, `cf-region-code`, `cf-metro-code`,
-     `cf-postal-code`, `cf-timezone`, `cf-iplatitude` and `cf-iplongitude` (turned on in
-     the ikurad.io zone as the managed transform "Add visitor location headers"; until
-     then they are simply empty).
+   - **Where from, no finer than the city:** `cf-ipcountry`, and of Cloudflare's visitor
+     location headers only `cf-ipcontinent`, `cf-region`, `cf-region-code`, `cf-ipcity`
+     and `cf-timezone` (turned on in the ikurad.io zone as the managed transform "Add
+     visitor location headers"). Its finer ones, `cf-iplatitude`, `cf-iplongitude`,
+     `cf-postal-code` and `cf-metro-code`, are never kept.
    - **Through what:** `cf-ray`, `cf-visitor`, `x-forwarded-proto`, `host`.
    - **Who:** `user-agent`, `referer`, `accept-language`, and the `sec-ch-ua*` client hints.
 3. **No addresses at all.** No IP address is stored in any form, not even hashed: not
