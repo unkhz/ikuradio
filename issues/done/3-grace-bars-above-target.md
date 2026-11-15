@@ -1,5 +1,5 @@
 ---
-state: todo
+state: done
 id: 3
 kind: issue
 slug: grace-bars-above-target
@@ -40,3 +40,11 @@ rest = [g for _, t, i, _, g in sung if t == "chorus" and i > 0]
 print(f"{len(sung)} lines, {fast} too fast")
 print(f"grace: verse {sum(1 for g in verse if g)}/{len(verse)}, chorus 2-4 {sum(1 for g in rest if g)}/{len(rest)}")
 ```
+
+**Measured again, 2026-11-15, Songs 374–438:**
+- **Told only, before the Tides (374–388):** 0 of 480 verse lines and 0 of 180 chorus lines 2–4 took a grace bar.
+- **With the Tides moving wordiness too (389–438):** 15 of 1,600 verse lines (0.94%) and 20 of 600 chorus lines 2–4 (3.3%).
+- **Together:** 15 of 2,080 verse lines, 0.72%, under the plan's 1% target, against 1.81% before the mind was told how its lines missed.
+- **The chorus's grace bars:** they come in clusters, not with the wordiness Tide. A graced line is sung in every chorus section of its iteration, so one hard line counts four times. By wordiness band they run 4.0%, 7.3%, 0% and 0%, with no rise toward the wordy end.
+
+**Closed:** the plan's target is met. If the chorus's clusters matter by ear, that is a question of its own.
