@@ -10,7 +10,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Settings } from 'perspectives'
-import { readAt, type Envelope, type Phase } from './envelope.js'
+import { readAt, wanderAt, type Envelope, type Phase } from './envelope.js'
 
 /** The numeric settings a Tide may move, each in one part. */
 export type Moves =
@@ -19,6 +19,14 @@ export type Moves =
 
 /** What an actions.ts exports: what the Tide moves, and its envelope. */
 export type Tide = Envelope & { moves: Moves }
+
+/** What each setting a Tide may move can be: a ceiling never above the compass top, wordiness within 0 and 1. */
+export const validRange: Record<Moves['setting'], readonly [number, number]> = {
+  ceiling: [0, 14],
+  span: [0, 10],
+  travel: [0, 10],
+  wordiness: [0, 1],
+}
 
 /** Writes a Tide's actions, typed. */
 export const tide = (definition: Tide): Tide => definition
@@ -65,6 +73,20 @@ export function checkEnvelope(slug: string, { age, attack, hold, decay, min, max
   if (![min, max].every(Number.isFinite)) throw new Error(`${slug}: min and max are numbers`)
 }
 
+/** Whether a Tide's wandering is one: a share of its swing, and a grain of some length. */
+export function checkNoise(slug: string, { noise = 0, grain = 1 }: Envelope) {
+  if (!(noise >= 0 && noise <= 1)) throw new Error(`${slug}: noise is a share of the swing, from 0 to 1`)
+  if (!(grain > 0)) throw new Error(`${slug}: grain is a length in Songs, more than 0`)
+}
+
+/** A Tide's value at a position: its envelope, wandering by its noise, within what its setting can be. */
+export function valueAt(t: Tide & { slug: string }, position: number) {
+  const reading = readAt(t.slug, t, position)
+  const wander = (t.noise ?? 0) > 0 ? (t.noise ?? 0) * Math.abs(t.max - t.min) * wanderAt(t.slug, t.grain ?? 1, position) : 0
+  const [lo, hi] = validRange[t.moves.setting]
+  return { ...reading, envelope: reading.value, value: Math.min(hi, Math.max(lo, reading.value + wander)) }
+}
+
 /** Every Tide there is, in the order of their names; never two on one setting of one part. */
 export async function readTides(home = tidesHome): Promise<TideRecord[]> {
   const found: TideRecord[] = []
@@ -74,6 +96,7 @@ export async function readTides(home = tidesHome): Promise<TideRecord[]> {
     const record = parseRecord(readFileSync(join(dir, 'tide.md'), 'utf8'), dir)
     const definition = (await import(join(dir, 'actions.ts'))).default as Tide
     checkEnvelope(record.slug, definition)
+    checkNoise(record.slug, definition)
     found.push({ ...definition, ...record, dir })
   }
   found.sort((a, b) => a.slug.localeCompare(b.slug))
@@ -99,7 +122,7 @@ export function applyTides(settings: Settings, tides: readonly TideRecord[], pos
   const readings: TideReading[] = []
   for (const t of tides) {
     if (t.state !== 'active') continue
-    const reading = readAt(t.slug, t, position)
+    const { envelope: _, ...reading } = valueAt(t, position)
     const { facet, part, setting } = t.moves
     const value = Math.round(reading.value * 1000) / 1000
     ;((next[facet] as Record<string, Record<string, number>>)[part] ??= {})[setting] = value

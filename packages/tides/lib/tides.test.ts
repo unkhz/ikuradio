@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { defaults } from 'perspectives'
-import { cycleAt, readAt, type Envelope } from './envelope.js'
-import { applyTides, positionOf, readTides, type TideRecord } from './tides.js'
+import { cycleAt, readAt, wanderAt, type Envelope } from './envelope.js'
+import { applyTides, positionOf, readTides, validRange, valueAt, type TideRecord } from './tides.js'
 
 const verse: Envelope = { age: [3, 6], attack: 0.4, hold: 0.1, decay: 0.3, min: 5, max: 2 }
 
@@ -106,5 +106,57 @@ describe('the Tides', () => {
     const tides = await readTides()
     expect(tides.map((t) => t.slug)).toEqual(['chorus-ceiling', 'chorus-wordiness', 'verse-ceiling', 'verse-wordiness'])
     for (const t of tides) expect(t.attack + t.hold + t.decay).toBeLessThanOrEqual(1)
+  })
+})
+
+describe('the noise', () => {
+  const tide = (over: Partial<TideRecord> = {}): TideRecord => ({
+    ...verse,
+    noise: 0.2,
+    grain: 0.5,
+    moves: { facet: 'melody', part: 'verse', setting: 'ceiling' },
+    slug: 'verse-ceiling',
+    title: 'x',
+    state: 'active',
+    dir: '',
+    ...over,
+  })
+
+  it('wanders no further than its share of the swing, and never past what the setting can be', () => {
+    const t = tide()
+    for (let p = 0; p < 300; p += 0.13) {
+      const { value, envelope } = valueAt(t, p)
+      expect(Math.abs(value - envelope)).toBeLessThanOrEqual(0.2 * 3 + 1e-9)
+      expect(value).toBeGreaterThanOrEqual(validRange.ceiling[0])
+      expect(value).toBeLessThanOrEqual(validRange.ceiling[1])
+    }
+    // a chorus whose peak is the very top is never pushed above it
+    const top = tide({ min: 3, max: 0, noise: 0.5 })
+    for (let p = 0; p < 300; p += 0.13) expect(valueAt(top, p).value).toBeGreaterThanOrEqual(0)
+    const words = tide({ moves: { facet: 'lyrics', part: 'verse', setting: 'wordiness' }, min: 0.3, max: 0.95, noise: 0.5 })
+    for (let p = 0; p < 300; p += 0.13) {
+      const { value } = valueAt(words, p)
+      expect(value).toBeGreaterThanOrEqual(0)
+      expect(value).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('follows the envelope exactly with no noise', () => {
+    for (let p = 0; p < 100; p += 0.37) {
+      const quiet = valueAt(tide({ noise: 0 }), p)
+      expect(quiet.value).toBe(quiet.envelope)
+      expect(valueAt(tide({ noise: undefined }), p).value).toBe(quiet.envelope)
+    }
+  })
+
+  it('is the same for the same Song every time, drifts rather than jitters, and is smoother with a larger grain', () => {
+    expect(valueAt(tide(), 412.5)).toEqual(valueAt(tide(), 412.5))
+    const roughness = (grain: number) => {
+      let sum = 0
+      for (let p = 0; p < 200; p += 0.05) sum += Math.abs(wanderAt('t', grain, p + 0.05) - wanderAt('t', grain, p))
+      return sum
+    }
+    for (let p = 0; p < 200; p += 0.05) expect(Math.abs(wanderAt('t', 0.5, p + 0.05) - wanderAt('t', 0.5, p))).toBeLessThan(0.35)
+    expect(roughness(2)).toBeLessThan(roughness(0.5))
   })
 })

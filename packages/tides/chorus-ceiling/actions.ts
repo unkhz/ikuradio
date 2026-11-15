@@ -9,4 +9,6 @@ export default tide({
   decay: 0.3,
   min: 3,
   max: 0,
+  noise: 0.15,
+  grain: 1,
 })

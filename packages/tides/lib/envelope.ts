@@ -25,6 +25,10 @@ export type Envelope = {
   /** The setting at rest, and at the peak. */
   min: number
   max: number
+  /** How far the value wanders around the envelope, as a share of the swing from min to max: 0 follows it exactly. */
+  noise?: number
+  /** How quickly the wandering changes, in Songs: 1 once a Song, 0.5 once an iteration; larger is smoother. */
+  grain?: number
 }
 
 /** Where in its envelope a cycle stands. */
@@ -91,6 +95,21 @@ export function cycleAt(slug: string, [shortest, longest]: readonly [number, num
     }
   }
   return { cycle: first, begins, age: length }
+}
+
+/**
+ * The wandering at a position, from -1 to 1: a value drawn from the Tide's
+ * wrongness every `grain` Songs, and eased from one to the next, so it
+ * drifts rather than jitters. The same Tide wanders the same way, always.
+ */
+export function wanderAt(slug: string, grain: number, position: number): number {
+  const step = Math.max(1e-6, grain)
+  const k = Math.floor(position / step)
+  const x = position / step - k
+  const at = (n: number) => 2 * wrongness(`tide-noise:${slug}:${n}`)() - 1
+  // smoothstep: it leaves each drawn value as gently as it arrives at the next
+  const ease = x * x * (3 - 2 * x)
+  return at(k) + (at(k + 1) - at(k)) * ease
 }
 
 /** The setting at a position, and where its cycle stands. */
