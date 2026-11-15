@@ -25,7 +25,7 @@ RUN bun build packages/radio/index.ts \
  && mkdir -p /out/memory /out/log \
  && ldd /out/radio
 
-FROM debian:12-slim
+FROM debian:13-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 # certificates to reach the Archive, and sqlite3 to read the log by hand
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates sqlite3 \
