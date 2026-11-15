@@ -9,7 +9,7 @@ mock.module('./mind.js', () => ({
     return answers.shift() ?? ['the same old words are sung', 'the same old words are sung', 'the same old words are sung', 'the same old words are sung']
   },
 }))
-const { countInstruction, NoVerseFits, writeVerse } = await import('../index.js')
+const { countInstruction, NoVerseFits, writeVerse, wordyCount, wordinessWords } = await import('../index.js')
 const { forgotten } = await import('./memories.js')
 
 // a line fits its bars if it has at most six words, takes a bar of grace up to eight, and is refused beyond
@@ -94,5 +94,29 @@ describe('the mind, told how its lines missed', () => {
     asked = []
     await writeVerse(old, ['snow'], [], forgotten, undefined, [], fitting)
     expect(asked[1]).not.toContain('did not fit')
+  })
+})
+
+describe('wordiness', () => {
+  it('leaves every count as it always was at 0.5, and says nothing', () => {
+    for (const target of [5, 7, 9, 10, 12]) expect(wordyCount({ target, most: target + 3 }, 0.5)).toEqual({ target, most: target + 3 })
+    expect(wordinessWords(0.5)).toBeUndefined()
+  })
+
+  it('asks for fewer syllables toward 0, down to a sparse floor, and more toward 1, up to the most', () => {
+    expect(wordyCount({ target: 10, most: 13 }, 0)).toEqual({ target: 6, most: 13 })
+    expect(wordyCount({ target: 10, most: 13 }, 0.25)).toEqual({ target: 8, most: 13 })
+    expect(wordyCount({ target: 10, most: 13 }, 1)).toEqual({ target: 13, most: 13 })
+    expect(wordyCount({ target: 4, most: 6 }, 0).target).toBe(3)
+    for (let w = 0; w <= 1; w += 0.1) {
+      const { target } = wordyCount({ target: 9, most: 12 }, w)
+      expect(target).toBeGreaterThanOrEqual(5)
+      expect(target).toBeLessThanOrEqual(12)
+    }
+  })
+
+  it('tells the mind, at the far ends, in words', () => {
+    expect(wordinessWords(0.2)).toContain('few words')
+    expect(wordinessWords(0.9)).toContain('as many words')
   })
 })

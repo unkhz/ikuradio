@@ -106,6 +106,7 @@ export function toSession(
       at: seconds(offset),
       seconds: seconds(length),
       variation: composed.variation,
+      ...(composed.tides?.length ? { tides: composed.tides.map(({ slug, value, phase, through }) => ({ slug, value, phase, through })) } : {}),
       of: {
         at: Number(composed.iteration - BigInt(composed.song.began)) + 1,
         of: composed.song.lasts,

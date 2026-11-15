@@ -364,6 +364,8 @@ export async function perform(
         ending: part === 'chorus' || s === parts.length - 1 ? 'full' : 'half',
         // which chords: the part's progression, coming home to a favourite if a Perspective says so
         progression: await progressionOf(settings.progression[part], { part, place: n, song: song.number }),
+        // how high and how far the part's melody goes, as the Tides have moved it
+        melody: settings.melody[part],
         lines: await Promise.all(
           linesOf(content).map(async ({ line, index }) => {
             const key = lineKey(part, index, line)

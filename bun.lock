@@ -86,8 +86,17 @@
         "music": "workspace:*",
         "perspectives": "workspace:*",
         "song": "workspace:*",
+        "tides": "workspace:*",
         "tools": "workspace:*",
         "vocals": "workspace:*",
+      },
+    },
+    "packages/tides": {
+      "name": "tides",
+      "version": "1.0.0",
+      "dependencies": {
+        "melody": "workspace:*",
+        "perspectives": "workspace:*",
       },
     },
     "packages/tools": {
@@ -141,6 +150,8 @@
     "song": ["song@workspace:packages/song"],
 
     "studio": ["studio@workspace:packages/studio"],
+
+    "tides": ["tides@workspace:packages/tides"],
 
     "tools": ["tools@workspace:packages/tools"],
 

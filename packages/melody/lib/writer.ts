@@ -197,8 +197,12 @@ export const writerCosts = {
   sameAgain: 1.2,
   /** A fifth or an octave against the lower voice, after one, across a change of chord. */
   parallel: 4,
-  /** How far below the top of its compass the line's weightiest word may stand before it costs, per step. */
+  /** How far below its ceiling the line's weightiest word stands, per step. */
   summit: 0.5,
+  /** How far a note rises past two steps above the ceiling, per step: the ceiling is a ceiling. */
+  overCeiling: 1,
+  /** How many lines are drawn, when the melody is asked to keep narrow, to choose the narrower among. */
+  spanDraws: 8,
   /** How far from the middle of its compass a note lies, per step. */
   middle: 0.08,
   /** Going against the contour last iteration's line took, scaled by the guide setting. */
@@ -247,6 +251,9 @@ export function writeOverGuide({
   previous,
   sprinkle = 1,
   pull = 1,
+  ceiling = 2,
+  span = 0,
+  travel = 0,
 }: {
   syllables: readonly TimedSyllable[]
   guide: TwoVoiceGuide
@@ -259,6 +266,12 @@ export function writeOverGuide({
   previous?: readonly number[]
   sprinkle?: number
   pull?: number
+  /** How many scale steps below the top of the compass the weightiest word is pulled to (plan "Tides"): 2 as the song always sang. */
+  ceiling?: number
+  /** What each step from the line's lowest note to its highest costs: 0, as always, leaves it free. */
+  span?: number
+  /** What each step of all the line's intervals costs: 0, as always, leaves it free to wander. */
+  travel?: number
 }): number[] {
   const n = syllables.length
   if (n === 0) return []
@@ -284,12 +297,14 @@ export function writeOverGuide({
       cost += step === 4 ? c.breathFifth : step === 0 || step === 2 ? 0 : c.breathOff
     }
     if (closes && i === n - 1 && cls(d) !== cls(finalUpper)) cost += c.cadence
-    if (i === summit) cost += c.summit * Math.max(0, high - 2 - d)
+    if (i === summit) cost += c.summit * Math.max(0, high - ceiling - d)
+    // two steps above the ceiling the line may rise, as it always could; past that, it pays
+    cost += c.overCeiling * Math.max(0, d - (high - ceiling + 2))
     return cost
   }
   const move = (i: number, a: number | undefined, b: number, d: number) => {
     const steps = Math.abs(d - b)
-    let cost = c.motion[steps] ?? 3 + steps
+    let cost = (c.motion[steps] ?? 3 + steps) + travel * steps
     if (semitones(b, d) % 12 === 6) cost += c.tritone
     if (steps >= 3 && !standing(syllables[i]!)) cost += c.leapLight
     // a note off the chord is reached and left by step
@@ -349,12 +364,23 @@ export function writeOverGuide({
     for (const [j, w] of weights.entries()) if ((left -= w) <= 0) return options[j]![0]
     return options.at(-1)![0]
   }
-  let k = choose([...layers[n - 1]!].map(([key, { cost }]) => [key, cost]))
-  const path: number[] = []
-  for (let i = n - 1; i >= 0; i--) {
-    const here = layers[i]!.get(k)!
-    path.unshift(here.state.b)
-    if (i > 0) k = choose([...here.from])
+  const draw = () => {
+    let k = choose([...layers[n - 1]!].map(([key, { cost }]) => [key, cost]))
+    const path: number[] = []
+    for (let i = n - 1; i >= 0; i--) {
+      const here = layers[i]!.get(k)!
+      path.unshift(here.state.b)
+      if (i > 0) k = choose([...here.from])
+    }
+    return path
   }
-  return path
+  // a line asked to keep narrow: several are drawn, and the narrower is the likelier
+  if (span <= 0 || temperature <= 0) return draw()
+  const drawn = Array.from({ length: c.spanDraws }, draw)
+  const width = (path: number[]) => Math.max(...path) - Math.min(...path)
+  const narrowest = Math.min(...drawn.map(width))
+  const weights = drawn.map((path) => Math.exp(-(span * (width(path) - narrowest)) / temperature))
+  let left = random() * weights.reduce((x, y) => x + y, 0)
+  for (const [j, w] of weights.entries()) if ((left -= w) <= 0) return drawn[j]!
+  return drawn.at(-1)!
 }

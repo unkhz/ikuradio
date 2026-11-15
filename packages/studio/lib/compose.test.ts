@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'bun:test'
 import { firstMood } from 'mood'
 import { firstLyrics } from 'song'
-import { lastsFor, placeOf } from './compose.js'
+import { firstTune } from 'melody'
+import { defaults } from 'perspectives'
+import { fittingFor, lastsFor, placeOf } from './compose.js'
 import type { Page, SongPlace } from './diary.js'
 
 const page = (iteration: number, song?: SongPlace): Page => ({
@@ -62,5 +64,28 @@ describe('lastsFor', () => {
     }))
     expect(moods.map((mood) => lastsFor(mood, 2))).toEqual([2, 2, 2])
     expect(lastsFor(moods[0], 0)).toBe(1)
+  })
+})
+
+describe('fittingFor, and how wordy the lines are', () => {
+  const tune = async () => firstTune
+
+  it('counts every line as it always did at the default wordiness, and says nothing more', async () => {
+    const usual = fittingFor(await tune(), 80, 6)
+    const given = fittingFor(await tune(), 80, 6, defaults(3).lyrics)
+    expect(given.verse).toEqual(usual.verse)
+    expect(given.chorus).toEqual(usual.chorus)
+    expect(given.say).toBeUndefined()
+    expect(usual.verse.map(({ target }) => target)).toEqual((await tune()).verse.map((phrase) => phrase.notes.length))
+  })
+
+  it('moves the verses and the chorus apart, and never the number line', async () => {
+    const sparse = fittingFor(await tune(), 80, 6, { verse: { wordiness: 0.1 }, chorus: { wordiness: 0.95 } })
+    const usual = fittingFor(await tune(), 80, 6)
+    sparse.verse.forEach((count, i) => expect(count.target).toBeLessThan(usual.verse[i]!.target))
+    expect(sparse.chorus[0]).toEqual(usual.chorus[0])
+    sparse.chorus.slice(1).forEach((count, i) => expect(count.target).toBeGreaterThanOrEqual(usual.chorus[i + 1]!.target))
+    expect(sparse.say?.verse).toContain('few words')
+    expect(sparse.say?.chorus).toContain('as many words')
   })
 })

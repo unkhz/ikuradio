@@ -114,13 +114,14 @@ function promptsOf(record: PerspectiveRecord): string[] {
   return prompts
 }
 
-/** Lets each drawn Perspective turn its Facet, from the defaults. */
+/** Lets each drawn Perspective turn its Facet, from the defaults, or from `base` (where the Tides have moved them). */
 export async function resolve(
   drawn: readonly PerspectiveRecord[],
   song: string,
   choirSize: number,
+  base?: Settings,
 ): Promise<{ perspectives: Chosen[]; settings: Settings }> {
-  const settings = defaults(choirSize)
+  const settings = base ? structuredClone(base) : defaults(choirSize)
   const perspectives: Chosen[] = []
   for (const record of drawn) {
     const { facet, turn } = await actionsOf(record)
@@ -151,10 +152,11 @@ export async function perspectivesFor(
     choirSize,
     only,
     home = perspectivesHome,
-  }: { count?: number; choirSize: number; only?: readonly string[]; home?: string },
+    base,
+  }: { count?: number; choirSize: number; only?: readonly string[]; home?: string; base?: Settings },
 ) {
   const records = readPerspectives(home)
-  if (!only) return resolve(draw(records, song, count), song, choirSize)
+  if (!only) return resolve(draw(records, song, count), song, choirSize, base)
   const named = only.map((slug) => {
     const record = records.find((r) => r.slug === slug)
     if (!record) throw new Error(`there is no Perspective ${slug}`)
@@ -163,7 +165,7 @@ export async function perspectivesFor(
   if (named.some((r, i) => named.slice(0, i).some((d) => clash(d, r)))) {
     throw new Error('a Song is heard from only one Perspective on each Facet, or each part of one')
   }
-  return resolve(named, song, choirSize)
+  return resolve(named, song, choirSize, base)
 }
 
 /** How a Song's Perspectives read, for anyone watching, after the word "heard". */

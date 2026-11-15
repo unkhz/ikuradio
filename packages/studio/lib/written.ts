@@ -112,6 +112,8 @@ export type Unwritten = {
   lines: { key: string; index: number; fitted: Fitted }[]
   /** Which chords its guide takes: roaming, unless its part's progression says otherwise. */
   progression?: UsedProgression
+  /** How high and how far its melody goes: the writer's own, unless its part's melody says otherwise. */
+  melody?: { ceiling: number; span: number; travel: number }
 }
 
 /**
@@ -148,7 +150,7 @@ export function writeSections({
   const semitones = (a: number, b: number) => Math.abs(degreeToMidi(a, lead.key) - degreeToMidi(b, lead.key))
   const written = new Map<string, Written>()
   const shared = new Map<string, TwoVoiceGuide>()
-  for (const { name, ending, lines, progression } of sections) {
+  for (const { name, ending, lines, progression, melody } of sections) {
     const timed: TimedSyllable[][] = []
     const offsets: number[] = []
     let beats = 0
@@ -190,6 +192,7 @@ export function writeSections({
         previous: before.get(`${name}:${index}`)?.degrees,
         sprinkle,
         pull,
+        ...melody,
       })
       written.set(key, {
         section: name,

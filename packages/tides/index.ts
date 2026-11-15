@@ -1,0 +1,6 @@
+// Tides: settings that rise and fall slowly over many Songs, each by an
+// envelope of its own. Each lives in a folder of its own here: its arkku
+// record (tide.md) and what it moves (actions.ts). See plans/2026-11-15-tides.md.
+
+export { checkEnvelope, readTides, applyTides, positionOf, tide, tidesHome, type Moves, type Tide, type TideReading, type TideRecord } from './lib/tides.js'
+export { cycleAt, readAt, type Envelope, type Phase, type Reading } from './lib/envelope.js'

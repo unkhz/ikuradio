@@ -19,6 +19,8 @@ export const facets = [
   'verse-tune',
   'drift',
   'progression',
+  'melody',
+  'lyrics',
 ] as const
 
 export type Facet = (typeof facets)[number]
@@ -82,7 +84,34 @@ export type Settings = {
    * guide is composed (`composeGuide`), before its melody is written.
    */
   progression: { verse: Progression; chorus: Progression; bridge: Progression }
+  /**
+   * How high and how far each part's melody goes (plan "Tides"): `ceiling`,
+   * how many scale steps below the top of the voice's compass a line's
+   * weightiest word is pulled to; `span`, a cost per step from a line's
+   * lowest note to its highest; `travel`, a cost per step of all a line's
+   * intervals added up. Hooked where the melody writer writes a line.
+   */
+  melody: Record<Part, Melody>
+  /**
+   * How wordy each part's lines are, from 0, sparse, to 1, as full as the
+   * phrase can carry; 0.5 is the song as it always was. Each part decides
+   * what that means. The chorus's number line is never touched; bridges
+   * have no words. Hooked where the mind is told each line's count.
+   */
+  lyrics: { verse: Lyrics; chorus: Lyrics }
 }
+
+/** How high and how far a part's melody goes. */
+export type Melody = { ceiling: number; span: number; travel: number }
+
+/** How wordy a part's lines are. */
+export type Lyrics = { wordiness: number }
+
+/** The melody as the writer always wrote it: the weightiest word two steps below the top, nothing narrowing or stilling it. */
+export const usualMelody: Melody = { ceiling: 2, span: 0, travel: 0 }
+
+/** The words as the song always wrote them. */
+export const usualLyrics: Lyrics = { wordiness: 0.5 }
 
 /** The parts a Setting may be kept for, one each: Perspectives on different parts of one Facet may be heard together. */
 export const parts = ['verse', 'chorus', 'bridge'] as const
@@ -101,6 +130,8 @@ export function defaults(choirSize: number): Settings {
     'verse-tune': { unfamiliar: false },
     drift: { letGo: 1 },
     progression: { verse: { ...roaming }, chorus: { ...roaming }, bridge: { ...roaming } },
+    melody: { verse: { ...usualMelody }, chorus: { ...usualMelody }, bridge: { ...usualMelody } },
+    lyrics: { verse: { ...usualLyrics }, chorus: { ...usualLyrics } },
   }
 }
 

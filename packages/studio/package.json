@@ -12,6 +12,7 @@
     "music": "workspace:*",
     "perspectives": "workspace:*",
     "song": "workspace:*",
+    "tides": "workspace:*",
     "tools": "workspace:*",
     "vocals": "workspace:*"
   }

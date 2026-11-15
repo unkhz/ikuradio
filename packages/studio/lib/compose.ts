@@ -14,7 +14,7 @@
 // Settings are what the Studio's hooks follow for the whole Song.
 
 import { firstMood, nextMood, type Mood } from 'mood'
-import { firstLyrics, forgotten, longWear, versesOf, wornDeep, writeLyrics, type Fitting, type Lyrics, type Memories } from 'song'
+import { firstLyrics, forgotten, longWear, versesOf, wordinessWords, wordyCount, wornDeep, writeLyrics, type Fitting, type Lyrics, type Memories } from 'song'
 import { countSyllables, firstChoir, gather, type Choir } from 'vocals'
 import {
   evolve,
@@ -32,6 +32,7 @@ import {
 } from 'melody'
 import { stressedLine } from './stressed.js'
 import { defaults, perspectivesFor, type Chosen, type Settings } from 'perspectives'
+import { applyTides, positionOf, readTides, type TideReading } from 'tides'
 import type { Diary, Page, SongPlace } from './diary.js'
 
 export type Iteration = {
@@ -52,8 +53,10 @@ export type Iteration = {
   lyrics: Lyrics
   /** The Perspectives the Song is heard from. */
   perspectives: Chosen[]
-  /** What the Studio's hooks follow for this Song: the defaults, as its Perspectives turned them. */
+  /** What the Studio's hooks follow for this iteration: the defaults, moved by the Tides, as the Song's Perspectives turned them. */
   settings: Settings
+  /** Where each Tide stood for this iteration. */
+  tides?: TideReading[]
   /** How many syllables a second its voices may sing at most. */
   rate: number
 }
@@ -124,13 +127,19 @@ export function placeOf(
  * written line fits its bars, by its syllables and their stress as the
  * throat counts them.
  */
-export function fittingFor(sung: Tune, tempo: number, rate: number): Fitting {
+export function fittingFor(sung: Tune, tempo: number, rate: number, lyrics: Settings['lyrics'] = defaults(1).lyrics): Fitting {
   const k = spacing(tempo, rate)
   const phraseOf = (part: 'verse' | 'chorus', line: number) => (part === 'chorus' ? sung.chorus : sung.verse)[line % 4]!
   const countOf = (phrase: Tune['verse'][number]) => ({ target: phrase.notes.length, most: mostSyllables(phrase, k) })
+  // how wordy each part's lines are told to be: the chorus's first line, the number, is never touched
+  const say = {
+    ...(wordinessWords(lyrics.verse.wordiness) ? { verse: wordinessWords(lyrics.verse.wordiness) } : {}),
+    ...(wordinessWords(lyrics.chorus.wordiness) ? { chorus: wordinessWords(lyrics.chorus.wordiness) } : {}),
+  }
   return {
-    verse: sung.verse.map(countOf),
-    chorus: sung.chorus.map(countOf),
+    verse: sung.verse.map((phrase) => wordyCount(countOf(phrase), lyrics.verse.wordiness)),
+    chorus: sung.chorus.map((phrase, line) => (line === 0 ? countOf(phrase) : wordyCount(countOf(phrase), lyrics.chorus.wordiness))),
+    ...(Object.keys(say).length ? { say } : {}),
     check: async (part, line, text) => {
       const syllables = await countSyllables(text).catch(() => 0)
       if (syllables < 1) return 'refused'
@@ -158,6 +167,8 @@ export async function composer(
   }: ComposerOptions,
 ) {
   let last: Page | undefined = await diary.lastPage()
+  // the Tides, read once: what each moves, and its envelope
+  const tides = await readTides()
 
   /** Where the song wakes up: the iteration after the last one it wrote down. */
   const wakesAt = last ? BigInt(last.iteration) + 1n : 1n
@@ -192,7 +203,9 @@ export async function composer(
     let tune: Tune
     let lyrics: Lyrics
     let perspectives: Chosen[] = []
-    let settings = defaults(choirSize)
+    // the defaults, moved by every Tide to where it stands at this iteration, its Song's place and how far through it
+    const tided = applyTides(defaults(choirSize), tides, positionOf(song, Number(iteration - place.began), place.lasts ?? songLength))
+    let settings = tided.settings
     if (!last) {
       // the very first iteration there has ever been: everything as a human made it
       mood = firstMood
@@ -204,12 +217,16 @@ export async function composer(
       if (beginsSong) {
         ;({ perspectives, settings } = await perspectivesFor(song, {
           choirSize,
+          base: tided.settings,
           ...(heardFrom ? { only: heardFrom } : {}),
         }))
       } else {
         perspectives = last.perspectives ?? []
-        // pages written before a Facet had a hook have no Setting for it, and follow its default
-        settings = { ...settings, ...last.settings }
+        // the Song's Perspectives turn again, on top of where the Tides stand now: the same Turns, a little further along
+        settings = await perspectivesFor(song, { choirSize, base: tided.settings, only: perspectives.map(({ slug }) => slug) })
+          .then((resolved) => resolved.settings)
+          // a Perspective no longer there: the Song goes on as its first iteration was turned, the Tides moved along
+          .catch(() => applyTides({ ...tided.settings, ...last!.settings }, tides, positionOf(song, Number(iteration - place.began), place.lasts ?? songLength)).settings)
       }
       // the last words sung shape the weather of the next Song
       const words = [last.lyrics.thirdVerse, last.lyrics.finalChorus].join('\n')
@@ -234,7 +251,7 @@ export async function composer(
       )
       if (deep.length) console.log(`iteration ${iteration} lets rest the words worn deep: ${deep.join(', ')}`)
       // the words are written to the tune they will be sung to, each line to its count
-      const fitting = fittingFor(tuneSung(tune, choir, settings, mood, song, variation), mood.character.tempo, rate)
+      const fitting = fittingFor(tuneSung(tune, choir, settings, mood, song, variation), mood.character.tempo, rate, settings.lyrics)
       lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories, { deep, fitting })
     }
     const lasts = place.lasts ?? lastsFor(mood, songLength)
@@ -265,6 +282,7 @@ export async function composer(
       lyrics,
       perspectives,
       settings,
+      tides: tided.readings,
       rate,
     }
   }

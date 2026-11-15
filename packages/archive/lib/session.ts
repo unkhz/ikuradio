@@ -149,6 +149,12 @@ export type SessionIteration = {
   /** Where in its Song it stands, counted from one. */
   of: { at: number; of: number }
   parts: SessionPart[]
+  /**
+   * Where each Tide stood for this iteration (plan "Tides"): the setting it
+   * moved to, and its place in its cycle, rising, holding, falling or
+   * resting, and how far through that. Missing on Songs from before Tides.
+   */
+  tides?: { slug: string; value: number; phase: 'rising' | 'holding' | 'falling' | 'resting'; through: number }[]
 }
 
 export type SessionPart = {

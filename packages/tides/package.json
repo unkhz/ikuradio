@@ -1,0 +1,12 @@
+{
+  "name": "tides",
+  "version": "1.0.0",
+  "description": "Settings that rise and fall slowly over many Songs, each by an envelope of its own",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "melody": "workspace:*",
+    "perspectives": "workspace:*"
+  }
+}

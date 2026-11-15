@@ -38,6 +38,31 @@ export type Fitting = {
   check: (part: 'verse' | 'chorus', line: number, text: string) => Promise<'fits' | 'grace' | 'refused'>
   /** How many syllables a line has, as the throat counts them: what the mind is told when a line does not fit. */
   measure?: (text: string) => Promise<number>
+  /** What the mind is told of how wordy each part's lines should be, beyond their counts (plan "Tides"). */
+  say?: Partial<Record<'verse' | 'chorus', string>>
+}
+
+/** How few syllables a sparse line has, at least, beside the phrase's own count: three in five, and never fewer than three. */
+const sparse = (target: number) => Math.max(3, Math.min(target, Math.round(target * 0.6)))
+
+/**
+ * A line's count at a wordiness (plan "Tides"): at 0.5 the phrase's own
+ * count, as the song always wrote it; toward 0 fewer, down to a sparse
+ * floor; toward 1 more, up to the most the phrase can carry.
+ */
+export function wordyCount({ target, most }: Count, wordiness: number): Count {
+  const w = Math.min(1, Math.max(0, wordiness))
+  if (w === 0.5) return { target, most }
+  const floor = sparse(target)
+  const moved = w < 0.5 ? floor + (target - floor) * (w / 0.5) : target + (most - target) * ((w - 0.5) / 0.5)
+  return { target: Math.round(moved), most }
+}
+
+/** What the mind is told of a wordiness, in words: nothing in the middle, where the song always was. */
+export function wordinessWords(wordiness: number): string | undefined {
+  if (wordiness < 0.35) return 'Use few words, with room between them: long, open vowels a voice can hold.'
+  if (wordiness > 0.75) return 'Fill the lines: as many words as each can carry.'
+  return undefined
 }
 
 /** A verse whose lines cannot be fitted to their bars, however the mind writes them. The iteration is made again. */
@@ -178,7 +203,8 @@ export async function writeVerse(
     : ''
   const instruction =
     (memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction) +
-    `\n${countInstruction(fitting?.verse)}`
+    `\n${countInstruction(fitting?.verse)}` +
+    (fitting?.say?.verse ? ` ${fitting.say.verse}` : '')
   const asked = inMood(instruction, mood) + rest + restDeep
   // a verse that sings a word of this short age is not sung, nor one whose lines do not fit their bars
   const suits = (lines: string[]) =>
@@ -250,6 +276,8 @@ async function pickChorus(chorus: string, iteration: bigint, fitting?: Fitting) 
     'Change a few words in the third and fourth lines but keep their meaning, their tone and their rhyme with each other.',
     'Keep the last line ending with "the song that never ends".',
     fitting ? countInstruction(fitting.chorus, [1, 2, 3]) : '',
+    // how wordy the lines the mind writes are; the number line is never its to write
+    fitting?.say?.chorus ?? '',
   ]
     .filter(Boolean)
     .join(' ')
