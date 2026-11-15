@@ -22,29 +22,6 @@ spec:
     spec:
       imagePullSecrets:
         - name: github-registry-secret
-      # the Radio's database lies on this node's own disk (the log volume
-      # below), so the Radio always runs here
-      nodeSelector:
-        kubernetes.io/hostname: k3s-agent-medium-gpj
-      # the directory Kubernetes makes for the database belongs to root;
-      # it is given to the Radio's user before the Radio starts
-      initContainers:
-        - name: log-owner
-          image: busybox:1.37.0
-          command: ["sh", "-c", "chown 1000:1000 /log && chmod 750 /log"]
-          securityContext:
-            runAsUser: 0
-            runAsNonRoot: false
-          volumeMounts:
-            - name: log
-              mountPath: /log
-          resources:
-            requests:
-              cpu: 5m
-              memory: 8Mi
-            limits:
-              cpu: 50m
-              memory: 32Mi
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -106,10 +83,11 @@ spec:
         - name: cache
           emptyDir:
             sizeLimit: 64Mi
+        # the database, in the pod's own scratch space for now: a host path on
+        # the node could not be prepared (see issues/)
         - name: log
-          hostPath:
-            path: /var/lib/ikuradio/log
-            type: DirectoryOrCreate
+          emptyDir:
+            sizeLimit: 256Mi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
