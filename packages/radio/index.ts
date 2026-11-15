@@ -18,7 +18,7 @@
 //   GET /s/<n>      the Receiver, tuned to Song n from its beginning
 
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
-import { dirname, normalize } from 'node:path'
+import { normalize } from 'node:path'
 import pageHtmlFile from '../ui/public/index.html' with { type: 'file' }
 // @ts-expect-error: the page's script is plain JavaScript, imported only as a file
 import pageJsFile from '../ui/public/index.js' with { type: 'file' }
@@ -48,9 +48,8 @@ import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
 import { cardOf, speak, type Card } from './lib/speaks.js'
-import { RequestLog } from './lib/log.js'
 
-const { SERVER_PORT, CACHE_PATH, LOG_PATH } = getEnv()
+const { SERVER_PORT, CACHE_PATH } = getEnv()
 
 const memory = 'memory/tactus.jsonl'
 
@@ -324,32 +323,10 @@ async function page(request: Request, url: URL, song?: bigint) {
   })
 }
 
-// Every request answered is written down (./lib/log.ts); a log that cannot be opened is done without
-const requests = await (async () => {
-  try {
-    await mkdir(dirname(LOG_PATH), { recursive: true })
-    return new RequestLog(LOG_PATH)
-  } catch (error) {
-    console.warn(`the Radio keeps no log: ${(error as Error).message}`)
-    return undefined
-  }
-})()
-
 Bun.serve({
   port: SERVER_PORT,
   hostname: '0.0.0.0',
-  async fetch(request) {
-    const at = Date.now()
-    const started = performance.now()
-    let status = 500
-    try {
-      const response = await answer(request)
-      status = response.status
-      return response
-    } finally {
-      requests?.record({ at, method: request.method, url: new URL(request.url), status, ms: performance.now() - started, headers: request.headers })
-    }
-  },
+  fetch: (request) => answer(request),
 })
 
 /** The Radio's answer to a request. */
@@ -462,8 +439,6 @@ async function answer(request: Request): Promise<Response> {
 console.log(`The Radio is on, on port ${SERVER_PORT}, reading the Archive at ${reading}`)
 
 function rest(signal: string) {
-  // what the log has waiting is written before the Radio goes
-  requests?.close()
   console.log(`The Radio rests (${signal}). The Tactus is remembered.`)
   process.exit(0)
 }

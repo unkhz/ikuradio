@@ -41,10 +41,6 @@ spec:
             # the pod, and filled again from the Tactus and the Archive
             - name: CACHE_PATH
               value: /cache/songs.sqlite
-            # its log of the requests it answers, with no address in it,
-            # on the node's own disk, where it outlives every deploy
-            - name: LOG_PATH
-              value: /song/packages/radio/log/radio.db
           ports:
             - name: http
               containerPort: 3000
@@ -53,8 +49,6 @@ spec:
               mountPath: /song/packages/radio/memory
             - name: cache
               mountPath: /cache
-            - name: log
-              mountPath: /song/packages/radio/log
           resources:
             requests:
               cpu: 25m
@@ -83,11 +77,6 @@ spec:
         - name: cache
           emptyDir:
             sizeLimit: 64Mi
-        # the database, in the pod's own scratch space for now: a host path on
-        # the node could not be prepared (see issues/)
-        - name: log
-          emptyDir:
-            sizeLimit: 256Mi
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

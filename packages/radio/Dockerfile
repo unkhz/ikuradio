@@ -4,10 +4,8 @@
 #   docker build -f packages/radio/Dockerfile .
 #
 # The Radio is compiled into one executable, the Receiver's page inside it,
-# with Bun's low-memory mode (--smol) built in. It runs on a slim Debian with
-# sqlite3 beside it, so its log can be read where it lies:
-#
-#   kubectl -n apps exec -it deploy/ikuradio-radio -- sqlite3 log/radio.db
+# with Bun's low-memory mode (--smol) built in, and runs on nothing but the
+# C libraries it needs: no shell, no package manager, no Bun to install.
 
 FROM oven/bun:1.4.4 AS build
 WORKDIR /song
@@ -22,21 +20,14 @@ RUN bun build packages/radio/index.ts \
       --no-compile-autoload-dotenv \
       --no-compile-autoload-bunfig \
       --outfile /out/radio \
- && mkdir -p /out/memory /out/log \
+ && mkdir -p /out/memory \
  && ldd /out/radio
 
-FROM debian:12-slim
-# certificates to reach the Archive, and sqlite3 to read the log by hand
-RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates sqlite3 \
- && rm -rf /var/lib/apt/lists/* \
- && groupadd --gid 1000 radio \
- && useradd --uid 1000 --gid 1000 --no-create-home --shell /usr/sbin/nologin radio
-# The Radio remembers what it announced in memory/, and writes its log in
-# log/, beside itself; in the cluster a volume is mounted at each
+FROM gcr.io/distroless/cc-debian12:nonroot
+# The Radio remembers what it announced in memory/, beside itself; in the
+# cluster a volume is mounted there
 WORKDIR /song/packages/radio
 COPY --from=build --chown=1000:1000 /out/memory ./memory
-COPY --from=build --chown=1000:1000 /out/log ./log
 COPY --from=build /out/radio /usr/local/bin/radio
 USER 1000:1000
 EXPOSE 3000
