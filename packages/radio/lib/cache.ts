@@ -8,11 +8,11 @@
 // its shape is not migrated: the tables are dropped and filled again.
 
 import { Database } from 'bun:sqlite'
-import type { Session } from 'archive'
+import { slugOf, type Session } from 'archive'
 import { endOf, type Airing } from './tactus.js'
 
 /** The shape of the tables; when it changes, they are dropped and filled again. */
-export const schemaVersion = 1
+export const schemaVersion = 2
 
 /** A Song as the list shows it and the search finds it. */
 export type CachedSong = {
@@ -24,6 +24,10 @@ export type CachedSong = {
   mode: string
   tempo: number
   mood: string[]
+  /** The name the mind gave it, punctuation and all. */
+  name?: string
+  /** The slug its name makes: the words of the Song's only link. */
+  slug?: string
   sound?: string
   choir?: string
   perspectives: { slug: string; title: string; variant?: string }[]
@@ -59,6 +63,7 @@ export function cachedFrom(session: Session, airing: Airing): CachedSong {
     mode: session.mode,
     tempo: Math.round(session.tempo),
     mood: session.mood ?? [],
+    ...(session.name ? { name: session.name, slug: slugOf(session.name) } : {}),
     ...(session.sound ? { sound: session.sound } : {}),
     ...(session.choir ? { choir: session.choir } : {}),
     perspectives: (session.perspectives ?? []).map(({ slug, title, variant }) => ({ slug, title, ...(variant ? { variant } : {}) })),
@@ -93,6 +98,8 @@ export class SongCache {
           mode text not null,
           tempo integer not null,
           mood text not null,
+          name text,
+          slug text,
           sound text,
           choir text
         );
@@ -121,8 +128,20 @@ export class SongCache {
     this.db.transaction(() => {
       this.db.query('delete from songs where song = ?').run(song.song)
       this.db
-        .query('insert into songs (song, sortable, begins, seconds, mode, tempo, mood, sound, choir) values (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(song.song, sortable(song.song), song.begins, song.seconds, song.mode, song.tempo, JSON.stringify(song.mood), song.sound ?? null, song.choir ?? null)
+        .query('insert into songs (song, sortable, begins, seconds, mode, tempo, mood, name, slug, sound, choir) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(
+          song.song,
+          sortable(song.song),
+          song.begins,
+          song.seconds,
+          song.mode,
+          song.tempo,
+          JSON.stringify(song.mood),
+          song.name ?? null,
+          song.slug ?? null,
+          song.sound ?? null,
+          song.choir ?? null,
+        )
       for (const p of song.perspectives) {
         this.db
           .query('insert or ignore into song_perspectives (song, slug, title, variant) values (?, ?, ?, ?)')
@@ -176,17 +195,22 @@ export class SongCache {
     offset: number,
     count: number,
     now = Date.now(),
-  ): Promise<{ total: number; offset: number; songs: { song: string; begins: number; seconds: number; on: boolean; mood: string[] }[] }> {
+  ): Promise<{ total: number; offset: number; songs: { song: string; begins: number; seconds: number; on: boolean; mood: string[]; name?: string; slug?: string }[] }> {
     const [where, values] = this.where(search, now)
     const rows = this.db
-      .query(`select song, begins, seconds, mood from songs s where ${where} order by s.begins desc, s.sortable desc limit ? offset ?`)
-      .all(...values, count, offset) as { song: string; begins: number; seconds: number; mood: string }[]
+      .query(`select song, begins, seconds, mood, name, slug from songs s where ${where} order by s.begins desc, s.sortable desc limit ? offset ?`)
+      .all(...values, count, offset) as { song: string; begins: number; seconds: number; mood: string; name: string | null; slug: string | null }[]
     return {
       total: this.count(search, now),
       offset,
       songs: rows.map((row) => {
         const airing = { song: row.song, begins: row.begins, seconds: row.seconds }
-        return { ...airing, on: endOf(airing) > now, mood: JSON.parse(row.mood) as string[] }
+        return {
+          ...airing,
+          on: endOf(airing) > now,
+          mood: JSON.parse(row.mood) as string[],
+          ...(row.slug ? { name: row.name ?? undefined, slug: row.slug } : {}),
+        }
       }),
     }
   }

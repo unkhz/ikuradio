@@ -19,6 +19,14 @@ export {
   type Thought,
 } from './lib/thoughts.js'
 export { ofItsAge, timeless } from './lib/timeless.js'
+export {
+  longestName,
+  nameSong,
+  namingInstruction,
+  plainly,
+  wears,
+  type Naming,
+} from './lib/names.js'
 export { longWear, wornDeep } from './lib/wear.js'
 export { stressedWords, stresses, stressOf, type StressedWord } from './lib/stress.js'
 

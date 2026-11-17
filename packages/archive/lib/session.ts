@@ -20,6 +20,12 @@ export type Session = {
   version: typeof sessionVersion
   /** Which Song this is, counted from 0. */
   song: string
+  /**
+   * The name the mind gave it, punctuation and all: the title of its page,
+   * and the words of its link, which is made from the name alone, by
+   * `slugOf`. Missing on Songs from before Songs had names.
+   */
+  name?: string
   /** The weather it is sung in. */
   mood: string[]
   mode: string
@@ -218,6 +224,29 @@ export type ArchiveIndex = {
   songs: string[]
 }
 
+/**
+ * The slug a name makes, and nothing else: its letters and digits, with the
+ * marks that are not letters, digits or hyphens removed, an apostrophe gone
+ * without a space, lowercased, and its spaces made single hyphens. One
+ * function makes every slug, so a name's link is made the same way always:
+ * `Death-machine, the Song's 2nd birth?` is `death-machine-the-songs-2nd-birth`.
+ */
+export const slugOf = (name: string): string =>
+  name
+    .normalize('NFC')
+    .replace(/['’]/g, '')
+    .replace(/[^\p{L}\p{M}\p{N}\p{Z}\-]/gu, '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/ /g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+
+/** A Song's link, when it has a name: its number, and the slug its name makes. */
+export const linkOf = (session: Pick<Session, 'song' | 'name'>): { song: string; slug: string } | undefined =>
+  session.name ? { song: session.song, slug: slugOf(session.name) } : undefined
+
 /** Where things are, inside an Archive. */
 export const paths = {
   index: 'index.json',
@@ -233,4 +262,6 @@ export const paths = {
   thoughts: (month: string) => `thoughts/mind/${month}.jsonl`,
   /** Where the months of the mind's thoughts are kept. */
   thoughtsShelf: 'thoughts/mind/',
+  /** The names worn: each slug a name makes, and the Song that wears it. */
+  names: 'names.json',
 }

@@ -15,7 +15,8 @@
 //   GET /songs/after?song=<n>  what follows Song n for someone hearing Songs again: the next aired, or live
 //   GET /pulse      whether the song is alive (200) or not (503)
 //   GET /           the Receiver, for a browser
-//   GET /s/<n>      the Receiver, tuned to Song n from its beginning
+//   GET /s/<n>/<slug>  the Receiver, tuned to Song n from its beginning: its only address
+//   GET /sitemap.xml  every Song's address, and nothing else
 
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { normalize } from 'node:path'
@@ -44,7 +45,7 @@ import pageThroatEngine from '../ui/public/throat/chimera.wasm' with { type: 'fi
 import pageThroatWords from '../ui/public/throat/cmudict.txt.gz' with { type: 'file' }
 import pageThroatWordsLicense from '../ui/public/throat/CMUDICT-LICENSE.txt' with { type: 'file' }
 import { getEnv } from 'tools'
-import { archiveAddress, paths, publicArchive, sessionVersion, type ArchiveIndex, type Session } from 'archive'
+import { archiveAddress, linkOf, paths, publicArchive, sessionVersion, slugOf, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
 import { cardOf, speak, type Card } from './lib/speaks.js'
@@ -203,12 +204,16 @@ const told = (airing: Airing | undefined, archive: string) =>
     seconds: airing.seconds,
   }
 
-/** What a list of Songs shows of each: its weather and its length, read once from its Session. */
-const summaries = new Map<string, { mood: string[]; seconds: number }>()
+/** What a list of Songs shows of each: its name and its weather, read once from its Session. */
+const summaries = new Map<string, { mood: string[]; name?: string; slug?: string }>()
 async function summary(song: string) {
   if (!summaries.has(song)) {
     const session = await read<Session>(paths.session(song))
-    if (session) summaries.set(song, { mood: session.mood, seconds: session.seconds })
+    if (session)
+      summaries.set(song, {
+        mood: session.mood,
+        ...(session.name ? { name: session.name, slug: slugOf(session.name) } : {}),
+      })
   }
   return summaries.get(song)
 }
@@ -294,9 +299,9 @@ async function page(request: Request, url: URL, song?: bigint) {
   // only a Song that has aired is told about: nothing from the future
   let card: Card | undefined
   if (song !== undefined) {
-    const named = song.toLocaleString('en')
-    title = `Song ${named} · ${site}`
     card = tactus.history.some((a) => a.song === `${song}` && a.begins <= Date.now()) ? await cardFor(`${song}`) : undefined
+    // a Song's page is titled by its name, when it has one
+    title = card?.name ? `${card.name} · ${site}` : `Song ${song.toLocaleString('en')} · ${site}`
     if (card) {
       description =
         `${card.mood.join(' + ')}: ${card.mode}, ${card.tempo} bpm, sung by ${card.choir}.` +
@@ -359,7 +364,15 @@ async function answer(request: Request): Promise<Response> {
   if (url.pathname === '/songs/after') {
     const song = url.searchParams.get('song') ?? ''
     if (!/^\d{1,400}$/.test(song)) return json({ error: 'a Song is asked for by its number' }, 400)
-    return json(tactus.after(song))
+    const next = tactus.after(song)
+    // a Song is asked for by its number, and answered with its link: without
+    // a name it cannot be, and it is not aired then
+    if ('song' in next) {
+      const held = await summary(next.song)
+      if (!held?.slug) return json({ live: true })
+      return json({ ...next, name: held.name, slug: held.slug })
+    }
+    return json(next)
   }
 
   if (url.pathname === '/songs/options') {
@@ -418,9 +431,31 @@ async function answer(request: Request): Promise<Response> {
     )
   }
 
+  if (url.pathname === '/sitemap.xml') {
+    // every Song's address, and nothing else: the Songs that have a name,
+    // which is every Song, and no Song by its number alone
+    const [index, names] = await Promise.all([read<ArchiveIndex>(paths.index), read<Record<string, string>>(paths.names)])
+    const worn = new Map<string, string>()
+    for (const [slug, song] of Object.entries(names ?? {})) worn.set(song, slug)
+    const origin = `${request.headers.get('x-forwarded-proto') ?? url.protocol.slice(0, -1)}://${request.headers.get('host') ?? url.host}`
+    const urls = (index?.songs ?? [])
+      .filter((song) => worn.has(song))
+      .map((song) => `  <url>\n    <loc>${escaped(`${origin}/s/${song}/${worn.get(song)}`)}</loc>\n  </url>`)
+    return new Response(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`,
+      { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } },
+    )
+  }
   if (url.pathname === '/' || url.pathname === '/index.html') return page(request, url)
-  const asked = /^\/s\/(\d{1,400})\/?$/.exec(url.pathname)
-  if (asked) return page(request, url, BigInt(asked[1]) > 0n ? BigInt(asked[1]) : undefined)
+  // A Song's only address: its number, and the slug its name makes. A wrong
+  // slug is not found, like any path that is not the link: the Radio says
+  // nothing of a Song it does not link.
+  const asked = /^\/s\/(0|[1-9]\d{0,399})\/([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\-]{0,399})$/u.exec(url.pathname)
+  if (asked) {
+    const session = asked[1] !== '0' ? await read<Session>(paths.session(asked[1])) : undefined
+    if (session?.name && linkOf(session)?.slug === asked[2]) return page(request, url, BigInt(asked[1]))
+    return new Response(null, { status: 404 })
+  }
 
   const name = normalize(url.pathname).slice(1)
   const part = pageFiles[name]

@@ -72,6 +72,7 @@
       "name": "song",
       "version": "1.0.0",
       "dependencies": {
+        "archive": "workspace:*",
         "tools": "workspace:*",
         "zod": "^4.0.0",
       },

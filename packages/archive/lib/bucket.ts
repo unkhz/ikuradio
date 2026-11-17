@@ -12,7 +12,7 @@
 import { S3Client } from 'bun'
 import { mkdir, rename } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
-import { paths, type ArchiveIndex, type Session } from './session.js'
+import { paths, slugOf, type ArchiveIndex, type Session } from './session.js'
 import type { ArchiveStore } from './store.js'
 
 /** Where a bucket is, from its public, path-style address: https://<host>/<bucket>. */
@@ -93,6 +93,7 @@ export class BucketStore implements ArchiveStore {
 
   async putSession(session: Session) {
     await this.put(paths.session(session.song), JSON.stringify(session), 'application/json')
+    if (session.name) await this.wear(session)
     const { songs } = await this.index()
     const listed = [...new Set([...songs, session.song])].sort((a, b) =>
       BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0,
@@ -124,6 +125,26 @@ export class BucketStore implements ArchiveStore {
     if (!(await this.exists(paths.index))) return undefined
     const { songs } = await this.patiently('read the index', () => this.client.file(paths.index).json() as Promise<ArchiveIndex>)
     return songs.at(-1)
+  }
+
+  async names(): Promise<Record<string, string>> {
+    if (!(await this.exists(paths.names))) return {}
+    return (await this.patiently('read the names', () =>
+      this.client.file(paths.names).json() as Promise<Record<string, string>>))!
+  }
+
+  /**
+   * Lets a Song wear its name: its slug, and itself, beside the others'. A
+   * slug already worn by another Song is never taken from it, so no two
+   * Songs ever wear the same link.
+   */
+  private async wear(session: Session) {
+    const slug = slugOf(session.name!)
+    if (!slug) return
+    const names = await this.names()
+    for (const [worn, song] of Object.entries(names)) if (song === session.song && worn !== slug) delete names[worn]
+    if (!names[slug] || names[slug] === session.song) names[slug] = session.song
+    await this.put(paths.names, JSON.stringify(names), 'application/json')
   }
 
   async kept(prefix: string) {

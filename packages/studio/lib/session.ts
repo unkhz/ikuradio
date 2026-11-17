@@ -51,7 +51,8 @@ export function lengthOf(lines: readonly SungLine[]) {
  * moment is counted from the Song's beginning; `name` maps a recording's
  * file to its id in the Archive, and `loudness` to how loud it was measured
  * to sound, if it was. `throat` names the throat the voices were sung with,
- * and `thought` is what the mind thought of the Song, if it thought anything.
+ * `thought` is what the mind thought of the Song, if it thought anything,
+ * and `songName` is the name the mind gave it, if it gave one.
  */
 export function toSession(
   made: readonly Made[],
@@ -59,6 +60,7 @@ export function toSession(
   loudness: (file: string) => Loudness | undefined = () => undefined,
   throat?: string,
   thought?: string,
+  songName?: string,
 ): Session {
   const heard = (file: string) => {
     const measured = loudness(file)
@@ -164,6 +166,7 @@ export function toSession(
   return {
     version: sessionVersion,
     song: song.number,
+    ...(songName ? { name: songName } : {}),
     mood: mood.descriptions,
     mode: mood.character.mode,
     tempo: mood.character.tempo,

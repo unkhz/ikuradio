@@ -30,6 +30,11 @@ export interface ArchiveStore {
    * Throws if the Archive cannot say: not knowing is not the same as none.
    */
   newestSong(): Promise<string | undefined>
+  /**
+   * The names worn: each slug a name makes, and the Song that wears it.
+   * Nothing, if nothing is named yet. Throws if the Archive cannot say.
+   */
+  names(): Promise<Record<string, string>>
   /** The names of everything kept at a place in the Archive, such as `diary/books/`. */
   kept(prefix: string): Promise<string[]>
   /**

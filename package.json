@@ -10,6 +10,7 @@
     "throat": "bun packages/vocals/build.ts",
     "heart": "bun run throat && cd packages/heart && bun --env-file=../../.env --env-file=../../.env.local index.ts",
     "studio": "bun run throat && cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local index.ts",
+    "names": "cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local names.ts",
     "rehearse": "bun run throat && cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local rehearse.ts",
     "draw": "bun packages/ui/drawing/draw.ts",
     "verses": "bun build packages/ui/verses/verses.ts --format=iife --minify --outfile packages/ui/public/verses.js",
