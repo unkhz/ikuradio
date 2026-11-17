@@ -21,12 +21,14 @@ export function wordsOf(session: Session): string {
  * Names every Song the Archive holds that has no name, one at a time, in
  * order. The names already given are worn, and are told to the mind, so
  * that it does not give one of them again. A name that does not come is
- * left for now, so the run may be made again. Returns how many Songs were
- * named, and the numbers of the Songs still without a name.
+ * left for now, and is told, so that the run's pace is heard; and when no
+ * name comes for three Songs in a row, the run stops, so that it may be
+ * made again when names come. Returns how many Songs were named, and the
+ * numbers of the Songs still without a name.
  */
 export async function nameKept(
   store: ArchiveStore,
-  { quiet = false }: { quiet?: boolean } = {},
+  { quiet = false, name: ask = nameSong }: { quiet?: boolean; name?: typeof nameSong } = {},
 ): Promise<{ named: number; unmarked: string[] }> {
   const { songs } = await store.index()
   const worn = await store.names()
@@ -38,15 +40,22 @@ export async function nameKept(
   // the names already given: the mind does not give one of them again
   const given = [...kept.values()].filter(({ name }) => name).map(({ name }) => name!)
   let named = 0
+  let starved = 0
   const unmarked: string[] = []
   for (const song of songs) {
     const session = kept.get(song)
     if (!session || session.name) continue
-    const name = await nameSong(wordsOf(session), session.mood, worn, given)
+    const name = await ask(wordsOf(session), session.mood, worn, given)
     if (!name) {
       unmarked.push(song)
-      continue
+      starved++
+      if (starved < 3) {
+        if (!quiet) console.warn(`Song ${song} is not named yet`)
+        continue
+      }
+      throw new Error('no name comes for three Songs in a row; this run stops, and may be made again')
     }
+    starved = 0
     session.name = name
     await store.putSession(session)
     worn[slugOf(name)] = song
