@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'bun:test'
 import { slugOf, type ArchiveStore, type Session } from 'archive'
+import { Silence } from 'song'
 
 import { nameKept, verifyNamed, wordsOf } from './names.js'
 
@@ -59,20 +60,22 @@ describe('nameKept', () => {
     expect(kept[1].name).toBe('A name')
   })
 
-  it('tells of each Song that is not named, and goes on', async () => {
+  it('tells of each Song that is not named, and goes on, though the mind answers and no answer is a name', async () => {
     const kept = [session('1'), session('2'), session('3'), session('4')]
-    const answers = [undefined, 'A name', undefined, 'B name']
     let asked = 0
     const { named, unmarked } = await nameKept(store(kept), {
       quiet: true,
-      name: async () => answers[asked++],
+      name: async () => {
+        asked++
+        return undefined
+      },
     })
-    expect(named).toBe(2)
-    expect(unmarked).toEqual(['1', '3'])
+    expect(named).toBe(0)
+    expect(unmarked).toEqual(['1', '2', '3', '4'])
     expect(asked).toBe(4)
   })
 
-  it('stops when no name comes for three Songs in a row', async () => {
+  it('stops when the mind falls silent for three Songs in a row', async () => {
     const kept = [session('1'), session('2'), session('3'), session('4')]
     let asked = 0
     await expect(
@@ -80,11 +83,27 @@ describe('nameKept', () => {
         quiet: true,
         name: async () => {
           asked++
-          return undefined
+          throw new Silence('the mind fell silent')
         },
       }),
     ).rejects.toThrow(/three Songs in a row/)
     expect(asked).toBe(3)
+  })
+
+  it('counts the silences anew, when a name comes between them', async () => {
+    const kept = [session('1'), session('2'), session('3'), session('4'), session('5'), session('6')]
+    let asked = 0
+    await expect(
+      nameKept(store(kept), {
+        quiet: true,
+        name: async () => {
+          asked++
+          if (asked === 3) return 'A name'
+          throw new Silence('the mind fell silent')
+        },
+      }),
+    ).rejects.toThrow(/three Songs in a row/)
+    expect(asked).toBe(6)
   })
 })
 

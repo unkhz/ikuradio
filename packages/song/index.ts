@@ -24,6 +24,7 @@ export {
   nameSong,
   namingInstruction,
   plainly,
+  Silence,
   wears,
   type Naming,
 } from './lib/names.js'

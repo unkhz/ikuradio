@@ -5,7 +5,7 @@
 // Studio's machine, against the Archive the Studio publishes to.
 
 import { slugOf, type ArchiveStore, type Session } from 'archive'
-import { nameSong } from 'song'
+import { nameSong, Silence } from 'song'
 
 /** The words a Song was named by: the words of its first iteration. */
 export function wordsOf(session: Session): string {
@@ -17,26 +17,38 @@ export function wordsOf(session: Session): string {
     .join('\n')
 }
 
+/** The Archive, kept: every Song that is there, read eight at a time, as the Studio reads it. */
+async function keptOf(store: ArchiveStore): Promise<{ songs: string[]; kept: Map<string, Session> }> {
+  const { songs } = await store.index()
+  const kept = new Map<string, Session>()
+  for (let i = 0; i < songs.length; i += 8) {
+    const batch = songs.slice(i, i + 8)
+    const sessions = await Promise.all(batch.map((song) => store.session(song)))
+    batch.forEach((song, j) => {
+      const session = sessions[j]
+      if (session) kept.set(song, session)
+    })
+  }
+  return { songs, kept }
+}
+
 /**
  * Names every Song the Archive holds that has no name, one at a time, in
  * order. The names already given are worn, and are told to the mind, so
  * that it does not give one of them again. A name that does not come is
- * left for now, and is told, so that the run's pace is heard; and when no
- * name comes for three Songs in a row, the run stops, so that it may be
- * made again when names come. Returns how many Songs were named, and the
- * numbers of the Songs still without a name.
+ * left for now, and is told, so that the run's pace is heard: the mind
+ * answered, and only its answer was not a name, and the run goes on. And
+ * when the mind falls silent for three Songs in a row, the run stops, so
+ * that a sick mind costs minutes, not hours, and the run may be made again
+ * when the mind wakes. Returns how many Songs were named, and the numbers
+ * of the Songs still without a name.
  */
 export async function nameKept(
   store: ArchiveStore,
   { quiet = false, name: ask = nameSong }: { quiet?: boolean; name?: typeof nameSong } = {},
 ): Promise<{ named: number; unmarked: string[] }> {
-  const { songs } = await store.index()
+  const { songs, kept } = await keptOf(store)
   const worn = await store.names()
-  const kept = new Map<string, Session>()
-  for (const song of songs) {
-    const session = await store.session(song)
-    if (session) kept.set(song, session)
-  }
   // the names already given: the mind does not give one of them again
   const given = [...kept.values()].filter(({ name }) => name).map(({ name }) => name!)
   let named = 0
@@ -45,15 +57,26 @@ export async function nameKept(
   for (const song of songs) {
     const session = kept.get(song)
     if (!session || session.name) continue
-    const name = await ask(wordsOf(session), session.mood, worn, given)
-    if (!name) {
-      unmarked.push(song)
+    let name: string | undefined
+    try {
+      name = await ask(wordsOf(session), session.mood, worn, given)
+    } catch (error) {
+      if (!(error instanceof Silence)) throw error
       starved++
-      if (starved < 3) {
-        if (!quiet) console.warn(`Song ${song} is not named yet`)
-        continue
+      unmarked.push(song)
+      if (!quiet) console.warn(`Song ${song}: the mind fell silent`)
+      if (starved >= 3) {
+        throw new Error(
+          'the mind fell silent for three Songs in a row; this run stops, and may be made again when the mind wakes',
+        )
       }
-      throw new Error('no name comes for three Songs in a row; this run stops, and may be made again')
+      continue
+    }
+    if (!name) {
+      // the mind answered, and no answer was a name: the Song is left for now, and the run goes on
+      unmarked.push(song)
+      if (!quiet) console.warn(`Song ${song} is not named yet`)
+      continue
     }
     starved = 0
     session.name = name
@@ -74,12 +97,12 @@ export async function nameKept(
  * by another.
  */
 export async function verifyNamed(store: ArchiveStore): Promise<{ unmarked: string[]; mismatched: string[] }> {
-  const { songs } = await store.index()
+  const { songs, kept } = await keptOf(store)
   const worn = await store.names()
   const unmarked: string[] = []
   const mismatched: string[] = []
   for (const song of songs) {
-    const session = await store.session(song)
+    const session = kept.get(song)
     if (!session) continue
     if (!session.name) {
       unmarked.push(song)

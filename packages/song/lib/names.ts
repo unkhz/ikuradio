@@ -37,6 +37,13 @@ const nameSchema = {
   required: ['name'],
 }
 
+/**
+ * The mind fell silent: it was awake a moment ago, and was given a little
+ * while, not forever, and did not answer. A name refused is not this: the
+ * mind answered, and only its answer was not a name.
+ */
+export class Silence extends Error {}
+
 /** How the mind may sometimes wrap a name. */
 export const plainly = (name: string) =>
   name
@@ -90,14 +97,17 @@ const patience = 6
  * already given, so that it does not give one of them again. A name that
  * is not a name, sings a word of this short age, echoes a name already
  * given, or is already worn by another Song is refused, and the mind is
- * asked again, told what to pass. If no name comes, none is given: the
- * song goes on, and it is named again later.
+ * asked again, told what to pass. If the mind answers, and no answer is a
+ * name, none is given: the song goes on, and it is named again later. If
+ * the mind does not answer, the silence is thrown, so that the one who
+ * asked can stop, and try again when the mind wakes.
  */
 export async function nameSong(
   words: string,
   weather: readonly string[],
   taken: Readonly<Record<string, string>> = {},
   own: readonly string[] = [],
+  { sleep = wait }: { sleep?: (ms: number) => Promise<void> } = {},
 ): Promise<string | undefined> {
   let unsuitable = 0
   let unreachable = 0
@@ -132,8 +142,9 @@ export async function nameSong(
         continue
       }
       // the mind was awake a moment ago; it is given a little while, not forever
-      await wait(1000 * 2 ** unreachable++)
+      await sleep(1000 * 2 ** unreachable++)
     }
   }
+  if (unreachable >= patience) throw new Silence('the mind fell silent')
   return undefined
 }

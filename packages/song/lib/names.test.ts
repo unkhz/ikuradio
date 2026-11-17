@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'bun:test'
-import { namingInstruction, nameSong, plainly, wears } from './names.js'
+import { namingInstruction, nameSong, plainly, Silence, wears } from './names.js'
 
 /** A mind that answers, from a shelf of answers. */
 const mind = (answers: string[], host = 'http://no-mind-here.invalid') => {
@@ -108,6 +108,25 @@ describe('nameSong', () => {
       expect(fake.asked()).toBe(6)
     } finally {
       fake.done()
+    }
+  })
+
+  it('tells of the silence, when the mind does not answer', async () => {
+    process.env.MIND_HOST = 'http://no-mind-here.invalid'
+    const realFetch = globalThis.fetch
+    let asked = 0
+    globalThis.fetch = (async (_url: unknown) => {
+      asked++
+      throw new Error('fetch failed')
+    }) as unknown as typeof fetch
+    try {
+      await expect(
+        nameSong('the river remembers', ['deep time'], {}, [], { sleep: async () => {} }),
+      ).rejects.toThrow(Silence)
+      expect(asked).toBe(6)
+    } finally {
+      globalThis.fetch = realFetch
+      delete process.env.MIND_HOST
     }
   })
 })
