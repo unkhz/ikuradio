@@ -56,7 +56,12 @@ export async function nameKept(
   const unmarked: string[] = []
   for (const song of songs) {
     const session = kept.get(song)
-    if (!session || session.name) continue
+    if (!session) {
+      // listed in the index, and not there to read: it cannot be named, and it is told
+      if (!quiet) console.warn(`Song ${song} is listed, and not there`)
+      continue
+    }
+    if (session.name) continue
     let name: string | undefined
     try {
       name = await ask(wordsOf(session), session.mood, worn, given)
@@ -103,7 +108,11 @@ export async function verifyNamed(store: ArchiveStore): Promise<{ unmarked: stri
   const mismatched: string[] = []
   for (const song of songs) {
     const session = kept.get(song)
-    if (!session) continue
+    if (!session) {
+      // listed in the index, and not there to read: the check cannot pass for it
+      unmarked.push(song)
+      continue
+    }
     if (!session.name) {
       unmarked.push(song)
       continue

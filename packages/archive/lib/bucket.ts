@@ -84,10 +84,16 @@ export class BucketStore implements ArchiveStore {
   }
 
   async session(song: string): Promise<Session | undefined> {
+    const key = paths.session(song)
     try {
-      return (await this.client.file(paths.session(song)).json()) as Session
+      return (await this.client.file(key).json()) as Session
     } catch {
-      return undefined
+      if (!(await this.exists(key))) return undefined
+      // the Session is there, and the read of it failed: not a Song that is
+      // not there, but a read that failed, and the Archive is asked again
+      // before it may go on without an answer
+      return (await this.patiently(`read the Session of Song ${song}`, () =>
+        this.client.file(key).json() as Promise<Session>)) as Session
     }
   }
 

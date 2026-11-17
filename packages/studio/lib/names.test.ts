@@ -105,6 +105,24 @@ describe('nameKept', () => {
     ).rejects.toThrow(/three Songs in a row/)
     expect(asked).toBe(6)
   })
+
+  it('tells of a Song that is listed, and not there, and goes on', async () => {
+    const kept = [session('1'), session('3')]
+    const listed = {
+      index: async () => ({ songs: ['1', '2', '3'] }),
+      names: async () => ({}),
+      session: async (song: string) => kept.find(({ song: n }) => n === song),
+      putSession: async () => {},
+    } as unknown as ArchiveStore
+    let asked = 0
+    const { named, unmarked } = await nameKept(listed, {
+      quiet: true,
+      name: async () => `a name ${asked++}`,
+    })
+    expect(named).toBe(2)
+    expect(unmarked).toEqual([])
+    expect(asked).toBe(2)
+  })
 })
 
 describe('verifyNamed', () => {
@@ -125,5 +143,19 @@ describe('verifyNamed', () => {
     const { unmarked, mismatched } = await verifyNamed(store(kept, worn))
     expect(unmarked).toEqual([])
     expect(mismatched).toEqual([])
+  })
+
+  it('reports a Song that is listed, and not there, as without a name', async () => {
+    const kept = [session('1', 'A name')]
+    const worn: Record<string, string> = {}
+    worn[slugOf('A name')] = '1'
+    const listed = {
+      index: async () => ({ songs: ['1', '2'] }),
+      names: async () => worn,
+      session: async (song: string) => kept.find(({ song: n }) => n === song),
+      putSession: async () => {},
+    } as unknown as ArchiveStore
+    const { unmarked } = await verifyNamed(listed)
+    expect(unmarked).toEqual(['2'])
   })
 })

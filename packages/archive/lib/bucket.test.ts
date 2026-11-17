@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import type { Session } from './session.js'
+import { paths, type Session } from './session.js'
 import { bucketAt, BucketStore } from './bucket.js'
 
 const bucket = 'https://hel1.your-objectstorage.com/ikuradio'
@@ -54,6 +54,41 @@ describe('a bucket that wears names', () => {
     await store.putSession(song('1', 'Something else'))
     await store.putSession(song('2', 'Hollow death'))
     expect(await store.names()).toEqual({ 'something-else': '1', 'hollow-death': '2' })
+  })
+})
+
+describe('a bucket that reads a Session', () => {
+  it('reads a Session back, and gives nothing for a Song that is not there', async () => {
+    const store = kept()
+    await store.putSession(song('1', 'Hollow death'))
+    expect((await store.session('1'))?.name).toBe('Hollow death')
+    expect(await store.session('99')).toBeUndefined()
+  })
+
+  it('asks again, when a read fails and the Session is there', async () => {
+    const things = new Map<string, string>()
+    const store = new BucketStore({ url: bucket, accessKeyId: 'k', secretAccessKey: 's' })
+    const sessionKey = paths.session('1')
+    let fails = 2
+    ;(store as unknown as { client: unknown }).client = {
+      write: async (key: string, body: string) => void things.set(key, body),
+      exists: async (key: string) => things.has(key),
+      file: (key: string) => ({
+        json: async () => {
+          const thing = things.get(key)
+          if (thing === undefined) throw new Error(`nothing at ${key}`)
+          if (key === sessionKey && fails > 0) {
+            fails--
+            throw new Error('the bucket did not answer')
+          }
+          return JSON.parse(thing)
+        },
+      }),
+      list: async () => ({ contents: [], isTruncated: false }),
+    }
+    await store.putSession(song('1', 'Hollow death'))
+    expect((await store.session('1'))?.name).toBe('Hollow death')
+    expect(fails).toBe(0)
   })
 })
 
