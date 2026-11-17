@@ -111,6 +111,29 @@ describe('nameSong', () => {
     }
   })
 
+  it('tells the mind which kept name its answer sings, when an answer echoes one', async () => {
+    process.env.MIND_HOST = 'http://no-mind-here.invalid'
+    const realFetch = globalThis.fetch
+    const instructions: string[] = []
+    const answers = ['{"name": "Silicon Canticles"}', '{"name": "Hymn of the deep old metal"}']
+    let asked = 0
+    globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(`${init?.body}`)
+      instructions.push(body.messages[0].content)
+      const content = answers[Math.min(asked++, answers.length - 1)]!
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
+    }) as typeof fetch
+    try {
+      const name = await nameSong('in silicon cathedrals deep and old', ['vaults of silicon'], {}, ['Silicon Dawn'])
+      expect(name).toBe('Hymn of the deep old metal')
+      expect(asked).toBe(2)
+      expect(instructions[1]).toContain('sings the kept name "Silicon Dawn" too close')
+    } finally {
+      globalThis.fetch = realFetch
+      delete process.env.MIND_HOST
+    }
+  })
+
   it('tells of the silence, when the mind does not answer', async () => {
     process.env.MIND_HOST = 'http://no-mind-here.invalid'
     const realFetch = globalThis.fetch

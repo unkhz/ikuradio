@@ -131,10 +131,16 @@ export async function nameSong(
       ) {
         return name
       }
-      refused =
-        name && taken[slug]
-          ? `The name "${name}" is already worn by another song; give this song its own, so the two can be told apart.`
-          : 'That is not a name the song can wear; give it a name of its own.'
+      if (name && taken[slug]) {
+        refused = `The name "${name}" is already worn by another song; give this song its own, so the two can be told apart.`
+      } else if (name && own.some((kept) => echoOf(name, kept) >= sameName)) {
+        const nearest = own.reduce((a, b) => (echoOf(name, a) >= echoOf(name, b) ? a : b))
+        refused = `The name "${name}" sings the kept name "${nearest}" too close; give this song a name of its own that says the same in other words.`
+      } else if (name && ofItsAge(name)) {
+        refused = 'A word in that name is shaped as only this age shapes it; give the name words that will still be true in a hundred years.'
+      } else {
+        refused = 'That is not a name the song can wear; give it a name of its own.'
+      }
       unsuitable++
     } catch (error) {
       if (error instanceof Unshapely) {
