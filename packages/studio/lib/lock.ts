@@ -35,7 +35,7 @@ export type Held = { release(): void }
 export async function holdStudioFree(
   name = studioLock,
   {
-    every = 15_000,
+    every = 500,
     until = 24 * 3_600_000,
     attempt,
     sleep,
