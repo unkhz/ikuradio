@@ -7,14 +7,15 @@
 //   bun run names --check  verify only
 
 import { openArchive } from 'archive'
-import { holdStudio, StudioBusy } from './lib/lock.js'
+import { holdStudioFree } from './lib/lock.js'
 import { nameKept, verifyNamed } from './lib/names.js'
 
+// the Studio at work is let finish, and the lock is asked for again until it
+// is free: this run holds the mind, and a Studio may not hold it with this run
 try {
-  holdStudio()
+  await holdStudioFree()
 } catch (error) {
-  if (!(error instanceof StudioBusy)) throw error
-  console.error(error.message)
+  console.error(error instanceof Error ? error.message : String(error))
   process.exit(1)
 }
 

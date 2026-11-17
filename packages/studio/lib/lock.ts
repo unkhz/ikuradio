@@ -25,6 +25,43 @@ export class StudioBusy extends Error {
 /** A held lock: let go of it when the work is done (or simply end). */
 export type Held = { release(): void }
 
+/**
+ * Holds the machine's Studio lock, waiting its way to it: a Studio at work
+ * is let finish, and the lock is asked for again until it is free. The runs
+ * that ask for it this way hold it long enough for a Studio called in behind
+ * them to give up and try again, and that is meant: the Studio at work keeps
+ * the mind, and so does the run that waits for it.
+ */
+export async function holdStudioFree(
+  name = studioLock,
+  {
+    every = 15_000,
+    until = 24 * 3_600_000,
+    attempt,
+    sleep,
+  }: {
+    every?: number
+    until?: number
+    attempt?: () => Held
+    sleep?: (ms: number) => Promise<void>
+  } = {},
+): Promise<Held> {
+  attempt ??= () => holdStudio(name)
+  sleep ??= (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+  const given = Date.now()
+  for (;;) {
+    try {
+      return attempt()
+    } catch (error) {
+      if (!(error instanceof StudioBusy)) throw error
+      if (Date.now() - given >= until) {
+        throw new Error('the Studio at work has not let go; this run does not take its lock')
+      }
+      await sleep(every)
+    }
+  }
+}
+
 /** Holds the machine's Studio lock, or throws StudioBusy if another Studio holds it. */
 export function holdStudio(name = studioLock): Held {
   try {
