@@ -115,13 +115,56 @@ describe('nameKept', () => {
       putSession: async () => {},
     } as unknown as ArchiveStore
     let asked = 0
-    const { named, unmarked } = await nameKept(listed, {
+    const { named, unmarked, missing } = await nameKept(listed, {
       quiet: true,
       name: async () => `a name ${asked++}`,
     })
     expect(named).toBe(2)
     expect(unmarked).toEqual([])
+    expect(missing).toEqual(['2'])
     expect(asked).toBe(2)
+  })
+
+  it('asks the Archive only for the Songs that wear no slug', async () => {
+    const kept = [session('1'), session('2'), session('3'), session('4', 'A name'), session('5', 'B name')]
+    const worn: Record<string, string> = {}
+    worn[slugOf('A name')] = '4'
+    worn[slugOf('B name')] = '5'
+    const asked: string[] = []
+    const listing = {
+      index: async () => ({ songs: kept.map(({ song }) => song) }),
+      names: async () => worn,
+      session: async (song: string) => {
+        asked.push(song)
+        return kept.find(({ song: n }) => n === song)
+      },
+      putSession: async () => {},
+    } as unknown as ArchiveStore
+    let named = 0
+    await nameKept(listing, { quiet: true, name: async () => `a name ${++named}` })
+    expect(named).toBe(3)
+    expect(asked).toEqual(['1', '2', '3'])
+  })
+
+  it('tells the mind the names already worn, from the slugs that wear them', async () => {
+    const kept = [session('1')]
+    const worn: Record<string, string> = {}
+    worn[slugOf('Hollow Death')] = '2'
+    const listing = {
+      index: async () => ({ songs: kept.map(({ song }) => song) }),
+      names: async () => worn,
+      session: async (song: string) => kept.find(({ song: n }) => n === song),
+      putSession: async () => {},
+    } as unknown as ArchiveStore
+    let seen: readonly string[] = []
+    await nameKept(listing, {
+      quiet: true,
+      name: async (_words, _weather, _taken, own) => {
+        seen = own ?? []
+        return undefined
+      },
+    })
+    expect(seen).toContain(slugOf('Hollow Death').replaceAll('-', ' '))
   })
 })
 

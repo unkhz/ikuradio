@@ -1,10 +1,11 @@
 // The run that names the kept: every Song the Archive holds that has no
-// name, named from its own words, and then verified, so that every Song
-// has a name, and no slug is worn by two. Made on the Studio's machine,
-// before the Radio links Songs by their names alone.
+// name, named from its own words, so that every Song wears a name, and no
+// slug is worn by two. Made on the Studio's machine, before the Radio
+// links Songs by their names alone. The run reads only what it must; the
+// check reads everything, and is made once, when the naming is done.
 //
-//   bun run names          name, and verify
-//   bun run names --check  verify only
+//   bun run names          name, and tell of what is left
+//   bun run names --check  verify, that every Song wears a name, and no slug is worn by two
 
 import { openArchive } from 'archive'
 import { Sleeper } from 'tools'
@@ -45,14 +46,12 @@ if (!(await mind.wake())) {
 }
 
 try {
-  const { named, unmarked } = await nameKept(store)
+  const { named, unmarked, missing } = await nameKept(store)
   console.log(`${named} Songs named`)
   if (unmarked.length) console.warn(`these Songs have no name yet: ${unmarked.join(', ')}`)
-  const { unmarked: still, mismatched } = await verifyNamed(store)
-  if (still.length) console.error(`Songs without a name: ${still.join(', ')}`)
-  if (mismatched.length) console.error(`Songs whose name is worn by another: ${mismatched.join(', ')}`)
-  if (still.length || mismatched.length) process.exitCode = 1
-  else console.log(`every Song the Archive holds has a name, and no slug is worn by two`)
+  if (missing.length) console.error(`these Songs are listed, and not there: ${missing.join(', ')}`)
+  if (unmarked.length || missing.length) process.exitCode = 1
+  else console.log('every Song the Archive holds wears a name')
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error))
   process.exitCode = 1

@@ -33,31 +33,61 @@ async function keptOf(store: ArchiveStore): Promise<{ songs: string[]; kept: Map
 }
 
 /**
+ * The Archive, not yet named: the slugs already worn, and the Sessions of
+ * the Songs that wear no slug, read eight at a time. A Song that wears a
+ * slug is named, and is not read again: the naming asks the Archive for
+ * every slug once, and for a Session only when it has no name to wear.
+ */
+async function unwornOf(store: ArchiveStore): Promise<{ worn: Record<string, string>; kept: Map<string, Session>; unworn: string[] }> {
+  const { songs } = await store.index()
+  const worn = await store.names()
+  const wornSongs = new Set(Object.values(worn))
+  const unworn = songs.filter((song) => !wornSongs.has(song))
+  const kept = new Map<string, Session>()
+  for (let i = 0; i < unworn.length; i += 8) {
+    const batch = unworn.slice(i, i + 8)
+    const sessions = await Promise.all(batch.map((song) => store.session(song)))
+    batch.forEach((song, j) => {
+      const session = sessions[j]
+      if (session) kept.set(song, session)
+    })
+  }
+  return { worn, kept, unworn }
+}
+
+/**
  * Names every Song the Archive holds that has no name, one at a time, in
- * order. The names already given are worn, and are told to the mind, so
- * that it does not give one of them again. A name that does not come is
- * left for now, and is told, so that the run's pace is heard: the mind
- * answered, and only its answer was not a name, and the run goes on. And
- * when the mind falls silent for three Songs in a row, the run stops, so
- * that a sick mind costs minutes, not hours, and the run may be made again
- * when the mind wakes. Returns how many Songs were named, and the numbers
- * of the Songs still without a name.
+ * order. A Song that wears a slug is named already, and is not read; the
+ * names already given are worn, and are told to the mind, from the slugs
+ * that wear them, so that it does not give one of them again. A name that
+ * does not come is left for now, and is told, so that the run's pace is
+ * heard: the mind answered, and only its answer was not a name, and the
+ * run goes on. And when the mind falls silent for three Songs in a row,
+ * the run stops, so that a sick mind costs minutes, not hours, and the run
+ * may be made again when the mind wakes. Returns how many Songs were
+ * named, the numbers of the Songs still without a name, and the numbers of
+ * the Songs that are listed, and not there.
  */
 export async function nameKept(
   store: ArchiveStore,
   { quiet = false, name: ask = nameSong }: { quiet?: boolean; name?: typeof nameSong } = {},
-): Promise<{ named: number; unmarked: string[] }> {
-  const { songs, kept } = await keptOf(store)
-  const worn = await store.names()
-  // the names already given: the mind does not give one of them again
-  const given = [...kept.values()].filter(({ name }) => name).map(({ name }) => name!)
+): Promise<{ named: number; unmarked: string[]; missing: string[] }> {
+  const { worn, kept, unworn } = await unwornOf(store)
+  // the names already given: the names of the Songs read, and the slugs of the rest,
+  // which the Archive says are worn — the mind does not give one of them again
+  const given = [
+    ...kept.values().filter(({ name }) => name).map(({ name }) => name!),
+    ...Object.keys(worn).map((slug) => slug.replaceAll('-', ' ')),
+  ]
   let named = 0
   let starved = 0
   const unmarked: string[] = []
-  for (const song of songs) {
+  const missing: string[] = []
+  for (const song of unworn) {
     const session = kept.get(song)
     if (!session) {
-      // listed in the index, and not there to read: it cannot be named, and it is told
+      // listed in the index, wearing no slug, and not there to read: it cannot be named, and it is told
+      missing.push(song)
       if (!quiet) console.warn(`Song ${song} is listed, and not there`)
       continue
     }
@@ -91,7 +121,7 @@ export async function nameKept(
     named++
     if (!quiet) console.log(`Song ${song} is named: ${name}`)
   }
-  return { named, unmarked }
+  return { named, unmarked, missing }
 }
 
 /**
