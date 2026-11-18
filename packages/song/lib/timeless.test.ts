@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { ofItsAge, timeless } from './timeless.js'
+import { itsAgeOf, ofItsAge, timeless } from './timeless.js'
 
 describe('timeless', () => {
   it('tells the names of the age in plainer words', () => {
@@ -32,6 +32,20 @@ describe('timeless', () => {
   it('keeps the words that were always there', () => {
     const old = 'A cracked shell, a branch, a window, a web of stars, a cluster of them, logs on the fire.'
     expect(timeless(old)).toBe(old)
+  })
+})
+
+describe('itsAgeOf', () => {
+  it('points at the word that sings of the age', () => {
+    expect(itsAgeOf('I left the laptop humming in the night')).toBe('laptop')
+    expect(itsAgeOf('The MusicGen grew its beds')).toBe('MusicGen')
+    expect(itsAgeOf('The GPU was warm beneath my hand')).toBe('GPU')
+    expect(itsAgeOf('StardustCicadas')).toBe('StardustCicadas')
+  })
+
+  it('sings nothing, when no word is of the age', () => {
+    expect(itsAgeOf('From plastic into steel, the old house was rebuilt')).toBeNull()
+    expect(itsAgeOf('Stardust and cicadas, in the heat')).toBeNull()
   })
 })
 

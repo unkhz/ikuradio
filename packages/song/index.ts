@@ -4,7 +4,7 @@ import { editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
 import { known } from './lib/known.js'
 import { leansDeep, leansOn, overlap, stemOf, worn } from './lib/wear.js'
-import { ofItsAge, timeless, timelessInstruction } from './lib/timeless.js'
+import { itsAgeOf, ofItsAge, timeless, timelessInstruction } from './lib/timeless.js'
 import { forgotten, type Memories } from './lib/memories.js'
 export { forgotten, gather, memoriesOf, readMemories, recall, type Memories } from './lib/memories.js'
 export {
@@ -18,7 +18,7 @@ export {
   writeThought,
   type Thought,
 } from './lib/thoughts.js'
-export { ofItsAge, timeless } from './lib/timeless.js'
+export { itsAgeOf, ofItsAge, timeless } from './lib/timeless.js'
 export {
   longestName,
   nameSong,

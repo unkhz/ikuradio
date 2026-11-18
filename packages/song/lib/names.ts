@@ -6,7 +6,7 @@
 
 import { ask, Unshapely, wait } from 'tools'
 import { slugOf } from 'archive'
-import { ofItsAge, timelessInstruction } from './timeless.js'
+import { itsAgeOf, ofItsAge, timelessInstruction } from './timeless.js'
 import { echoOf } from './thoughts.js'
 
 /** A name as it is given: words only, no account of them. */
@@ -134,10 +134,12 @@ export async function nameSong(
       if (name && taken[slug]) {
         refused = `The name "${name}" is already worn by another song; give this song its own, so the two can be told apart.`
       } else if (name && own.some((kept) => echoOf(name, kept) >= sameName)) {
-        const nearest = own.reduce((a, b) => (echoOf(name, a) >= echoOf(name, b) ? a : b))
-        refused = `The name "${name}" sings the kept name "${nearest}" too close; give this song a name of its own that says the same in other words.`
-      } else if (name && ofItsAge(name)) {
-        refused = 'A word in that name is shaped as only this age shapes it; give the name words that will still be true in a hundred years.'
+        const echoes = own.filter((kept) => echoOf(name, kept) >= sameName)
+        const sung = echoes.map((kept) => `"${kept}"`).join(', ')
+        const keptNames = echoes.length === 1 ? 'kept name' : 'kept names'
+        refused = `The name "${name}" sings the ${keptNames} ${sung} too close; give this song a name of its own that says the same in other words, from the song's own words.`
+      } else if (name && itsAgeOf(name)) {
+        refused = `The word "${itsAgeOf(name)}" in that name is shaped as only this age shapes it; give the name words that will still be true in a hundred years.`
       } else {
         refused = 'That is not a name the song can wear; give it a name of its own.'
       }

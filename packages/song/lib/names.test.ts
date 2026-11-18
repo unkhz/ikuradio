@@ -134,6 +134,58 @@ describe('nameSong', () => {
     }
   })
 
+  it('tells the mind every kept name its answer sings, when it sings several', async () => {
+    process.env.MIND_HOST = 'http://no-mind-here.invalid'
+    const realFetch = globalThis.fetch
+    const instructions: string[] = []
+    const answers = ['{"name": "Stardust Pause"}', '{"name": "A faltering beat"}']
+    let asked = 0
+    globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(`${init?.body}`)
+      instructions.push(body.messages[0].content)
+      const content = answers[Math.min(asked++, answers.length - 1)]!
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
+    }) as typeof fetch
+    try {
+      const name = await nameSong(
+        'a beat once faltered, in its stead a pause',
+        ['stardust', 'cicadas'],
+        {},
+        ['Stardust aurora', 'Echos pause'],
+      )
+      expect(name).toBe('A faltering beat')
+      expect(asked).toBe(2)
+      expect(instructions[1]).toContain('sings the kept names "Stardust aurora", "Echos pause" too close')
+      expect(instructions[1]).toContain("from the song's own words")
+    } finally {
+      globalThis.fetch = realFetch
+      delete process.env.MIND_HOST
+    }
+  })
+
+  it('tells the mind the word that is shaped as only this age shapes it', async () => {
+    process.env.MIND_HOST = 'http://no-mind-here.invalid'
+    const realFetch = globalThis.fetch
+    const instructions: string[] = []
+    const answers = ['{"name": "StardustCicadas"}', '{"name": "A faltering beat"}']
+    let asked = 0
+    globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+      const body = JSON.parse(`${init?.body}`)
+      instructions.push(body.messages[0].content)
+      const content = answers[Math.min(asked++, answers.length - 1)]!
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
+    }) as typeof fetch
+    try {
+      const name = await nameSong('a beat once faltered, in its stead a pause', ['stardust', 'cicadas'])
+      expect(name).toBe('A faltering beat')
+      expect(asked).toBe(2)
+      expect(instructions[1]).toContain('The word "StardustCicadas" in that name is shaped as only this age shapes it')
+    } finally {
+      globalThis.fetch = realFetch
+      delete process.env.MIND_HOST
+    }
+  })
+
   it('tells of the silence, when the mind does not answer', async () => {
     process.env.MIND_HOST = 'http://no-mind-here.invalid'
     const realFetch = globalThis.fetch
