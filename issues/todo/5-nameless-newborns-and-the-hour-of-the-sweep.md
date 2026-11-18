@@ -1,4 +1,4 @@
-state: todo
+state: done
 id: 5
 kind: issue
 slug: nameless-newborns-and-the-hour-of-the-sweep
@@ -9,4 +9,4 @@ When the in-flight naming's six answers are all refusals — not a name, a word 
 
 There is no set hour for the sweep. The song adds two Songs an hour, and the in-flight naming refuses sometimes, so a bare Song goes on the air nameless and waits for the next sweep. The Radio's ledger now re-reads a held Song when the Archive names it, so a named Song reaches the list within one re-shelve.
 
-Open: the hour the sweep keeps. The scientist's to choose.
+Mended (Nov 18, c18e35d): a Song no mind names is named by its own number — "Nameless <n>", its slug worn by itself alone, its link made like any other's. The Studio wears the name at birth when the naming refuses or the mind falls silent, and the run names the kept by their numbers without waking a mind. No Song is born bare, no sweep has an hour to keep, and the namelessness is the lore: the Archive itself tells that no mind named this Song.
