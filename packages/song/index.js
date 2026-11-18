@@ -9,7 +9,7 @@ import { forgotten } from './lib/memories.js';
 export { forgotten, gather, memoriesOf, readMemories, recall } from './lib/memories.js';
 export { attentions, echoOf, keepThought, longestThought, monthOf, readThoughts, wornOut, writeThought, } from './lib/thoughts.js';
 export { itsAgeOf, ofItsAge, timeless } from './lib/timeless.js';
-export { longestName, nameSong, namingInstruction, plainly, Silence, wears, } from './lib/names.js';
+export { longestName, namelessOf, nameSong, namingInstruction, plainly, Silence, wears, } from './lib/names.js';
 export { longWear, wornDeep } from './lib/wear.js';
 export { stressedWords, stresses, stressOf } from './lib/stress.js';
 /** How few syllables a sparse line has, at least, beside the phrase's own count: three in five, and never fewer than three. */

@@ -21,6 +21,7 @@ export {
 export { itsAgeOf, ofItsAge, timeless } from './lib/timeless.js'
 export {
   longestName,
+  namelessOf,
   nameSong,
   namingInstruction,
   plainly,

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'bun:test'
-import { namingInstruction, nameSong, plainly, Silence, wears } from './names.js'
+import { slugOf } from 'archive'
+import { namelessOf, namingInstruction, nameSong, plainly, Silence, wears } from './names.js'
 
 /** A mind that answers, from a shelf of answers. */
 const mind = (answers: string[], host = 'http://no-mind-here.invalid') => {
@@ -44,6 +45,22 @@ describe('wears', () => {
     expect(wears('!!!')).toBe(false)
     expect(wears('Rain.')).toBe(false)
     expect(wears('It rained. Hard.')).toBe(false)
+  })
+})
+
+describe('namelessOf', () => {
+  it('names a Song by its own number', () => {
+    expect(namelessOf('934')).toBe('Nameless 934')
+  })
+
+  it('makes a name a Song can wear, whose slug is its own alone', () => {
+    expect(wears(namelessOf('934'))).toBe(true)
+    expect(slugOf(namelessOf('934'))).toBe('nameless-934')
+  })
+
+  it('is said apart, when another Song already wears the slug its number makes', () => {
+    expect(namelessOf('7', { 'nameless-7': '6' })).toBe('Nameless 7 2')
+    expect(namelessOf('7', { 'nameless-7': '6', 'nameless-7-2': '6' })).toBe('Nameless 7 3')
   })
 })
 

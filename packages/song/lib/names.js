@@ -56,6 +56,21 @@ export function wears(name) {
         return false; // a name that ends its sentence
     return slugOf(name) !== '';
 }
+/**
+ * The name a Song wears when no mind gives it one: its own number, said as
+ * a name. A Song's number is worn by that Song alone, so the slug the name
+ * makes is never another Song's — save on the day a mind has already named
+ * some other Song so, and then this name is said apart. The namelessness
+ * is the Song's lore, told by the Archive itself, and its link is made
+ * like any other's.
+ */
+export function namelessOf(song, worn = {}) {
+    const said = `Nameless ${song}`;
+    let name = said;
+    for (let apart = 2; worn[slugOf(name)] !== undefined; apart++)
+        name = `${said} ${apart}`;
+    return name;
+}
 /** The instruction the mind names a Song by. */
 export function namingInstruction(weather, { refused = '', first = false } = {}) {
     return [
