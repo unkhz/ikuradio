@@ -67,6 +67,19 @@ describe('the cache', () => {
         expect(reads.filter((s) => s === '3')).toHaveLength(2);
         expect([...(await db.held())].sort()).toEqual(['1', '2', '4', '5', '6']);
     });
+    it('finds the names of the Songs it kept without one, once the Archive has named them, and leaves the rest alone', async () => {
+        const read = async (song) => sessions[song];
+        await db.fill(airings, read);
+        expect((await db.page({}, 0, 10, now)).songs.every((s) => s.name === undefined)).toBe(true);
+        expect(await db.renamed(new Set(), read)).toBe(0);
+        const reads = [];
+        const again = async (song) => (reads.push(song), song === '2' ? { ...sessions[song], name: "A chorus coming home, the Song's 2nd birth" } : sessions[song]);
+        expect(await db.renamed(new Set(['2', '3']), again)).toBe(1);
+        expect(reads.sort()).toEqual(['2', '3']);
+        const page = await db.page({ mode: 'dorian' }, 0, 10, now);
+        expect(page.songs.find((s) => s.song === '2')).toMatchObject({ name: "A chorus coming home, the Song's 2nd birth", slug: 'a-chorus-coming-home-the-songs-2nd-birth' });
+        expect(page.songs.find((s) => s.song === '3')).not.toHaveProperty('name');
+    });
     it('pages the Songs received newest first, the one on now marked, nothing before its time', async () => {
         await db.fill(airings, async (song) => sessions[song]);
         const page = await db.page({}, 0, 3, now);

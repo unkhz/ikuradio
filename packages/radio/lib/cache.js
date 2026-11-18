@@ -126,6 +126,25 @@ export class SongCache {
         }
         return added;
     }
+    /**
+     * The Songs it holds without a name, and the Archive has named since it
+     * kept them: a Song is read as it is now, and kept again. `worn` is the
+     * set of Song numbers the Archive has named. Returns how many it named.
+     */
+    async renamed(worn, session, few = 4) {
+        const unnamed = this.db.query('select song, begins, seconds from songs where name is null').all().filter(({ song }) => worn.has(song));
+        let named = 0;
+        for (let i = 0; i < unnamed.length; i += few) {
+            await Promise.all(unnamed.slice(i, i + few).map(async (held) => {
+                const found = await session(held.song).catch(() => undefined);
+                if (!found?.name)
+                    return;
+                await this.add(cachedFrom(found, { song: held.song, begins: held.begins, seconds: held.seconds }));
+                named++;
+            }));
+        }
+        return named;
+    }
     /** The search, as a condition on `songs s` and its values: received by `now`, in the mode, heard that way. */
     where({ mode, heard }, now) {
         const parts = ['s.begins <= ?'];
