@@ -575,6 +575,8 @@ function describe(session, iteration) {
   document.getElementById('status').replaceChildren(
     span('song', `Song ${number(session.song)}`),
     span('side', ` · iteration ${number(iteration.iteration)}`),
+    // the name, written after the iteration, as the Song is known
+    ...(session.name ? [span('side', ` · ${session.name}`)] : []),
   )
   tellDetails()
 }
@@ -611,6 +613,7 @@ function tellDetails() {
   }
   const { session, iteration } = showing
   details.replaceChildren(
+    ...(session.name ? [row('name', session.name)] : []),
     row('song', `${number(session.song)}${replay ? ', from its beginning' : ', live'}`),
     row('weather', session.mood.join(' + ')),
     row('key', `${session.mode}, ${session.tempo} bpm`),
@@ -693,7 +696,7 @@ function bridgeEnds() {
 
 // The Songs. Every Song received is in the Archive, with its words; anyone
 // may leaf back through them, newest first, and tune to any one of them from
-// its beginning, at /s/<its number>. The Radio hands them out a page at a
+// its beginning, at the link its name makes. The Radio hands them out a page at a
 // time; the dialog is a window onto them, showing only the rows that fit,
 // and is moved, never scrolled: by the wheel, a finger, the keys, or the
 // buttons at its corners. The page in view is fetched, and the one after it.
@@ -844,10 +847,11 @@ function songRow(song, index) {
   // Only the Radio knows which is on; when the song holds its breath, none is,
   // and the newest is a Song like any other, to be played from its beginning
   const latest = index === 0 && song.on === true
-  const link = Object.assign(document.createElement('a'), { href: latest ? '/' : `/s/${song.song}` })
-  link.append(document.createTextNode(latest ? 'tune live' : `Song ${number(song.song)}`))
   const about = song.mood ? `${song.mood.join(' + ')} · ${Math.round(song.seconds / 60)} min` : '…'
-  link.append(span('mood', latest ? `Song ${number(song.song)} · ${about}` : about))
+  // a Song is linked by the name it was given; a Song with no name is not linked
+  const link = Object.assign(document.createElement('a'), latest ? { href: '/' } : song.slug && { href: `/s/${song.song}/${song.slug}` })
+  link.append(document.createTextNode(latest ? 'tune live' : song.name ?? `Song ${number(song.song)}`))
+  link.append(span('mood', `Song ${number(song.song)} · ${about}`))
   item.append(link)
   return item
 }
@@ -955,10 +959,12 @@ document.getElementById('open-songs').addEventListener('click', () => {
 })
 document.getElementById('close-songs').addEventListener('click', () => songsDialog.close())
 
-// A Song asked for by its number, at /s/<n>, is played from its beginning.
+// A Song asked for by its name, at /s/<its number>/<the slug its name makes>,
+// is played from its beginning. The Radio serves it only when the slug is the
+// Song's; a Song is never asked for by its number alone.
 const replayAt = (path) => {
-  const asked = /^\/s\/(\d{1,400})\/?$/.exec(path)
-  return asked && BigInt(asked[1]) > 0n ? { index: BigInt(asked[1]), number: BigInt(asked[1]).toLocaleString('en') } : undefined
+  const asked = /^\/s\/([1-9]\d{0,399})\/([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\-]{0,399})$/u.exec(path)
+  return asked ? { index: BigInt(asked[1]), number: BigInt(asked[1]).toLocaleString('en'), slug: asked[2] } : undefined
 }
 let replay = replayAt(location.pathname)
 
@@ -1000,10 +1006,13 @@ function drawAutoplay() {
 document.getElementById('autoplay').addEventListener('click', () => setAutoplay(!autoplayOn))
 
 /** What the page says of the Song it will play from its beginning, or of live. */
+let titled = true // the Radio titled the page it served
 function tellReplay() {
   document.getElementById('play').textContent = replay ? `play Song ${replay.number} from its beginning` : 'switch on'
   document.getElementById('live').hidden = !replay
-  document.title = replay ? `Song ${replay.number} · ikuradio` : 'ikuradio'
+  // the Radio titled a Song's page by its name; the page titles itself only after
+  if (titled) titled = false
+  else document.title = replay ? (replay.name ? `${replay.name} · ikuradio` : `Song ${replay.number} · ikuradio`) : 'ikuradio'
   drawAutoplay()
 }
 tellReplay()
@@ -1029,11 +1038,12 @@ function stopListening() {
   tellDetails()
 }
 
-/** Takes up Song `n` from its beginning, in this page. */
-function carryOnTo(n, { push = true } = {}) {
+/** Takes up Song `n` from its beginning, in this page, at the link its name makes. */
+function carryOnTo(n, slug, name, { push = true } = {}) {
   stopListening()
-  replay = replayAt(`/s/${n}`)
-  if (push) history.pushState(null, '', `/s/${n}`)
+  const at = `/s/${n}/${slug}`
+  replay = { ...replayAt(at), name }
+  if (push) history.pushState(null, '', at)
   tellReplay()
   listenAgain(listening.output, listening.audioContext)
 }
@@ -1057,7 +1067,7 @@ async function carryOn(song) {
       return r.json()
     })
     if (mine !== generation) return
-    if (after.song) carryOnTo(after.song)
+    if (after.song) carryOnTo(after.song, after.slug, after.name)
     else tuneLive()
   } catch {
     if (mine !== generation) return
@@ -1093,7 +1103,7 @@ addEventListener('popstate', () => {
     tellReplay()
     return
   }
-  if (asked) carryOnTo(String(asked.index), { push: false })
+  if (asked) carryOnTo(String(asked.index), asked.slug, undefined, { push: false })
   else tuneLive({ push: false })
 })
 

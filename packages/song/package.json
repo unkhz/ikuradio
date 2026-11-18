@@ -7,6 +7,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "archive": "workspace:*",
     "tools": "workspace:*",
     "zod": "^4.0.0"
   }

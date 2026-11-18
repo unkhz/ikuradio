@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { holdStudio, StudioBusy } from './lock.js'
+import { holdStudio, holdStudioFree, StudioBusy } from './lock.js'
 
 // each test has a lock of its own, so tests never meet the live Studio's
 const lockFor = (what: string) => `\0ikuradio-studio-test-${process.pid}-${what}`
@@ -50,5 +50,51 @@ describe('the Studio lock', () => {
     expect(await holdElsewhere(name, 'die')).toBe('held')
     const held = holdStudio(name)
     held.release()
+  })
+})
+
+describe('the Studio lock, asked for patiently', () => {
+  // these tests ask the lock with a stand-in, so they run where the
+  // abstract namespace cannot be bound
+  test('waits for the Studio at work to let go, and takes the lock', async () => {
+    let theStudioIsDone = false
+    let asked = 0
+    const held = await holdStudioFree(lockFor('patient'), {
+      every: 5,
+      attempt: () => {
+        asked++
+        if (!theStudioIsDone) throw new StudioBusy()
+        return { release: () => {} }
+      },
+      sleep: async () => {
+        theStudioIsDone = true
+      },
+    })
+    expect(asked).toBe(2)
+    held.release()
+  })
+
+  test('gives up when the Studio at work does not let go', async () => {
+    await expect(
+      holdStudioFree(lockFor('never'), {
+        every: 1,
+        until: 5,
+        attempt: () => {
+          throw new StudioBusy()
+        },
+        sleep: async () => {},
+      }),
+    ).rejects.toThrow('has not let go')
+  })
+
+  test('does not wait on an error that is not another Studio', async () => {
+    await expect(
+      holdStudioFree(lockFor('other'), {
+        attempt: () => {
+          throw new Error('the name cannot be bound')
+        },
+        sleep: async () => {},
+      }),
+    ).rejects.toThrow('the name cannot be bound')
   })
 })

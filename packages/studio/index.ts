@@ -12,7 +12,7 @@
 //   bun run studio
 
 import { getEnv, pieces, Sleeper } from 'tools'
-import { attentions, keepThought, readMemories, readThoughts, recall, words, writeThought } from 'song'
+import { attentions, keepThought, nameSong, readMemories, readThoughts, recall, words, writeThought } from 'song'
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
@@ -146,10 +146,36 @@ const thought = await writeThought(
   return undefined
 })
 console.log(thought ? `the mind thinks: ${thought}` : 'the mind is silent about this Song')
+// and, before it rests, the mind names the Song: what it is for, in a few
+// words, from what it says and the weather it says it in
+const taken = await store.names().catch((error: Error) => {
+  console.warn(`the Archive's names could not be read: ${error.message}`)
+  return {}
+})
+// the names already given, so the mind does not give one of them again: the
+// registry keeps the slugs the names wear, so the Sessions that wear them are read
+const given: string[] = []
+{
+  const wearing = Object.values(taken)
+  for (let i = 0; i < wearing.length; i += 8) {
+    const sessions = await Promise.all(wearing.slice(i, i + 8).map((song) => store.session(song).catch(() => undefined)))
+    for (const session of sessions) if (session?.name) given.push(session.name)
+  }
+}
+const named = await nameSong(
+  composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
+  composed[0].mood.descriptions,
+  taken,
+  given,
+).catch((error: Error) => {
+  console.warn(`the mind gave the Song no name: ${error.message}`)
+  return undefined
+})
+console.log(named ? `the Song is named: ${named}` : 'the Song has no name yet; it will be named when the mind wakes again')
 await mind.rest()
 const [first] = composed
 console.log(
-  `Song ${first.song.number}: ${describe(first.mood)}, sung by ${introduce(first.choir)}` +
+  `Song ${first.song.number}${named ? ` "${named}"` : ''}: ${describe(first.mood)}, sung by ${introduce(first.choir)}` +
     `, heard ${describePerspectives(first.perspectives)}` +
     `; ${composed.length} iterations written in ${seconds(started)}`,
 )
@@ -222,6 +248,7 @@ const session = toSession(
   (file) => loudness.get(file),
   throatName(),
   thought,
+  named,
 )
 await store.putSession(session)
 // the thought is kept only once its Song is published: a Song made again is thought about again
@@ -242,7 +269,7 @@ if (shelved !== undefined) {
   console.log(`the diary is in the Archive${shelved ? `, with ${shelved} more books on its shelf` : ''}`)
 }
 console.log(
-  `Song ${session.song} is in the Archive: ${(session.seconds / 60).toFixed(1)} minutes,` +
+  `Song ${session.song}${session.name ? ` "${session.name}"` : ''} is in the Archive: ${(session.seconds / 60).toFixed(1)} minutes,` +
     ` ${beds.size} beds and ${voices.size} takes, made in ${seconds(started)}`,
 )
 

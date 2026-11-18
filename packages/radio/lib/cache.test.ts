@@ -10,7 +10,6 @@ const t0 = Date.parse('2026-11-14T00:00:00Z')
 /** A Session as far as the cache reads one. */
 const session = (mode: string, perspectives: { slug: string; title: string; variant?: string }[] = []) =>
   ({ mode, tempo: 80, mood: ['rain', 'gears'], sound: 'oud', choir: 'a woman, with a child', perspectives }) as unknown as Session
-
 const home = { slug: 'progression-chorus-homecoming', title: 'A chorus coming home' }
 const lone = { slug: 'choir-lone', title: 'A lone singer' }
 /** Six Songs: two dorian coming home, one dorian plain, one aeolian alone and coming home, two aeolian plain. */
@@ -46,6 +45,13 @@ describe('cachedFrom', () => {
       choir: 'a woman, with a child',
       perspectives: [{ ...home, variant: 'x' }],
     })
+  })
+
+  it('keeps the name a Song was given, and the slug its name makes, or keeps neither', () => {
+    const named = { ...session('lydian'), name: "Death-machine, the Song's 2nd birth?" } as unknown as Session
+    expect(cachedFrom(named, airings[0]!)).toMatchObject({ name: "Death-machine, the Song's 2nd birth?", slug: 'death-machine-the-songs-2nd-birth' })
+    expect(cachedFrom(session('lydian'), airings[0]!)).not.toHaveProperty('name')
+    expect(cachedFrom(session('lydian'), airings[0]!)).not.toHaveProperty('slug')
   })
 })
 
@@ -136,6 +142,17 @@ describe('the cache', () => {
     await db.add(cachedFrom(session('lydian'), { song: huge, begins: now - 1000, seconds: 300 }))
     await db.add(cachedFrom(session('lydian'), { song: '99', begins: now - 1000, seconds: 300 }))
     expect((await db.page({ mode: 'lydian' }, 0, 2, now)).songs.map((s) => s.song)).toEqual([huge, '99'])
+  })
+
+  it('keeps a Song by the name it was given, and the list shows it with the slug its name makes', async () => {
+    const named = { mode: 'lydian', tempo: 80, mood: ['snow'], choir: 'a man', name: 'A long, slow thaw' } as unknown as Session
+    await db.add(cachedFrom(named, { song: '77', begins: now - 400_000, seconds: 300 }))
+    const found = (await db.page({ mode: 'lydian' }, 0, 10, now)).songs.find((s) => s.song === '77')
+    expect(found).toEqual({ song: '77', begins: now - 400_000, seconds: 300, on: false, mood: ['snow'], name: 'A long, slow thaw', slug: 'a-long-slow-thaw' })
+    // a Song that was renamed wears the new slug, and sheds the old
+    await db.add(cachedFrom({ ...named, name: 'The thaw, long and slow' } as unknown as Session, { song: '77', begins: now - 400_000, seconds: 300 }))
+    const again = (await db.page({ mode: 'lydian' }, 0, 10, now)).songs.find((s) => s.song === '77')
+    expect(again).toMatchObject({ name: 'The thaw, long and slow', slug: 'the-thaw-long-and-slow' })
   })
 
   it('keeps itself in a file, and finds its tables there again', async () => {

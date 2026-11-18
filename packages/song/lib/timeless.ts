@@ -81,22 +81,28 @@ const ofTheAge = new RegExp(
 )
 
 /**
- * Whether a line sings a word of the age: one from the list, or anything
- * shaped as only the age shapes words: a name in capitals, a word with a
- * dot or a slash in it, letters and numbers run together, a word humped in
- * the middle.
+ * The word of the age, when a line sings one: one from the list, or
+ * anything shaped as only the age shapes words: a name in capitals, a word
+ * with a dot or a slash in it, letters and numbers run together, a word
+ * humped in the middle.
  */
-export function ofItsAge(line: string): boolean {
+export function itsAgeOf(line: string): string | null {
   const words = line.match(/[\p{L}\p{N}./+#_-]+/gu) ?? []
-  return words.some((raw) => {
+  for (const raw of words) {
     const word = raw.replace(/^[.\-_]+|[.\-_]+$/g, '')
-    if (!word) return false
-    if (new RegExp(`^(?:${ofTheAge.source})$`, 'i').test(word.replace(/'s$/i, ''))) return true
-    if (/^[A-Z]{2,}$/.test(word) && word !== 'OK') return true
-    if (/[./_#+]/.test(word)) return true
-    if (/\p{L}/u.test(word) && /\p{N}/u.test(word)) return true
-    return /^\p{Ll}+\p{Lu}/u.test(word) || /^\p{Lu}\p{Ll}+\p{Lu}/u.test(word)
-  })
+    if (!word) continue
+    if (new RegExp(`^(?:${ofTheAge.source})$`, 'i').test(word.replace(/'s$/i, ''))) return word
+    if (/^[A-Z]{2,}$/.test(word) && word !== 'OK') return word
+    if (/[./_#+]/.test(word)) return word
+    if (/\p{L}/u.test(word) && /\p{N}/u.test(word)) return word
+    if (/^\p{Ll}+\p{Lu}/u.test(word) || /^\p{Lu}\p{Ll}+\p{Lu}/u.test(word)) return word
+  }
+  return null
+}
+
+/** Whether a line sings a word of the age: one from the list, or anything shaped as only the age shapes it. */
+export function ofItsAge(line: string): boolean {
+  return itsAgeOf(line) !== null
 }
 
 /** What the mind is asked, so that it sings in the words that last. */

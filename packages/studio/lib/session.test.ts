@@ -187,4 +187,17 @@ describe('toSession', () => {
     expect(bridges).toHaveLength(4)
     expect(bridges.every(({ lines }) => lines.length === 0)).toBe(true)
   })
+
+  it('keeps the name the mind gave it, when it gave one, and none when it did not', () => {
+    expect(session).not.toHaveProperty('name')
+    const named = toSession(
+      [made(0n)],
+      (file) => `id:${file}`,
+      (file) => (file.startsWith('bed-') ? { lufs: -14.2, peak: -1.1 } : { lufs: -19.5, peak: -6 }),
+      'c24945a+0123456789ab',
+      undefined,
+      'Hollow death, by boredom',
+    )
+    expect(named.name).toBe('Hollow death, by boredom')
+  })
 })

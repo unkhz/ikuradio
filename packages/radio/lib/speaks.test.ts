@@ -15,6 +15,7 @@ const page = `<html><head>
 /** A Session whose words need escaping, everywhere they can. */
 const session = {
   song: '1234',
+  name: 'Hollow death, by boredom',
   mood: ['<script>alert("rain")</script>', 'gears & cogs'],
   mode: 'dorian',
   tempo: 80,
@@ -26,13 +27,14 @@ const session = {
   iterations: [{ iteration: '1000' }, { iteration: '1001' }],
 } as unknown as Session
 
-const url = 'https://ikurad.io/s/1234'
+const url = 'https://ikurad.io/s/1234/hollow-death-by-boredom'
 
 describe('a Song page that speaks', () => {
   const told = speak(page, cardOf(session), url)
 
   it('serves the panel rows as the page writes them, marked as served, everything escaped', () => {
     const details = /<dl id="details" data-served>([\s\S]*?)<\/dl>/.exec(told)![1]!
+    expect(details).toContain('<dt>name</dt><dd>Hollow death, by boredom</dd>')
     expect(details).toContain('<dt>song</dt><dd>1,234</dd>')
     expect(details).toContain('<dt>weather</dt><dd>&lt;script&gt;alert(&quot;rain&quot;)&lt;/script&gt; + gears &amp; cogs</dd>')
     expect(details).toContain('<dt>key</dt><dd>dorian, 80 bpm</dd>')
@@ -55,7 +57,7 @@ describe('a Song page that speaks', () => {
     expect(data).toEqual({
       '@context': 'https://schema.org',
       '@type': 'MusicRecording',
-      name: 'Song 1,234',
+      name: 'Hollow death, by boredom',
       url,
       duration: 'PT8M12S',
       keywords: '<script>alert("rain")</script>, gears & cogs',
@@ -74,11 +76,12 @@ describe('a Song page that speaks', () => {
   })
 
   it('leaves out what a Session does not have', () => {
-    const plain = cardOf({ ...session, sound: undefined, perspectives: undefined, thought: undefined, iterations: [{ iteration: '7' }] } as unknown as Session)
+    const plain = cardOf({ ...session, sound: undefined, perspectives: undefined, thought: undefined, name: undefined, iterations: [{ iteration: '7' }] } as unknown as Session)
     expect(rowsOf(plain).map(([name]) => name)).toEqual(['song', 'weather', 'key', 'choir', 'length'])
     expect(rowsOf(plain).at(-1)![1]).toBe('8 minutes, iteration 7')
     const told = speak(page, plain, url)
     expect(told).toContain('<figure id="thought" hidden>')
-    expect(structured(plain, url)).toContain('"duration":"PT8M12S"')
+    expect(told).toContain('<dl id="details" data-served><dt>song</dt>')
+    expect(structured(plain, url)).toContain('"name":"Song 1,234"')
   })
 })

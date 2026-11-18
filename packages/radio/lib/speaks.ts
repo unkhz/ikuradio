@@ -1,15 +1,18 @@
 // A Song's page says what it is (plan "A Song's page says what it is"). The
-// Radio writes into /s/<n> what the knob's panel would show once the Song
-// plays: its weather, key, choir, band, how it is heard, its length, and
-// what the mind thought of it. It adds a little structured data for anyone
-// reading the page as a machine. Nothing it writes links to the Song's
-// sound. Only a Song that has aired is told about: nothing from the future.
+// Radio writes into /s/<n>/<slug> what the knob's panel would show once the
+// Song plays: its name, its weather, key, choir, band, how it is heard, its
+// length, and what the mind thought of it. It adds a little structured data
+// for anyone reading the page as a machine. Nothing it writes links to the
+// Song's sound. Only a Song that has aired is told about: nothing from the
+// future.
 
 import type { Session } from 'archive'
 
 /** What a Song's page tells of it: the little of its Session the panel shows, kept instead of the Session, which is large. */
 export type Card = {
   song: string
+  /** The name the mind gave it, punctuation and all: the first line of the panel, and the page's title. */
+  name?: string
   mood: string[]
   mode: string
   tempo: number
@@ -28,6 +31,7 @@ export function cardOf(session: Session): Card {
   const last = session.iterations?.at(-1)
   return {
     song: session.song,
+    ...(session.name ? { name: session.name } : {}),
     mood: session.mood ?? [],
     mode: session.mode,
     tempo: session.tempo,
@@ -56,6 +60,7 @@ const minutes = (seconds: number) => {
 export function rowsOf(card: Card): [string, string][] {
   const { iterations } = card
   return [
+    ...(card.name ? [['name', card.name] as [string, string]] : []),
     ['song', number(card.song)],
     ['weather', card.mood.join(' + ')],
     ['key', `${card.mode}, ${card.tempo} bpm`],
@@ -87,7 +92,7 @@ export function structured(card: Card, url: string): string {
   const data = {
     '@context': 'https://schema.org',
     '@type': 'MusicRecording',
-    name: `Song ${number(card.song)}`,
+    name: card.name ?? `Song ${number(card.song)}`,
     url,
     duration: duration(card.seconds),
     keywords: card.mood.join(', '),
