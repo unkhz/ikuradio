@@ -153,15 +153,12 @@ const taken = await store.names().catch((error: Error) => {
   return {}
 })
 // the names already given, so the mind does not give one of them again: the
-// registry keeps the slugs the names wear, so the Sessions that wear them are read
-const given: string[] = []
-{
-  const wearing = Object.values(taken)
-  for (let i = 0; i < wearing.length; i += 8) {
-    const sessions = await Promise.all(wearing.slice(i, i + 8).map((song) => store.session(song).catch(() => undefined)))
-    for (const session of sessions) if (session?.name) given.push(session.name)
-  }
-}
+// registry says each of them, as the slug the name wears — short of the
+// name's punctuation and its case, near enough for an echo. One read of the
+// registry stands where a Session was read for every Song the Archive
+// holds: a hundred megabytes a Song at best, and when the Archive was slow,
+// most of a Song's making, with the mind held awake through all of it
+const given = Object.keys(taken).map((slug) => slug.replaceAll('-', ' '))
 const named =
   (await nameSong(
     composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
