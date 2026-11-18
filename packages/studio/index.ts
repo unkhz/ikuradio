@@ -12,7 +12,7 @@
 //   bun run studio
 
 import { getEnv, pieces, Sleeper } from 'tools'
-import { attentions, keepThought, nameSong, readMemories, readThoughts, recall, words, writeThought } from 'song'
+import { attentions, keepThought, namelessOf, nameSong, readMemories, readThoughts, recall, words, writeThought } from 'song'
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
@@ -162,20 +162,25 @@ const given: string[] = []
     for (const session of sessions) if (session?.name) given.push(session.name)
   }
 }
-const named = await nameSong(
-  composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
-  composed[0].mood.descriptions,
-  taken,
-  given,
-).catch((error: Error) => {
-  console.warn(`the mind gave the Song no name: ${error.message}`)
-  return undefined
-})
-console.log(named ? `the Song is named: ${named}` : 'the Song has no name yet; it will be named when the mind wakes again')
+const named =
+  (await nameSong(
+    composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
+    composed[0].mood.descriptions,
+    taken,
+    given,
+  ).catch((error: Error) => {
+    console.warn(`the mind gave the Song no name: ${error.message}`)
+    return undefined
+  })) ??
+  // a Song no mind names is named by its own number: the namelessness is
+  // its lore, its slug is its own alone, and its link is made like any
+  // other's, for the Archive holds no Song without an address
+  namelessOf(`${composed[0].song.number}`, taken)
+console.log(`the Song is named: ${named}`)
 await mind.rest()
 const [first] = composed
 console.log(
-  `Song ${first.song.number}${named ? ` "${named}"` : ''}: ${describe(first.mood)}, sung by ${introduce(first.choir)}` +
+  `Song ${first.song.number} "${named}": ${describe(first.mood)}, sung by ${introduce(first.choir)}` +
     `, heard ${describePerspectives(first.perspectives)}` +
     `; ${composed.length} iterations written in ${seconds(started)}`,
 )

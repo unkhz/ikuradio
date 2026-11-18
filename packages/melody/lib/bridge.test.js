@@ -1,0 +1,87 @@
+import { describe, expect, it } from 'bun:test';
+import { bridgeForm, journey } from './bridge.js';
+import { degreeToMidi, modes } from './scale.js';
+import { chorusHook, verseWalk } from './hooks.js';
+const key = { tonic: 57, mode: modes.aeolian };
+const midi = (degree) => degreeToMidi(degree, key);
+const total = (notes) => notes.reduce((sum, [, b]) => sum + b, 0);
+const longest = (notes) => Math.max(...notes.map(([, b]) => b));
+describe('journey', () => {
+    const intoChorus = journey({ from: verseWalk.at(-1), fromKey: key, to: chorusHook[0], toKey: key, beats: 16 });
+    const intoVerse = journey({ from: chorusHook.at(-1), fromKey: key, to: verseWalk[0], toKey: key, beats: 16 });
+    it('lasts the whole bridge', () => {
+        expect(total(intoChorus)).toBe(16);
+        expect(total(intoVerse)).toBe(16);
+    });
+    it('is music, not a note held: it moves in every bar', () => {
+        for (const notes of [intoChorus, intoVerse]) {
+            expect(notes.length).toBeGreaterThanOrEqual(10);
+            expect(longest(notes)).toBeLessThanOrEqual(4);
+        }
+    });
+    it('moves even between parts that end and begin on the same note', () => {
+        // the chorus ends on the tonic and the verse begins on it
+        expect(new Set(intoVerse.map(([m]) => m)).size).toBeGreaterThanOrEqual(5);
+    });
+    it('begins with a farewell: the cadence the part before ended on', () => {
+        expect(intoChorus.slice(0, 3).map(([m]) => m)).toEqual([-1, -2, 0].map(midi));
+        expect(intoVerse.slice(0, 3).map(([m]) => m)).toEqual([1, 2, 0].map(midi));
+    });
+    it('foreshadows the head of the coming part somewhere it is not, then nearer', () => {
+        // the chorus begins 4 5 4 3: heard a fourth below, then a step below
+        expect(intoChorus.slice(3, 7).map(([m]) => m)).toEqual([1, 2, 1, 0].map(midi));
+        expect(intoChorus.slice(7, 11).map(([m]) => m)).toEqual([3, 4, 3, 2].map(midi));
+        // the verse begins 0 1 2 1: heard a fifth above, then a third above
+        expect(intoVerse.slice(3, 7).map(([m]) => m)).toEqual([4, 5, 6, 5].map(midi));
+        expect(intoVerse.slice(7, 11).map(([m]) => m)).toEqual([2, 3, 4, 3].map(midi));
+    });
+    it('ends leaning on the step beside the coming first note, for the part to resolve', () => {
+        expect(intoChorus.at(-1)[0]).toBe(midi(3));
+        expect(intoVerse.at(-1)[0]).toBe(midi(1));
+        expect(intoChorus.at(-1)[1]).toBe(2);
+    });
+    it('leads into a new key when the part to come is in one', () => {
+        const lydian = { tonic: 57, mode: modes.lydian };
+        const into = journey({ from: verseWalk.at(-1), fromKey: key, to: chorusHook[0], toKey: lydian, beats: 16 });
+        const tones = new Set(Array.from({ length: 36 }, (_, d) => degreeToMidi(d - 14, lydian)));
+        expect(into.slice(3).every(([m]) => tones.has(m))).toBe(true);
+    });
+    it('keeps its shape when it is longer or shorter', () => {
+        const long = journey({ from: verseWalk.at(-1), fromKey: key, to: chorusHook[0], toKey: key, beats: 24 });
+        expect(total(long)).toBe(24);
+        expect(long.map(([m]) => m)).toEqual(intoChorus.map(([m]) => m));
+    });
+});
+describe('the walking bridge', () => {
+    const from = verseWalk.at(-1);
+    const to = chorusHook[0];
+    const notes = journey({ from, fromKey: key, to, toKey: key, beats: 16, form: 'walk' });
+    it('lasts the whole bridge', () => {
+        expect(total(notes)).toBe(16);
+    });
+    it('begins with the echo of where the part before ended', () => {
+        expect(notes[0][0]).toBe(midi(from.notes[0][0]));
+    });
+    it('walks up, a step at a time, and arrives on the first note of the part to come', () => {
+        const walked = notes.slice(-4).map(([m]) => m);
+        expect(walked).toEqual([1, 2, 3, 4].map(midi));
+    });
+});
+describe('which bridge a Song makes', () => {
+    const verseEnd = verseWalk.at(-1);
+    const chorusEnd = chorusHook.at(-1);
+    it('walks in an odd Song, where the parts lie far apart', () => {
+        expect(bridgeForm('1', verseEnd, chorusHook[0])).toBe('walk');
+        expect(bridgeForm(19n, verseEnd, chorusHook[0])).toBe('walk');
+    });
+    it('foreshadows in an even Song', () => {
+        expect(bridgeForm('2', verseEnd, chorusHook[0])).toBe('foreshadow');
+    });
+    it('never walks where there is nowhere to walk to', () => {
+        expect(bridgeForm('1', chorusEnd, verseWalk[0])).toBe('foreshadow');
+    });
+    it('foreshadows when it does not know its Song', () => {
+        expect(bridgeForm(undefined, verseEnd, chorusHook[0])).toBe('foreshadow');
+    });
+});
+//# sourceMappingURL=bridge.test.js.map

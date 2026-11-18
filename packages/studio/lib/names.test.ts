@@ -1,11 +1,10 @@
-// Naming the kept: each name is written as it comes, each silence is told,
-// and the run stops when the silence goes on.
+// Naming the kept: each name is written as it comes, and each Song that is
+// listed, and not there, is told, and the run goes on to the end.
 
 import { describe, expect, it } from 'bun:test'
 import { slugOf, type ArchiveStore, type Session } from 'archive'
-import { Silence } from 'song'
 
-import { nameKept, verifyNamed, wordsOf } from './names.js'
+import { nameKept, verifyNamed } from './names.js'
 
 const session = (song: string, name?: string): Session =>
   ({
@@ -23,87 +22,32 @@ const store = (sessions: Session[], worn: Record<string, string> = {}, onPut?: (
     putSession: async () => onPut?.(),
   }) as unknown as ArchiveStore
 
-describe('wordsOf', () => {
-  it('gathers the words of the first iteration, line by line', () => {
-    expect(wordsOf(session('7'))).toBe('the 7 words are sung')
-  })
-})
-
 describe('nameKept', () => {
-  it('names every Song without a name, and writes each name to the Archive', async () => {
+  it('names every Song without a name by its own number, and writes each name to the Archive', async () => {
     const kept = [session('1'), session('2'), session('3')]
-    const names = ['A name', 'B name', 'C name']
-    let asked = 0
     let written = 0
-    const { named, unmarked } = await nameKept(store(kept, {}, () => written++), {
-      quiet: true,
-      name: async () => names[asked++],
-    })
+    const { named, missing } = await nameKept(store(kept, {}, () => written++), { quiet: true })
     expect(named).toBe(3)
-    expect(unmarked).toEqual([])
+    expect(missing).toEqual([])
     expect(written).toBe(3)
-    expect(kept.map(({ name }) => name)).toEqual(names)
+    expect(kept.map(({ name }) => name)).toEqual(['Nameless 1', 'Nameless 2', 'Nameless 3'])
   })
 
   it('leaves the Songs that already have a name', async () => {
     const kept = [session('1', 'Kept'), session('2')]
-    let asked = 0
-    const { named } = await nameKept(store(kept), {
-      quiet: true,
-      name: async () => {
-        asked++
-        return 'A name'
-      },
-    })
+    const { named } = await nameKept(store(kept), { quiet: true })
     expect(named).toBe(1)
-    expect(asked).toBe(1)
-    expect(kept[1].name).toBe('A name')
+    expect(kept[0].name).toBe('Kept')
+    expect(kept[1].name).toBe('Nameless 2')
   })
 
-  it('tells of each Song that is not named, and goes on, though the mind answers and no answer is a name', async () => {
-    const kept = [session('1'), session('2'), session('3'), session('4')]
-    let asked = 0
-    const { named, unmarked } = await nameKept(store(kept), {
-      quiet: true,
-      name: async () => {
-        asked++
-        return undefined
-      },
-    })
-    expect(named).toBe(0)
-    expect(unmarked).toEqual(['1', '2', '3', '4'])
-    expect(asked).toBe(4)
-  })
-
-  it('stops when the mind falls silent for three Songs in a row', async () => {
-    const kept = [session('1'), session('2'), session('3'), session('4')]
-    let asked = 0
-    await expect(
-      nameKept(store(kept), {
-        quiet: true,
-        name: async () => {
-          asked++
-          throw new Silence('the mind fell silent')
-        },
-      }),
-    ).rejects.toThrow(/three Songs in a row/)
-    expect(asked).toBe(3)
-  })
-
-  it('counts the silences anew, when a name comes between them', async () => {
-    const kept = [session('1'), session('2'), session('3'), session('4'), session('5'), session('6')]
-    let asked = 0
-    await expect(
-      nameKept(store(kept), {
-        quiet: true,
-        name: async () => {
-          asked++
-          if (asked === 3) return 'A name'
-          throw new Silence('the mind fell silent')
-        },
-      }),
-    ).rejects.toThrow(/three Songs in a row/)
-    expect(asked).toBe(6)
+  it('names a Song apart, when another Song already wears the slug its number makes', async () => {
+    const kept = [session('7')]
+    const worn: Record<string, string> = {}
+    worn[slugOf('Nameless 7')] = '6'
+    const { named } = await nameKept(store(kept, worn), { quiet: true })
+    expect(named).toBe(1)
+    expect(kept[0].name).toBe('Nameless 7 2')
   })
 
   it('tells of a Song that is listed, and not there, and goes on', async () => {
@@ -114,15 +58,10 @@ describe('nameKept', () => {
       session: async (song: string) => kept.find(({ song: n }) => n === song),
       putSession: async () => {},
     } as unknown as ArchiveStore
-    let asked = 0
-    const { named, unmarked, missing } = await nameKept(listed, {
-      quiet: true,
-      name: async () => `a name ${asked++}`,
-    })
+    const { named, missing } = await nameKept(listed, { quiet: true })
     expect(named).toBe(2)
-    expect(unmarked).toEqual([])
     expect(missing).toEqual(['2'])
-    expect(asked).toBe(2)
+    expect(kept.map(({ name }) => name)).toEqual(['Nameless 1', 'Nameless 3'])
   })
 
   it('asks the Archive only for the Songs that wear no slug', async () => {
@@ -140,31 +79,9 @@ describe('nameKept', () => {
       },
       putSession: async () => {},
     } as unknown as ArchiveStore
-    let named = 0
-    await nameKept(listing, { quiet: true, name: async () => `a name ${++named}` })
+    const { named } = await nameKept(listing, { quiet: true })
     expect(named).toBe(3)
     expect(asked).toEqual(['1', '2', '3'])
-  })
-
-  it('tells the mind the names already worn, from the slugs that wear them', async () => {
-    const kept = [session('1')]
-    const worn: Record<string, string> = {}
-    worn[slugOf('Hollow Death')] = '2'
-    const listing = {
-      index: async () => ({ songs: kept.map(({ song }) => song) }),
-      names: async () => worn,
-      session: async (song: string) => kept.find(({ song: n }) => n === song),
-      putSession: async () => {},
-    } as unknown as ArchiveStore
-    let seen: readonly string[] = []
-    await nameKept(listing, {
-      quiet: true,
-      name: async (_words, _weather, _taken, own) => {
-        seen = own ?? []
-        return undefined
-      },
-    })
-    expect(seen).toContain(slugOf('Hollow Death').replaceAll('-', ' '))
   })
 })
 

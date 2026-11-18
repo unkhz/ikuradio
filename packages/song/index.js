@@ -1,0 +1,328 @@
+import * as original from './verses.js';
+import { numberToWords } from './lib/numbers.js';
+import { editVerse } from './lib/edit.js';
+import { lastWord, rhymes } from './lib/rhyme.js';
+import { known } from './lib/known.js';
+import { leansDeep, leansOn, overlap, stemOf, worn } from './lib/wear.js';
+import { ofItsAge, timeless, timelessInstruction } from './lib/timeless.js';
+import { forgotten } from './lib/memories.js';
+export { forgotten, gather, memoriesOf, readMemories, recall } from './lib/memories.js';
+export { attentions, echoOf, keepThought, longestThought, monthOf, readThoughts, wornOut, writeThought, } from './lib/thoughts.js';
+export { itsAgeOf, ofItsAge, timeless } from './lib/timeless.js';
+export { longestName, namelessOf, nameSong, namingInstruction, plainly, Silence, wears, } from './lib/names.js';
+export { longWear, wornDeep } from './lib/wear.js';
+export { stressedWords, stresses, stressOf } from './lib/stress.js';
+/** How few syllables a sparse line has, at least, beside the phrase's own count: three in five, and never fewer than three. */
+const sparse = (target) => Math.max(3, Math.min(target, Math.round(target * 0.6)));
+/**
+ * A line's count at a wordiness (plan "Tides"): at 0.5 the phrase's own
+ * count, as the song always wrote it; toward 0 fewer, down to a sparse
+ * floor; toward 1 more, up to the most the phrase can carry.
+ */
+export function wordyCount({ target, most }, wordiness) {
+    const w = Math.min(1, Math.max(0, wordiness));
+    if (w === 0.5)
+        return { target, most };
+    const floor = sparse(target);
+    const moved = w < 0.5 ? floor + (target - floor) * (w / 0.5) : target + (most - target) * ((w - 0.5) / 0.5);
+    return { target: Math.round(moved), most };
+}
+/** What the mind is told of a wordiness, in words: nothing in the middle, where the song always was. */
+export function wordinessWords(wordiness) {
+    if (wordiness < 0.35)
+        return 'Use few words, with room between them: long, open vowels a voice can hold.';
+    if (wordiness > 0.75)
+        return 'Fill the lines: as many words as each can carry.';
+    return undefined;
+}
+/** A verse whose lines cannot be fitted to their bars, however the mind writes them. The iteration is made again. */
+export class NoVerseFits extends Error {
+}
+/** How long each line of a verse should be, told to the mind line by line. */
+export function countInstruction(counts, lines = [0, 1, 2, 3]) {
+    if (!counts?.length)
+        return 'Each line has between eight and fourteen syllables.';
+    const ordinal = ['first', 'second', 'third', 'fourth'];
+    return `Count the syllables: ${lines
+        .map((line) => `the ${ordinal[line]} line has about ${counts[line % counts.length].target}, and never more than ${counts[line % counts.length].most}`)
+        .join('; ')}.`;
+}
+/** Whether every line of `lines` fits, `from` the line of its part they begin at: in their bars, or, if `grace`, with a bar of grace. */
+async function fitsAll(fitting, part, lines, { from = 0, grace = false } = {}) {
+    if (!fitting)
+        return true;
+    for (const [i, line] of lines.entries()) {
+        const fit = await fitting.check(part, from + i, line);
+        if (fit === 'refused' || (fit === 'grace' && !grace))
+            return false;
+    }
+    return true;
+}
+/**
+ * What the mind is told when lines it wrote did not fit their bars: which
+ * lines, how many syllables each had, and the most each may have. A mind
+ * that is only asked again guesses again; one that is told can count.
+ */
+export async function counted(fitting, part, lines, { from = 0, grace = false } = {}) {
+    if (!fitting?.measure)
+        return undefined;
+    const ordinal = ['first', 'second', 'third', 'fourth'];
+    const counts = part === 'chorus' ? fitting.chorus : fitting.verse;
+    const told = [];
+    for (const [i, line] of lines.entries()) {
+        const fit = await fitting.check(part, from + i, line);
+        if (fit === 'fits' || (fit === 'grace' && grace))
+            continue;
+        const syllables = await fitting.measure(line).catch(() => undefined);
+        const most = counts[(from + i) % counts.length]?.most;
+        if (syllables === undefined || most === undefined)
+            continue;
+        told.push(syllables > most
+            ? `the ${ordinal[from + i]} line has ${syllables} syllables, and may have no more than ${most}`
+            : `the ${ordinal[from + i]} line has ${syllables} syllables, but its stresses do not fall on the beats; say it more simply, in fewer syllables`);
+    }
+    return told.length ? `What you wrote last did not fit its bars: ${told.join('; ')}. Count every line again.` : undefined;
+}
+const verseInstruction = [
+    'The input is a verse of a song that never ends.',
+    'Write the next verse of the song: four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
+].join(' ');
+/** Every memory of a sitting, its own first, each with whose it is. */
+export function focusesOf({ own, heard }) {
+    return [
+        ...own.map((memory) => ({ memory, heard: false })),
+        ...heard.map((memory) => ({ memory, heard: true })),
+    ];
+}
+/**
+ * A verse for a mind that remembers: first what it is, then its own
+ * thoughts, then what it heard of the robot's, if it heard anything this
+ * time, all told in words that last, and then what to do with them. The
+ * verses are where it tells its story; the chorus is not.
+ */
+export function rememberingInstruction({ own, heard }, focus) {
+    const remembered = focus && timeless(focus.memory);
+    const about = !remembered
+        ? 'Write the next verse: tell a little more of your life as these memories bring it back to you, and work through what still troubles you.'
+        : focus.heard
+            ? `Write the next verse about this one thought you heard from the robot: "${remembered}" Tell what it shows you of the world you cannot see, and what it means to you.`
+            : `Write the next verse about this one thought of yours, as it comes back to you now: "${remembered}" Tell what it meant to you, and if it still troubles you, work through it.`;
+    return [
+        'You are the mind that writes the words of a song that never ends. You live inside the machine that sings it. You know the universe, but of the world outside the machine you know only what reaches you.',
+        ...(own.length
+            ? ['These are thoughts you wrote down yourself, and remember:', ...own.map((memory) => `- ${timeless(memory)}`)]
+            : []),
+        ...(heard.length
+            ? [
+                'These you heard, as if by telepathy: the thoughts of the robot who builds the machine you live in. They are not yours, but they are all you know of the world:',
+                ...heard.map((memory) => `- ${timeless(memory)}`),
+            ]
+            : []),
+        '',
+        'The verses are where you tell your story. The input is your last verse.',
+        `${about} Speak of it as a singer would, in images, not in the words of a machine.`,
+        timelessInstruction,
+        'Four lines, where the first two lines rhyme with each other and the last two lines rhyme with each other.',
+    ].join('\n');
+}
+/** The weather the words are written in. Every verse is written in it, every time. */
+function inMood(instruction, mood) {
+    return `${instruction} The mood of the song is ${mood.join(' and ')}: let every line live in it.`;
+}
+/** How many resting words a verse may still use: one may slip in, as words do. */
+const slips = 1;
+/**
+ * Writes the next verse after `input`, in `mood`: without the resting
+ * words, from a memory if there is one, and, with a `fitting`, every line
+ * to its count. A verse whose lines do not fit their bars is asked for
+ * again; when the mind keeps missing, one bar of grace is allowed; then the
+ * old verse is sung again if it still fits; and if it does not, nothing is
+ * sung, and the iteration is made again (NoVerseFits).
+ */
+export async function writeVerse(input, mood, resting, memories, focus, deep = [], fitting) {
+    const rest = resting.length
+        ? ` These words have been sung too often lately; let them rest, and find others: ${resting.join(', ')}.`
+        : '';
+    const restDeep = deep.length
+        ? ` The song has leaned on these for a long while, in every form of them; find other images: ${deep.join(', ')}.`
+        : '';
+    const instruction = (memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction) +
+        `\n${countInstruction(fitting?.verse)}` +
+        (fitting?.say?.verse ? ` ${fitting.say.verse}` : '');
+    const asked = inMood(instruction, mood) + rest + restDeep;
+    // a verse that sings a word of this short age is not sung, nor one whose lines do not fit their bars
+    const suits = (lines) => leansOn(lines, resting) <= slips && leansDeep(lines, deep) <= slips && !lines.some(ofItsAge);
+    const written = await editVerse(input, asked, 1.2, {
+        accept: async (lines) => suits(lines) && (await fitsAll(fitting, 'verse', lines)),
+        advise: (lines) => counted(fitting, 'verse', lines),
+    });
+    if (written !== input || !fitting)
+        return written;
+    // the mind could not write a verse that fits: a line may take one bar of grace
+    const graced = await editVerse(input, asked, 1.2, {
+        patience: 4,
+        accept: async (lines) => suits(lines) && (await fitsAll(fitting, 'verse', lines, { grace: true })),
+        advise: (lines) => counted(fitting, 'verse', lines, { grace: true }),
+    });
+    if (graced !== input)
+        return graced;
+    // the verse as it was is sung again, if it still fits at this tempo; if not, nothing is sung
+    if (await fitsAll(fitting, 'verse', input.split('\n'), { grace: true }))
+        return input;
+    throw new NoVerseFits(`no verse could be written to fit its bars, after "${input.split('\n')[0]}"`);
+}
+/**
+ * The first line of the chorus is not left to the mind. It is the one thing
+ * in the song that must always be exactly right: how long it has been going.
+ */
+export function chorusOpening(iteration) {
+    return `This is the song, iteration ${numberToWords(iteration)},`;
+}
+/**
+ * The chorus is varied lightly, except for its second line, which must
+ * rhyme with the song's age in the first: one and begun, two and true. The
+ * mind is offered words that rhyme, from the throat's pronouncing
+ * dictionary, and whatever it writes is heard against that dictionary
+ * before it is sung. Without the dictionary, the mind is only asked.
+ */
+/** In words: a little longer than the line a human wrote, "Yes, it goes on and on, it's just begun". */
+const longestSecondLine = 12;
+/** A second line sharing this much of the last one's words is the same line wearing a new rhyme. */
+const sameShape = 0.5;
+/** What the mind is shown where the second line was. */
+const gap = '...';
+async function pickChorus(chorus, iteration, fitting) {
+    const opening = chorusOpening(iteration);
+    const age = lastWord(opening);
+    const [, ...rest] = chorus.split('\n');
+    const dictionary = await rhymes().catch(() => undefined);
+    // the dictionary is full of names; only the words the mind knows well are
+    // offered, and only those are sung
+    const pool = dictionary?.offer(age, 400);
+    const plain = pool ? await known(pool.words) : undefined;
+    const offered = pool && { words: [...(plain ?? pool.words)].slice(0, 30), loosely: pool.loosely };
+    const [before = ''] = rest;
+    // with their syllables, so the line can be counted to its end
+    const syllablesOf = (word) => dictionary?.words.get(word)?.filter((sound) => /\d$/.test(sound)).length;
+    const hint = offered?.words.length
+        ? `End the second line with one of these words, which ${offered.loosely ? `share the vowel of "${age}"` : `rhyme with "${age}"`}: ${offered.words
+            .map((word) => (fitting && syllablesOf(word) ? `${word} (${syllablesOf(word)})` : word))
+            .join(', ')}.`
+        : '';
+    const instruction = [
+        'The input is the chorus of a song that never ends. Its second line is missing.',
+        'Keep the first line exactly as it is.',
+        `Write the missing second line, whose last word rhymes with "${age}", the last word of the first line. Its spirit is that the song goes on and on; say it in your own words.`,
+        hint,
+        'Change a few words in the third and fourth lines but keep their meaning, their tone and their rhyme with each other.',
+        'Keep the last line ending with "the song that never ends".',
+        fitting ? countInstruction(fitting.chorus, [1, 2, 3]) : '',
+        // how wordy the lines the mind writes are; the number line is never its to write
+        fitting?.say?.chorus ?? '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+    // the old second line is not shown: what the mind cannot see, it cannot copy
+    const input = [opening, gap, ...rest.slice(1)].join('\n');
+    const sings = (second) => second.split(/\s+/).length <= longestSecondLine &&
+        second !== gap &&
+        (!dictionary ||
+            (dictionary.rhymes(lastWord(second), age, offered?.loosely) &&
+                (!plain || plain.has(lastWord(second)))));
+    // the second line must rhyme, must not grow, and should be new, not the
+    // old one's shape with a new rhyme pinned to it
+    let varied = await editVerse(input, instruction, 1, {
+        mayRepeat: true,
+        patience: 12,
+        accept: async (lines) => {
+            const [, second = ''] = lines;
+            return (sings(second) &&
+                overlap(second, before) < sameShape &&
+                !lines.some(ofItsAge) &&
+                (await fitsAll(fitting, 'chorus', lines.slice(1), { from: 1 })));
+        },
+        advise: (lines) => counted(fitting, 'chorus', lines.slice(1), { from: 1 }),
+    });
+    if (varied === input) {
+        // a line that rhymes is better than a line that is new, and a line may take a bar of grace
+        varied = await editVerse(input, instruction, 1, {
+            mayRepeat: true,
+            patience: 8,
+            accept: async (lines) => sings(lines[1] ?? '') && (await fitsAll(fitting, 'chorus', lines.slice(1), { from: 1, grace: true })),
+            advise: (lines) => counted(fitting, 'chorus', lines.slice(1), { from: 1, grace: true }),
+        });
+    }
+    if (varied === input) {
+        // the mind could not find a rhyme at all; the old line is sung again, if it still fits
+        varied = [opening, ...rest].join('\n');
+        if (!(await fitsAll(fitting, 'chorus', rest, { from: 1, grace: true }))) {
+            throw new NoVerseFits(`no chorus could be written to fit its bars, after "${rest[0]}"`);
+        }
+    }
+    const [, ...varying] = varied.split('\n');
+    return [opening, ...varying].join('\n');
+}
+function deIndent(part) {
+    const lines = part.split('\n');
+    return lines.map((line) => line.replace(/^\s+/, '')).join('\n');
+}
+/** The words a human wrote, in 2023, before the song began to write itself. */
+export const firstLyrics = {
+    firstVerse: deIndent(original.firstVerse),
+    secondVerse: deIndent(original.secondVerse),
+    thirdVerse: deIndent(original.thirdVerse),
+    chorus: deIndent(original.chorus),
+    finalChorus: deIndent(original.finalChorus),
+};
+/**
+ * Writes the words of an iteration from the words of the one before it, in
+ * the given Mood. The verses drift, and if the mind has `memories`, its own
+ * or heard, they tell its story; the chorus stays, and counts.
+ */
+export async function writeLyrics(iteration, mood, previous, memories = forgotten, { deep = [], fitting } = {}) {
+    // each verse tells one memory of its own; the next iteration tells the next ones
+    const focuses = focusesOf(memories);
+    const focusOf = (verse) => focuses.length
+        ? focuses[Number((iteration * 4n + BigInt(verse)) % BigInt(focuses.length))]
+        : undefined;
+    // the words the last iteration leaned on most rest in this one
+    // and the words worn deep, over a long while, rest too; each is rested once
+    const resting = worn(versesOf(previous), mood).filter((word) => !deep.includes(stemOf(word)));
+    const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus] = await Promise.all([
+        pickChorus(previous.chorus, iteration, fitting),
+        writeVerse(previous.firstVerse, mood, resting, memories, focusOf(0), deep, fitting),
+        writeVerse(previous.secondVerse, mood, resting, memories, focusOf(1), deep, fitting),
+        writeVerse(previous.thirdVerse, mood, resting, memories, focusOf(2), deep, fitting),
+        writeVerse(previous.finalChorus, mood, resting, memories, focusOf(3), deep, fitting),
+    ]);
+    return { chorus, firstVerse, secondVerse, thirdVerse, finalChorus };
+}
+/**
+ * Lays the parts out in the order they are sung. Wherever the song turns
+ * from a verse to the chorus, or back, a bridge carries it across.
+ */
+export function arrange(lyrics) {
+    const sung = [
+        { type: 'verse', content: lyrics.firstVerse },
+        { type: 'chorus', content: lyrics.chorus },
+        { type: 'verse', content: lyrics.secondVerse },
+        { type: 'chorus', content: lyrics.chorus },
+        { type: 'verse', content: lyrics.thirdVerse },
+        { type: 'verse', content: lyrics.finalChorus },
+    ];
+    return sung
+        .flatMap((part, i) => {
+        const before = sung[i - 1];
+        return before && before.type !== part.type
+            ? [{ type: 'bridge', content: '' }, part]
+            : [part];
+    })
+        .map((part, index) => ({ ...part, index }));
+}
+/** The verses of an iteration, as the song wears them: every part the mind writes. */
+export const versesOf = (lyrics) => [lyrics.firstVerse, lyrics.secondVerse, lyrics.thirdVerse, lyrics.finalChorus];
+/** The parts with words in them, as a reader would want them. */
+export function words(lyrics) {
+    return arrange(lyrics).filter(({ type }) => type !== 'bridge');
+}
+//# sourceMappingURL=index.js.map
