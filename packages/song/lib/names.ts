@@ -139,7 +139,7 @@ export async function nameSong(
         const keptNames = echoes.length === 1 ? 'kept name' : 'kept names'
         refused = `The name "${name}" sings the ${keptNames} ${sung} too close; give this song a name of its own that says the same in other words, from the song's own words.`
       } else if (name && itsAgeOf(name)) {
-        refused = `The word "${itsAgeOf(name)}" in that name is shaped as only this age shapes it; give the name words that will still be true in a hundred years.`
+        refused = `The word "${itsAgeOf(name)}" in that name is shaped as only this age shapes its tools; a name is said, not written for a tool. Give it words as they are said, set apart, that will still be true in a hundred years.`
       } else {
         refused = 'That is not a name the song can wear; give it a name of its own.'
       }

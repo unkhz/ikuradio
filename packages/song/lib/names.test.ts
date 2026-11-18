@@ -179,7 +179,7 @@ describe('nameSong', () => {
       const name = await nameSong('a beat once faltered, in its stead a pause', ['stardust', 'cicadas'])
       expect(name).toBe('A faltering beat')
       expect(asked).toBe(2)
-      expect(instructions[1]).toContain('The word "StardustCicadas" in that name is shaped as only this age shapes it')
+      expect(instructions[1]).toContain('The word "StardustCicadas" in that name is shaped as only this age shapes its tools')
     } finally {
       globalThis.fetch = realFetch
       delete process.env.MIND_HOST
