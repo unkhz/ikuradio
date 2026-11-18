@@ -1,0 +1,153 @@
+// The cache is tested as the Radio keeps it, in SQLite, a new one in memory
+// for every test.
+import { beforeEach, describe, expect, it } from 'bun:test';
+import { cachedFrom, modeName, schemaVersion, SongCache } from './cache.js';
+const minute = 60_000;
+const t0 = Date.parse('2026-11-14T00:00:00Z');
+/** A Session as far as the cache reads one. */
+const session = (mode, perspectives = []) => ({ mode, tempo: 80, mood: ['rain', 'gears'], sound: 'oud', choir: 'a woman, with a child', perspectives });
+const home = { slug: 'progression-chorus-homecoming', title: 'A chorus coming home' };
+const lone = { slug: 'choir-lone', title: 'A lone singer' };
+/** Six Songs: two dorian coming home, one dorian plain, one aeolian alone and coming home, two aeolian plain. */
+const sessions = {
+    '1': session('aeolian'),
+    '2': session('dorian', [home]),
+    '3': session('dorian'),
+    '4': session('aeolian', [lone, home]),
+    '5': session('dorian', [home]),
+    '6': session('aeolian'),
+};
+const airings = Object.keys(sessions).map((song, i) => ({ song, begins: t0 + i * 8 * minute, seconds: 480 }));
+const now = t0 + 5 * 8 * minute + minute;
+describe('modeName', () => {
+    it('names a mode as music does, and one it does not know as written', () => {
+        expect(modeName('dorian')).toBe('Dorian');
+        expect(modeName('harmonic')).toBe('Harmonic minor');
+        expect(modeName('hypodorian')).toBe('Hypodorian');
+    });
+});
+describe('cachedFrom', () => {
+    it('keeps the metadata of a Song and its airing, and the ways it was heard', () => {
+        expect(cachedFrom(session('dorian', [{ ...home, variant: 'x' }]), airings[0])).toEqual({
+            song: '1',
+            begins: t0,
+            seconds: 480,
+            mode: 'dorian',
+            tempo: 80,
+            mood: ['rain', 'gears'],
+            sound: 'oud',
+            choir: 'a woman, with a child',
+            perspectives: [{ ...home, variant: 'x' }],
+        });
+    });
+    it('keeps the name a Song was given, and the slug its name makes, or keeps neither', () => {
+        const named = { ...session('lydian'), name: "Death-machine, the Song's 2nd birth?" };
+        expect(cachedFrom(named, airings[0])).toMatchObject({ name: "Death-machine, the Song's 2nd birth?", slug: 'death-machine-the-songs-2nd-birth' });
+        expect(cachedFrom(session('lydian'), airings[0])).not.toHaveProperty('name');
+        expect(cachedFrom(session('lydian'), airings[0])).not.toHaveProperty('slug');
+    });
+});
+describe('a cache that cannot be kept', () => {
+    it('fails at once, so the Radio can answer from the Tactus instead', () => {
+        expect(() => new SongCache('/nowhere-at-all/songs.sqlite')).toThrow();
+    });
+});
+describe('the cache', () => {
+    let db;
+    beforeEach(async () => {
+        db = new SongCache();
+        await db.prepare();
+    });
+    it('fills from the Tactus and the Sessions, once each, and tries a missing Session again later', async () => {
+        const reads = [];
+        const read = async (song) => (reads.push(song), song === '3' ? undefined : sessions[song]);
+        expect(await db.fill([...airings, airings[1]], read)).toBe(5);
+        expect(await db.fill(airings, read)).toBe(0);
+        expect(reads.filter((s) => s === '2')).toHaveLength(1);
+        expect(reads.filter((s) => s === '3')).toHaveLength(2);
+        expect([...(await db.held())].sort()).toEqual(['1', '2', '4', '5', '6']);
+    });
+    it('pages the Songs received newest first, the one on now marked, nothing before its time', async () => {
+        await db.fill(airings, async (song) => sessions[song]);
+        const page = await db.page({}, 0, 3, now);
+        expect(page.total).toBe(6);
+        expect(page.songs.map((s) => s.song)).toEqual(['6', '5', '4']);
+        expect(page.songs.map((s) => s.on)).toEqual([true, false, false]);
+        expect(page.songs[0].mood).toEqual(['rain', 'gears']);
+        expect(page.songs[0].begins).toBe(airings[5].begins);
+        expect((await db.page({}, 0, 10, t0 + 9 * minute)).total).toBe(2);
+    });
+    it('finds by mode, by a way of hearing, plainly, and by both', async () => {
+        await db.fill(airings, async (song) => sessions[song]);
+        const found = async (search) => (await db.page(search, 0, 10, now)).songs.map((s) => s.song);
+        expect(await found({ mode: 'dorian' })).toEqual(['5', '3', '2']);
+        expect(await found({ heard: home.slug })).toEqual(['5', '4', '2']);
+        expect(await found({ heard: 'plainly' })).toEqual(['6', '3', '1']);
+        expect(await found({ mode: 'aeolian', heard: home.slug })).toEqual(['4']);
+        expect(await found({ mode: 'aeolian', heard: 'nobody' })).toEqual([]);
+    });
+    it('counts each filter given the other, keeping what finds nothing with its 0', async () => {
+        await db.fill(airings, async (song) => sessions[song]);
+        const all = await db.options({}, now);
+        expect(all.modes).toEqual([
+            { value: 'aeolian', label: 'Aeolian', count: 3 },
+            { value: 'dorian', label: 'Dorian', count: 3 },
+        ]);
+        expect(all.heard).toEqual([
+            { value: 'plainly', label: 'plainly', count: 3 },
+            { value: home.slug, label: 'A chorus coming home', count: 3 },
+            { value: lone.slug, label: 'A lone singer', count: 1 },
+        ]);
+        expect(all.any).toEqual({ mode: 6, heard: 6 });
+        const dorian = await db.options({ mode: 'dorian' }, now);
+        expect(dorian.heard.map((o) => o.count)).toEqual([1, 2, 0]);
+        expect(dorian.any.heard).toBe(3);
+        const lonely = await db.options({ heard: lone.slug }, now);
+        expect(lonely.modes.map((o) => o.count)).toEqual([1, 0]);
+        expect(lonely.any.mode).toBe(1);
+    });
+    it('names a Perspective by its newest title', async () => {
+        await db.fill(airings, async (song) => sessions[song]);
+        await db.add(cachedFrom(session('dorian', [{ slug: home.slug, title: 'Choruses coming home' }]), { song: '7', begins: now - 1000, seconds: 480 }));
+        expect((await db.options({}, now)).heard.find((o) => o.value === home.slug)?.label).toBe('Choruses coming home');
+    });
+    it('drops and makes its tables again when their shape changes, and keeps them when it has not', async () => {
+        await db.fill(airings, async (song) => sessions[song]);
+        await db.prepare();
+        expect((await db.held()).size).toBe(6);
+        db.db.exec('pragma user_version = 0');
+        await db.prepare();
+        expect((await db.held()).size).toBe(0);
+        expect(db.db.query('pragma user_version').get()).toEqual({ user_version: schemaVersion });
+    });
+    it('keeps a Song with a number past any integer, and orders Songs of one moment as numbers', async () => {
+        const huge = '123456789012345678901234567890';
+        await db.add(cachedFrom(session('lydian'), { song: huge, begins: now - 1000, seconds: 300 }));
+        await db.add(cachedFrom(session('lydian'), { song: '99', begins: now - 1000, seconds: 300 }));
+        expect((await db.page({ mode: 'lydian' }, 0, 2, now)).songs.map((s) => s.song)).toEqual([huge, '99']);
+    });
+    it('keeps a Song by the name it was given, and the list shows it with the slug its name makes', async () => {
+        const named = { mode: 'lydian', tempo: 80, mood: ['snow'], choir: 'a man', name: 'A long, slow thaw' };
+        await db.add(cachedFrom(named, { song: '77', begins: now - 400_000, seconds: 300 }));
+        const found = (await db.page({ mode: 'lydian' }, 0, 10, now)).songs.find((s) => s.song === '77');
+        expect(found).toEqual({ song: '77', begins: now - 400_000, seconds: 300, on: false, mood: ['snow'], name: 'A long, slow thaw', slug: 'a-long-slow-thaw' });
+        // a Song that was renamed wears the new slug, and sheds the old
+        await db.add(cachedFrom({ ...named, name: 'The thaw, long and slow' }, { song: '77', begins: now - 400_000, seconds: 300 }));
+        const again = (await db.page({ mode: 'lydian' }, 0, 10, now)).songs.find((s) => s.song === '77');
+        expect(again).toMatchObject({ name: 'The thaw, long and slow', slug: 'the-thaw-long-and-slow' });
+    });
+    it('keeps itself in a file, and finds its tables there again', async () => {
+        const file = `/tmp/radio-cache-test-${process.pid}.sqlite`;
+        const kept = new SongCache(file);
+        await kept.prepare();
+        await kept.fill(airings, async (song) => sessions[song]);
+        await kept.close();
+        const again = new SongCache(file);
+        await again.prepare();
+        expect((await again.held()).size).toBe(6);
+        await again.close();
+        for (const end of ['', '-wal', '-shm'])
+            await Bun.file(`${file}${end}`).delete().catch(() => { });
+    });
+});
+//# sourceMappingURL=cache.test.js.map

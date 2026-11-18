@@ -1,0 +1,97 @@
+// A Tide's envelope (plan "Tides"): how one setting rises and falls over
+// many Songs. A cycle lasts its age, a number of Songs drawn from a range,
+// and within it the setting climbs from its rest to its peak, holds there,
+// falls back, and rests again until the next cycle begins.
+//
+// The song is meant to sing for a quadrillion years, so a Song's cycle is
+// never found by counting cycles from the first. Eternity is cut in halves:
+// a span of about 2^50 cycles, whose length is known, is split into two halves,
+// each half's length drawn from the Tide's wrongness so that the two add up
+// to the whole and every cycle in it can still be between the shortest and
+// longest age. The half the Song falls in is split again, and again, fifty
+// times, until one cycle is left. The same Tide always cuts eternity the
+// same way, so every Song always sits at the same place in it.
+import { wrongness } from 'melody';
+/** How long eternity may be, in Songs, for its length to be counted exactly: 2^52. */
+const exactly = 52;
+/** A number from a standard normal distribution, from two of a wrongness. */
+function normal(random) {
+    const u = Math.max(1e-12, random());
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * random());
+}
+/**
+ * The cycle a position falls in, `position` counted in Songs from Song 0:
+ * which one, where it begins, and how long it lasts. Found by halving, never
+ * by counting.
+ */
+export function cycleAt(slug, [shortest, longest], position) {
+    const lo = Math.max(1, Math.round(Math.min(shortest, longest)));
+    const hi = Math.max(lo, Math.round(Math.max(shortest, longest)));
+    // the spread of one cycle's age, for drawing how two halves share their length
+    const variance = ((hi - lo + 1) ** 2 - 1) / 12;
+    // as many halvings as keep eternity's length exact: about fifty, for cycles of a few Songs
+    let count = 2 ** Math.floor(exactly - Math.log2(hi));
+    let length = Math.round((count * (lo + hi)) / 2);
+    let first = 0;
+    let begins = 0;
+    // beyond the end of eternity it begins again; a fraction is kept by never adding eternity to a Song that is in it
+    let at = position % length;
+    if (at < 0)
+        at += length;
+    let node = 1;
+    while (count > 1) {
+        const half = count / 2;
+        const random = wrongness(`tide:${slug}:${node}`);
+        // the first half's length: about its share, as far off it as sums of ages wander, and never impossible
+        const least = Math.max(half * lo, length - half * hi);
+        const most = Math.min(half * hi, length - half * lo);
+        const drawn = Math.round(length / 2 + normal(random) * Math.sqrt((count * variance) / 4));
+        const left = Math.min(most, Math.max(least, drawn));
+        if (at < left) {
+            count = half;
+            length = left;
+            node = node * 2;
+        }
+        else {
+            at -= left;
+            begins += left;
+            first += half;
+            count = half;
+            length -= left;
+            node = node * 2 + 1;
+        }
+    }
+    return { cycle: first, begins, age: length };
+}
+/**
+ * The wandering at a position, from -1 to 1: a value drawn from the Tide's
+ * wrongness every `grain` Songs, and eased from one to the next, so it
+ * drifts rather than jitters. The same Tide wanders the same way, always.
+ */
+export function wanderAt(slug, grain, position) {
+    const step = Math.max(1e-6, grain);
+    const k = Math.floor(position / step);
+    const x = position / step - k;
+    const at = (n) => 2 * wrongness(`tide-noise:${slug}:${n}`)() - 1;
+    // smoothstep: it leaves each drawn value as gently as it arrives at the next
+    const ease = x * x * (3 - 2 * x);
+    return at(k) + (at(k + 1) - at(k)) * ease;
+}
+/** The setting at a position, and where its cycle stands. */
+export function readAt(slug, envelope, position) {
+    const { attack, hold, decay, min, max } = envelope;
+    const { cycle, begins, age } = cycleAt(slug, envelope.age, position);
+    const u = Math.min(1, Math.max(0, (position - begins) / age));
+    const share = (part) => Math.max(0, part);
+    const [a, h, d] = [share(attack), share(hold), share(decay)];
+    const between = (from, to, x) => from + (to - from) * x;
+    if (u < a)
+        return { value: between(min, max, u / a), phase: 'rising', through: u / a, cycle, age };
+    if (u < a + h)
+        return { value: max, phase: 'holding', through: (u - a) / h, cycle, age };
+    if (u < a + h + d)
+        return { value: between(max, min, (u - a - h) / d), phase: 'falling', through: (u - a - h) / d, cycle, age };
+    const rest = 1 - a - h - d;
+    return { value: min, phase: 'resting', through: rest > 0 ? (u - a - h - d) / rest : 1, cycle, age };
+}
+//# sourceMappingURL=envelope.js.map

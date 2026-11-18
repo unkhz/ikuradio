@@ -1,0 +1,102 @@
+// Tides (plan "Tides"): a sibling of the Perspectives. A Perspective turns a
+// way of hearing on for one Song. A Tide moves one numeric setting of one
+// Facet, in one part, slowly over many Songs, rising and falling by its
+// envelope (./envelope.ts). Each lives in a folder of its own here: its
+// arkku record (tide.md, its state) and its actions.ts, which says what it
+// moves and how. The Settings a Song's hooks follow are the defaults, then
+// every Tide's value at that moment, then the Song's Perspectives' Turns.
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { readAt, wanderAt } from './envelope.js';
+/** What each setting a Tide may move can be: a ceiling never above the compass top, wordiness within 0 and 1. */
+export const validRange = {
+    ceiling: [0, 14],
+    span: [0, 10],
+    travel: [0, 10],
+    wordiness: [0, 1],
+};
+/** Writes a Tide's actions, typed. */
+export const tide = (definition) => definition;
+/** Where the Tides live: a folder each, beside this package's own code. */
+export const tidesHome = fileURLToPath(new URL('../', import.meta.url));
+/** A record's state, slug and title, from its frontmatter and heading. */
+function parseRecord(text, dir) {
+    const match = /^---\n([\s\S]*?)\n---\n/.exec(text);
+    if (!match)
+        throw new Error(`${dir}: a Tide record begins with frontmatter`);
+    const fields = Object.fromEntries(match[1].split('\n').flatMap((line) => {
+        const at = line.indexOf(':');
+        return at > 0 ? [[line.slice(0, at).trim(), line.slice(at + 1).trim()]] : [];
+    }));
+    const title = /^# (.+)$/m.exec(text.slice(match[0].length))?.[1]?.trim() ?? fields.slug;
+    return { slug: fields.slug, title: title, state: fields.state };
+}
+/** Whether an envelope is one: a range of ages, shares that add up to no more than a cycle. */
+export function checkEnvelope(slug, { age, attack, hold, decay, min, max }) {
+    if (!(age[0] >= 1 && age[1] >= age[0]))
+        throw new Error(`${slug}: an age is a range of Songs, the shortest first`);
+    if ([attack, hold, decay].some((share) => share < 0) || attack + hold + decay > 1 + 1e-9) {
+        throw new Error(`${slug}: attack, hold and decay are shares of a cycle, adding up to at most 1`);
+    }
+    if (![min, max].every(Number.isFinite))
+        throw new Error(`${slug}: min and max are numbers`);
+}
+/** Whether a Tide's wandering is one: a share of its swing, and a grain of some length. */
+export function checkNoise(slug, { noise = 0, grain = 1 }) {
+    if (!(noise >= 0 && noise <= 1))
+        throw new Error(`${slug}: noise is a share of the swing, from 0 to 1`);
+    if (!(grain > 0))
+        throw new Error(`${slug}: grain is a length in Songs, more than 0`);
+}
+/** A Tide's value at a position: its envelope, wandering by its noise, within what its setting can be. */
+export function valueAt(t, position) {
+    const reading = readAt(t.slug, t, position);
+    const wander = (t.noise ?? 0) > 0 ? (t.noise ?? 0) * Math.abs(t.max - t.min) * wanderAt(t.slug, t.grain ?? 1, position) : 0;
+    const [lo, hi] = validRange[t.moves.setting];
+    return { ...reading, envelope: reading.value, value: Math.min(hi, Math.max(lo, reading.value + wander)) };
+}
+/** Every Tide there is, in the order of their names; never two on one setting of one part. */
+export async function readTides(home = tidesHome) {
+    const found = [];
+    for (const entry of readdirSync(home, { withFileTypes: true })) {
+        const dir = join(home, entry.name);
+        if (!entry.isDirectory() || !existsSync(join(dir, 'tide.md')))
+            continue;
+        const record = parseRecord(readFileSync(join(dir, 'tide.md'), 'utf8'), dir);
+        const definition = (await import(join(dir, 'actions.ts'))).default;
+        checkEnvelope(record.slug, definition);
+        checkNoise(record.slug, definition);
+        found.push({ ...definition, ...record, dir });
+    }
+    found.sort((a, b) => a.slug.localeCompare(b.slug));
+    const active = found.filter((t) => t.state === 'active');
+    for (const [i, t] of active.entries()) {
+        const twin = active.slice(0, i).find((u) => u.moves.facet === t.moves.facet && u.moves.part === t.moves.part && u.moves.setting === t.moves.setting);
+        if (twin)
+            throw new Error(`${t.slug} and ${twin.slug} both move ${t.moves.facet}.${t.moves.setting} in the ${t.moves.part}: one Tide a setting a part`);
+    }
+    return found;
+}
+/**
+ * Where a Song's iteration stands, in Songs: its Song's number, and how far
+ * through the Song it is, so a Tide moves a little within a Song too and
+ * never jumps at a Song's edge.
+ */
+export const positionOf = (song, iteration, iterations) => Number(song) + Math.max(0, iteration) / Math.max(1, iterations);
+/** The Settings with every active Tide's value at `position`, and where each Tide stood. */
+export function applyTides(settings, tides, position) {
+    const next = structuredClone(settings);
+    const readings = [];
+    for (const t of tides) {
+        if (t.state !== 'active')
+            continue;
+        const { envelope: _, ...reading } = valueAt(t, position);
+        const { facet, part, setting } = t.moves;
+        const value = Math.round(reading.value * 1000) / 1000;
+        (next[facet][part] ??= {})[setting] = value;
+        readings.push({ slug: t.slug, facet, part, setting, ...reading, value, through: Math.round(reading.through * 1000) / 1000 });
+    }
+    return { settings: next, readings };
+}
+//# sourceMappingURL=tides.js.map

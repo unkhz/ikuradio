@@ -170,6 +170,13 @@ async function keepCache() {
     }
     const added = await cache.fill(tactus.history, (song) => read<Session>(paths.session(song)))
     if (added) console.log(`the cache keeps ${added} more Songs`)
+    // a Song kept without a name may have been named since it was kept: the
+    // names worn, and the Sessions of the Songs they name, read again
+    const names = await read<Record<string, string>>(paths.names)
+    if (names) {
+      const found = await cache.renamed(new Set(Object.values(names)), (song) => read<Session>(paths.session(song)))
+      if (found) console.log(`the cache has found names for ${found} more Songs`)
+    }
   } catch (error) {
     if (cached) console.warn(`the cache of the Songs received is away: ${(error as Error).message}`)
     cached = false

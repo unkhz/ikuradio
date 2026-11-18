@@ -1,0 +1,140 @@
+import { describe, it, expect } from 'bun:test';
+import { humanize, keepsPace, quickest, TooFast, wrongness } from './humanize.js';
+import { gather, firstChoir, introduce, throatOf } from './singers.js';
+const score = {
+    bpm: 76,
+    lyrics: 'This is the song, iteration one,',
+    notes: [
+        [64, 0.5],
+        [64, 0.5],
+        [64, 0.5],
+        [65, 1],
+        [64, 0.5],
+        [62, 0.5],
+        [60, 0.5],
+        [59, 0.5],
+        [57, 2],
+        [0, 1.5],
+    ],
+};
+const beats = (s) => s.notes.reduce((sum, [, b]) => sum + b, 0);
+describe('humanize', () => {
+    it('is the same take for the same name', () => {
+        expect(humanize(score, 'a')).toEqual(humanize(score, 'a'));
+    });
+    it('is another take for another name', () => {
+        expect(humanize(score, 'a')).not.toEqual(humanize(score, 'b'));
+    });
+    it('never moves a note far enough to change the tune', () => {
+        for (const name of ['a', 'b', 'c', 'd', 'e']) {
+            humanize(score, name).notes.forEach(([midi], i) => {
+                expect(Math.abs(midi - score.notes[i][0])).toBeLessThan(0.14);
+            });
+        }
+    });
+    it('sings as it always did at the usual humanness', () => {
+        expect(humanize(score, 'a', 1)).toEqual(humanize(score, 'a'));
+    });
+    it('wanders less when glassy and more when loose, never off the tune or the bar lines', () => {
+        const away = (h) => ['a', 'b', 'c', 'd', 'e'].reduce((sum, name) => sum + humanize(score, name, h).notes.reduce((s, [midi], i) => s + Math.abs(midi - score.notes[i][0]), 0), 0);
+        expect(away(0.35)).toBeLessThan(away(1));
+        expect(away(1.8)).toBeGreaterThan(away(1));
+        for (const name of ['a', 'b', 'c']) {
+            const loose = humanize(score, name, 1.8);
+            loose.notes.forEach(([midi], i) => expect(Math.abs(midi - score.notes[i][0])).toBeLessThan(0.25));
+            expect(beats(loose)).toBeCloseTo(beats(score), 10);
+            expect(loose.notes.every(([, b]) => b > 0)).toBe(true);
+            expect(humanize(score, name, 0.35).vibrato).toBeLessThan(humanize(score, name).vibrato);
+        }
+    });
+    it('never moves the bar lines', () => {
+        for (const name of ['a', 'b', 'c']) {
+            const take = humanize(score, name);
+            expect(beats(take)).toBeCloseTo(beats(score), 10);
+            expect(take.notes.at(-1)).toEqual([0, 1.5]);
+            expect(take.notes.every(([, b]) => b > 0)).toBe(true);
+        }
+    });
+});
+describe('wrongness', () => {
+    it('stays between zero and one', () => {
+        const random = wrongness('x');
+        for (let i = 0; i < 1000; i++) {
+            const r = random();
+            expect(r).toBeGreaterThanOrEqual(0);
+            expect(r).toBeLessThan(1);
+        }
+    });
+});
+describe('gather, with voices above the lead', () => {
+    it('never sets a man above the lead', () => {
+        for (const seed of ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8']) {
+            const [, above, below] = gather(3, wrongness(seed), { lead: 'male', breath: 'plain' }, { high: [true, false] });
+            expect(above.body).not.toBe('male');
+            expect(below.harmony).toBe(-4);
+        }
+    });
+});
+describe('gather', () => {
+    it('puts the lead first, singing the tune at full voice', () => {
+        const [lead, ...rest] = gather(3, wrongness('choir'));
+        expect(lead.harmony).toBe(0);
+        expect(lead.gain).toBe(1);
+        expect(rest.map((v) => v.harmony)).toEqual([-2, -4]);
+    });
+    it('can be a single voice', () => {
+        expect(gather(1)).toHaveLength(1);
+    });
+    it('introduces itself', () => {
+        expect(introduce(firstChoir)).toBe('female, with child and male');
+    });
+});
+describe('throatOf', () => {
+    it('gives every singer a throat near how Chimera sings by default', () => {
+        const random = wrongness('throats');
+        for (let i = 0; i < 200; i++) {
+            const { pressure, tension, breathiness } = throatOf(random);
+            expect(pressure).toBeGreaterThanOrEqual(7.5);
+            expect(pressure).toBeLessThanOrEqual(10.5);
+            expect(tension).toBeGreaterThanOrEqual(0.45);
+            expect(tension).toBeLessThanOrEqual(0.65);
+            expect(breathiness).toBeGreaterThanOrEqual(0.08);
+            expect(breathiness).toBeLessThanOrEqual(0.25);
+        }
+    });
+    it('gives each singer in a new choir a throat of their own', () => {
+        const choir = gather(3, wrongness('choir'));
+        expect(choir.every(({ throat }) => throat !== undefined)).toBe(true);
+        expect(new Set(choir.map(({ throat }) => JSON.stringify(throat))).size).toBe(3);
+    });
+});
+describe('a choir the Mood guides', () => {
+    it('is led by the voice the Mood named, and breathes as it said', () => {
+        const random = wrongness('guided');
+        for (let i = 0; i < 50; i++) {
+            const soft = gather(3, random, { lead: 'child', breath: 'soft' });
+            expect(soft[0].body).toBe('child');
+            expect(soft.every(({ throat }) => throat.pressure <= 8.4)).toBe(true);
+            const pressed = gather(3, random, { lead: 'male', breath: 'pressed' });
+            expect(pressed[0].body).toBe('male');
+            expect(pressed.every(({ throat }) => throat.pressure >= 9.6)).toBe(true);
+        }
+    });
+});
+describe('the pace of a take', () => {
+    // a line at the grid's floor at 90 bpm: every syllable exactly a sixth of a second apart
+    const tight = { bpm: 90, lyrics: 'a b c d e f g h', notes: [[60, 0.25], [62, 0.25], [64, 0.25], [65, 0.25], [64, 0.25], [62, 0.25], [60, 1], [0, 1]] };
+    it('is never hurried by humanizing, however loose, when the rate is given', () => {
+        for (let n = 0; n < 200; n++) {
+            expect(quickest(humanize(tight, `take:${n}`, 1.6, 6))).toBeGreaterThanOrEqual(1 / 6 - 1e-9);
+        }
+    });
+    it('counts rests as time the voice has', () => {
+        expect(quickest({ bpm: 60, notes: [[60, 0.1], [0, 0.4], [62, 1]] })).toBeCloseTo(0.5);
+    });
+    it('refuses a take that would sing a syllable too soon, and lets one in time through', () => {
+        expect(() => keepsPace({ bpm: 120, notes: [[60, 0.25], [62, 1]] }, 6, 'a test')).toThrow(TooFast);
+        expect(() => keepsPace(tight, 6, 'a test')).not.toThrow();
+    });
+});
+//# sourceMappingURL=humanize.test.js.map
