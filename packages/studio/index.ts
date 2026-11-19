@@ -152,19 +152,11 @@ const taken = await store.names().catch((error: Error) => {
   console.warn(`the Archive's names could not be read: ${error.message}`)
   return {}
 })
-// the names already given, so the mind does not give one of them again: the
-// registry says each of them, as the slug the name wears — short of the
-// name's punctuation and its case, near enough for an echo. One read of the
-// registry stands where a Session was read for every Song the Archive
-// holds: a hundred megabytes a Song at best, and when the Archive was slow,
-// most of a Song's making, with the mind held awake through all of it
-const given = Object.keys(taken).map((slug) => slug.replaceAll('-', ' '))
 const named =
   (await nameSong(
     composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
     composed[0].mood.descriptions,
     taken,
-    given,
   ).catch((error: Error) => {
     console.warn(`the mind gave the Song no name: ${error.message}`)
     return undefined
