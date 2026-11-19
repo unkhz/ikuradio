@@ -21,12 +21,12 @@ export {
 export { itsAgeOf, ofItsAge, timeless } from './lib/timeless.js'
 export {
   longestName,
+  modifyingInstruction,
   namelessOf,
   nameSong,
   namingInstruction,
   plainly,
   Silence,
-  wears,
   type Naming,
 } from './lib/names.js'
 export { longWear, wornDeep } from './lib/wear.js'
