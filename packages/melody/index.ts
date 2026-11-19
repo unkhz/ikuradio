@@ -10,14 +10,14 @@ import {
 
 import { firstTune, type Tune } from './lib/variation.js'
 import { slowSection } from './lib/guide.js'
-import { bridgeForm, journey } from './lib/bridge.js'
+import { bridgeForm, journey, opening } from './lib/bridge.js'
 
 export { fitPhrase, chorusHook, verseWalk, aeolian, modes, degreeToMidi }
 export { firstTune, evolve, step, variations, type Development } from './lib/variation.js'
 export type { Tune } from './lib/variation.js'
 export { wrongness } from './lib/wrongness.js'
 export { guideStep, slowPhrase, slowSection } from './lib/guide.js'
-export { bridgeForm, journey, walkingDistance, type BridgeForm, type Pitches } from './lib/bridge.js'
+export { bridgeForm, journey, opening, walkingDistance, type BridgeForm, type Pitches } from './lib/bridge.js'
 export { atonal, pitchNames, rowName, toneRow } from './lib/atonal.js'
 export {
   changePoints,

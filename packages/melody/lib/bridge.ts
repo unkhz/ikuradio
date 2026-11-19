@@ -195,3 +195,46 @@ function foreshadow(from: Phrase, fromKey: Key, to: Phrase, toKey: Key, beats: n
     ...leadIn.map((degree, i): [number, number] => [out(degree, toKey), leadInTimes[i]!]),
   ]
 }
+
+/**
+ * The notes of an intro of `beats` beats (four bars) into the first verse,
+ * whose first line is `to`, in `toKey` (plan "Intro with Rezzy"). A bridge
+ * connects two parts; an intro connects nothing to one. So it has no farewell:
+ * the first bar is a single tone, the tonic, held, as a room is before
+ * anyone is in it. Then the head of the verse is heard twice, as a bridge
+ * foreshadows it, far from home and then nearer, and the last bar leans on
+ * the step beside the verse's first note, which the verse resolves.
+ */
+export function opening({
+  to,
+  toKey,
+  beats,
+  harmony = 0,
+}: {
+  to: Phrase
+  toKey: Key
+  beats: number
+  harmony?: number
+}): Pitches {
+  const bar = beats / 4
+  const coming = contour(to)
+  const arrival = coming[0]?.[0] ?? 0
+  const head = coming.slice(0, 4)
+  const headTimes = inTime(
+    head.map(([, b]) => b),
+    bar,
+  )
+  const away = arrival >= 3 ? -3 : 4
+  const first = within(head.map(([degree]) => degree + away))
+  const second = within(head.map(([degree]) => degree + Math.round(away / 2)))
+  const side = (second.at(-1) ?? arrival) < arrival ? -1 : 1
+  const leadIn = [arrival + 4 * side, arrival + 2 * side, arrival + side]
+  const leadInTimes = inTime([1, 1, 2], bar)
+  const out = (degree: number) => degreeToMidi(degree + harmony, toKey)
+  return joined([
+    [out(0), bar],
+    ...first.map((degree, i): [number, number] => [out(degree), headTimes[i]!]),
+    ...second.map((degree, i): [number, number] => [out(degree), headTimes[i]!]),
+    ...leadIn.map((degree, i): [number, number] => [out(degree), leadInTimes[i]!]),
+  ])
+}

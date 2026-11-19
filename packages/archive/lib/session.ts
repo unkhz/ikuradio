@@ -163,8 +163,28 @@ export type SessionIteration = {
   tides?: { slug: string; value: number; phase: 'rising' | 'holding' | 'falling' | 'resting'; through: number }[]
 }
 
+/**
+ * A DJ's declaration for a Song: only what that DJ says or does there, per
+ * part. Not the DJ's voice or movements, which belong to the DJ's package.
+ */
+export type DjDeclaration = {
+  dj: string
+  song: string
+  parts: { intro?: DjIntro }
+}
+
+/** What a DJ says in the intro: a take, timed as a voice is, in notes and words. Nothing if the mind wrote no speech. */
+export type DjIntro = {
+  /** The words, in the order they are said. */
+  text: string
+  /** When the speech begins, in seconds from the intro's start. */
+  at: number
+  seconds: number
+}
+
 export type SessionPart = {
-  type: 'verse' | 'chorus' | 'bridge'
+  /** An intro, once at the beginning, has music and no words (plan "Intro with Rezzy"). Songs from before it have none. */
+  type: 'verse' | 'chorus' | 'bridge' | 'intro'
   at: number
   seconds: number
   /** The words, a line at a time. A bridge has none. */
@@ -251,6 +271,8 @@ export const linkOf = (session: Pick<Session, 'song' | 'name'>): { song: string;
 export const paths = {
   index: 'index.json',
   session: (song: string) => `sessions/${song}.json`,
+  /** What a DJ says or does in a Song, beside its Session: `dj-rezzy-123.json`. Songs from before the DJs have none. */
+  dj: (name: string, song: string) => `sessions/dj-${name}-${song}.json`,
   recording: (id: string) => `recordings/${id}`,
   /** The diary's book being written in, copied afresh after every Song. */
   diary: 'diary/diary.jsonl',

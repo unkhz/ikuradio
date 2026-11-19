@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { bridgeForm, journey } from './bridge.js'
+import { bridgeForm, journey, opening } from './bridge.js'
 import { degreeToMidi, modes } from './scale.js'
 import { chorusHook, verseWalk } from './hooks.js'
 
@@ -101,5 +101,26 @@ describe('which bridge a Song makes', () => {
 
   it('foreshadows when it does not know its Song', () => {
     expect(bridgeForm(undefined, verseEnd, chorusHook[0])).toBe('foreshadow')
+  })
+})
+
+describe('opening', () => {
+  const intoVerse = opening({ to: verseWalk[0], toKey: key, beats: 16 })
+
+  it('lasts four bars, and begins on the tonic held for the first of them', () => {
+    expect(total(intoVerse)).toBe(16)
+    expect(intoVerse[0]).toEqual([midi(0), 4])
+  })
+
+  it('has no farewell: after the held tone comes the head of the verse, away from home', () => {
+    const head = verseWalk[0].notes.slice(0, 4).map(([d]) => d)
+    expect(intoVerse.length).toBeGreaterThanOrEqual(8)
+    expect(intoVerse.slice(1, 5).map(([m]) => m)).not.toEqual(head.map(midi))
+  })
+
+  it('ends leaning on a step beside the first note of the verse, not on it', () => {
+    const arrival = verseWalk[0].notes[0]![0]
+    expect(Math.abs(intoVerse.at(-1)![0] - midi(arrival))).toBeGreaterThan(0)
+    expect(Math.abs(intoVerse.at(-1)![0] - midi(arrival))).toBeLessThanOrEqual(3)
   })
 })
