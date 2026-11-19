@@ -7,7 +7,7 @@
 # with Bun's low-memory mode (--smol) built in, and runs on nothing but the
 # C libraries it needs: no shell, no package manager, no Bun to install.
 
-FROM oven/bun:1.4.4 AS build
+FROM oven/bun:1.4.5@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18 AS build
 WORKDIR /song
 COPY package.json bun.lock ./
 COPY packages ./packages
