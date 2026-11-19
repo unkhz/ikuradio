@@ -30,7 +30,7 @@ function samplesOf(file: string) {
 
 describe('the throat', () => {
   it('is named by its revision and its patch', () => {
-    expect(throatName()).toMatch(/^c24945a\+[0-9a-f]{12}$/)
+    expect(throatName()).toMatch(/^0dc13f8\+[0-9a-f]{12}$/)
   })
 
   it.skipIf(!built)('sings a take in a Receiver exactly as the Studio sings it', async () => {

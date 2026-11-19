@@ -6,8 +6,14 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 
-/** The revision of Chimera the song sings with. Move it on purpose, and listen. */
-export const revision = 'c24945a34296f1cd06c029fd283c43b2a0cc2c26'
+/**
+ * The revision of Chimera the song sings with. Move it on purpose, and listen.
+ * It is pinned apart from the speaking throat's (`speechRevision`, below), and
+ * the two may be moved apart again: each is built from its own checkout, with
+ * its own patch. Both are now at the latest, 0dc13f8, which the scientist heard
+ * sing less metallically than c24945a.
+ */
+export const revision = '0dc13f8704bd998e8d70377f3bc4de53b16863f8'
 export const repository = 'https://github.com/jamesondh/chimera-vocal-synth'
 
 /** The song's change to Chimera. */
