@@ -3,7 +3,7 @@
 // a machine that has forgotten the song reads its memory back out of it. The Archive is a bucket (bucket.ts);
 // anything else that would keep Songs the same way could stand in its place.
 
-import type { ArchiveIndex, DjDeclaration, Session } from './session.js'
+import type { ArchiveIndex, DjDeclaration, IntroRecord, Session } from './session.js'
 
 export interface ArchiveStore {
   /** Puts a Recording in, named by its file's name, its content as a hash; returns its id. */
@@ -14,6 +14,8 @@ export interface ArchiveStore {
   hasSession(song: string): Promise<boolean>
   /** Puts what a DJ says in a Song in, beside its Session: before the Session, so the Song is never listed without it. */
   putDj(declaration: DjDeclaration): Promise<void>
+  /** Puts a Song's intro in beside its Session, after its music and its DJ's words: the Session itself is not touched. */
+  putIntro(record: IntroRecord): Promise<void>
   /** Puts a Session in, after its Recordings, and only then lists it. */
   putSession(session: Session): Promise<void>
   /**

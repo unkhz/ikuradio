@@ -6,7 +6,10 @@
 // Archive, for the Songs that are ready, and to the live Radio, for the
 // Song being played. When too few Songs are waiting ahead of it, it calls a
 // Studio, one at a time, and the Studio makes a Song and leaves it in the
-// Archive.
+// Archive. When enough Songs wait, the slack between Songs is spent on the
+// intros of Songs that have aired and have none, new and old (plan "Intro
+// with Rezzy"): a short run, a few intros at a time, that gives way at once
+// when a Studio is wanted.
 //
 // If the Heart stops, nothing breaks. The Radio plays what it has, and
 // then holds its breath, and the song stops breathing until the Heart is
@@ -53,11 +56,13 @@ async function reached(): Promise<string | null | undefined> {
 
 /** Where the Studio's words are kept, so that a Studio that falls leaves word of why. */
 const studioLog = 'memory/studio.log'
+/** Where the run that makes intros keeps its words. */
+const introLog = 'memory/intro.log'
 
-function keep(child: ChildProcess) {
+function keep(child: ChildProcess, file = studioLog, who = 'the Studio') {
   mkdirSync('memory', { recursive: true })
-  if (existsSync(studioLog)) renameSync(studioLog, `${studioLog}.1`)
-  const log = createWriteStream(studioLog)
+  if (existsSync(file)) renameSync(file, `${file}.1`)
+  const log = createWriteStream(file)
   child.stdout?.on('data', (data) => {
     process.stdout.write(data)
     log.write(data)
@@ -66,10 +71,13 @@ function keep(child: ChildProcess) {
     process.stderr.write(data)
     log.write(data)
   })
-  child.on('exit', (code) => log.end(`the Studio ended (${code})\n`))
+  child.on('exit', (code) => log.end(`${who} ended (${code})\n`))
 }
 
+/** The Studio at work, or the run that makes intros: one of them at a time, so the GPU and the mind are never asked for twice. */
 let studio: ChildProcess | undefined
+/** Until when the Heart asks for no more intros, because none was needed or the last run fell. */
+let introsRestUntil = 0
 let resting = false
 let deaf = false
 /**
@@ -106,7 +114,11 @@ async function listen() {
   if (deaf) console.log('the Radio can be heard again')
   deaf = false
   const waiting = waitingAfter(index?.songs ?? [], radio)
-  if (waiting >= SONGS_AHEAD) return
+  if (waiting >= SONGS_AHEAD) {
+    // enough Songs wait: the slack is for the intros of Songs that have aired
+    if (Date.now() >= introsRestUntil) makeIntros()
+    return
+  }
   console.log(`${waiting} Songs waiting, ${SONGS_AHEAD} wanted: the Studio is called in`)
   const called = spawn('bun', [`${studioHome}index.ts`], { cwd: studioHome, stdio: ['ignore', 'pipe', 'pipe'] })
   studio = called
@@ -119,6 +131,29 @@ async function listen() {
     if (studio === called) studio = undefined
     // a Studio that made its Song may not be the last one needed
     if (!resting) setTimeout(beat, code ? 30_000 : 0)
+  })
+}
+
+/**
+ * Calls in the run that makes intros, in the slack between Songs. It makes a
+ * few at a time and ends: with 0, when it made some or a Studio was wanted, and
+ * the Heart listens again at once; with 3, when no Song needs one, and the Heart
+ * does not ask again for ten minutes; with anything else it fell, and the
+ * Heart waits a minute.
+ */
+function makeIntros() {
+  console.log('enough Songs wait: the slack is for intros')
+  const called = spawn('bun', [`${studioHome}intro.ts`], { cwd: studioHome, stdio: ['ignore', 'pipe', 'pipe'] })
+  studio = called
+  keep(called, introLog, 'the run that makes intros')
+  called.on('exit', (code) => {
+    if (code === 3) introsRestUntil = Date.now() + 10 * 60_000
+    else if (code) {
+      console.warn(`the run that makes intros stopped (${code})`)
+      introsRestUntil = Date.now() + 60_000
+    }
+    if (studio === called) studio = undefined
+    if (!resting) setTimeout(beat, code === 0 ? 0 : 30_000)
   })
 }
 

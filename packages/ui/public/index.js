@@ -306,9 +306,16 @@ async function say(request) {
   })
 }
 
-/** The recordings of a Song's intro: its music, and a DJ's speech if there is one. Sets `song.intro`. */
+/** The recordings of a Song's intro: its music, and a DJ's speech if there is one; none if it has no intro. Sets `song.intro`. */
 async function introOf(song, airing) {
-  const { intro } = song.session
+  // an intro is made after its Song has aired, and kept beside the Session; the Songs
+  // made while intros were still made with their Songs have theirs inside it
+  const intro =
+    song.session.intro ??
+    (await fetch(new URL(`sessions/intro-${airing.song}.json`, airing.archive))
+      .then((r) => (r.ok ? r.json() : undefined))
+      .catch(() => undefined))
+  if (!intro) return []
   const recordings = [{ ...intro.recording, kind: 'bed', intro: true }]
   song.intro = { seconds: intro.seconds }
   const dj = globalThis.djs?.rezzy
@@ -350,7 +357,7 @@ function prepare(airing) {
   song.preparing = (async () => {
     song.session = await fetch(airing.session).then((r) => r.json())
     // a visit to the Song's page hears its intro first, before its moment 0
-    const introduced = airing.visit && song.session.intro ? await introOf(song, airing) : []
+    const introduced = airing.visit ? await introOf(song, airing) : []
     // joined late, a listener needs nothing that is already over
     const from = Number.isFinite(airing.begins) ? Math.max(0, (now() - airing.begins) / 1000) : 0
     const heard = song.session.recordings

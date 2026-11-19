@@ -190,10 +190,13 @@ export type DjIntro = {
 }
 
 /**
- * A Song's intro: four bars of music, from nothing into the first verse,
- * played once, before the Song, on its page only when someone comes to it.
- * It lies before the Song's moment 0, so no one on the Radio ever hears it,
- * and everything in the Song stays where it was.
+ * A Song's intro: music from nothing into the first verse, played once,
+ * before the Song, on its page only when someone comes to it. It lies before
+ * the Song's moment 0, so no one on the Radio ever hears it, and everything in
+ * the Song stays where it was. An intro is made after its Song has aired, and
+ * kept beside the Session (`paths.intro`, an `IntroRecord`) so that the Session,
+ * which is never rewritten for it, is untouched. Songs 1172 to 1176 were made
+ * with theirs inside the Session, as this type; a Receiver reads either.
  */
 export type SessionIntro = {
   /** How long it lasts, before moment 0. */
@@ -201,6 +204,9 @@ export type SessionIntro = {
   /** Its music, a bed, at `-seconds`, its tail going on into the Song. */
   recording: SessionRecording
 }
+
+/** A Song's intro, kept apart from its Session: the Song, and the intro as the Session's own would have it. */
+export type IntroRecord = SessionIntro & { song: string }
 
 export type SessionPart = {
   type: 'verse' | 'chorus' | 'bridge'
@@ -292,6 +298,10 @@ export const paths = {
   session: (song: string) => `sessions/${song}.json`,
   /** What a DJ says or does in a Song, beside its Session: `dj-rezzy-123.json`. Songs from before the DJs have none. */
   dj: (name: string, song: string) => `sessions/dj-${name}-${song}.json`,
+  /** A Song's intro, made after the Song aired, beside its Session: `intro-123.json`. Songs from before intros have none. */
+  intro: (song: string) => `sessions/intro-${song}.json`,
+  /** Where the intros are kept, to list which Songs have one. */
+  introShelf: 'sessions/intro-',
   recording: (id: string) => `recordings/${id}`,
   /** The diary's book being written in, copied afresh after every Song. */
   diary: 'diary/diary.jsonl',

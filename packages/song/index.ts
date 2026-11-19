@@ -29,7 +29,7 @@ export {
   Silence,
   type Naming,
 } from './lib/names.js'
-export { mostWords, speakingInstruction, spokenPlainly, writeSpeech, type Speaking } from './lib/speeches.js'
+export { cutTo, factsInput, sensibly, speakingInstruction, spokenPlainly, syllableCount, writeSpeech, type Facts, type Range, type Speaking } from './lib/speeches.js'
 export { longWear, wornDeep } from './lib/wear.js'
 export { stressedWords, stresses, stressOf, type StressedWord } from './lib/stress.js'
 

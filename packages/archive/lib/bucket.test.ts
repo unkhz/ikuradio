@@ -132,3 +132,17 @@ describe('a DJ in a Song', () => {
     expect(paths.dj('rezzy', '123')).toBe('sessions/dj-rezzy-123.json')
   })
 })
+
+describe('an intro made after its Song', () => {
+  it('keeps the intro beside the Session, which it does not touch, and not as a new version of the Archive', async () => {
+    const store = kept()
+    await store.putSession(song('9', 'A Song'))
+    const before = await store.index()
+    const record = { song: '9', seconds: 15, recording: { id: 'abc.m4a', at: -15, kind: 'bed' as const, gain: 0.45, seconds: 15, fade: 3 } }
+    await store.putIntro(record)
+    const client = (store as unknown as { client: { file: (key: string) => { json: () => Promise<unknown> } } }).client
+    expect(await client.file(paths.intro('9')).json()).toEqual(record)
+    expect(paths.intro('9')).toBe('sessions/intro-9.json')
+    expect(await store.index()).toEqual(before)
+  })
+})

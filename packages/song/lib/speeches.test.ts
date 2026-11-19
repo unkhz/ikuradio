@@ -1,18 +1,82 @@
 import { describe, expect, it } from 'bun:test'
-import { speakingInstruction, spokenPlainly } from './speeches.js'
+import { cutTo, factsInput, sensibly, speakingInstruction, spokenPlainly, writeSpeech, type Facts } from './speeches.js'
 
-describe('speakingInstruction', () => {
-  it('tells the DJ, the Song, its weather and how few words', () => {
-    const text = speakingInstruction('Rezzy is a critter.', 'A thaw, slow', ['snow', 'gears'], 20)
-    expect(text).toContain('Rezzy is a critter.')
-    expect(text).toContain('"A thaw, slow"')
-    expect(text).toContain('snow and gears')
-    expect(text).toContain('At most 20 words')
+const facts: Facts = { name: 'A thaw, slow', weather: ['snow', 'gears'], sound: 'low strings', mode: 'dorian', tempo: 60, thought: 'I wondered what silence hears.' }
+/** A syllable for every two letters: close enough to make a text long or short. */
+const count = async (text: string) => Math.ceil(text.replace(/[^a-z]/gi, '').length / 2)
+const words = (n: number) => `${Array.from({ length: n }, () => 'ab').join(' ')}.`
+const noWait = async () => {}
+
+describe('what the mind is given', () => {
+  it('is what it knows of the Song, not its words', () => {
+    const input = factsInput(facts)
+    expect(input).toContain('Name: A thaw, slow')
+    expect(input).toContain('Weather: snow and gears')
+    expect(input).toContain('Sound: low strings')
+    expect(input).toContain('dorian, 60 beats a minute')
+    expect(input).toContain('What you thought of it: I wondered what silence hears.')
+    expect(factsInput({ ...facts, sound: undefined, thought: undefined })).not.toContain('Sound')
+  })
+
+  it('is asked for a speech of a sensible length for fifteen seconds, and told how the last try missed', () => {
+    expect(speakingInstruction('Rezzy is a critter.')).toContain('About 30 to 42 syllables')
+    expect(speakingInstruction('Rezzy is a critter.', sensibly, 'long')).toContain('too long')
+    expect(speakingInstruction('Rezzy is a critter.', sensibly, 'short')).toContain('too short')
   })
 })
 
 describe('spokenPlainly', () => {
   it('leaves plain words, and takes out what the throat cannot say', () => {
     expect(spokenPlainly('"Hello there, friend!" *waves* 🐾 It\'s 3 am.')).toBe("Hello there, friend! waves It's am.")
+  })
+})
+
+describe('cutTo', () => {
+  it('keeps whole sentences that fit, and none that do not', async () => {
+    const text = `${words(10)} ${words(10)} ${words(10)}`
+    const cut = await cutTo(text, 25, count)
+    expect(cut).toBe(`${words(10)} ${words(10)}`)
+  })
+
+  it('cuts at a word when not even the first sentence fits', async () => {
+    const cut = await cutTo(words(40), 10, count)
+    expect(await count(cut)).toBeLessThanOrEqual(10)
+    expect(cut.endsWith('.')).toBe(true)
+  })
+})
+
+describe('writeSpeech', () => {
+  const asking = (speeches: string[]) => {
+    const seen: string[] = []
+    const asker = (async ({ instruction }: { instruction: string }) => (seen.push(instruction), { speech: speeches.shift()! })) as never
+    return { asker, seen }
+  }
+
+  it('gives a speech of a sensible length as it is', async () => {
+    const good = words(30)
+    expect(await writeSpeech('p', facts, { asker: asking([good]).asker, count, sleep: noWait })).toBe(good)
+  })
+
+  it('asks again, shorter, when it is too long, and takes the one that fits', async () => {
+    const { asker, seen } = asking([words(60), words(30)])
+    expect(await writeSpeech('p', facts, { asker, count, sleep: noWait })).toBe(words(30))
+    expect(seen).toHaveLength(2)
+    expect(seen[1]).toContain('too long')
+  })
+
+  it('cuts the closest at a sentence when every try is too long', async () => {
+    const long = `${words(30)} ${words(30)} ${words(30)}`
+    const got = (await writeSpeech('p', facts, { asker: asking([long, long, long]).asker, count, sleep: noWait }))!
+    expect(await count(got)).toBeLessThanOrEqual(sensibly.most)
+    expect(got.endsWith('.')).toBe(true)
+  })
+
+  it('gives none when it is too short to be anything', async () => {
+    expect(await writeSpeech('p', facts, { asker: asking([words(2), words(2), words(2)]).asker, count, sleep: noWait })).toBeUndefined()
+  })
+
+  it('still gives a short one that is something', async () => {
+    const short = words(12)
+    expect(await writeSpeech('p', facts, { asker: asking([short, short, short]).asker, count, sleep: noWait })).toBe(short)
   })
 })

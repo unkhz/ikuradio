@@ -1,37 +1,29 @@
 import { describe, expect, it } from 'bun:test'
-import { firstMood } from 'mood'
-import { firstLyrics } from 'song'
-import { firstChoir } from 'vocals'
-import { firstTune, vocalRange } from 'melody'
-import { defaults } from 'perspectives'
+import type { Mood } from 'mood'
+import type { Session } from 'archive'
+import { vocalRange } from 'melody'
 import { rezzy } from 'dj'
-import type { Iteration } from './compose.js'
-import { declare, introBeats, introScore, introSeconds, leadIn, leadOut, unrhythmic } from './intro.js'
+import { declare, introBeats, introRecord, introScore, introSeconds, leadIn, openingOf, syllablesASecond, unrhythmic } from './intro.js'
 
-const first: Iteration = {
-  iteration: 0n,
-  mood: firstMood,
-  choir: firstChoir,
-  tune: firstTune,
-  variation: 0,
-  sung: firstTune,
-  beginsSong: true,
-  song: { number: '7', began: '0', lasts: 4 },
-  lyrics: firstLyrics,
-  perspectives: [],
-  settings: defaults(3),
-  rate: 6,
-}
+const session = (tempo: number, body: 'male' | 'female' | 'child' = 'female') =>
+  ({
+    song: '7',
+    mood: ['rain', 'gears'],
+    mode: 'dorian',
+    tempo,
+    singers: [{ body, harmony: 0 }],
+    iterations: [{ parts: [{ type: 'verse', at: 0, lines: [{ at: 1, text: 'x' }] }] }],
+    recordings: [{ id: 'v', kind: 'voice', voice: 0, at: 1, take: { bpm: tempo, lyrics: 'a line of words here', notes: [[64, 1], [66, 1], [69, 2], [67, 2]] } }],
+  }) as unknown as Session
 
 describe('introScore', () => {
-  const score = introScore(first)
-
   it('lasts fifteen seconds at the Song\'s tempo, hummed, in the reach of the lead', () => {
-    expect(score.bpm).toBe(firstMood.character.tempo)
-    expect(score.notes.reduce((sum, [, beats]) => sum + beats, 0)).toBeCloseTo(introBeats(score.bpm), 6)
-    expect((score.notes.reduce((sum, [, beats]) => sum + beats, 0) * 60) / score.bpm).toBeCloseTo(introSeconds, 6)
-    expect(score.lyrics.split(' ').length).toBe(score.notes.length)
-    const [low, high] = vocalRange[firstChoir[0]!.body]
+    const score = introScore(openingOf(session(80))!)
+    const beats = score.notes.reduce((sum, [, b]) => sum + b, 0)
+    expect(beats).toBeCloseTo(introBeats(80), 6)
+    expect((beats * 60) / score.bpm).toBeCloseTo(introSeconds, 6)
+    expect(score.lyrics.split(' ')).toHaveLength(score.notes.length)
+    const [low, high] = vocalRange.female
     for (const [midi] of score.notes) {
       expect(midi).toBeGreaterThanOrEqual(low)
       expect(midi).toBeLessThanOrEqual(high)
@@ -40,40 +32,22 @@ describe('introScore', () => {
 
   it('is as long for a slow Song as for a quick one', () => {
     for (const tempo of [50, 76, 140]) {
-      const notes = introScore({ ...first, mood: { ...firstMood, character: { ...firstMood.character, tempo } } }).notes
-      expect((notes.reduce((sum, [, beats]) => sum + beats, 0) * 60) / tempo).toBeCloseTo(introSeconds, 6)
+      const notes = introScore(openingOf(session(tempo))!).notes
+      expect((notes.reduce((sum, [, b]) => sum + b, 0) * 60) / tempo).toBeCloseTo(introSeconds, 6)
     }
   })
-})
 
-describe('declare', () => {
-  /** A speaking throat that takes 0.3 seconds a word, and a tenth less for each tenth of rate more. */
-  const said = (request: { text: string; rate: number }) => ({ end: (request.text.split(/\s+/).length * 0.3) / request.rate })
-
-  it('puts what the DJ says in the room the music leaves, after the held tone', async () => {
-    const declaration = (await declare(rezzy, '7', 'Hello, friend. Here is a slow song about rain.', said))!
-    expect(declaration).toMatchObject({ dj: 'rezzy', song: '7' })
-    const { intro } = declaration.parts
-    expect(intro!.at).toBe(leadIn)
-    expect(intro!.at + intro!.seconds).toBeLessThanOrEqual(introSeconds - leadOut + 1e-9)
-    expect(intro!.speech.text).toBe('Hello, friend. Here is a slow song about rain.')
-    expect(intro!.speech.squeeze).toBeUndefined()
-  })
-
-  it('keeps how much the speech was hurried, and cuts a speech that is too long even so', async () => {
-    const long = Array.from({ length: 70 }, (_, i) => `word${i}`).join(' ') + '.'
-    const declaration = (await declare(rezzy, '7', long, said))!
-    expect(declaration.parts.intro!.speech.text.split(' ').length).toBeLessThan(70)
-    expect(declaration.parts.intro!.at + declaration.parts.intro!.seconds).toBeLessThanOrEqual(introSeconds - leadOut)
-  })
-
-  it('says nothing for a speech with no words, and the Song has its intro still', async () => {
-    expect(await declare(rezzy, '7', '', said)).toBeUndefined()
+  it('leans on a step beside the first note the verse sings, which the verse then resolves', () => {
+    const opened = openingOf(session(80, 'male'))!
+    const notes = introScore(opened).notes
+    const first = opened.phrase.notes[0]![0]
+    expect(typeof first).toBe('number')
+    expect(notes.length).toBeGreaterThan(6)
   })
 })
 
 describe('unrhythmic', () => {
-  const mood = (sound: string | undefined, descriptions: string[]) => ({ ...firstMood, descriptions, character: { ...firstMood.character, sound } })
+  const mood = (sound: string | undefined, descriptions: string[]) => ({ descriptions, character: { mode: 'dorian', tempo: 80, sound } }) as unknown as Mood
 
   it('asks for the Song\'s own sound, without its tempo, and for nothing rhythmic', () => {
     const asked = unrhythmic(mood('reverberant organ chords', ['sunset']))
@@ -85,5 +59,21 @@ describe('unrhythmic', () => {
   it('does not ask for a band that is heard as drums, but for the weather, or for pads', () => {
     expect(unrhythmic(mood('driving drum kit and bass', ['rain', 'gears']))).toContain('rain, gears')
     expect(unrhythmic(mood('driving drum kit and bass', ['a heavy beat']))).toContain('warm sustained pads')
+  })
+})
+
+describe('what is kept', () => {
+  it('keeps a DJ\'s words with an estimate of how long they take, after the held tone', () => {
+    const declaration = declare(rezzy, '7', 'Hello there, friend.', 39)
+    expect(declaration).toEqual({ dj: 'rezzy', song: '7', parts: { intro: { at: leadIn, seconds: 10, speech: { text: 'Hello there, friend.' } } } })
+    expect(syllablesASecond * 10).toBeCloseTo(39, 0)
+  })
+
+  it('keeps the intro as its Session would, before the Song\'s moment 0, with how loud it sounds', () => {
+    expect(introRecord('7', 'abc.m4a', { file: 'f', at: -15, gain: 0.45, seconds: 15, fade: 3 }, { lufs: -20, peak: -3 })).toEqual({
+      song: '7',
+      seconds: 15,
+      recording: { id: 'abc.m4a', at: -15, gain: 0.45, kind: 'bed', seconds: 15, fade: 3, loudness: { lufs: -20, peak: -3 } },
+    })
   })
 })
