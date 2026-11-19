@@ -128,7 +128,12 @@ async function reloadForUpdate() {
 // heard, from wherever the listener joins it; it may begin once the
 // Recordings of its first stretch are here, and the rest follow behind.
 const songs = new Map()
-/** A Song's place in `songs`: its number and its beginning. An encore sings a Song again, and the one that has ended is not the one that begins. */
+/**
+ * A Song's place in `songs`: its number and its beginning when it was
+ * prepared. An encore sings a Song again, and the one that has ended is not
+ * the one that begins. It is kept on the Song, for a Song heard again is
+ * given its beginning only after it is prepared.
+ */
 const placeOf = (airing) => `${airing.song}@${airing.begins}`
 
 // The choir, in this page. A Session keeps every voice as its take, the
@@ -218,7 +223,7 @@ function singSoon() {
   const moment = now()
   // takes of Songs let go, and takes whose moment is already over, are not sung
   choir.takes = choir.takes.filter(
-    (t) => songs.get(placeOf(t.song.airing)) === t.song && dueOf(t) + t.seconds * 1000 > moment,
+    (t) => songs.get(t.song.place) === t.song && dueOf(t) + t.seconds * 1000 > moment,
   )
   choir.takes.sort((a, b) => dueOf(a) - dueOf(b))
   while (choir.idle.length && choir.takes.length && dueOf(choir.takes[0]) - moment < singingAhead * 1000) {
@@ -238,7 +243,7 @@ function sung(worker, { job, samples, error }) {
     if (error) {
       console.warn(`a take could not be sung: ${error}`)
       lose(take)
-    } else if (songs.get(placeOf(take.song.airing)) === take.song) {
+    } else if (songs.get(take.song.place) === take.song) {
       take.song.voices.set(take.id, samples)
       take.song.fetched++
       take.song.done?.()
@@ -254,8 +259,9 @@ const startingStretch = 20
 
 function prepare(airing) {
   if (songs.has(placeOf(airing))) return songs.get(placeOf(airing))
-  const song = { airing, session: undefined, files: new Map(), voices: new Map(), uses: new Map(), gone: new Set(), ready: false, startable: false, fetched: 0, needed: 0, missing: 0 }
-  songs.set(placeOf(airing), song)
+  const place = placeOf(airing)
+  const song = { place, airing, session: undefined, files: new Map(), voices: new Map(), uses: new Map(), gone: new Set(), ready: false, startable: false, fetched: 0, needed: 0, missing: 0 }
+  songs.set(place, song)
   let started
   song.starting = new Promise((resolve) => (started = resolve))
   song.preparing = (async () => {
@@ -318,7 +324,7 @@ function prepare(airing) {
     song.ready = true
   })().catch(() => {
     // a Session that cannot be read is forgotten, and asked for again
-    songs.delete(placeOf(airing))
+    songs.delete(place)
     started()
   })
   return song
