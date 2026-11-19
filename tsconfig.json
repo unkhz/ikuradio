@@ -9,6 +9,8 @@
     "experimentalDecorators": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
+    "noEmit": true,
+    "outDir": "dist",
     "sourceMap": true,
     "strict": true,
     "paths": {
