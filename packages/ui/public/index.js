@@ -318,6 +318,8 @@ async function introOf(song, airing) {
     .catch(() => undefined)
   const said = declaration?.parts?.intro
   if (!said?.speech?.text) return recordings
+  // a DJ has something to say: they may begin to walk on, while it is being said
+  song.intro.coming = true
   // a page that cannot speak still plays the intro's music
   const spoken = await say(dj.request(said.speech.text, said.speech.squeeze)).catch((error) => {
     console.warn(`the page cannot speak: ${error}`)
@@ -797,10 +799,13 @@ function waiting(words) {
 // plays and there is a speech to move with. Like the receiver, Rezzy has a lopsided
 // hull with a bright rim, an antenna that pulls out in pieces with a warm tip,
 // a feeler, a dial for an eye, a speaker of slats for a mouth, and uneven
-// feet. The speaker opens on each vowel, the dial's needle swings with it,
-// the antenna's tip glows with the voice, and the body hops where the voice
-// leans, its feet staying where they are. Between syllables Rezzy breathes, and
-// now and then blinks. When the intro ends, Rezzy is put away.
+// feet. Rezzy is an announcer, not an animal: they walk on from beyond the
+// edge of the screen while the Song is still readying, a steady gait, feet
+// taking turns, and stand where they are while the intro plays, which begins
+// when they are in position. The speaker opens on each vowel, the dial's
+// needle swings with it, the antenna's tip glows with the voice, and the body
+// leans a little where the voice does. Between syllables Rezzy breathes, and
+// now and then blinks. Rezzy stays two seconds into the Song, and walks off.
 const rezzy = (() => {
   const canvas = document.getElementById('rezzy')
   const context = canvas.getContext('2d')
@@ -813,6 +818,10 @@ const rezzy = (() => {
   const hullLit = '#6284a4'
   const rim = '#a9c4b3'
   const amber = '#ffb347'
+  /** How long a walk on or off takes, in milliseconds. */
+  const walkMs = 2400
+  /** How many steps a second the gait keeps. */
+  const stepsPerSecond = 2.4
   let on
   let frame
   /**
@@ -870,16 +879,41 @@ const rezzy = (() => {
     const t = (now() - on.start) / 1000
     const { mouth, bob } = moving(on.moves, t)
     const still = stillness.matches
+    // the walk, on or off: the whole of Rezzy slides in or out over the edge of the screen,
+    // the feet taking turns, the body rising a little on each step
+    let heading = 0
+    let phase = 0
+    if (on.walk !== 'here') {
+      const progress = Math.min(1, (now() - on.since) / walkMs)
+      const eased = progress * progress * (3 - 2 * progress)
+      const far = parseFloat(canvas.style.width) + 96
+      canvas.style.transform = `translateX(${(on.walk === 'in' ? 1 - eased : eased) * far}px)`
+      heading = on.walk === 'in' ? -1 : 1
+      phase = (now() / 1000) * stepsPerSecond * Math.PI
+      if (progress >= 1) {
+        if (on.walk === 'in') {
+          on.walk = 'here'
+          canvas.style.transform = ''
+          heading = 0
+        } else {
+          finish()
+          return
+        }
+      }
+    }
     glow += (mouth - glow) * 0.25
     const breath = still ? 0 : Math.sin((now() / 1000) * 2.1) * 0.3
-    const hop = still ? 0 : bob * 1.6 + breath
+    const stride = heading ? Math.abs(Math.sin(phase)) * 0.4 : 0
+    const hop = still ? 0 : bob * 0.7 + breath + stride
     const blink = !still && Math.floor(now() / 1000) % 5 === 0 && now() % 1000 < 140
     // a row of room above, for the antenna when the body hops
     context.setTransform(1, 0, 0, 1, 0, pitch)
     context.clearRect(0, -pitch, canvas.width, canvas.height)
 
-    // the uneven feet and the legs, which stay where they are
-    for (const [x, y] of [[5, 16], [6, 17], [5, 17], [12, 16], [13, 17], [14, 17], [12, 17]]) dot(x, y, rim, 0.9, 0.3)
+    // the uneven feet and the legs: still where they stand, and lifting in turn, forward, when they walk
+    const lifts = [heading ? Math.max(0, Math.sin(phase)) : 0, heading ? Math.max(0, -Math.sin(phase)) : 0]
+    for (const [x, y] of [[5, 16], [6, 17], [5, 17]]) dot(x + heading * lifts[0], y - lifts[0] * 1.2, rim, 0.9, 0.3)
+    for (const [x, y] of [[12, 16], [13, 17], [14, 17], [12, 17]]) dot(x + heading * lifts[1], y - lifts[1] * 1.2, rim, 0.9, 0.3)
 
     // the body rises with the voice
     context.translate(0, -hop * pitch * 0.5)
@@ -913,7 +947,7 @@ const rezzy = (() => {
     // the feeler, which flicks with the voice, and the antenna, pulled out in pieces, bent
     const flick = still ? 0 : bob * 1.2
     along([[4, 7], [2.6, 5.8 - flick], [1, 6.8 - flick]], rim, 0.9, 0.28)
-    const sway = still ? 0 : Math.sin(now() / 480) * 0.35 + bob * 0.6
+    const sway = still ? 0 : Math.sin(now() / 480) * 0.35 + bob * 0.4 + (heading ? Math.sin(phase / 2) * 0.5 : 0)
     const kink = [[6, 6.4], [7, 3.4], [8.8 + sway * 0.4, 4.2], [10.6 + sway, 1.2]]
     along(kink, rim, 0.95, 0.3)
     // its tip, the brightest thing in it, warm enough to bleed into the dark around it
@@ -923,37 +957,72 @@ const rezzy = (() => {
     context.globalAlpha = 1
     frame = requestAnimationFrame(draw)
   }
+  /** Rezzy is gone: off the screen, not drawn. */
+  function finish() {
+    on = undefined
+    canvas.hidden = true
+    canvas.style.transform = ''
+    if (frame) cancelAnimationFrame(frame)
+    frame = undefined
+  }
   return {
-    /** Rezzy is drawn, to move with `moves`, which begin at `start`, in the page's time. */
-    appear(moves, start) {
-      if (!on) {
-        fit()
-        canvas.hidden = false
-        on = { moves, start }
-        frame = requestAnimationFrame(draw)
-      } else on = { moves, start }
+    /**
+     * Rezzy walks on from beyond the right edge of the screen, once; asked
+     * again, they are already on their way, or here. Returns when they will
+     * be in position, in the page's time.
+     */
+    comeIn() {
+      if (on) return on.arrives
+      fit()
+      const since = now()
+      on = { moves: [], start: Infinity, walk: stillness.matches ? 'here' : 'in', since, arrives: since + (stillness.matches ? 0 : walkMs) }
+      // out of sight to begin with, so that they are never seen at their place before they walk on
+      canvas.style.transform = on.walk === 'in' ? `translateX(${parseFloat(canvas.style.width) + 96}px)` : ''
+      canvas.hidden = false
+      frame = requestAnimationFrame(draw)
+      return on.arrives
+    },
+    /** Rezzy moves their mouth, their needle and their body with `moves`, which begin at `start`, in the page's time. */
+    speak(moves, start) {
+      if (on) {
+        on.moves = moves
+        on.start = start
+      }
+    },
+    /** Rezzy walks off, to the right, and is gone. */
+    leave() {
+      if (!on || on.walk === 'out') return
+      if (stillness.matches) return finish()
+      on.walk = 'out'
+      on.since = now()
     },
     /** Rezzy is put away. */
     away() {
-      if (!on) return
-      on = undefined
-      canvas.hidden = true
-      if (frame) cancelAnimationFrame(frame)
-      frame = undefined
+      if (on) finish()
     },
   }
 })()
 
-/** While a Song's intro plays, and a DJ has a speech, the DJ is drawn; at `t` seconds from the Song's moment 0. */
+/** How long Rezzy stays in the Song, after it has begun, before they walk off, in seconds. */
+const staysFor = 2
+
+/**
+ * While a Song's intro plays, and a DJ has a speech, the DJ is here: walking on
+ * while the Song readies, speaking over the intro, still there when the Song
+ * begins, and, `staysFor` seconds in, walking off. `t` is seconds from the
+ * Song's moment 0. Returns what the DJ is saying now, if they are speaking.
+ */
 function tellIntro(song, t) {
   const speech = song.intro?.speech
-  if (speech && t >= -song.intro.seconds && t < 0) {
-    rezzy.appear(speech.moves, song.airing.begins + speech.at * 1000)
-    const spoken = t >= speech.at && t < speech.at + speech.seconds
-    return spoken ? `${speech.title}: ${speech.words}` : undefined
+  if (!speech) return undefined
+  if (t >= staysFor) {
+    rezzy.leave()
+    return undefined
   }
-  rezzy.away()
-  return undefined
+  rezzy.comeIn()
+  rezzy.speak(speech.moves, song.airing.begins + speech.at * 1000)
+  const spoken = t >= speech.at && t < speech.at + speech.seconds
+  return spoken ? `${speech.title}: ${speech.words}` : undefined
 }
 
 function row(name, value) {
@@ -1556,6 +1625,8 @@ async function listenAgain(output, audioContext) {
   every(200, () => {
     // throats already open from a Song before are idle, and are asked to sing this one's first takes
     singSoon()
+    // a DJ with something to say walks on while the Song is still readying
+    if (prepared.intro?.coming) rezzy.comeIn()
     if (!prepared.startable) waiting(`readying Song ${named}: ${prepared.fetched} of ${prepared.first || '…'} to begin with`)
   })
   await prepared.starting
@@ -1567,8 +1638,10 @@ async function listenAgain(output, audioContext) {
     return
   }
   airing.seconds = prepared.session.seconds
-  // a visit hears the Song's intro first, which lies before its moment 0
-  airing.begins = now() + 1500 + (prepared.intro?.seconds ?? 0) * 1000
+  // a visit hears the Song's intro first, which lies before its moment 0, and begins
+  // when the DJ, if there is one, is in position
+  const arrives = prepared.intro?.speech ? rezzy.comeIn() : 0
+  airing.begins = Math.max(now() + 1500, arrives + 500) + (prepared.intro?.seconds ?? 0) * 1000
   // heard again, the page still asks, so it learns when it is out of date
   every(5000, () => askRadio().catch(() => {}))
   let ended = false
