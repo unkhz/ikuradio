@@ -826,7 +826,7 @@ const rezzy = (() => {
   let frame
   /**
    * Rezzy is drawn in the bottom right corner, as large as the screen allows:
-   * no more than 23.5% of its area, and no larger than the receiver's
+   * no more than 14.6% of its area, and no larger than the receiver's
    * likeness as it comes in (the width the CSS gives it: 78vw, 432px, 55vh).
    * Her dots are drawn at the device's own pixels, so they stay round.
    */
@@ -834,7 +834,7 @@ const rezzy = (() => {
     const width = innerWidth
     const height = innerHeight
     const likeness = Math.min(0.78 * width, 432, 0.55 * height)
-    const across = Math.min(likeness, Math.sqrt(0.235 * width * height * (columns / rowsOf)))
+    const across = Math.min(likeness, Math.sqrt(0.146 * width * height * (columns / rowsOf)))
     const scale = devicePixelRatio || 1
     pitch = Math.max(2, Math.floor((across * scale) / columns))
     canvas.width = pitch * columns
