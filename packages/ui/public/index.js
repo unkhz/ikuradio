@@ -776,17 +776,18 @@ function waiting(words) {
 
 // Rezzy, drawn (plan "Intro with Rezzy"): a small creature of a radio, the
 // receiver's own kind, in the page's own dots, only while a Song's intro
-// plays and there is a speech to move with. Like the receiver she has a lopsided
+// plays and there is a speech to move with. Like the receiver, Rezzy has a lopsided
 // hull with a bright rim, an antenna that pulls out in pieces with a warm tip,
 // a feeler, a dial for an eye, a speaker of slats for a mouth, and uneven
 // feet. The speaker opens on each vowel, the dial's needle swings with it,
 // the antenna's tip glows with the voice, and the body hops where the voice
-// leans, its feet staying where they are. Between syllables she breathes, and
+// leans, its feet staying where they are. Between syllables Rezzy breathes, and
 // now and then blinks. When the intro ends, Rezzy is put away.
 const rezzy = (() => {
   const canvas = document.getElementById('rezzy')
   const context = canvas.getContext('2d')
-  const pitch = 8
+  // three quarters of the size Rezzy was: the dots of the grid are 6 pixels apart
+  const pitch = 6
   // the receiver's colours: hull, the rim catching the light, and the warm of its antenna
   const hull = '#38536c'
   const hullLit = '#6284a4'
