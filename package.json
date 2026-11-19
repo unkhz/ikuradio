@@ -12,6 +12,7 @@
     "studio": "bun run throat && cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local index.ts",
     "names": "cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local names.ts",
     "rehearse": "bun run throat && cd packages/studio && bun --env-file=../../.env --env-file=../../.env.local rehearse.ts",
+    "receiver": "bun packages/ui/build.ts",
     "draw": "bun packages/ui/drawing/draw.ts",
     "verses": "bun build packages/ui/verses/verses.ts --format=iife --minify --outfile packages/ui/public/verses.js",
     "listen": "bun --env-file=.env --env-file=.env.local packages/cli/index.ts",

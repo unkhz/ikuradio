@@ -14,6 +14,10 @@ COPY packages ./packages
 # the critic's favourites, which an encore rotates, are read in at build
 COPY critic ./critic
 RUN bun install --frozen-lockfile --production
+# the Receiver is built first, each file named by its hash, and the git hash
+# the Radio is built from is stamped into it; the Radio tells it as its release
+ARG RELEASE=dev
+RUN RELEASE=${RELEASE} bun run receiver
 RUN bun build packages/radio/index.ts \
       --compile \
       --minify \

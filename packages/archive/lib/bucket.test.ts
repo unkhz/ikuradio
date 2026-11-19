@@ -106,3 +106,18 @@ describe('bucketAt', () => {
     expect(() => bucketAt('https://hel1.your-objectstorage.com/')).toThrow()
   })
 })
+
+describe('a bucket that is stamped', () => {
+  it('keeps its version when a new Song comes, and changes it when a Song is put in afresh', async () => {
+    const store = kept()
+    const version = async () => ((await (store as unknown as { client: { file: (k: string) => { json: () => Promise<{ version: string }> } } }).client.file(paths.version).json().catch(() => ({ version: undefined }))).version)
+    await store.putSession(song('1', 'A long, slow thaw'))
+    await store.putSession(song('2'))
+    expect(await version()).toBeUndefined()
+    await store.putSession(song('1', 'The thaw, long and slow'))
+    const first = await version()
+    expect(first).toMatch(/^\d{4}-/)
+    await store.putSession(song('1', 'Hollow death'))
+    expect(await version()).not.toBe(first)
+  })
+})

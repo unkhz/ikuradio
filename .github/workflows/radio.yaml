@@ -52,6 +52,8 @@ jobs:
         with:
           context: .
           file: packages/radio/Dockerfile
+          build-args: |
+            RELEASE=${{ github.sha }}
           push: true
           tags: |
             ghcr.io/${{ github.repository }}/radio:${{ github.sha }}

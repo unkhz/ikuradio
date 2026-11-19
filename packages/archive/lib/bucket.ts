@@ -105,6 +105,14 @@ export class BucketStore implements ArchiveStore {
       BigInt(a) < BigInt(b) ? -1 : BigInt(a) > BigInt(b) ? 1 : 0,
     )
     await this.put(paths.index, JSON.stringify({ songs: listed }), 'application/json')
+    // a Song put in afresh, one the Archive already listed, changes the Archive's version
+    if (songs.includes(session.song)) await this.stamp()
+  }
+
+  /** Stamps the Archive with a new version: the moment, and a little chance, so two stamps in a moment differ. */
+  async stamp() {
+    const version = `${new Date().toISOString()}-${Math.random().toString(36).slice(2, 8)}`
+    await this.put(paths.version, JSON.stringify({ version }), 'application/json')
   }
 
   async putDiary({ writing, books }: { writing: string; books: string[] }) {

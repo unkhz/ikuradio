@@ -264,4 +264,10 @@ export const paths = {
   thoughtsShelf: 'thoughts/mind/',
   /** The names worn: each slug a name makes, and the Song that wears it. */
   names: 'names.json',
+  /**
+   * The Archive's version: one stamp for the whole of it, changed whenever
+   * something already in it is put in afresh, so a Receiver knows that what
+   * it holds of it may be old. A new Song does not change it: it only comes.
+   */
+  version: 'version.json',
 }

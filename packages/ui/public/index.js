@@ -28,7 +28,100 @@ async function askRadio() {
   samples.push({ rtt: got - sent, offset: tactus.now - (sent + got) / 2 })
   if (samples.length > 12) samples.shift()
   offset = samples.reduce((best, s) => (s.rtt < best.rtt ? s : best)).offset
+  noticeVersions(tactus)
   return tactus
+}
+
+// Keeping up (plan "The Receiver updates itself"). The Tactus tells two
+// versions with everything it says: the Radio's release, and the Archive's.
+// A page that sees either move queues an update, and takes it at the one
+// moment the song can spare: when the Song it was playing has ended. A Song
+// is never cut short, and no next Song is begun until the update is done.
+const running = document.querySelector('meta[name="release"]')?.content
+let seenArchive
+const queued = { radio: false, archive: false, ready: true }
+let holdUntil = 0 // when the Song that was playing as the update was queued ends, in the Radio's time
+
+/** The Song playing now, if one is: from the Songs this page knows. */
+function playingNow() {
+  const moment = now()
+  return [...songs.values()].find(({ airing }) => airing.begins <= moment && moment < airing.begins + airing.seconds * 1000)
+}
+
+function noticeVersions({ release, archiveVersion }) {
+  const wasQueued = queued.radio || queued.archive
+  if (release && running && release !== running && !queued.radio && reloadedFor() !== release) {
+    queued.radio = true
+    queued.ready = false
+    prepareReload()
+  }
+  if (archiveVersion) {
+    if (seenArchive !== undefined && archiveVersion !== seenArchive) queued.archive = true
+    seenArchive = archiveVersion
+  }
+  if (!wasQueued && (queued.radio || queued.archive)) {
+    const playing = playingNow()
+    holdUntil = playing ? playing.airing.begins + playing.airing.seconds * 1000 : 0
+  }
+}
+
+/** The release this page last reloaded for, so a Radio that keeps telling an old one does not send it round and round. */
+function reloadedFor() {
+  try {
+    return sessionStorage.getItem('ikuradio:reloaded')
+  } catch {
+    return null
+  }
+}
+
+/** While the Song plays: the new index is fetched quietly, and the files it names, so what changed is here when the reload comes. */
+function prepareReload() {
+  ;(async () => {
+    const index = await fetch(location.pathname, { cache: 'no-cache' }).then((r) => r.text())
+    const named = [...index.matchAll(/(?:src|href)="(\/[^"]+)"/g)].map((m) => m[1])
+    await Promise.all(named.map((file) => fetch(file).then((r) => r.arrayBuffer())))
+  })()
+    .catch(() => {})
+    .finally(() => {
+      queued.ready = true
+    })
+}
+
+/** Whether an update is queued and the Song it waited for has stopped. */
+function updateDue() {
+  return (queued.radio || queued.archive) && now() >= holdUntil
+}
+
+/**
+ * Takes the update queued, when its moment has come. The Archive's: what was
+ * never heard is let go, so the Songs are fetched afresh. The Radio's: the
+ * page reloads, as a first visit does, and only the files whose hashes
+ * changed are fetched. Returns whether this moment is spent on it.
+ */
+function takeUpdate(then) {
+  if (!updateDue()) return false
+  if (queued.archive) {
+    queued.archive = false
+    songs.clear()
+    then?.()
+  }
+  if (queued.radio) {
+    if (!queued.ready) return true
+    reloadForUpdate()
+    return true
+  }
+  return true
+}
+
+let reloading = false
+async function reloadForUpdate() {
+  if (reloading) return
+  reloading = true
+  try {
+    const { release } = await fetch(`${radio}/tactus`, { cache: 'no-store' }).then((r) => r.json())
+    sessionStorage.setItem('ikuradio:reloaded', release)
+  } catch {}
+  location.reload()
 }
 
 // The Songs this page knows. Each is fetched in the order it will be
@@ -1042,6 +1135,8 @@ function stopListening() {
   bridgeEnds()
   // its sounds are let go; what has been placed on the audio clock plays out
   songs.clear()
+  // what it would have let go is gone with the Songs
+  queued.archive = false
   showing = undefined
   // the details and the offered line the Radio wrote were of the Song it served for
   document.getElementById('details').removeAttribute('data-served')
@@ -1084,6 +1179,16 @@ async function carryOn(song) {
     if (mine !== generation) return
     offerToCarryOn(song)
   }
+}
+
+/** A Song heard again has ended, and the Radio has a new release: the page reloads at the Song it would carry on to, or where it is. */
+async function updateAfter(song) {
+  waiting('the receiver is being updated')
+  if (autoplayOn) {
+    const after = await fetch(`${radio}/songs/after?song=${song}`).then((r) => r.json()).catch(() => ({}))
+    history.replaceState(null, '', after.song ? `/s/${after.song}/${after.slug}` : '/')
+  }
+  await reloadForUpdate()
 }
 
 /** Where a Song heard again has ended: two ways to carry on, in place of the hint. */
@@ -1159,6 +1264,8 @@ async function listenAgain(output, audioContext) {
   }
   airing.seconds = prepared.session.seconds
   airing.begins = now() + 1500
+  // heard again, the page still asks, so it learns when it is out of date
+  every(5000, () => askRadio().catch(() => {}))
   let ended = false
   every(50, () => {
     placeSounds(audioContext)
@@ -1174,6 +1281,8 @@ async function listenAgain(output, audioContext) {
     ended = true
     bridgeEnds()
     weather(output, `Song ${named} has ended`)
+    // a Radio that has moved on is taken up now; where the page lands is the Song it would have carried on to
+    if (queued.radio) return updateAfter(song)
     if (autoplayOn) carryOn(song)
     else offerToCarryOn(song)
   })
@@ -1221,6 +1330,8 @@ async function listenLive(output, audioContext) {
   every(50, () => {
     placeSounds(audioContext)
     singSoon()
+    // an update queued is taken when the Song has stopped, and nothing new is begun until it is
+    if (takeUpdate(ask)) return
     const moment = now()
     const playing = [...songs.values()].find(
       ({ airing }) => airing.begins <= moment && moment < airing.begins + airing.seconds * 1000,

@@ -7,7 +7,8 @@
 //
 //   bun run radio
 //
-//   GET /tactus     the time, and the Songs playing and coming, with links to their Sessions
+//   GET /tactus     the time, and the Songs playing and coming, with links to their Sessions,
+//                   and the versions: the Radio's release, and the Archive's
 //   GET /songs      Songs that have aired, newest first, for looking back
 //   GET /songs/page every Song received, the one on now first, a slice at a time,
 //                   found by mode and by how it was heard (?mode=dorian&heard=plainly|<slug>)
@@ -20,30 +21,11 @@
 
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { normalize } from 'node:path'
-import pageHtmlFile from '../ui/public/index.html' with { type: 'file' }
-// @ts-expect-error: the page's script is plain JavaScript, imported only as a file
-import pageJsFile from '../ui/public/index.js' with { type: 'file' }
-// @ts-expect-error: the page's space is plain JavaScript, imported only as a file
-import pageSpaceFile from '../ui/public/space.js' with { type: 'file' }
-// @ts-expect-error: the page's measure of its lines is built JavaScript, imported only as a file
-import pageVersesFile from '../ui/public/verses.js' with { type: 'file' }
-import pageIcon from '../ui/public/favicon.ico' with { type: 'file' }
-import pageReceiver from '../ui/public/receiver.svg' with { type: 'file' }
-import pageCard from '../ui/public/card.png' with { type: 'file' }
-import pageWordmark from '../ui/public/wordmark.svg' with { type: 'file' }
-import pageManifest from '../ui/public/manifest.webmanifest' with { type: 'file' }
-import pageAppIcon from '../ui/public/icon-512.png' with { type: 'file' }
-import pageSmallAppIcon from '../ui/public/icon-192.png' with { type: 'file' }
-import pageTouchIcon from '../ui/public/apple-touch-icon.png' with { type: 'file' }
-import pageFont from '../ui/public/fonts/doto.woff2' with { type: 'file' }
-import pageFontLicense from '../ui/public/fonts/DOTO-LICENSE.txt' with { type: 'file' }
-// @ts-expect-error: the page's throat is plain JavaScript, imported only as a file
-import pageThroatFile from '../ui/public/throat.js' with { type: 'file' }
-// @ts-expect-error: the throat's worker is plain JavaScript, imported only as a file
-import pageThroatWorkerFile from '../ui/public/throat-worker.js' with { type: 'file' }
-import pageThroatEngine from '../ui/public/throat/chimera.wasm' with { type: 'file' }
-import pageThroatWords from '../ui/public/throat/cmudict.txt.gz' with { type: 'file' }
-import pageThroatWordsLicense from '../ui/public/throat/CMUDICT-LICENSE.txt' with { type: 'file' }
+// The Receiver's page, built by packages/ui/build.ts before the Radio is: each
+// file named by a hash of what it holds, every one imported as a file, so the
+// executable that is compiled carries them. Run `bun run receiver` first.
+// @ts-ignore: written by the Receiver's build, and not there until it has run
+import { files as pageFiles, named as pageNames, release } from '../ui/dist/receiver.js'
 import { getEnv } from 'tools'
 import { archiveAddress, linkOf, paths, publicArchive, sessionVersion, slugOf, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
@@ -207,8 +189,20 @@ async function keepCache() {
   }
 }
 
-await listen()
+/**
+ * The Archive's version, as it was last read: nothing, until it has been, or
+ * if the Archive keeps none. Told in the Tactus beside the Radio's release, so
+ * a Receiver knows when what it holds of either is old.
+ */
+let archiveVersion: string | null = null
+async function readVersion() {
+  const stamp = await read<{ version?: string }>(paths.version)
+  if (stamp?.version) archiveVersion = stamp.version
+}
+
+await Promise.all([readVersion(), listen()])
 setInterval(listen, 2000)
+setInterval(readVersion, 15_000)
 void keepCache()
 setInterval(keepCache, 60_000)
 
@@ -260,35 +254,13 @@ const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: open })
 
 // The Receiver's page is carried inside the Radio: from its files here, and
-// inside the executable when the Radio is compiled into one.
-// imported `with { type: 'file' }`, each is the file's path, whatever the types say
-const pageHtml = pageHtmlFile as unknown as string
-const pageJs = pageJsFile as unknown as string
-const pageFiles: Record<string, { file: string; type: string }> = {
-  'index.html': { file: pageHtml, type: 'text/html; charset=utf-8' },
-  'index.js': { file: pageJs, type: 'text/javascript; charset=utf-8' },
-  'space.js': { file: pageSpaceFile as unknown as string, type: 'text/javascript; charset=utf-8' },
-  'verses.js': { file: pageVersesFile as unknown as string, type: 'text/javascript; charset=utf-8' },
-  'favicon.ico': { file: pageIcon, type: 'image/x-icon' },
-  'receiver.svg': { file: pageReceiver, type: 'image/svg+xml' },
-  'card.png': { file: pageCard, type: 'image/png' },
-  'wordmark.svg': { file: pageWordmark, type: 'image/svg+xml' },
-  // what a phone or a browser needs to keep the receiver as an app of its own
-  'manifest.webmanifest': { file: pageManifest, type: 'application/manifest+json' },
-  'icon-512.png': { file: pageAppIcon, type: 'image/png' },
-  'icon-192.png': { file: pageSmallAppIcon, type: 'image/png' },
-  'apple-touch-icon.png': { file: pageTouchIcon, type: 'image/png' },
-  // the letters the page is set in, and their license
-  'fonts/doto.woff2': { file: pageFont, type: 'font/woff2' },
-  'fonts/DOTO-LICENSE.txt': { file: pageFontLicense, type: 'text/plain; charset=utf-8' },
-  // the throat every Receiver sings with, and the words it reads; the
-  // dictionary is sent as it is, gzipped, and unzipped by the page
-  'throat.js': { file: pageThroatFile as unknown as string, type: 'text/javascript; charset=utf-8' },
-  'throat-worker.js': { file: pageThroatWorkerFile as unknown as string, type: 'text/javascript; charset=utf-8' },
-  'throat/chimera.wasm': { file: pageThroatEngine, type: 'application/wasm' },
-  'throat/cmudict.txt.gz': { file: pageThroatWords, type: 'application/octet-stream' },
-  'throat/CMUDICT-LICENSE.txt': { file: pageThroatWordsLicense, type: 'text/plain; charset=utf-8' },
-}
+// inside the executable when the Radio is compiled into one. `pageFiles` is
+// the built page by the names it is served by; `pageNames` is what each file
+// is called by hand, and what it is served by now.
+const files = pageFiles as Record<string, { file: string; type: string; immutable: boolean }>
+const names = pageNames as Record<string, string>
+const pageHtml = files[names['index.html']!]!.file
+const releaseOf = release as string
 
 // How the page is told about, when a link to it is shared: by the Radio,
 // for every page, so a link to a Song says which Song it is.
@@ -348,7 +320,7 @@ async function page(request: Request, url: URL, song?: bigint) {
     `<meta property="og:title" content="${escaped(title)}" />`,
     `<meta property="og:description" content="${escaped(description)}" />`,
     `<meta property="og:url" content="${escaped(origin + url.pathname)}" />`,
-    `<meta property="og:image" content="${escaped(`${origin}/card.png`)}" />`,
+    `<meta property="og:image" content="${escaped(`${origin}/${names['card.png']}`)}" />`,
     `<meta property="og:image:width" content="1200" />`,
     `<meta property="og:image:height" content="630" />`,
     `<meta property="og:image:alt" content="A lost receiver from another world, a little broken" />`,
@@ -375,6 +347,9 @@ async function answer(request: Request): Promise<Response> {
     return json({
       now: Date.now(),
       archive,
+      // the versions a Receiver compares with what it holds
+      release: releaseOf,
+      archiveVersion,
       playing: told(tactus.playing, archive) ?? null,
       next: told(tactus.next, archive) ?? null,
     })
@@ -490,12 +465,12 @@ async function answer(request: Request): Promise<Response> {
   }
 
   const name = normalize(url.pathname).slice(1)
-  const part = pageFiles[name]
+  const part = Object.hasOwn(files, name) ? files[name] : Object.hasOwn(names, name) ? files[names[name]!] : undefined
   if (part) {
-    // the throat is two megabytes that change only when the throat is moved
-    // on, and the letters, which change less: kept a day, so a listener who
-    // comes back does not fetch them again
-    const cache = name.startsWith('throat/') || name.startsWith('fonts/') ? 'public, max-age=86400' : 'no-cache'
+    // a file asked for by the name its hash gives it never changes: kept as
+    // long as the browser likes. One asked for by the name it was once given
+    // by hand, or one that keeps its name, is asked after each time
+    const cache = part.immutable && Object.hasOwn(files, name) ? 'public, max-age=31536000, immutable' : 'no-cache'
     return new Response(Bun.file(part.file), {
       headers: { 'Content-Type': part.type, 'Cache-Control': cache },
     })
