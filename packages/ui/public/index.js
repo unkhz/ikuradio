@@ -786,8 +786,10 @@ function waiting(words) {
 const rezzy = (() => {
   const canvas = document.getElementById('rezzy')
   const context = canvas.getContext('2d')
-  // three quarters of the size Rezzy was: the dots of the grid are 6 pixels apart
-  const pitch = 6
+  // Rezzy's grid is 20 dots across and 19 down; how far apart the dots lie is set by the size she is given
+  const columns = 20
+  const rowsOf = 19
+  let pitch = 6
   // the receiver's colours: hull, the rim catching the light, and the warm of its antenna
   const hull = '#38536c'
   const hullLit = '#6284a4'
@@ -795,6 +797,27 @@ const rezzy = (() => {
   const amber = '#ffb347'
   let on
   let frame
+  /**
+   * Rezzy is drawn in the bottom right corner, as large as the screen allows:
+   * no more than a third of its area, and no larger than the receiver's
+   * likeness as it comes in (the width the CSS gives it: 78vw, 432px, 55vh).
+   * Her dots are drawn at the device's own pixels, so they stay round.
+   */
+  function fit() {
+    const width = innerWidth
+    const height = innerHeight
+    const likeness = Math.min(0.78 * width, 432, 0.55 * height)
+    const across = Math.min(likeness, Math.sqrt(0.33 * width * height * (columns / rowsOf)))
+    const scale = devicePixelRatio || 1
+    pitch = Math.max(2, Math.floor((across * scale) / columns))
+    canvas.width = pitch * columns
+    canvas.height = pitch * rowsOf
+    canvas.style.width = `${canvas.width / scale}px`
+    canvas.style.height = `${canvas.height / scale}px`
+  }
+  addEventListener('resize', () => {
+    if (on) fit()
+  })
   const dot = (x, y, colour, alpha = 1, size = 0.34) => {
     context.globalAlpha = alpha
     context.fillStyle = colour
@@ -841,7 +864,7 @@ const rezzy = (() => {
     for (const [x, y] of [[5, 16], [6, 17], [5, 17], [12, 16], [13, 17], [14, 17], [12, 17]]) dot(x, y, rim, 0.9, 0.3)
 
     // the body rises with the voice
-    context.translate(0, -hop * 3)
+    context.translate(0, -hop * pitch * 0.5)
     // the hull: a lopsided oval of haze, its rim catching the light
     for (let y = 4; y < 17; y++) {
       for (let x = 0; x < 20; x++) {
@@ -886,6 +909,7 @@ const rezzy = (() => {
     /** Rezzy is drawn, to move with `moves`, which begin at `start`, in the page's time. */
     appear(moves, start) {
       if (!on) {
+        fit()
         canvas.hidden = false
         on = { moves, start }
         frame = requestAnimationFrame(draw)
@@ -1461,19 +1485,15 @@ addEventListener('popstate', () => {
   else tuneLive({ push: false })
 })
 
-async function listenAgain(output, audioContext) {
-  const mine = generation
-  const { index, number: named } = replay
+/**
+ * Gets a Song heard again ready: asks the Radio whether it has been
+ * received, and, if so, begins to prepare it: its Session, its Music, its
+ * takes sung, a visit's intro said. Nothing here needs the page to be
+ * switched on, so it may begin before the first click.
+ */
+async function readyReplay(index, visit) {
   const song = String(index)
-  const visit = entry
-  entry = false
-  let tactus
-  try {
-    tactus = await askRadio()
-  } catch {
-    weather(output, 'the radio is quiet')
-    return
-  }
+  const tactus = await askRadio()
   // only what has been received may be heard again: nothing from the future
   const aired =
     tactus.playing?.song === song ||
@@ -1481,14 +1501,40 @@ async function listenAgain(output, audioContext) {
       .then((r) => r.json())
       .then((found) => found.some((a) => a.song === song))
       .catch(() => false))
+  if (!aired) return { aired: false }
+  const airing = { song, session: new URL(`sessions/${song}.json`, tactus.archive).href, archive: tactus.archive, begins: Infinity, seconds: 0, visit }
+  return { aired: true, tactus, airing, prepared: prepare(airing) }
+}
+
+// A page that is opened at a Song begins to ready it at once, before anything
+// is clicked, so that the Song is ready sooner when it is. Only the page at
+// `/` waits for the click: it has nothing yet to ready.
+let preloading = replay ? { song: String(replay.index), ready: readyReplay(replay.index, true).catch(() => undefined) } : undefined
+
+async function listenAgain(output, audioContext) {
+  const mine = generation
+  const { index, number: named } = replay
+  const song = String(index)
+  const visit = entry
+  entry = false
+  // what was readied before the click, if it is this Song; any other is let go
+  const early = preloading
+  preloading = undefined
+  let ready
+  if (early?.song === song) ready = await early.ready
+  else early?.ready.then((r) => r?.prepared && songs.delete(r.prepared.place))
+  ready ??= await readyReplay(index, visit).catch(() => undefined)
   if (mine !== generation) return
-  if (!aired) {
+  if (!ready) {
+    weather(output, 'the radio is quiet')
+    return
+  }
+  if (!ready.aired) {
     weather(output, `Song ${named} has not been received yet`)
     waiting('tune to live from the knob')
     return
   }
-  const airing = { song, session: new URL(`sessions/${song}.json`, tactus.archive).href, archive: tactus.archive, begins: Infinity, seconds: 0, visit }
-  const prepared = prepare(airing)
+  const { tactus, airing, prepared } = ready
   every(200, () => {
     // throats already open from a Song before are idle, and are asked to sing this one's first takes
     singSoon()
