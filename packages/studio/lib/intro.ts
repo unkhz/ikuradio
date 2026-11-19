@@ -1,7 +1,9 @@
-// The intro (plan "Intro with Rezzy"): four bars before a Song, from nothing
-// into its first verse, with a bed the band grows from them, and a DJ's
-// speech to be said over them. Songs made from here have one. It lies before
-// the Song's moment 0, so nothing in the Song moves for it.
+// The intro (plan "Intro with Rezzy"): fifteen seconds before a Song, from
+// nothing into its first verse, with a bed the band grows from them, and a
+// DJ's speech to be said over them. It has no drums and no other rhythmic
+// instrument, so it does not have to fit the Song's bars: its length is its
+// own, and the same for every Song. Songs made from here have one. It lies
+// before the Song's moment 0, so nothing in the Song moves for it.
 
 import { holdLast, keyFor, opening, phraseOf, vocalRange, type Score } from 'melody'
 import { accompany, tail, words } from 'music'
@@ -11,11 +13,25 @@ import type { DjDeclaration } from 'archive'
 import type { Iteration } from './compose.js'
 import { hum } from './perform.js'
 
-/** An intro is four bars of four beats. */
-export const introBeats = 16
+/** How long an intro lasts, in seconds, whatever the Song's tempo. */
+export const introSeconds = 15
 
-/** How long the intro lasts at a Song's tempo, in seconds. */
-export const introSeconds = (bpm: number) => Math.round(((introBeats * 60) / bpm) * 1000) / 1000
+/** How many beats of a Song at `bpm` the intro's music is counted in: four bars' worth of shape, in the length it has. */
+export const introBeats = (bpm: number) => (introSeconds * bpm) / 60
+
+/**
+ * What the band is asked for under the intro: the Song's own sound and key,
+ * without its tempo, and without anything rhythmic. A band the mind heard as
+ * drums, or percussion, or a beat, is not asked for as it is heard: the
+ * Mood's other words are, or, with none, warm sustained pads.
+ */
+export function unrhythmic(mood: Iteration['mood']): string {
+  const rhythmic = /\b(drums?|drumming|percussion|percussive|beats?|snares?|kicks?|hi-?hats?|rhythm\w*|tabla|bongos?|congas?|claps?|clapping|groove\w*)\b/i
+  const kept = [mood.character.sound, ...mood.descriptions].filter((word): word is string => Boolean(word) && !rhythmic.test(word!))
+  const sound = (mood.character.sound && !rhythmic.test(mood.character.sound) ? [mood.character.sound] : kept).slice(0, 2)
+  const key = words(mood).split(', ').at(-1)!
+  return [...(sound.length ? sound : ['warm sustained pads']), 'slow, sustained, ambient', key, 'no drums, no percussion, no rhythm'].join(', ')
+}
 
 /**
  * The intro's notes, in MIDI and beats, folded into the reach of the lead's
@@ -29,7 +45,7 @@ export function introScore(first: Iteration): Score {
   const pitches = opening({
     to: phraseOf(first.sung, 'verse', 0),
     toKey: key,
-    beats: introBeats,
+    beats: introBeats(character.tempo),
     harmony: lead.harmony,
   })
   const [low, high] = vocalRange[lead.body]
@@ -54,9 +70,8 @@ export async function growIntro(first: Iteration): Promise<Placed> {
   // steady, without a singer's wavering: it is a map, not a performance
   const take: Take = { ...held, t0: 0.05, vibrato: 0, ...lead.throat }
   const guide = await record(take, lead.body)
-  const seconds = introSeconds(bpm)
-  const file = await accompany({ vocals: guide, mood: words(first.mood), seconds: seconds + tail, melody: true })
-  return { file, at: -seconds, gain: 0.45, seconds, fade: tail }
+  const file = await accompany({ vocals: guide, mood: unrhythmic(first.mood), seconds: introSeconds + tail, melody: true })
+  return { file, at: -introSeconds, gain: 0.45, seconds: introSeconds, fade: tail }
 }
 
 /** How much of the intro passes before the DJ speaks: the held tone is heard first. */
@@ -70,8 +85,8 @@ export const leadOut = 0.6
  * words if it must be. `say` is the speaking throat. Nothing if not even a
  * word fits.
  */
-export async function declare(dj: Dj, song: string, bpm: number, text: string, say: (request: Request) => Promise<Said> | Said): Promise<DjDeclaration | undefined> {
-  const room = introSeconds(bpm) - leadIn - leadOut
+export async function declare(dj: Dj, song: string, text: string, say: (request: Request) => Promise<Said> | Said): Promise<DjDeclaration | undefined> {
+  const room = introSeconds - leadIn - leadOut
   const fitted = await fit(dj, text, room, say)
   if (!fitted) return undefined
   return {

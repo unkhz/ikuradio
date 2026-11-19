@@ -57,14 +57,14 @@ index 0a13a91..9e28ad5 100644
  pub mod syllables;
 diff --git a/crates/chimera/src/phonetics/say.rs b/crates/chimera/src/phonetics/say.rs
 new file mode 100644
-index 0000000..1f5de6f
+index 0000000..7bf02eb
 --- /dev/null
 +++ b/crates/chimera/src/phonetics/say.rs
-@@ -0,0 +1,66 @@
+@@ -0,0 +1,83 @@
 +//! English text said offline, as `chimera render text` says it, as a library: the CMU dictionary,
 +//! the phrase planner, a body and its speaking pitch. What the CLI and the browser say is the same
 +//! speech, sample for sample. The request is JSON: `{"text", "body", "sampleRate"}`, a body being a name or a mix, `{"female", "child"}`,, and, to
-+//! shape the voice, `rate` (a speaking-rate multiplier, 1 as usual), `f0` (the baseline pitch in
++//! shape the voice, `rate` (a speaking-rate multiplier, 1 as usual), `stretch` (`[[word, factor], …]`, words drawn out), `f0` (the baseline pitch in
 +//! Hz), `accent` (how far stressed syllables lean, a fraction), and the throat: `pressure`
 +//! (cmH2O), `tension` and `breathiness`.
 +
@@ -104,8 +104,25 @@ index 0000000..1f5de6f
 +        breathiness: j["breathiness"].as_f64(),
 +        ..Default::default()
 +    });
-+    let inputs: Vec<PhraseInput> = g
-+        .to_phrases(text)
++    let mut phrases = g.to_phrases(text);
++    // `stretch`: [[word, factor], ...], the words said counted from 0 across the phrases. A word
++    // drawn out, for effect, has its vowels held as many times as long as the planner would
++    if let Some(list) = j["stretch"].as_array() {
++        let factors: std::collections::HashMap<usize, f64> =
++            list.iter().filter_map(|pair| Some((pair[0].as_u64()? as usize, pair[1].as_f64()?))).collect();
++        let mut word = 0usize;
++        for phrase in phrases.iter_mut() {
++            for seg in phrase.segments.iter_mut() {
++                if let (Some(f), Some(stress)) = (factors.get(&word), seg.stress) {
++                    seg.dur = Some(match stress { 1 => 0.17, 2 => 0.13, _ => 0.095 } * f);
++                }
++                if seg.word_end == Some(true) {
++                    word += 1;
++                }
++            }
++        }
++    }
++    let inputs: Vec<PhraseInput> = phrases
 +        .iter()
 +        .map(|p| PhraseInput { segments: p.segments.clone(), intonation: Some(p.intonation), pause: Some(p.pause) })
 +        .collect();

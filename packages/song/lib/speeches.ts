@@ -11,8 +11,8 @@ import { plainly, Silence } from './names.js'
 /** A speech as it is given: the words only. */
 export type Speaking = { speech: string }
 
-/** The longest a speech may be, in words, whatever the room: four bars are not long. */
-export const mostWords = 36
+/** The longest a speech may be, in words, whatever the room: fifteen seconds are not long. */
+export const mostWords = 40
 
 const speechSchema = {
   type: 'object',

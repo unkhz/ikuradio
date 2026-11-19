@@ -274,7 +274,7 @@ const session = toSession(
 )
 // what the DJ says goes in beside the Session, before it: a Song is listed only once all of it is there
 if (introBed && speech) {
-  const declaration = await declare(rezzy, session.song, composed[0].mood.character.tempo, speech, saying).catch((error: Error) => {
+  const declaration = await declare(rezzy, session.song, speech, saying).catch((error: Error) => {
     console.warn(`${rezzy.title} could not be fitted to the intro: ${error.message}`)
     return undefined
   })

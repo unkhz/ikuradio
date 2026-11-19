@@ -3,16 +3,18 @@
 // asks of it, and how the words are fitted to the room a Song's intro leaves.
 
 import type { Dj } from './dj.js'
+import { dramaOf } from './drama.js'
 
 /** What the speaking throat is asked: the text and the DJ's voice, sped by `squeeze` when the words are many for their room. */
-export type Request = { text: string; body: Dj['voice']['body']; f0: number; rate: number; accent?: number; pressure?: number; tension?: number; breathiness?: number }
+export type Request = { text: string; body: Dj['voice']['body']; f0: number; rate: number; accent?: number; pressure?: number; tension?: number; breathiness?: number; stretch?: [number, number][] }
 
 /** What the speaking throat answers: the speech's length, as it is said, tail included in the samples but not here. */
 export type Said = { end: number }
 
 /** The request for `text` in a DJ's voice. */
 export const requestOf = (dj: Dj, text: string, squeeze = 1): Request => {
-  const { body, f0, rate, accent, pressure, tension, breathiness } = dj.voice
+  const { body, f0, rate, accent, pressure, tension, breathiness, drama } = dj.voice
+  const stretch = drama ? dramaOf(text, drama) : []
   return {
     text,
     body,
@@ -22,6 +24,7 @@ export const requestOf = (dj: Dj, text: string, squeeze = 1): Request => {
     ...(pressure !== undefined ? { pressure } : {}),
     ...(tension !== undefined ? { tension } : {}),
     ...(breathiness !== undefined ? { breathiness } : {}),
+    ...(stretch.length ? { stretch } : {}),
   }
 }
 

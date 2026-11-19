@@ -5,6 +5,8 @@
 // A DJ speaks with Chimera's Speak mode, the speaking throat, which is not
 // the throat the choir sings with.
 
+import type { Drama } from './drama.js'
+
 /** How a DJ's voice is given to the speaking throat, whatever they say. */
 export type Voice = {
   /**
@@ -22,6 +24,8 @@ export type Voice = {
   pressure?: number
   tension?: number
   breathiness?: number
+  /** How the DJ draws some words out for effect. */
+  drama?: Drama
 }
 
 /** How a DJ's body is moved by what they say. */
