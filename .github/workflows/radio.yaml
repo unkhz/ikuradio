@@ -11,6 +11,7 @@ on:
       - packages/archive/**
       - packages/tools/**
       - packages/ui/**
+      - critic/**
       - package.json
       - bun.lock
       - .dockerignore

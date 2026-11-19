@@ -1,5 +1,5 @@
 ---
-state: todo
+state: done
 id: 6
 kind: issue
 slug: stray-compiled-js-on-xitra
@@ -22,3 +22,7 @@ cd ~/Work/song && find packages -path '*/node_modules' -prune -o -name '*.ts' -p
 That removes only a `.js` or `.js.map` that has a `.ts` of the same name beside it. It leaves `packages/ui/public/*.js` and the built engine files, which have no `.ts` twin. Run `bun test packages/tools/lib/stray.test.ts` after: it should pass.
 
 Until then, sync a changed `.ts` to xitra only after removing its stray `.js`.
+
+## Resolved 2026-11-19
+
+The stray copies bit at once: a stale `names.js` shadowed `names.ts` and the Studio crashed on every call. All 366 files (the 183 pairs) were removed on xitra, and the root `tsconfig.json` now sets `noEmit` with `outDir: dist` (gitignored), so nothing is written beside a source again.

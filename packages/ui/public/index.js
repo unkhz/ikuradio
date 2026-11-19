@@ -35,6 +35,8 @@ async function askRadio() {
 // heard, from wherever the listener joins it; it may begin once the
 // Recordings of its first stretch are here, and the rest follow behind.
 const songs = new Map()
+/** A Song's place in `songs`: its number and its beginning. An encore sings a Song again, and the one that has ended is not the one that begins. */
+const placeOf = (airing) => `${airing.song}@${airing.begins}`
 
 // The choir, in this page. A Session keeps every voice as its take, the
 // score exactly as the Studio's throat was given it, and the page sings each
@@ -123,7 +125,7 @@ function singSoon() {
   const moment = now()
   // takes of Songs let go, and takes whose moment is already over, are not sung
   choir.takes = choir.takes.filter(
-    (t) => songs.get(t.song.airing.song) === t.song && dueOf(t) + t.seconds * 1000 > moment,
+    (t) => songs.get(placeOf(t.song.airing)) === t.song && dueOf(t) + t.seconds * 1000 > moment,
   )
   choir.takes.sort((a, b) => dueOf(a) - dueOf(b))
   while (choir.idle.length && choir.takes.length && dueOf(choir.takes[0]) - moment < singingAhead * 1000) {
@@ -143,7 +145,7 @@ function sung(worker, { job, samples, error }) {
     if (error) {
       console.warn(`a take could not be sung: ${error}`)
       lose(take)
-    } else if (songs.get(take.song.airing.song) === take.song) {
+    } else if (songs.get(placeOf(take.song.airing)) === take.song) {
       take.song.voices.set(take.id, samples)
       take.song.fetched++
       take.song.done?.()
@@ -158,9 +160,9 @@ const fetching = 6
 const startingStretch = 20
 
 function prepare(airing) {
-  if (songs.has(airing.song)) return songs.get(airing.song)
+  if (songs.has(placeOf(airing))) return songs.get(placeOf(airing))
   const song = { airing, session: undefined, files: new Map(), voices: new Map(), uses: new Map(), gone: new Set(), ready: false, startable: false, fetched: 0, needed: 0, missing: 0 }
-  songs.set(airing.song, song)
+  songs.set(placeOf(airing), song)
   let started
   song.starting = new Promise((resolve) => (started = resolve))
   song.preparing = (async () => {
@@ -223,7 +225,7 @@ function prepare(airing) {
     song.ready = true
   })().catch(() => {
     // a Session that cannot be read is forgotten, and asked for again
-    songs.delete(airing.song)
+    songs.delete(placeOf(airing))
     started()
   })
   return song
@@ -525,7 +527,7 @@ function writeUpTo(output, song, t) {
     if (cursor.p < 0) {
       if (t < iteration.at) return
       turnPage(output)
-      describe(session, iteration)
+      describe(session, iteration, song.airing.mode === 'encore')
       cursor.p = 0
       cursor.l = 0
       cursor.c = -1
@@ -569,10 +571,12 @@ const number = (n) => BigInt(n).toLocaleString('en')
 const span = (className, textContent) => Object.assign(document.createElement('span'), { className, textContent })
 let showing // what is being received: a Session, and the iteration of it
 
-function describe(session, iteration) {
+function describe(session, iteration, encore = false) {
   if (showing?.session !== session) window.space?.tune(session.song)
   showing = { session, iteration }
   document.getElementById('status').replaceChildren(
+    // a rerun is not mistaken for a new Song: the Tactus declares it an encore
+    ...(encore ? [span('encore', 'encore · ')] : []),
     span('song', `Song ${number(session.song)}`),
     span('side', ` · iteration ${number(iteration.iteration)}`),
     // the name, written after the iteration, as the Song is known

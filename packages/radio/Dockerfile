@@ -11,6 +11,8 @@ FROM oven/bun:1.4.4 AS build
 WORKDIR /song
 COPY package.json bun.lock ./
 COPY packages ./packages
+# the critic's favourites, which an encore rotates, are read in at build
+COPY critic ./critic
 RUN bun install --frozen-lockfile --production
 RUN bun build packages/radio/index.ts \
       --compile \

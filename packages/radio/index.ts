@@ -48,6 +48,8 @@ import { getEnv } from 'tools'
 import { archiveAddress, linkOf, paths, publicArchive, sessionVersion, slugOf, type ArchiveIndex, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
+import { favouriteSongs, inTurn } from './lib/favourites.js'
+import critic from '../../critic/scientist.json' with { type: 'json' }
 import { cardOf, speak, type Card } from './lib/speaks.js'
 
 const { SERVER_PORT, CACHE_PATH } = getEnv()
@@ -126,21 +128,41 @@ async function nextPlayable(songs: readonly string[]) {
   return found
 }
 
-/** Looks in the Archive for the next Song, and announces it when it is there. */
+/**
+ * The next encore: the favourite after the last one aired, if the Archive
+ * can play it; a favourite it cannot is passed over for the next, and with
+ * none the gap stays.
+ */
+async function nextFavourite() {
+  for (const song of inTurn(favouriteSongs(critic), tactus.encores.at(-1)?.song)) {
+    const session = await playable(song)
+    if (session) return { song, session }
+  }
+  return undefined
+}
+
+/**
+ * Looks in the Archive for the next Song, and announces it when it is there.
+ * When no new Song can be played, and the song is about to fall silent, an
+ * encore is announced instead: a new Song that comes while one is aired
+ * begins after it has ended.
+ */
 async function listen() {
   if (tactus.next) return
   const index = await read<ArchiveIndex>(paths.index)
   const found = index && (await nextPlayable(index.songs))
-  if (!found) return
-  const { song, session } = found
-  const airing = tactus.announce(song, session.seconds)
+  const encore = !found && tactus.hungry ? await nextFavourite() : undefined
+  const chosen = found ?? encore
+  if (!chosen) return
+  const { song, session } = chosen
+  const airing = encore ? tactus.announce(song, session.seconds, { setup: 'favourites' }) : tactus.announce(song, session.seconds)
   if (!airing) return
   void keepCache()
   await mkdir('memory', { recursive: true })
   await appendFile(memory, `${JSON.stringify(airing)}\n`)
   const late = Math.max(0, airing.begins - Date.now()) / 1000
   console.log(
-    `Song ${song} announced: ${(session.seconds / 60).toFixed(1)} minutes, begins in ${late.toFixed(0)}s`,
+    `${encore ? 'Encore: Song' : 'Song'} ${song} announced: ${(session.seconds / 60).toFixed(1)} minutes, begins in ${late.toFixed(0)}s`,
   )
 }
 
@@ -209,6 +231,9 @@ const told = (airing: Airing | undefined, archive: string) =>
     archive,
     begins: airing.begins,
     seconds: airing.seconds,
+    // the mode the Tactus declares for it, and in an encore what chose it
+    mode: airing.mode ?? 'live',
+    ...(airing.setup ? { setup: airing.setup } : {}),
   }
 
 /** What a list of Songs shows of each: its name and its weather, read once from its Session. */

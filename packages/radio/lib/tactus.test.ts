@@ -80,4 +80,58 @@ describe('what follows a Song heard again', () => {
     expect(new Tactus([...aired], () => 10 * minute).after('11')).toEqual({ song: '12' })
     expect(new Tactus([...aired], () => 10 * minute).after('13')).toEqual({ song: '15' })
   })
+
+  describe('encores', () => {
+    const encore = { setup: 'favourites' }
+
+    it('fills the quiet with a Song already aired, marked as an encore, and keeps it out of the Songs received', () => {
+      let now = 0
+      const tactus = new Tactus([{ song: '3', begins: 0, seconds: 600 }], () => now)
+      now = 700_000
+      expect(tactus.hungry).toBe(true)
+      const again = tactus.announce('1', 300, encore)!
+      expect(again).toMatchObject({ song: '1', mode: 'encore', setup: 'favourites', begins: now + lead })
+      expect(tactus.hungry).toBe(false)
+      now = again.begins
+      expect(tactus.playing).toEqual(again)
+      expect(tactus.mode).toBe('encore')
+      expect(tactus.history.map((a) => a.song)).toEqual(['3'])
+      expect(tactus.encores).toEqual([again])
+      // the live show is not moved by it
+      expect(tactus.candidates(['1', '3', '4'])).toEqual(['4'])
+      expect(tactus.after('3')).toEqual({ live: true })
+    })
+
+    it('is hungry only near the end of one being aired, so a new Song is not queued behind a second', () => {
+      let now = 0
+      const tactus = new Tactus([{ song: '3', begins: 0, seconds: 600, mode: 'encore', setup: 'favourites' }], () => now)
+      now = 100_000
+      expect(tactus.hungry).toBe(false)
+      now = 600_000 - 2 * lead
+      expect(tactus.hungry).toBe(true)
+    })
+
+    it('begins the live show only after the encore has ended, and is live again then', () => {
+      let now = 0
+      const tactus = new Tactus([{ song: '1', begins: 0, seconds: 300, mode: 'encore', setup: 'favourites' }], () => now)
+      now = 100_000
+      const live = tactus.announce('4', 500)!
+      expect(live.begins).toBe(300_000)
+      expect(live.mode).toBeUndefined()
+      now = 250_000
+      expect(tactus.mode).toBe('encore')
+      now = 300_000
+      expect(tactus.mode).toBe('live')
+      expect(tactus.history.map((a) => a.song)).toEqual(['4'])
+    })
+
+    it('keeps the song alive while an encore sings, and lets it die when nothing sings at all', () => {
+      let now = 0
+      const tactus = new Tactus([{ song: '1', begins: 0, seconds: 300, mode: 'encore', setup: 'favourites' }], () => now)
+      now = 100_000
+      expect(tactus.pulse().alive).toBe(true)
+      now = 300_000 + grace
+      expect(tactus.pulse().alive).toBe(false)
+    })
+  })
 })

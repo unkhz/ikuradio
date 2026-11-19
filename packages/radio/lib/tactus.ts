@@ -7,6 +7,12 @@
 // little while after it arrives: the song holds its breath, and every
 // Receiver holds it at the same moment. Once a beginning has been told to
 // anyone, it never moves.
+//
+// When no new Song is waiting, the song does not fall silent: an encore, a
+// Song already aired, is announced the same way (plan "Encores"). It is an
+// Airing marked as one. It is heard, and it moves the Tactus' time, but it is
+// not a Song received: the history, the order of the live show, and what
+// follows a Song heard again know nothing of it.
 
 export type Airing = {
   /** The Song, counted from 0. */
@@ -15,6 +21,10 @@ export type Airing = {
   begins: number
   /** How long it lasts. */
   seconds: number
+  /** Present only on a rerun: the mode the Tactus declared for it. A Song without it is the live show. */
+  mode?: 'encore'
+  /** What chose the rerun, in an encore: `favourites`. */
+  setup?: string
 }
 
 /** When an Airing ends, in milliseconds since the epoch. */
@@ -47,9 +57,31 @@ export class Tactus {
     return this.aired.find((a) => a.begins > now)
   }
 
-  /** The Songs that have aired, the newest last. */
+  /** The Songs that have aired, the newest last: the live show, no encores. */
   get history(): readonly Airing[] {
-    return this.aired
+    return this.aired.filter((a) => !a.mode)
+  }
+
+  /** The Airings that are encores, the newest last. */
+  get encores(): readonly Airing[] {
+    return this.aired.filter((a) => a.mode === 'encore')
+  }
+
+  /** The mode the Tactus declares now: `encore` while a rerun is being aired, else `live`. */
+  get mode(): 'live' | 'encore' {
+    return this.playing?.mode ?? 'live'
+  }
+
+  /**
+   * Whether an encore should be announced now: nothing waits to begin, and
+   * nothing is playing, or what plays ends within the time Receivers need
+   * to fetch the next. A new Song that arrives meanwhile is announced first,
+   * and begins when what plays has ended.
+   */
+  get hungry(): boolean {
+    if (this.next) return false
+    const playing = this.playing
+    return !playing || endOf(playing) - this.now() <= 2 * lead
   }
 
   /**
@@ -60,15 +92,16 @@ export class Tactus {
    */
   after(song: string): { song: string } | { live: true } {
     const now = this.now()
-    const at = this.aired.findIndex((a) => a.song === song)
-    const later = at >= 0 ? this.aired.slice(at + 1) : this.aired.filter((a) => order(a.song, song) > 0)
+    const live = this.history
+    const at = live.findIndex((a) => a.song === song)
+    const later = at >= 0 ? live.slice(at + 1) : live.filter((a) => order(a.song, song) > 0)
     const next = later.find((a) => a.song !== song)
     return next && endOf(next) <= now ? { song: next.song } : { live: true }
   }
 
   /** The Songs that could be announced next, of those the Archive has, in order. */
   candidates(songs: readonly string[]): string[] {
-    const last = this.aired.at(-1)
+    const last = this.history.at(-1)
     return [...songs].sort(order).filter((s) => !last || order(s, last.song) > 0)
   }
 
@@ -81,12 +114,12 @@ export class Tactus {
    * Announces a Song, if none is waiting to begin yet. Returns the Airing,
    * to be remembered, or undefined if nothing changed.
    */
-  announce(song: string, seconds: number): Airing | undefined {
+  announce(song: string, seconds: number, encore?: { setup: string }): Airing | undefined {
     if (this.next) return undefined
     const last = this.aired.at(-1)
     const soonest = this.now() + lead
     const begins = last ? Math.max(endOf(last), soonest) : soonest
-    const airing = { song, begins, seconds }
+    const airing: Airing = { song, begins, seconds, ...(encore ? { mode: 'encore' as const, setup: encore.setup } : {}) }
     this.aired.push(airing)
     return airing
   }
