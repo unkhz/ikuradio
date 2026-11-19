@@ -1,10 +1,11 @@
 // A Song's page says what it is (plan "A Song's page says what it is"). The
 // Radio writes into /s/<n>/<slug> what the knob's panel would show once the
 // Song plays: its name, its weather, key, choir, band, how it is heard, its
-// length, and what the mind thought of it. It adds a little structured data
-// for anyone reading the page as a machine. Nothing it writes links to the
-// Song's sound. Only a Song that has aired is told about: nothing from the
-// future.
+// length, and what the mind thought of it. Above the play button, in smaller
+// print, it offers the Song by its number and its name. It adds a little
+// structured data for anyone reading the page as a machine. Nothing it writes
+// links to the Song's sound. Only a Song that has aired is told about:
+// nothing from the future.
 
 import type { Session } from 'archive'
 
@@ -103,11 +104,15 @@ export function structured(card: Card, url: string): string {
   return JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
 }
 
+/** What the page says of the Song it offers, above the play button: its number, and its name when it has one. */
+const offeredOf = (card: Card) => `Song ${number(card.song)}${card.name ? ` · ${card.name}` : ''}`
+
 /**
- * The page, telling what it knows of a Song that has aired: the panel's
- * rows, marked as served so the page keeps them until it plays, the mind's
- * thought, and the structured data beside the social tags. A Song not yet
- * aired, `undefined`, is told nothing, and the page is as it was.
+ * The page, telling what it knows of a Song that has aired: the number and
+ * name offered above the play button, the panel's rows, marked as served so
+ * the page keeps them until it plays, the mind's thought, and the structured
+ * data beside the social tags. A Song not yet aired, `undefined`, is told
+ * nothing, and the page is as it was.
  */
 export function speak(page: string, card: Card | undefined, url: string): string {
   if (!card) return page
@@ -115,7 +120,9 @@ export function speak(page: string, card: Card | undefined, url: string): string
     .map(([name, value]) => `<dt>${escaped(name)}</dt><dd>${escaped(value)}</dd>`)
     .join('')
   // replaced by functions, so that a `$` in a Song's words is only a `$`
-  let told = page.replace('<dl id="details"></dl>', () => `<dl id="details" data-served>${rows}</dl>`)
+  let told = page
+    .replace('<p id="offered" hidden></p>', () => `<p id="offered" data-served>${escaped(offeredOf(card))}</p>`)
+    .replace('<dl id="details"></dl>', () => `<dl id="details" data-served>${rows}</dl>`)
   if (card.thought) {
     told = told.replace(
       /<figure id="thought" hidden>([\s\S]*?)<p><\/p>/,

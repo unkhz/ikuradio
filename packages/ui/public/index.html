@@ -152,18 +152,41 @@
         align-items: center;
         gap: 1.2em;
       }
+      /* the receiver's likeness and its name: always one above the other,
+         whatever else moves around them */
+      #brand {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
       /* the receiver's likeness and its name, drawn in dots of the same pitch
          as space behind them, only fuller and brighter: in front of it */
       /* drawn on the page's own six-pixel matrix, shown half as large again:
-         larger dots, nearer the listener */
+         larger dots, nearer the listener; the pair's whole box shrinks on a
+         short screen, so the play button always fits above the fold */
       #controls .likeness {
-        width: min(78vw, 432px);
+        width: min(78vw, 432px, 55vh);
         height: auto;
       }
       #controls .name {
-        width: min(72vw, 441px);
+        width: min(72vw, 441px, 52vh);
         height: auto;
         margin-top: -1.2em;
+      }
+      /* the tuning: the Song offered in smaller print, and the button that plays it */
+      #tune {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      #offered {
+        margin: 0;
+        max-width: min(90vw, 34rem);
+        color: var(--chorus);
+        font-size: 0.85em;
+        font-weight: 600;
+        overflow-wrap: anywhere;
+        text-align: center;
       }
       /* space hushed a little around them, so they stand in front of it */
       #controls::before {
@@ -448,9 +471,14 @@
     <div id="output"></div>
     <div id="status"></div>
     <div id="controls">
-      <img class="likeness" src="/receiver.svg" width="288" height="288" alt="A lost receiver, a little broken" />
-      <img class="name" src="/wordmark.svg" width="294" height="54" alt="ikuradio" />
-      <button id="play" type="button">switch on</button>
+      <div id="brand">
+        <img class="likeness" src="/receiver.svg" width="288" height="288" alt="A lost receiver, a little broken" />
+        <img class="name" src="/wordmark.svg" width="294" height="54" alt="ikuradio" />
+      </div>
+      <div id="tune">
+        <p id="offered" hidden></p>
+        <button id="play" type="button">tune to live</button>
+      </div>
     </div>
     <button id="knob" type="button" aria-label="What the receiver knows" aria-expanded="false" aria-controls="panel">
       <svg viewBox="0 0 40 40" fill="currentColor" aria-hidden="true">

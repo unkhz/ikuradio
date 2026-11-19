@@ -850,7 +850,7 @@ function songRow(song, index) {
   const about = song.mood ? `${song.mood.join(' + ')} · ${Math.round(song.seconds / 60)} min` : '…'
   // a Song is linked by the name it was given; a Song with no name is not linked
   const link = Object.assign(document.createElement('a'), latest ? { href: '/' } : song.slug && { href: `/s/${song.song}/${song.slug}` })
-  link.append(document.createTextNode(latest ? 'tune live' : song.name ?? `Song ${number(song.song)}`))
+  link.append(document.createTextNode(latest ? 'tune to live' : song.name ?? `Song ${number(song.song)}`))
   link.append(span('mood', `Song ${number(song.song)} · ${about}`))
   item.append(link)
   return item
@@ -1008,7 +1008,13 @@ document.getElementById('autoplay').addEventListener('click', () => setAutoplay(
 /** What the page says of the Song it will play from its beginning, or of live. */
 let titled = true // the Radio titled the page it served
 function tellReplay() {
-  document.getElementById('play').textContent = replay ? `play Song ${replay.number} from its beginning` : 'switch on'
+  document.getElementById('play').textContent = replay ? 'play song' : 'tune to live'
+  const offered = document.getElementById('offered')
+  // the Radio wrote the number and the name of the Song it served the page for;
+  // a Song taken up in this page is told its number, and its name when known
+  if (!offered.hasAttribute('data-served'))
+    offered.textContent = replay ? `Song ${replay.number}${replay.name ? ` · ${replay.name}` : ''}` : ''
+  offered.hidden = !replay
   document.getElementById('live').hidden = !replay
   // the Radio titled a Song's page by its name; the page titles itself only after
   if (titled) titled = false
@@ -1033,8 +1039,9 @@ function stopListening() {
   // its sounds are let go; what has been placed on the audio clock plays out
   songs.clear()
   showing = undefined
-  // the details the Radio wrote into the page were of the Song it was served for
+  // the details and the offered line the Radio wrote were of the Song it served for
   document.getElementById('details').removeAttribute('data-served')
+  document.getElementById('offered').removeAttribute('data-served')
   tellDetails()
 }
 
@@ -1083,7 +1090,7 @@ function offerToCarryOn(song) {
       setAutoplay(true)
       carryOn(song)
     }),
-    button('tune live', () => tuneLive()),
+    button('tune to live', () => tuneLive()),
   )
 }
 
