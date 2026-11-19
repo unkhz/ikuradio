@@ -25,7 +25,7 @@ RUN bun build packages/radio/index.ts \
  && mkdir -p /out/memory \
  && ldd /out/radio
 
-FROM gcr.io/distroless/cc-debian12:nonroot
+FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
 # The Radio remembers what it announced in memory/, beside itself; in the
 # cluster a volume is mounted there
 WORKDIR /song/packages/radio
