@@ -262,6 +262,50 @@ function sung(worker, { job, samples, error }) {
 // keeps one, sung by the page's own throat and moved by the DJ's own movements
 // (dj.js: what a DJ sounds and looks like is the same for every Song).
 
+// The speaking throat, apart from the choir's: Chimera's Speak mode, built
+// from its own pinned revision (speech.js, throat/speech/), in a Worker of its
+// own, opened only when a DJ has something to say. It never sings.
+const speaking = { opened: undefined, jobs: new Map(), next: 0 }
+
+function openSpeaking() {
+  speaking.opened ??= (async () => {
+    const [engine, dictionary] = await Promise.all([
+      fetch('/throat/speech/chimera.wasm').then((r) => {
+        if (!r.ok) throw new Error(`the speaking throat: ${r.status}`)
+        return r.arrayBuffer()
+      }),
+      fetch('/throat/speech/cmudict.txt.gz').then(async (r) => {
+        if (!r.ok) throw new Error(`the speaking dictionary: ${r.status}`)
+        return new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).text()
+      }),
+    ])
+    const worker = new Worker('/speech-worker.js', { type: 'module' })
+    const answer = await new Promise((resolve) => {
+      worker.onmessage = ({ data }) => resolve(data)
+      worker.onerror = (error) => resolve({ opened: false, error: String(error.message ?? error) })
+      worker.postMessage({ open: { engine, dictionary } })
+    })
+    if (!answer.opened) throw new Error(answer.error)
+    worker.onmessage = ({ data }) => {
+      const job = speaking.jobs.get(data.job)
+      speaking.jobs.delete(data.job)
+      if (job) data.error ? job.reject(new Error(data.error)) : job.resolve(data)
+    }
+    return worker
+  })()
+  return speaking.opened
+}
+
+/** Says a request with the speaking throat: its samples, when the speech ends, and each sound it says and when. */
+async function say(request) {
+  const worker = await openSpeaking()
+  return new Promise((resolve, reject) => {
+    const job = speaking.next++
+    speaking.jobs.set(job, { resolve, reject })
+    worker.postMessage({ job, say: request })
+  })
+}
+
 /** The recordings of a Song's intro: its music, and a DJ's speech if there is one. Sets `song.intro`. */
 async function introOf(song, airing) {
   const { intro } = song.session
@@ -273,10 +317,19 @@ async function introOf(song, airing) {
     .then((r) => (r.ok ? r.json() : undefined))
     .catch(() => undefined)
   const said = declaration?.parts?.intro
-  if (!said?.speech?.notes?.length) return recordings
+  if (!said?.speech?.text) return recordings
+  // a page that cannot speak still plays the intro's music
+  const spoken = await say(dj.request(said.speech.text, said.speech.squeeze)).catch((error) => {
+    console.warn(`the page cannot speak: ${error}`)
+    return undefined
+  })
+  if (!spoken) return recordings
   const at = -intro.seconds + said.at
-  recordings.push({ id: `dj-${dj.name}-${airing.song}`, take: dj.take(said.speech), at, kind: 'voice', voice: 'dj', body: dj.body, seconds: said.seconds, gain: 0.9 })
-  song.intro.speech = { title: dj.title, at, seconds: said.seconds, words: said.speech.lyrics, moves: dj.movements(said.speech) }
+  const id = `dj-${dj.name}-${airing.song}`
+  // the speech is already samples: it is heard like a take the page sang, and never fetched
+  song.voices.set(id, spoken.samples)
+  recordings.push({ id, said: true, at, kind: 'voice', voice: 'dj', seconds: spoken.end, gain: 0.9 })
+  song.intro.speech = { title: dj.title, at, seconds: spoken.end, words: said.speech.text, moves: dj.movements(spoken.segments) }
   return recordings
 }
 
@@ -305,7 +358,7 @@ function prepare(airing) {
     heard.sort((a, b) => a.at - b.at)
     song.heard = new Set(heard)
     // the Music is fetched; the voices with takes are sung here, each once, however often it is heard
-    const ids = [...new Set(heard.filter(({ take }) => !take).map(({ id }) => id))]
+    const ids = [...new Set(heard.filter(({ take, said }) => !take && !said).map(({ id }) => id))]
     const takes = new Map()
     for (const recording of heard) {
       if (!recording.take) continue
@@ -490,11 +543,11 @@ function placeSounds(audioContext) {
       // a line whose place is already over is not decoded at all
       if (recording.seconds !== undefined && until + recording.seconds + (recording.fade ?? 0) <= 0) {
         song.placed.add(n)
-        if (recording.take) heardOnce(song, recording)
+        if (recording.take || recording.said) heardOnce(song, recording)
         return
       }
       let buffering
-      if (recording.take) {
+      if (recording.take || recording.said) {
         // a take the page sang: its samples become a sound, and are let go once heard for the last time
         const samples = song.voices.get(recording.id)
         if (!samples) return
@@ -721,67 +774,110 @@ function waiting(words) {
   document.getElementById('status').replaceChildren(document.createTextNode(words))
 }
 
-// Rezzy, drawn (plan "Intro with Rezzy"): a critter of dots, in the page's own
-// matrix, only while a Song's intro plays and there is a speech to move with.
-// The mouth opens on each syllable and the body bobs where the voice rises,
-// as the DJ's movements read them from the speech; between syllables Rezzy
-// breathes, and now and then blinks. When the intro ends, Rezzy is put away.
+// Rezzy, drawn (plan "Intro with Rezzy"): a small creature of a radio, the
+// receiver's own kind, in the page's own dots, only while a Song's intro
+// plays and there is a speech to move with. Like the receiver she has a lopsided
+// hull with a bright rim, an antenna that pulls out in pieces with a warm tip,
+// a feeler, a dial for an eye, a speaker of slats for a mouth, and uneven
+// feet. The speaker opens on each vowel, the dial's needle swings with it,
+// the antenna's tip glows with the voice, and the body hops where the voice
+// leans, its feet staying where they are. Between syllables she breathes, and
+// now and then blinks. When the intro ends, Rezzy is put away.
 const rezzy = (() => {
   const canvas = document.getElementById('rezzy')
   const context = canvas.getContext('2d')
   const pitch = 8
-  const columns = 17
-  const rows = 14
+  // the receiver's colours: hull, the rim catching the light, and the warm of its antenna
+  const hull = '#38536c'
+  const hullLit = '#6284a4'
+  const rim = '#a9c4b3'
+  const amber = '#ffb347'
   let on
   let frame
-  const dot = (x, y, alpha) => {
+  const dot = (x, y, colour, alpha = 1, size = 0.34) => {
     context.globalAlpha = alpha
+    context.fillStyle = colour
     context.beginPath()
-    context.arc(x * pitch + pitch / 2, y * pitch + pitch / 2, pitch * 0.34, 0, Math.PI * 2)
+    context.arc(x * pitch + pitch / 2, y * pitch + pitch / 2, pitch * size, 0, Math.PI * 2)
     context.fill()
+  }
+  /** Dots along a line of points, a dot to a step. */
+  const along = (points, colour, alpha = 1, size = 0.3) => {
+    for (let i = 0; i + 1 < points.length; i++) {
+      const [x0, y0] = points[i]
+      const [x1, y1] = points[i + 1]
+      const steps = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0)))
+      for (let k = 0; k < steps; k++) dot(x0 + ((x1 - x0) * k) / steps, y0 + ((y1 - y0) * k) / steps, colour, alpha, size)
+    }
   }
   /** What the movements ask at `t` seconds into the speech: how open the mouth is, and how far the body is up. */
   function moving(moves, t) {
     for (const move of moves) {
       if (t < move.at) break
       if (t < move.at + move.seconds) {
-        const along = Math.sin(((t - move.at) / move.seconds) * Math.PI)
-        return { mouth: move.mouth * Math.pow(along, 0.7), bob: move.bob * along }
+        const swell = Math.sin(((t - move.at) / move.seconds) * Math.PI)
+        return { mouth: move.mouth * Math.pow(swell, 0.7), bob: move.bob * swell }
       }
     }
     return { mouth: 0, bob: 0 }
   }
+  let glow = 0 // the tip's glow follows the voice, a little slower than it
   function draw() {
     frame = undefined
     if (!on) return
-    const seconds = (now() - on.start) / 1000
-    const { mouth, bob } = moving(on.moves, seconds)
+    const t = (now() - on.start) / 1000
+    const { mouth, bob } = moving(on.moves, t)
     const still = stillness.matches
-    const breathing = still ? 0 : Math.sin((now() / 1000) * 2.1) * 0.25
-    const up = still ? 0 : Math.round(bob * 1.4 + breathing)
+    glow += (mouth - glow) * 0.25
+    const breath = still ? 0 : Math.sin((now() / 1000) * 2.1) * 0.3
+    const hop = still ? 0 : bob * 1.6 + breath
     const blink = !still && Math.floor(now() / 1000) % 5 === 0 && now() % 1000 < 140
-    context.setTransform(1, 0, 0, 1, 0, 0)
-    context.clearRect(0, 0, canvas.width, canvas.height)
-    context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() || '#ffb347'
-    // the body rises a little with the voice; the ears a little more
-    context.translate(0, -up * 3)
-    // the head: an ellipse of dots, its edge bright, its inside faint
-    for (let y = 0; y < rows; y++) {
-      for (let x = 0; x < columns; x++) {
-        const dx = (x - 8) / 7.2
-        const dy = (y - 8.2) / 5.2
+    // a row of room above, for the antenna when the body hops
+    context.setTransform(1, 0, 0, 1, 0, pitch)
+    context.clearRect(0, -pitch, canvas.width, canvas.height)
+
+    // the uneven feet and the legs, which stay where they are
+    for (const [x, y] of [[5, 16], [6, 17], [5, 17], [12, 16], [13, 17], [14, 17], [12, 17]]) dot(x, y, rim, 0.9, 0.3)
+
+    // the body rises with the voice
+    context.translate(0, -hop * 3)
+    // the hull: a lopsided oval of haze, its rim catching the light
+    for (let y = 4; y < 17; y++) {
+      for (let x = 0; x < 20; x++) {
+        const dx = (x - 9.5 - (y - 10.5) * 0.1) / 7.8
+        const dy = (y - 10.5) / 5
         const d = dx * dx + dy * dy
-        if (d <= 1) dot(x, y, d > 0.7 ? 0.85 : 0.22)
+        if (d > 1) continue
+        if (d > 0.72) dot(x, y, rim, 0.9)
+        else dot(x, y, d < 0.3 && x < 9 ? hullLit : hull, d < 0.3 ? 0.55 : 0.75)
       }
     }
-    // eyes, and the mouth under them: closed is a short line, open grows downward
-    for (const [x, y] of blink ? [[6, 7], [10, 7]] : [[6, 6], [6, 7], [10, 6], [10, 7]]) dot(x, y, 1)
-    const open = Math.round(mouth * 3)
-    for (const x of [7, 8, 9]) dot(x, 10, 1)
-    for (let k = 1; k <= open; k++) for (const x of k === open && open > 1 ? [8] : [7, 8, 9]) dot(x, 10 + k, 0.9)
-    // ears, which flick a little higher than the body
-    context.translate(0, -up * 2)
-    for (const [x, y] of [[3, 2], [3, 3], [4, 3], [13, 2], [13, 3], [12, 3], [4, 4], [12, 4]]) dot(x, y, 0.95)
+    // the dial for an eye, on the right, ticked, and the needle swinging with the voice
+    for (let k = 0; k < 12; k++) {
+      const angle = (k / 12) * Math.PI * 2
+      dot(12.3 + Math.cos(angle) * 2.3, 9.8 + Math.sin(angle) * 2.3, k % 3 === 0 ? amber : rim, k % 3 === 0 ? 0.95 : 0.7, 0.26)
+    }
+    const needle = -1.1 + mouth * 1.5 + (still ? 0 : Math.sin(now() / 700) * 0.06)
+    along([[12.3, 9.8], [12.3 + Math.cos(needle) * 1.9, 9.8 + Math.sin(needle) * 1.9]], amber, 1, 0.3)
+    dot(12.3, 9.8, amber, 1, 0.38)
+    // the other eye, small, on the left, which blinks
+    for (const [x, y] of blink ? [[6.2, 10]] : [[6.2, 9.4], [6.2, 10.3]]) dot(x, y, '#ffffff', 0.95, 0.36)
+    // the speaker of slats: a grille either side, and the mouth between them, opening
+    for (const y of [12.6, 15]) for (let x = 6.5; x <= 12.5; x++) dot(x, y, rim, 0.3, 0.22)
+    const open = Math.round(mouth * 4) / 2
+    for (let x = 7.5; x <= 11.5; x++) dot(x, 13.8, amber, 1, 0.3)
+    for (let k = 1; k <= open; k++) for (let x = k === Math.max(1, Math.floor(open)) && open >= 2 ? 8.5 : 7.5; x <= (k === Math.max(1, Math.floor(open)) && open >= 2 ? 10.5 : 11.5); x++) dot(x, 13.8 + k * 0.8, amber, 0.9, 0.3)
+
+    // the feeler, which flicks with the voice, and the antenna, pulled out in pieces, bent
+    const flick = still ? 0 : bob * 1.2
+    along([[4, 7], [2.6, 5.8 - flick], [1, 6.8 - flick]], rim, 0.9, 0.28)
+    const sway = still ? 0 : Math.sin(now() / 480) * 0.35 + bob * 0.6
+    const kink = [[6, 6.4], [7, 3.4], [8.8 + sway * 0.4, 4.2], [10.6 + sway, 1.2]]
+    along(kink, rim, 0.95, 0.3)
+    // its tip, the brightest thing in it, warm enough to bleed into the dark around it
+    const [tx, ty] = kink[3]
+    dot(tx, ty, amber, 0.18 + glow * 0.3, 0.95 + glow * 0.6)
+    dot(tx, ty, amber, 1, 0.5)
     context.globalAlpha = 1
     frame = requestAnimationFrame(draw)
   }

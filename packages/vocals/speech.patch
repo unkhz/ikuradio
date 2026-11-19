@@ -1,0 +1,129 @@
+diff --git a/crates/chimera-wasm/src/api.rs b/crates/chimera-wasm/src/api.rs
+index c723cc6..90d0021 100644
+--- a/crates/chimera-wasm/src/api.rs
++++ b/crates/chimera-wasm/src/api.rs
+@@ -28,6 +28,8 @@ struct Model {
+ 
+ #[derive(Default)]
+ struct State {
++    /// the last speech said by `say`, as samples, read with `chimera_sung_ptr`/`chimera_sung_len`
++    sung: Vec<f32>,
+     result: Vec<u8>,
+     /// the page's models; a body is continuous, so the page drops the ones it no longer keeps
+     /// (`dropModel`, from `useModel.ts`)
+@@ -124,6 +126,16 @@ fn dispatch(st: &mut State, req: &Value) -> Res {
+         "tokenizeIpa" => to_json(&ipa::tokenize_ipa(&arg::<String>(req, "text")?)),
+         // what tokenizeIpa leaves out of the text without a word: { unknown, noSound, ignoredMarks }
+         "skippedIpa" => to_json(&ipa::skipped_ipa(&arg::<String>(req, "text")?)),
++        // ---------------------------------------------------------------- speech, offline
++        // a whole text said as `chimera render text` says it; the samples are left in the sung
++        // buffer, and the call says how many there are, when each segment is said, and when it ends
++        "say" => {
++            let fs: f64 = arg::<Option<f64>>(req, "sampleRate")?.unwrap_or(48000.0);
++            let said = chimera::phonetics::say::say(req, &st.g2p, fs)?;
++            let samples = said.samples.len();
++            st.sung = said.samples;
++            Ok(json!({ "samples": samples, "sampleRate": fs, "end": said.plan.end, "segments": said.plan.segments }))
++        }
+         "g2pLoad" => {
+             st.g2p.load_dict(&arg::<String>(req, "text")?);
+             Ok(json!(true))
+@@ -238,3 +250,14 @@ pub extern "C" fn chimera_result_ptr() -> *const u8 {
+ pub extern "C" fn chimera_result_len() -> usize {
+     STATE.with(|s| s.borrow().result.len())
+ }
++
++/// The samples of the last `say`, valid until the next call that says.
++#[unsafe(no_mangle)]
++pub extern "C" fn chimera_sung_ptr() -> *const f32 {
++    STATE.with(|s| s.borrow().sung.as_ptr())
++}
++
++#[unsafe(no_mangle)]
++pub extern "C" fn chimera_sung_len() -> usize {
++    STATE.with(|s| s.borrow().sung.len())
++}
+diff --git a/crates/chimera/src/phonetics/mod.rs b/crates/chimera/src/phonetics/mod.rs
+index 0a13a91..9e28ad5 100644
+--- a/crates/chimera/src/phonetics/mod.rs
++++ b/crates/chimera/src/phonetics/mod.rs
+@@ -14,6 +14,7 @@ pub mod korean;
+ pub mod mandarin;
+ pub mod planner;
+ pub mod russian;
++pub mod say;
+ pub mod sing;
+ pub mod songs;
+ pub mod syllables;
+diff --git a/crates/chimera/src/phonetics/say.rs b/crates/chimera/src/phonetics/say.rs
+new file mode 100644
+index 0000000..1f5de6f
+--- /dev/null
++++ b/crates/chimera/src/phonetics/say.rs
+@@ -0,0 +1,66 @@
++//! English text said offline, as `chimera render text` says it, as a library: the CMU dictionary,
++//! the phrase planner, a body and its speaking pitch. What the CLI and the browser say is the same
++//! speech, sample for sample. The request is JSON: `{"text", "body", "sampleRate"}`, a body being a name or a mix, `{"female", "child"}`,, and, to
++//! shape the voice, `rate` (a speaking-rate multiplier, 1 as usual), `f0` (the baseline pitch in
++//! Hz), `accent` (how far stressed syllables lean, a fraction), and the throat: `pressure`
++//! (cmH2O), `tension` and `breathiness`.
++
++use crate::phonetics::english::EnglishG2P;
++use crate::anatomy::human::{BodyMix, BodyName};
++use crate::phonetics::planner::{PhraseInput, PlanOptions, plan_phrases};
++use crate::phonetics::Plan;
++use crate::voice::human_voice::{HumanVoice, SourcePatch};
++use crate::math::js_round;
++
++/// What a body speaks at, as `render text` does, blended as the body is.
++pub fn speaking_f0(body: BodyMix) -> f64 {
++    body.blend(|b| match b {
++        BodyName::Female => 205.0,
++        BodyName::Child => 250.0,
++        BodyName::Male => 112.0,
++    })
++}
++
++/// Speech, as samples, with the plan it was said from: its segments and when each is said.
++pub struct Said {
++    pub samples: Vec<f32>,
++    pub plan: Plan,
++}
++
++/// Says `j["text"]` in a new voice of the body `j["body"]` at `fs`.
++pub fn say(j: &serde_json::Value, g: &EnglishG2P, fs: f64) -> Result<Said, String> {
++    // a body is a name, male, female or child, or a mix of them: {"female": 0..1, "child": 0..1}
++    let mix: BodyMix = serde_json::from_value(j["body"].clone()).map_err(|e| format!("body: {e}"))?;
++    let text = j["text"].as_str().ok_or("text missing")?;
++    let f0 = j["f0"].as_f64().unwrap_or_else(|| speaking_f0(mix));
++    let mut voice = HumanVoice::new(fs, mix.body(), 2);
++    voice.set_source(&SourcePatch {
++        f0: Some(f0),
++        pressure: j["pressure"].as_f64(),
++        tension: j["tension"].as_f64(),
++        breathiness: j["breathiness"].as_f64(),
++        ..Default::default()
++    });
++    let inputs: Vec<PhraseInput> = g
++        .to_phrases(text)
++        .iter()
++        .map(|p| PhraseInput { segments: p.segments.clone(), intonation: Some(p.intonation), pause: Some(p.pause) })
++        .collect();
++    let plan = plan_phrases(
++        &inputs,
++        &PlanOptions {
++            body: mix,
++            t0: 0.05,
++            f0: Some(f0),
++            rate: j["rate"].as_f64(),
++            accent: j["accent"].as_f64(),
++            ..Default::default()
++        },
++    );
++    voice.schedule(&plan.gestures);
++    let mut samples = vec![0f32; js_round(fs * (plan.end + 0.3)) as usize];
++    for block in samples.chunks_mut(128) {
++        voice.render(block);
++    }
++    Ok(Said { samples, plan })
++}

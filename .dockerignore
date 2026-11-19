@@ -1,6 +1,7 @@
 # Only what the Radio needs to keep time; the song's sounds and mind stay home
 **/node_modules
 **/.chimera
+**/.chimera-speech
 **/.venv
 **/memory
 .env.local

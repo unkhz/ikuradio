@@ -1,28 +1,17 @@
 import type { Dj } from './dj.js'
 
 /**
- * Rezzy: a critter, fairly enthusiastic and still serene. A child's throat,
- * resting high; a quick lilt on stressed syllables; every phrase rising a
- * little as it begins and settling by its end; the breath a little softer
- * than Chimera's default, vibrato small. Chosen first by thought, to be
- * tuned by the scientist's ear.
+ * Rezzy: a critter, fairly enthusiastic and still serene, and a young
+ * anime character to the ear, androgynous: a body between male and female,
+ * resting high, a little quick, leaning on stressed syllables more than
+ * Chimera does. The rest of the throat is Chimera's own. Tuned by the
+ * scientist's ear: this is the first option of c to h, heard as `c`.
  */
 export const rezzy: Dj = {
   name: 'rezzy',
   title: 'Rezzy',
   persona:
-    'Rezzy is a small critter who lives on the page of the song that never ends. Rezzy is fairly enthusiastic, and still serene: delighted to be showing you something, never loud about it. Rezzy speaks plainly, in short warm sentences, as a little creature would who is glad you came.',
-  voice: {
-    body: 'child',
-    pitch: 72,
-    lift: 3,
-    arc: 2.5,
-    pace: 3.6,
-    pause: 1.1,
-    pressure: 8.4,
-    tension: 0.5,
-    breathiness: 0.2,
-    vibrato: 12,
-  },
+    'Rezzy is a small critter who lives on the page of the song that never ends, bright and young in manner. Rezzy is fairly enthusiastic, and still serene: delighted to be showing you something, never loud about it. Rezzy speaks plainly, in short warm sentences, as a lively young creature would who is glad you came.',
+  voice: { body: { female: 0.6, child: 0 }, f0: 265, rate: 1.1, accent: 0.2 },
   movements: { mouth: 1, bob: 0.8, least: 0.08 },
 }

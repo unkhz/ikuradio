@@ -12,12 +12,13 @@
 //   bun run studio
 
 import { getEnv, pieces, Sleeper } from 'tools'
-import { attentions, keepThought, mostWords, namelessOf, nameSong, readMemories, readThoughts, recall, stresses, words, writeSpeech, writeThought } from 'song'
+import { attentions, keepThought, mostWords, namelessOf, nameSong, readMemories, readThoughts, recall, words, writeSpeech, writeThought } from 'song'
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
 import { isBare } from './lib/bare.js'
 import { declare, growIntro } from './lib/intro.js'
+import { saying } from './lib/speaking.js'
 import { rezzy } from 'dj'
 import { musicDir, restBand, Shelf, underlay, wakeBand } from 'music'
 import { openArchive } from 'archive'
@@ -273,10 +274,10 @@ const session = toSession(
 )
 // what the DJ says goes in beside the Session, before it: a Song is listed only once all of it is there
 if (introBed && speech) {
-  const known = new Map(
-    (await stresses(speech).catch(() => [])).flatMap((word) => (word.stresses ? [[word.text, word.stresses] as [string, number[]]] : [])),
-  )
-  const declaration = declare(rezzy, session.song, composed[0].mood.character.tempo, speech, known)
+  const declaration = await declare(rezzy, session.song, composed[0].mood.character.tempo, speech, saying).catch((error: Error) => {
+    console.warn(`${rezzy.title} could not be fitted to the intro: ${error.message}`)
+    return undefined
+  })
   if (declaration) await store.putDj(declaration)
   else console.warn(`${rezzy.title}'s speech did not fit the intro, and is not kept`)
 }

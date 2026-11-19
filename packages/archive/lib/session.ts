@@ -176,13 +176,17 @@ export type DjDeclaration = {
   parts: { intro?: DjIntro }
 }
 
-/** What a DJ says in the intro: the speech, timed as a take is, notes and words, put to the throat with the DJ's own voice. */
+/** What a DJ says in the intro: the words, and how much the DJ was hurried to fit them in. The voice is the DJ's own and is not kept. */
 export type DjIntro = {
   /** When the speech begins, in seconds from the intro's beginning. */
   at: number
-  /** How long it lasts, its breath counted. */
+  /** How long it lasted when it was fitted, in seconds. */
   seconds: number
-  speech: { bpm: number; lyrics: string; notes: [number, number][] }
+  speech: {
+    text: string
+    /** How much faster than the DJ's own pace the words were said, to fit; missing when they were not hurried. */
+    squeeze?: number
+  }
 }
 
 /**

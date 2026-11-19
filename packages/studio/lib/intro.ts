@@ -6,7 +6,7 @@
 import { holdLast, keyFor, opening, phraseOf, vocalRange, type Score } from 'melody'
 import { accompany, tail, words } from 'music'
 import { record, throatScore, type Placed, type Take } from 'vocals'
-import { lasts, speak, spokenOf, type Dj } from 'dj'
+import { fit, type Dj, type Request, type Said } from 'dj'
 import type { DjDeclaration } from 'archive'
 import type { Iteration } from './compose.js'
 import { hum } from './perform.js'
@@ -65,13 +65,18 @@ export const leadIn = 0.9
 export const leadOut = 0.6
 
 /**
- * What a DJ says in the intro of a Song of `bpm`: `text`, as the DJ would
- * say it, `stresses` the dictionary's stress of its words. Nothing if not
- * even a word fits the room the music leaves.
+ * What a DJ says in the intro of a Song: `text`, as the DJ would say it,
+ * fitted to the room the music leaves, hurried a little or cut to fewer
+ * words if it must be. `say` is the speaking throat. Nothing if not even a
+ * word fits.
  */
-export function declare(dj: Dj, song: string, bpm: number, text: string, stresses: ReadonlyMap<string, number[]>): DjDeclaration | undefined {
+export async function declare(dj: Dj, song: string, bpm: number, text: string, say: (request: Request) => Promise<Said> | Said): Promise<DjDeclaration | undefined> {
   const room = introSeconds(bpm) - leadIn - leadOut
-  const speech = speak(dj, spokenOf(text, stresses), room)
-  if (!speech) return undefined
-  return { dj: dj.name, song, parts: { intro: { at: leadIn, seconds: Math.round(lasts(speech) * 1000) / 1000, speech } } }
+  const fitted = await fit(dj, text, room, say)
+  if (!fitted) return undefined
+  return {
+    dj: dj.name,
+    song,
+    parts: { intro: { at: leadIn, seconds: fitted.seconds, speech: { text: fitted.text, ...(fitted.squeeze !== 1 ? { squeeze: fitted.squeeze } : {}) } } },
+  }
 }

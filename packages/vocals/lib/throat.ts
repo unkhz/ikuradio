@@ -23,3 +23,22 @@ export function throatName() {
   const [rev, patch] = throatFingerprint().split(' ')
   return `${rev.slice(0, 7)}+${patch.slice(0, 12)}`
 }
+
+/**
+ * The throat that speaks, apart from the one that sings (plan "Intro with
+ * Rezzy"): Chimera's Speak mode, at the latest revision, so that speech is
+ * as good as it gets, with its own small change to it (speech.patch), a
+ * `say` call. The singing throat is not touched by it: the two are pinned
+ * apart, and may converge one day, on purpose. A DJ speaks with it, in the
+ * Studio to fit the words to the room they have, and in a Receiver to say
+ * them. Move it on purpose, and listen.
+ */
+export const speechRevision = '0dc13f8704bd998e8d70377f3bc4de53b16863f8'
+
+/** The speaking throat's change to Chimera. */
+export const speechPatchFile = new URL('../speech.patch', import.meta.url).pathname
+
+/** The speaking throat's revision and its patch, as one fingerprint. */
+export function speechFingerprint() {
+  return `${speechRevision} ${createHash('sha256').update(readFileSync(speechPatchFile)).digest('hex')}`
+}
