@@ -17,5 +17,5 @@ To do:
 
 - Find the Studio's run log on xitra and read the evening of Song 906: the first "the Music did not come", and its neighbours. — done, above.
 - Check what code was synced to xitra at that time against the history of the studio and music packages. — done: no code caused it; a killed naming run did.
-- Decide whether a Song without beds is refused, or at least marked, instead of archived bare.
+- Decide whether a Song without beds is refused, or at least marked, instead of archived bare. — done 2026-11-19: refused. A Studio whose every iteration came without a bed stops before it puts anything in (packages/studio/lib/bare.ts); the Heart calls another in 30 s, the encores fill the gap. Songs 906–948 stay bare: the Archive is for ever.
 - Nothing reaps an ownerless mind. A Studio that cannot wake the band could tell whether a mind it does not own holds the GPU, and say so; the Heart could rest one that no process owns.

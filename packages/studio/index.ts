@@ -16,6 +16,7 @@ import { attentions, keepThought, namelessOf, nameSong, readMemories, readThough
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
+import { isBare } from './lib/bare.js'
 import { musicDir, restBand, Shelf, underlay, wakeBand } from 'music'
 import { openArchive } from 'archive'
 import { describePerspectives } from 'perspectives'
@@ -210,6 +211,11 @@ for (const [i, one] of composed.entries()) {
 }
 await restBand()
 console.log(`accompanied in ${seconds(grownAt)}`)
+// a Song without any band is not kept: the Archive is for ever (issue 4)
+if (isBare(made)) {
+  console.error('no bed came for any iteration; the Song is not kept, and the Studio stops so the Heart may call another')
+  process.exit(1)
+}
 
 // into the Archive: the Music's Recordings first, then the Session that names
 // them. The voices and the guides are kept as their source, the takes in the
