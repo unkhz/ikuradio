@@ -5,6 +5,7 @@ import { cardOf, rowsOf, speak, structured } from './speaks.js'
 const page = `<html><head>
     <title>ikuradio</title>
   </head><body>
+      <p id="offered" hidden></p>
       <dl id="details"></dl>
       <figure id="thought" hidden>
         <figcaption>the mind</figcaption>
@@ -45,6 +46,10 @@ describe('a Song page that speaks', () => {
     expect(details).not.toContain('<script>')
   })
 
+  it('offers the Song by its number and name, above the play button, marked as served', () => {
+    expect(told).toContain('<p id="offered" data-served>Song 1,234 · Hollow death, by boredom</p>')
+  })
+
   it('shows the thought, escaped', () => {
     expect(told).toContain('<figure id="thought">')
     expect(told).toContain('<p>I wonder &lt;b&gt;who&lt;/b&gt; hears me &amp; why $1</p>')
@@ -81,6 +86,7 @@ describe('a Song page that speaks', () => {
     expect(rowsOf(plain).at(-1)![1]).toBe('8 minutes, iteration 7')
     const told = speak(page, plain, url)
     expect(told).toContain('<figure id="thought" hidden>')
+    expect(told).toContain('<p id="offered" data-served>Song 1,234</p>')
     expect(told).toContain('<dl id="details" data-served><dt>song</dt>')
     expect(structured(plain, url)).toContain('"name":"Song 1,234"')
   })
