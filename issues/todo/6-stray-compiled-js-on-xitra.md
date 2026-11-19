@@ -1,6 +1,6 @@
 ---
 state: todo
-id: 5
+id: 6
 kind: issue
 slug: stray-compiled-js-on-xitra
 ---
