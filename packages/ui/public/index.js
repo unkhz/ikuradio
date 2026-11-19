@@ -198,7 +198,8 @@ function openThroats() {
 
 /** When a take is wanted by, on the Tactus: its moment, or, for a Song not yet begun, as if it began now. */
 function dueOf({ song, at }) {
-  const begins = Number.isFinite(song.airing.begins) ? song.airing.begins : now()
+  // a Song with an intro, not yet begun, begins when the intro has played
+  const begins = Number.isFinite(song.airing.begins) ? song.airing.begins : now() + (song.intro?.seconds ?? 0) * 1000
   return begins + at * 1000
 }
 
@@ -211,7 +212,7 @@ function lose({ song, id }) {
 
 /** Asks for a take to be sung, for the first moment it is heard in its Song. */
 function wantSung(song, recording) {
-  const body = song.session.singers?.[recording.voice ?? 0]?.body ?? 'female'
+  const body = recording.body ?? song.session.singers?.[recording.voice ?? 0]?.body ?? 'female'
   choir.takes.push({ song, id: recording.id, take: recording.take, body, at: recording.at, seconds: recording.seconds ?? 0 })
   if (choir.failed) lose(choir.takes.pop())
   else openThroats()
@@ -252,6 +253,33 @@ function sung(worker, { job, samples, error }) {
   singSoon()
 }
 
+
+// The intro (plan "Intro with Rezzy"). A Song made with one has four bars of
+// music before its moment 0, and a DJ may speak over them. It is heard only
+// by a visit: the page whose first entry is the Song's own. The intro lies
+// before the Song's beginning, so everything else keeps its place; here it is
+// only added to what the page will place, with the DJ's speech, if the Archive
+// keeps one, sung by the page's own throat and moved by the DJ's own movements
+// (dj.js: what a DJ sounds and looks like is the same for every Song).
+
+/** The recordings of a Song's intro: its music, and a DJ's speech if there is one. Sets `song.intro`. */
+async function introOf(song, airing) {
+  const { intro } = song.session
+  const recordings = [{ ...intro.recording, kind: 'bed' }]
+  song.intro = { seconds: intro.seconds }
+  const dj = globalThis.djs?.rezzy
+  if (!dj) return recordings
+  const declaration = await fetch(new URL(`sessions/dj-${dj.name}-${airing.song}.json`, airing.archive))
+    .then((r) => (r.ok ? r.json() : undefined))
+    .catch(() => undefined)
+  const said = declaration?.parts?.intro
+  if (!said?.speech?.notes?.length) return recordings
+  const at = -intro.seconds + said.at
+  recordings.push({ id: `dj-${dj.name}-${airing.song}`, take: dj.take(said.speech), at, kind: 'voice', voice: 'dj', body: dj.body, seconds: said.seconds, gain: 0.9 })
+  song.intro.speech = { title: dj.title, at, seconds: said.seconds, words: said.speech.lyrics, moves: dj.movements(said.speech) }
+  return recordings
+}
+
 /** How many Recordings are fetched at once. */
 const fetching = 6
 /** How much of a Song, in seconds from where it is joined, must be here before it begins. */
@@ -266,11 +294,15 @@ function prepare(airing) {
   song.starting = new Promise((resolve) => (started = resolve))
   song.preparing = (async () => {
     song.session = await fetch(airing.session).then((r) => r.json())
+    // a visit to the Song's page hears its intro first, before its moment 0
+    const introduced = airing.visit && song.session.intro ? await introOf(song, airing) : []
     // joined late, a listener needs nothing that is already over
     const from = Number.isFinite(airing.begins) ? Math.max(0, (now() - airing.begins) / 1000) : 0
     const heard = song.session.recordings
       .filter(({ at, seconds, fade }) => seconds === undefined || at + seconds + (fade ?? 0) > from)
-      .sort((a, b) => a.at - b.at)
+    heard.push(...introduced)
+    song.session.recordings.push(...introduced)
+    heard.sort((a, b) => a.at - b.at)
     song.heard = new Set(heard)
     // the Music is fetched; the voices with takes are sung here, each once, however often it is heard
     const ids = [...new Set(heard.filter(({ take }) => !take).map(({ id }) => id))]
@@ -689,6 +721,102 @@ function waiting(words) {
   document.getElementById('status').replaceChildren(document.createTextNode(words))
 }
 
+// Rezzy, drawn (plan "Intro with Rezzy"): a critter of dots, in the page's own
+// matrix, only while a Song's intro plays and there is a speech to move with.
+// The mouth opens on each syllable and the body bobs where the voice rises,
+// as the DJ's movements read them from the speech; between syllables Rezzy
+// breathes, and now and then blinks. When the intro ends, Rezzy is put away.
+const rezzy = (() => {
+  const canvas = document.getElementById('rezzy')
+  const context = canvas.getContext('2d')
+  const pitch = 8
+  const columns = 17
+  const rows = 14
+  let on
+  let frame
+  const dot = (x, y, alpha) => {
+    context.globalAlpha = alpha
+    context.beginPath()
+    context.arc(x * pitch + pitch / 2, y * pitch + pitch / 2, pitch * 0.34, 0, Math.PI * 2)
+    context.fill()
+  }
+  /** What the movements ask at `t` seconds into the speech: how open the mouth is, and how far the body is up. */
+  function moving(moves, t) {
+    for (const move of moves) {
+      if (t < move.at) break
+      if (t < move.at + move.seconds) {
+        const along = Math.sin(((t - move.at) / move.seconds) * Math.PI)
+        return { mouth: move.mouth * Math.pow(along, 0.7), bob: move.bob * along }
+      }
+    }
+    return { mouth: 0, bob: 0 }
+  }
+  function draw() {
+    frame = undefined
+    if (!on) return
+    const seconds = (now() - on.start) / 1000
+    const { mouth, bob } = moving(on.moves, seconds)
+    const still = stillness.matches
+    const breathing = still ? 0 : Math.sin((now() / 1000) * 2.1) * 0.25
+    const up = still ? 0 : Math.round(bob * 1.4 + breathing)
+    const blink = !still && Math.floor(now() / 1000) % 5 === 0 && now() % 1000 < 140
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--glow').trim() || '#ffb347'
+    // the body rises a little with the voice; the ears a little more
+    context.translate(0, -up * 3)
+    // the head: an ellipse of dots, its edge bright, its inside faint
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < columns; x++) {
+        const dx = (x - 8) / 7.2
+        const dy = (y - 8.2) / 5.2
+        const d = dx * dx + dy * dy
+        if (d <= 1) dot(x, y, d > 0.7 ? 0.85 : 0.22)
+      }
+    }
+    // eyes, and the mouth under them: closed is a short line, open grows downward
+    for (const [x, y] of blink ? [[6, 7], [10, 7]] : [[6, 6], [6, 7], [10, 6], [10, 7]]) dot(x, y, 1)
+    const open = Math.round(mouth * 3)
+    for (const x of [7, 8, 9]) dot(x, 10, 1)
+    for (let k = 1; k <= open; k++) for (const x of k === open && open > 1 ? [8] : [7, 8, 9]) dot(x, 10 + k, 0.9)
+    // ears, which flick a little higher than the body
+    context.translate(0, -up * 2)
+    for (const [x, y] of [[3, 2], [3, 3], [4, 3], [13, 2], [13, 3], [12, 3], [4, 4], [12, 4]]) dot(x, y, 0.95)
+    context.globalAlpha = 1
+    frame = requestAnimationFrame(draw)
+  }
+  return {
+    /** Rezzy is drawn, to move with `moves`, which begin at `start`, in the page's time. */
+    appear(moves, start) {
+      if (!on) {
+        canvas.hidden = false
+        on = { moves, start }
+        frame = requestAnimationFrame(draw)
+      } else on = { moves, start }
+    },
+    /** Rezzy is put away. */
+    away() {
+      if (!on) return
+      on = undefined
+      canvas.hidden = true
+      if (frame) cancelAnimationFrame(frame)
+      frame = undefined
+    },
+  }
+})()
+
+/** While a Song's intro plays, and a DJ has a speech, the DJ is drawn; at `t` seconds from the Song's moment 0. */
+function tellIntro(song, t) {
+  const speech = song.intro?.speech
+  if (speech && t >= -song.intro.seconds && t < 0) {
+    rezzy.appear(speech.moves, song.airing.begins + speech.at * 1000)
+    const spoken = t >= speech.at && t < speech.at + speech.seconds
+    return spoken ? `${speech.title}: ${speech.words}` : undefined
+  }
+  rezzy.away()
+  return undefined
+}
+
 function row(name, value) {
   const both = document.createDocumentFragment()
   both.append(
@@ -1070,6 +1198,10 @@ const replayAt = (path) => {
   return asked ? { index: BigInt(asked[1]), number: BigInt(asked[1]).toLocaleString('en'), slug: asked[2] } : undefined
 }
 let replay = replayAt(location.pathname)
+// A visit is the page's first entry being a Song's page: only then is the Song's
+// intro heard. Everything after the first entry, carrying on, the back button,
+// live, is not a visit, whatever address it lands on.
+let entry = Boolean(replay)
 
 // Carrying on (plan "Carry on listening"). A Song heard again ends, and the
 // listener may carry on: to the next Song that aired, and the next, until
@@ -1139,6 +1271,7 @@ function stopListening() {
   for (const loop of loops.splice(0)) clearInterval(loop)
   generation++
   bridgeEnds()
+  rezzy.away()
   // its sounds are let go; what has been placed on the audio clock plays out
   songs.clear()
   // what it would have let go is gone with the Songs
@@ -1222,6 +1355,8 @@ addEventListener('popstate', () => {
   const asked = replayAt(location.pathname)
   if (!listening) {
     replay = asked
+    // the page's first entry was not this one
+    entry = false
     tellReplay()
     return
   }
@@ -1233,6 +1368,8 @@ async function listenAgain(output, audioContext) {
   const mine = generation
   const { index, number: named } = replay
   const song = String(index)
+  const visit = entry
+  entry = false
   let tactus
   try {
     tactus = await askRadio()
@@ -1253,7 +1390,7 @@ async function listenAgain(output, audioContext) {
     waiting('tune to live from the knob')
     return
   }
-  const airing = { song, session: new URL(`sessions/${song}.json`, tactus.archive).href, archive: tactus.archive, begins: Infinity, seconds: 0 }
+  const airing = { song, session: new URL(`sessions/${song}.json`, tactus.archive).href, archive: tactus.archive, begins: Infinity, seconds: 0, visit }
   const prepared = prepare(airing)
   every(200, () => {
     // throats already open from a Song before are idle, and are asked to sing this one's first takes
@@ -1269,7 +1406,8 @@ async function listenAgain(output, audioContext) {
     return
   }
   airing.seconds = prepared.session.seconds
-  airing.begins = now() + 1500
+  // a visit hears the Song's intro first, which lies before its moment 0
+  airing.begins = now() + 1500 + (prepared.intro?.seconds ?? 0) * 1000
   // heard again, the page still asks, so it learns when it is out of date
   every(5000, () => askRadio().catch(() => {}))
   let ended = false
@@ -1277,7 +1415,8 @@ async function listenAgain(output, audioContext) {
     placeSounds(audioContext)
     singSoon()
     const t = (now() - airing.begins) / 1000
-    if (t < 0) return waiting(`Song ${named} begins in ${Math.ceil(-t)}s`)
+    const said = tellIntro(prepared, t)
+    if (t < 0) return waiting(said ?? `Song ${named} begins in ${Math.ceil(-t)}s`)
     if (t < airing.seconds) {
       writeUpTo(output, prepared, t)
       if (prepared.missing && t < 6) waiting('its voices were lost; only its words remain')

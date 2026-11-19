@@ -115,6 +115,16 @@
         font-weight: 600;
       }
       /* the edge of the page: the Song, and the iteration as a side note */
+      /* a DJ, while a Song's intro plays: drawn in the same dots as the page */
+      #rezzy {
+        position: fixed;
+        right: 1.5rem;
+        bottom: calc(3.4rem + env(safe-area-inset-bottom));
+        z-index: 2;
+        width: 136px;
+        height: 112px;
+        pointer-events: none;
+      }
       #status {
         flex-shrink: 0;
         padding: 0.5rem 2rem calc(0.6rem + env(safe-area-inset-bottom));
@@ -474,6 +484,7 @@
   <body>
     <canvas id="space" aria-hidden="true"></canvas>
     <div id="output"></div>
+    <canvas id="rezzy" width="136" height="112" hidden aria-hidden="true"></canvas>
     <div id="status"></div>
     <div id="controls">
       <div id="brand">
@@ -522,6 +533,7 @@
     </dialog>
     <script type="module" src="/space.js"></script>
     <script src="/verses.js"></script>
+    <script src="/dj.js"></script>
     <script src="/index.js"></script>
   </body>
 </html>

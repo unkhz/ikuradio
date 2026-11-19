@@ -121,3 +121,14 @@ describe('a bucket that is stamped', () => {
     expect(await version()).not.toBe(first)
   })
 })
+
+describe('a DJ in a Song', () => {
+  it('keeps what a DJ says beside the Session, where the Receiver reads it', async () => {
+    const store = kept()
+    const declaration = { dj: 'rezzy', song: '123', parts: { intro: { at: 0.8, seconds: 6, speech: { bpm: 120, lyrics: 'hello there', notes: [[72, 1]] as [number, number][] } } } }
+    await store.putDj(declaration)
+    const client = (store as unknown as { client: { file: (key: string) => { json: () => Promise<unknown> } } }).client
+    expect(await client.file(paths.dj('rezzy', '123')).json()).toEqual(declaration)
+    expect(paths.dj('rezzy', '123')).toBe('sessions/dj-rezzy-123.json')
+  })
+})

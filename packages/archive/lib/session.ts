@@ -70,6 +70,8 @@ export type Session = {
   iterations: SessionIteration[]
   /** Everything audible, each at its moment. */
   recordings: SessionRecording[]
+  /** Its intro, if it has one: Songs from before intros have none. */
+  intro?: SessionIntro
   /**
    * The guide hums the Music grew its beds from: the lead humming a part's
    * melody with fewer notes. They are not part of the Song, and a Receiver
@@ -164,8 +166,9 @@ export type SessionIteration = {
 }
 
 /**
- * A DJ's declaration for a Song: only what that DJ says or does there, per
- * part. Not the DJ's voice or movements, which belong to the DJ's package.
+ * What a DJ says in a Song, kept beside its Session (plan "Intro with
+ * Rezzy"): only what that DJ says or does there, per part. Not the DJ's
+ * voice or movements: they belong to the DJ, the same for every Song.
  */
 export type DjDeclaration = {
   dj: string
@@ -173,18 +176,30 @@ export type DjDeclaration = {
   parts: { intro?: DjIntro }
 }
 
-/** What a DJ says in the intro: a take, timed as a voice is, in notes and words. Nothing if the mind wrote no speech. */
+/** What a DJ says in the intro: the speech, timed as a take is, notes and words, put to the throat with the DJ's own voice. */
 export type DjIntro = {
-  /** The words, in the order they are said. */
-  text: string
-  /** When the speech begins, in seconds from the intro's start. */
+  /** When the speech begins, in seconds from the intro's beginning. */
   at: number
+  /** How long it lasts, its breath counted. */
   seconds: number
+  speech: { bpm: number; lyrics: string; notes: [number, number][] }
+}
+
+/**
+ * A Song's intro: four bars of music, from nothing into the first verse,
+ * played once, before the Song, on its page only when someone comes to it.
+ * It lies before the Song's moment 0, so no one on the Radio ever hears it,
+ * and everything in the Song stays where it was.
+ */
+export type SessionIntro = {
+  /** How long it lasts, before moment 0. */
+  seconds: number
+  /** Its music, a bed, at `-seconds`, its tail going on into the Song. */
+  recording: SessionRecording
 }
 
 export type SessionPart = {
-  /** An intro, once at the beginning, has music and no words (plan "Intro with Rezzy"). Songs from before it have none. */
-  type: 'verse' | 'chorus' | 'bridge' | 'intro'
+  type: 'verse' | 'chorus' | 'bridge'
   at: number
   seconds: number
   /** The words, a line at a time. A bridge has none. */

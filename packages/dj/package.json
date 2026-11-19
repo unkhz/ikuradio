@@ -1,0 +1,11 @@
+{
+  "name": "dj",
+  "version": "1.0.0",
+  "description": "The DJs: who introduces a Song on its page, how each one sounds and moves",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "melody": "workspace:*"
+  }
+}

@@ -12,7 +12,7 @@
 import { S3Client } from 'bun'
 import { mkdir, rename } from 'node:fs/promises'
 import { basename, dirname } from 'node:path'
-import { paths, slugOf, type ArchiveIndex, type Session } from './session.js'
+import { paths, slugOf, type ArchiveIndex, type DjDeclaration, type Session } from './session.js'
 import type { ArchiveStore } from './store.js'
 
 /** Where a bucket is, from its public, path-style address: https://<host>/<bucket>. */
@@ -95,6 +95,10 @@ export class BucketStore implements ArchiveStore {
       return (await this.patiently(`read the Session of Song ${song}`, () =>
         this.client.file(key).json() as Promise<Session>)) as Session
     }
+  }
+
+  async putDj(declaration: DjDeclaration) {
+    await this.put(paths.dj(declaration.dj, declaration.song), JSON.stringify(declaration), 'application/json')
   }
 
   async putSession(session: Session) {

@@ -61,6 +61,8 @@ export function toSession(
   throat?: string,
   thought?: string,
   songName?: string,
+  /** The intro's bed, placed before the Song's beginning, if the Studio made one. */
+  intro?: Placed,
 ): Session {
   const heard = (file: string) => {
     const measured = loudness(file)
@@ -190,5 +192,21 @@ export function toSession(
     iterations,
     recordings,
     ...(guides.length ? { guides } : {}),
+    ...(intro
+      ? {
+          intro: {
+            seconds: seconds(intro.seconds ?? -intro.at),
+            recording: {
+              id: name(intro.file),
+              at: seconds(intro.at),
+              gain: intro.gain,
+              kind: 'bed' as const,
+              seconds: seconds(intro.seconds ?? -intro.at),
+              ...(intro.fade ? { fade: intro.fade } : {}),
+              ...heard(intro.file),
+            },
+          },
+        }
+      : {}),
   }
 }

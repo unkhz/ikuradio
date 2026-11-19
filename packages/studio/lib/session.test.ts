@@ -201,3 +201,17 @@ describe('toSession', () => {
     expect(named.name).toBe('Hollow death, by boredom')
   })
 })
+
+describe('toSession with an intro', () => {
+  const intro = { file: 'intro.m4a', at: -12.632, gain: 0.45, seconds: 12.632, fade: 3 }
+  const session = toSession([made(0n)], (file) => `id:${file}`, () => ({ lufs: -15, peak: -2 }), undefined, undefined, undefined, intro)
+
+  it('keeps it apart from the Song, before its moment 0, so nothing in the Song moves', () => {
+    expect(session.intro).toEqual({
+      seconds: 12.632,
+      recording: { id: 'id:intro.m4a', at: -12.632, gain: 0.45, kind: 'bed', seconds: 12.632, fade: 3, loudness: { lufs: -15, peak: -2 } },
+    })
+    expect(session.recordings.some(({ id }) => id === 'id:intro.m4a')).toBe(false)
+    expect(toSession([made(0n)], (file) => `id:${file}`).intro).toBeUndefined()
+  })
+})

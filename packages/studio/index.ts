@@ -12,11 +12,13 @@
 //   bun run studio
 
 import { getEnv, pieces, Sleeper } from 'tools'
-import { attentions, keepThought, namelessOf, nameSong, readMemories, readThoughts, recall, words, writeThought } from 'song'
+import { attentions, keepThought, mostWords, namelessOf, nameSong, readMemories, readThoughts, recall, stresses, words, writeSpeech, writeThought } from 'song'
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
 import { isBare } from './lib/bare.js'
+import { declare, growIntro } from './lib/intro.js'
+import { rezzy } from 'dj'
 import { musicDir, restBand, Shelf, underlay, wakeBand } from 'music'
 import { openArchive } from 'archive'
 import { describePerspectives } from 'perspectives'
@@ -167,6 +169,18 @@ const named =
   // other's, for the Archive holds no Song without an address
   namelessOf(`${composed[0].song.number}`, taken)
 console.log(`the Song is named: ${named}`)
+// and what the DJ says to introduce it, in the four bars before it begins
+const speech = await writeSpeech(
+  rezzy.persona,
+  composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
+  named,
+  composed[0].mood.descriptions,
+  { words: mostWords },
+).catch((error: Error) => {
+  console.warn(`the mind wrote no speech for ${rezzy.title}: ${error.message}`)
+  return undefined
+})
+console.log(speech ? `${rezzy.title} will say: ${speech}` : `${rezzy.title} has nothing to say`)
 await mind.rest()
 const [first] = composed
 console.log(
@@ -209,6 +223,11 @@ for (const [i, one] of composed.entries()) {
     })
   made.push({ composed: one, lines, beds, guides: hummed })
 }
+// the intro's bed, while the band is awake; a Song whose intro would not grow has none
+const introBed = await growIntro(composed[0]).catch((error: Error) => {
+  console.warn(`the intro did not grow: ${error.message}`)
+  return undefined
+})
 await restBand()
 console.log(`accompanied in ${seconds(grownAt)}`)
 // a Song without any band is not kept: the Archive is for ever (issue 4)
@@ -231,7 +250,7 @@ const guiding = new Set(made.flatMap(({ guides = [] }) => guides.map(({ file }) 
 // how loud each voice and bed sounds, heard from its recording, now that it is made
 const heardAt = Date.now()
 const loudness = new Map<string, Loudness>()
-const files = new Set([...voices, ...beds])
+const files = new Set([...voices, ...beds, ...(introBed ? [introBed.file] : [])])
 await Promise.all(
   [...files].map(async (file) => {
     const measured = await loudnessOf(file)
@@ -242,6 +261,7 @@ console.log(`${loudness.size} of ${files.size} recordings measured in ${seconds(
 const ids = new Map<string, string>()
 for (const file of [...voices, ...guiding]) ids.set(file, recordingName(file))
 for (const file of beds) ids.set(file, await store.putRecording(file))
+if (introBed) ids.set(introBed.file, await store.putRecording(introBed.file))
 const session = toSession(
   made,
   (file) => ids.get(file)!,
@@ -249,7 +269,17 @@ const session = toSession(
   throatName(),
   thought,
   named,
+  introBed,
 )
+// what the DJ says goes in beside the Session, before it: a Song is listed only once all of it is there
+if (introBed && speech) {
+  const known = new Map(
+    (await stresses(speech).catch(() => [])).flatMap((word) => (word.stresses ? [[word.text, word.stresses] as [string, number[]]] : [])),
+  )
+  const declaration = declare(rezzy, session.song, composed[0].mood.character.tempo, speech, known)
+  if (declaration) await store.putDj(declaration)
+  else console.warn(`${rezzy.title}'s speech did not fit the intro, and is not kept`)
+}
 await store.putSession(session)
 // the thought is kept only once its Song is published: a Song made again is thought about again
 if (thought) {
