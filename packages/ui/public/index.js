@@ -309,7 +309,7 @@ async function say(request) {
 /** The recordings of a Song's intro: its music, and a DJ's speech if there is one. Sets `song.intro`. */
 async function introOf(song, airing) {
   const { intro } = song.session
-  const recordings = [{ ...intro.recording, kind: 'bed' }]
+  const recordings = [{ ...intro.recording, kind: 'bed', intro: true }]
   song.intro = { seconds: intro.seconds }
   const dj = globalThis.djs?.rezzy
   if (!dj) return recordings
@@ -503,6 +503,10 @@ function music(audioContext) {
   return musicBus
 }
 const letGoOf = 0.6 // seconds a bed takes to fade at its end
+// While a DJ speaks, the music under them is this much lower, and rises again
+// over the last seconds of the speech.
+const ducked = 0.38
+const risesOver = 3
 
 // Where each singer stands, as this page hears them: the lead in the middle,
 // the harmonies a little to either side, the way a small choir stands
@@ -574,6 +578,20 @@ function placeSounds(audioContext) {
           const level = audioContext.createGain()
           const gain = levelOf(recording)
           level.gain.value = gain
+          // under a DJ's speech the intro's music lies lower, and comes back
+          // up over the last seconds of what is said
+          const speech = recording.intro ? song.intro?.speech : undefined
+          if (speech) {
+            const begins = when + (speech.at - recording.at)
+            // never past the end of the intro's own place, where its tail begins to fade
+            const ends = Math.min(begins + speech.seconds, when + recording.seconds)
+            const low = gain * (1 - ducked)
+            const rises = Math.max(begins, ends - risesOver)
+            level.gain.setValueAtTime(gain, Math.max(0, begins - 0.3))
+            level.gain.linearRampToValueAtTime(low, Math.max(0, begins))
+            level.gain.setValueAtTime(low, rises)
+            level.gain.linearRampToValueAtTime(gain, ends)
+          }
           // a bed with a tail is held through its place, then fades out under
           // what follows, which has already begun; one without lets go softly at its end
           const fade = recording.fade && recording.seconds !== undefined ? recording.fade : letGoOf
