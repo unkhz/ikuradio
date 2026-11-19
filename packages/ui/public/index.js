@@ -719,7 +719,8 @@ function writeUpTo(output, song, t) {
     // a new Song clears the page: only the one being received is shown.
     // A listener who arrives late begins with the weather, then the
     // iteration being sung, its words so far shown at once
-    output.replaceChildren()
+    // (a DJ's words, still scrolling away, are kept)
+    for (const child of [...output.children]) if (!child.classList.contains('dj')) child.remove()
     weather(output, session.mood.join(' + '))
     const current = Math.max(0, session.iterations.findLastIndex((it) => it.at <= t))
     song.cursor = { i: current, p: -1, l: 0, c: 0 }
@@ -843,6 +844,8 @@ const rezzy = (() => {
     canvas.height = pitch * rowsOf
     canvas.style.width = `${canvas.width / scale}px`
     canvas.style.height = `${canvas.height / scale}px`
+    // a DJ's words keep to the room Rezzy leaves them, and do not run under them
+    document.documentElement.style.setProperty('--rezzy-room', `${canvas.width / scale + 40}px`)
   }
   addEventListener('resize', () => {
     if (on) fit()
@@ -1008,23 +1011,76 @@ const rezzy = (() => {
 /** How long Rezzy stays in the Song, after it has begun, before they walk off, in seconds. */
 const staysFor = 2
 
+/** How long a DJ's words take to scroll up and away, once the Song has begun, in seconds. */
+const scrollsAway = 6
+
+/** How heavily each character weighs in the time a DJ takes to say it: a letter, a space, a pause at a comma, a longer one at a stop. */
+const weighs = (character) => (/[,;:]/.test(character) ? 3 : /[.!?]/.test(character) ? 5 : /\s/.test(character) ? 0.6 : 1)
+
+/**
+ * A DJ's words, typed as the Song's are, into the same page, as the DJ says
+ * them: a paragraph of its own, in its own light, whose room is kept from the
+ * first, so the page does not jump as the words arrive.
+ */
+function typeSpeech(speech, t) {
+  const output = listening?.output
+  if (!output) return
+  if (!speech.node) {
+    if (t < speech.at) return
+    const node = document.createElement('p')
+    node.className = 'dj'
+    node.append(document.createTextNode(''), Object.assign(document.createElement('span'), { className: 'unsaid', textContent: speech.words }))
+    output.appendChild(node)
+    let total = 0
+    speech.weights = [...speech.words].map((character) => (total += weighs(character)))
+    speech.total = total
+    speech.node = node
+  }
+  const along = Math.max(0, Math.min(1, (t - speech.at) / speech.seconds))
+  const shown = speech.weights.filter((cumulative) => cumulative <= along * speech.total).length
+  const [said, unsaid] = [speech.node.firstChild, speech.node.lastChild]
+  if (said.data.length !== shown) {
+    said.data = speech.words.slice(0, shown)
+    unsaid.textContent = speech.words.slice(shown)
+  }
+}
+
+/** The DJ's words, once the Song has begun, scroll up and out of the Song's way, and are let go. */
+function scrollAway(speech) {
+  const node = speech.node
+  if (!node || speech.going) return
+  speech.going = true
+  // what has not been said by now is not said: the words are whole
+  node.firstChild.data = speech.words
+  node.lastChild.textContent = ''
+  const still = stillness.matches
+  node.style.transition = still ? 'opacity 1s' : `transform ${scrollsAway}s cubic-bezier(0.55, 0, 0.9, 0.55), opacity ${scrollsAway}s ease-in`
+  requestAnimationFrame(() => {
+    if (!still) node.style.transform = `translateY(${-(listening?.output.clientHeight ?? innerHeight)}px)`
+    node.style.opacity = '0'
+  })
+  setTimeout(() => node.remove(), (still ? 1 : scrollsAway) * 1000 + 200)
+}
+
 /**
  * While a Song's intro plays, and a DJ has a speech, the DJ is here: walking on
- * while the Song readies, speaking over the intro, still there when the Song
- * begins, and, `staysFor` seconds in, walking off. `t` is seconds from the
- * Song's moment 0. Returns what the DJ is saying now, if they are speaking.
+ * while the Song readies, speaking over the intro, their words typed in the
+ * Song's own way, still there when the Song begins, and, `staysFor` seconds in,
+ * walking off, their words scrolling up and away from the moment the Song
+ * begins. `t` is seconds from the Song's moment 0.
  */
 function tellIntro(song, t) {
   const speech = song.intro?.speech
   if (!speech) return undefined
+  if (t >= 0) scrollAway(speech)
+  else typeSpeech(speech, t)
   if (t >= staysFor) {
     rezzy.leave()
     return undefined
   }
   rezzy.comeIn()
   rezzy.speak(speech.moves, song.airing.begins + speech.at * 1000)
-  const spoken = t >= speech.at && t < speech.at + speech.seconds
-  return spoken ? `${speech.title}: ${speech.words}` : undefined
+  return undefined
 }
 
 function row(name, value) {
@@ -1482,6 +1538,7 @@ function stopListening() {
   generation++
   bridgeEnds()
   rezzy.away()
+  document.querySelectorAll('#output .dj').forEach((node) => node.remove())
   // its sounds are let go; what has been placed on the audio clock plays out
   songs.clear()
   // what it would have let go is gone with the Songs

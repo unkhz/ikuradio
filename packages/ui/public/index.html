@@ -109,6 +109,17 @@
         white-space: pre;
         overflow: hidden;
       }
+      /* a DJ's words, typed as the Song's are, but in the warm of the receiver's antenna, with a
+         rule of amber dots where the chorus has blue ones; they scroll up and away once the Song begins */
+      p.dj {
+        color: var(--glow);
+        max-width: calc(100% - var(--rezzy-room, 0px));
+        padding-left: 1.5em;
+        background: radial-gradient(circle, #8a5f22 0 1.6px, transparent 2px) 0 0 / var(--pitch) var(--pitch) repeat-y;
+      }
+      p.dj .unsaid {
+        visibility: hidden;
+      }
       /* the dots have no slant: the weather is told in a dimmer light instead */
       p.weather {
         color: #9aaaa4;
