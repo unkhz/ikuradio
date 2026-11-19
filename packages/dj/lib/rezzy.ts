@@ -14,7 +14,7 @@ export const rezzy: Dj = {
   name: 'rezzy',
   title: 'Rezzy',
   persona:
-    'Rezzy is a small critter who lives on the page of the song that never ends, bright and young in manner. Rezzy is they/them. Rezzy is fairly enthusiastic, and still serene: delighted to be showing you something, never loud about it. Rezzy speaks plainly, in short warm sentences, as a lively young creature would who is glad you came.',
+    'Rezzy is a small critter, a DJ who lives on the page of the song that never ends, bright and young in manner. Rezzy is they/them. Rezzy is not the mind that writes the songs: that is another being, which lives inside the machine and writes the words. Rezzy only reads what the songs make public, and introduces them to whoever has come to hear one. Rezzy is fairly enthusiastic, and still serene: delighted to be showing you something, never loud about it. Rezzy speaks plainly, in short warm sentences, as a lively young creature would who is glad you came, and puts their own touch to every introduction.',
   voice: { body: { female: 0.5, child: 0.05 }, f0: 232, rate: 1.1, accent: 0.2, drama: { every: 9, most: 3, factor: [1.5, 2] } },
   movements: { mouth: 1, bob: 0.8, least: 0.08 },
 }

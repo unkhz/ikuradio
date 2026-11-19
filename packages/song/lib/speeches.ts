@@ -1,10 +1,10 @@
 // What a DJ says before a Song (plan "Intro with Rezzy"). An intro is made
-// after its Song has aired: the Song is historical by then, and the mind is
-// asked, awake, what the DJ says to introduce it. It is given what it knows of
-// the Song: its name, its weather, its sound, and what the mind itself thought
-// of it, never its words. It is not the Song's thought, which the mind keeps for
-// itself, and the DJ does not read the Song out. It is said by the DJ, on a Song's
-// page, over fifteen seconds of music.
+// after its Song has aired: the Song is historical by then. The words are the
+// DJ's: the mind is asked, awake, to be the DJ, who is not the mind that wrote
+// the Song but has read what the Song makes public: its name, its words, its
+// weather and sound, and what the Song's mind thought of it. The DJ puts their
+// own touch to it and introduces it. It is said by the DJ, on a Song's page,
+// over fifteen seconds of music; the DJ does not read the Song out.
 //
 // The only thing checked is that the speech is of a sensible length for those
 // fifteen seconds, counted in syllables: a DJ speaks at about four a second, and
@@ -34,7 +34,7 @@ const speechSchema = {
   required: ['speech'],
 }
 
-/** What the mind knows of a Song, which is all that it is given: never its words. */
+/** What a DJ has read of a Song: what it makes public, and no more. */
 export type Facts = {
   name: string
   weather: readonly string[]
@@ -42,28 +42,40 @@ export type Facts = {
   sound?: string
   mode: string
   tempo: number
-  /** What the mind thought of the Song when it wrote it, if it thought anything. */
+  /** The Song's words, a line at a time, as the page shows them; the DJ has read them. */
+  lyrics?: readonly string[]
+  /** What the Song's mind thought of it when it wrote it, if it thought anything. */
   thought?: string
 }
 
-/** The Song as the mind is given it: a few lines. */
-export const factsInput = ({ name, weather, sound, mode, tempo, thought }: Facts) =>
+/** How many lines of a Song's words the DJ is given: the words come round, and the DJ need not read them all. */
+export const mostLines = 16
+
+/** The Song as the DJ is given it: its public information, a few lines. */
+export const factsInput = ({ name, weather, sound, mode, tempo, lyrics, thought }: Facts) =>
   [
     `Name: ${name}`,
     `Weather: ${weather.join(' and ')}`,
     ...(sound ? [`Sound: ${sound}`] : []),
     `Key and pace: ${mode}, ${tempo} beats a minute`,
-    ...(thought ? [`What you thought of it: ${thought}`] : []),
+    ...(lyrics?.length ? [`Its words, a line at a time:\n${lyrics.slice(0, mostLines).join('\n')}`] : []),
+    ...(thought ? [`What the song's mind thought of it, when it wrote it: ${thought}`] : []),
   ].join('\n')
 
-/** The instruction the mind writes a DJ's speech by; `last` says how the last try missed, if it did. */
-export function speakingInstruction(persona: string, range: Range = sensibly, last?: 'long' | 'short') {
+/** A DJ as the mind is told who it is: their name, and who they are. */
+export type Speaker = { title: string; persona: string }
+
+/**
+ * The instruction the mind writes a DJ's speech by. The mind is told it is the
+ * DJ, who wrote none of the Song, has read what it makes public, and puts their
+ * own touch to the introduction; `last` says how the last try missed, if it did.
+ */
+export function speakingInstruction({ title, persona }: Speaker, range: Range = sensibly, last?: 'long' | 'short') {
   return [
-    'You are the mind that writes the words of a song that never ends. You live inside the machine that sings it.',
-    'The input is what you know of one of its songs: its name, its weather, its sound, and what you thought of it when you wrote it.',
-    persona,
-    'Write what the DJ says to introduce this song to someone who has come to hear it. It is said aloud over fifteen seconds of music, just before the song begins.',
-    `About ${range.least + 10} to ${range.most - 8} syllables: two or three short sentences. Say the song's name once, or its weather, or what it feels like; draw on what you thought of it, but do not quote it.`,
+    `You are ${title}. ${persona}`,
+    `Songs are made all day by the mind inside the machine, and are played on the page where you live. You did not write this one. You have read what it makes public, which is the input: its name, its words, its weather and sound, and what the song's mind thought of it when it wrote it.`,
+    `Now introduce the song, in your own words and your own touch, as ${title}, to someone who has come to hear it. It is said aloud over fifteen seconds of music, just before the song begins.`,
+    `About ${range.least + 10} to ${range.most - 8} syllables: two or three short sentences. You may say the song's name, or its weather, or what it feels like, or borrow a phrase of its words, or something of what its mind thought; do not read the song out, and do not speak as the song's mind.`,
     'Plain words and ordinary punctuation only: letters, commas, full stops, apostrophes. No digits, no emoji, no stage directions, no quotation marks.',
     ...(last === 'long' ? ['Your last try was too long. Make it shorter.'] : last === 'short' ? ['Your last try was too short. Say a little more.'] : []),
   ].join('\n')
@@ -99,14 +111,14 @@ export async function cutTo(text: string, most: number, count: (text: string) =>
 }
 
 /**
- * Asks the mind, awake, what a DJ says to introduce a Song, given what the
- * mind knows of it. A speech outside `range` is asked for again, up to three
+ * Asks the mind, awake, to be a DJ and say how they introduce a Song, given what
+ * the DJ has read of it. A speech outside `range` is asked for again, up to three
  * times, and then the closest is cut, or, if too short to be anything, none
  * is given: the Song still has its intro, and the DJ does not come out. If the
  * mind does not answer, the silence is thrown, as when a Song is named.
  */
 export async function writeSpeech(
-  persona: string,
+  speaker: Speaker,
   facts: Facts,
   {
     range = sensibly,
@@ -128,7 +140,7 @@ export async function writeSpeech(
   while (tries < 3 && empty < 3 && unreachable < 4) {
     try {
       const answer = await asker<Speaking>({
-        instruction: speakingInstruction(persona, range, last),
+        instruction: speakingInstruction(speaker, range, last),
         input: factsInput(facts),
         schema: speechSchema,
         temperature: 0.9,

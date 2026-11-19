@@ -7,7 +7,7 @@
 
 import type { ArchiveStore, Session } from 'archive'
 import { type Dj } from 'dj'
-import { factsInput, type Facts } from 'song'
+import { mostLines, type Facts, type Speaker } from 'song'
 import { declare, growIntro, introRecord, openingOf, type Opening } from './intro.js'
 import type { Placed } from 'vocals'
 
@@ -26,13 +26,20 @@ export function unintroduced(keys: readonly string[], playing: string): string[]
     .sort((a, b) => (BigInt(a) < BigInt(b) ? 1 : BigInt(a) > BigInt(b) ? -1 : 0))
 }
 
-/** What the mind knows of a Song, as its Session tells. */
+/** The Song's words as the page shows them, a line at a time, each once, in the order they are first sung. */
+export function lyricsOf(session: Session): string[] {
+  const seen = new Set<string>()
+  return session.iterations.flatMap(({ parts }) => parts.flatMap(({ lines }) => lines.map(({ text }) => text.trim()))).filter((line) => line && !seen.has(line) && !!seen.add(line))
+}
+
+/** What a DJ has read of a Song, as its Session tells: what it makes public. */
 export const factsOf = (session: Session): Facts => ({
   name: session.name ?? `Song ${session.song}`,
   weather: session.mood,
   ...(session.sound ? { sound: session.sound } : {}),
   mode: session.mode,
   tempo: session.tempo,
+  lyrics: lyricsOf(session).slice(0, mostLines),
   ...(session.thought ? { thought: session.thought } : {}),
 })
 
@@ -43,7 +50,7 @@ export type Introducing = {
   mind: { wake(): Promise<boolean>; rest(): Promise<void> }
   band: { wake(): Promise<unknown>; rest(): Promise<unknown> }
   /** What the DJ says of a Song, and how many syllables it has; nothing if the mind has nothing sensible to say. */
-  speak(facts: Facts, persona: string): Promise<{ text: string; syllables: number } | undefined>
+  speak(facts: Facts, speaker: Speaker): Promise<{ text: string; syllables: number } | undefined>
   grow(opened: Opening): Promise<Placed>
   loudness(file: string): Promise<{ lufs: number; peak: number } | undefined>
   /** Whether a Studio is wanted, and this run should stop. */
@@ -86,7 +93,7 @@ export async function introduce(run: Introducing, songs: readonly string[], most
         done.failed.push(song)
         continue
       }
-      const speech = await run.speak(factsOf(session), run.dj.persona).catch((error: Error) => {
+      const speech = await run.speak(factsOf(session), run.dj).catch((error: Error) => {
         run.log(`the mind wrote nothing for Song ${song}: ${error.message}`)
         return undefined
       })

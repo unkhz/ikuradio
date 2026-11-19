@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { Session } from 'archive'
 import { rezzy } from 'dj'
-import { introduce, unintroduced, type Introducing } from './introducing.js'
+import { factsOf, introduce, lyricsOf, unintroduced, type Introducing } from './introducing.js'
 import { openingOf } from './intro.js'
 
 const keys = (...names: string[]) => names.map((n) => `sessions/${n}.json`)
@@ -30,13 +30,20 @@ const session = (song: string, extra: Partial<Session> = {}) =>
     sound: 'low strings',
     thought: 'I wondered.',
     singers: [{ body: 'female', harmony: 0 }],
-    iterations: [{ parts: [{ type: 'verse', at: 0, lines: [{ at: 1, text: 'a line' }] }] }],
+    iterations: [{ parts: [{ type: 'verse', at: 0, lines: [{ at: 1, text: 'a line' }, { at: 2, text: 'another line' }] }, { type: 'bridge', at: 3, lines: [] }, { type: 'verse', at: 4, lines: [{ at: 4, text: 'a line' }] }] }],
     recordings: [
       { id: 'h', kind: 'voice', voice: 0, at: 0.5, take: { bpm: 80, lyrics: 'ooh ooh', notes: [[60, 2], [62, 2]] } },
       { id: 'v', kind: 'voice', voice: 0, at: 1, take: { bpm: 80, lyrics: 'a line of words', notes: [[64.03, 1], [0, 1], [66.98, 2], [69, 2]], pressure: 8, tension: 0.5, breathiness: 0.2 } },
     ],
     ...extra,
   }) as unknown as Session
+
+describe('what the DJ has read', () => {
+  it('is the Song\'s name, weather, sound, words and its mind\'s thought, each line of the words once', () => {
+    expect(lyricsOf(session('7'))).toEqual(['a line', 'another line'])
+    expect(factsOf(session('7'))).toEqual({ name: "Song 7's name", weather: ['rain', 'gears'], sound: 'low strings', mode: 'dorian', tempo: 80, lyrics: ['a line', 'another line'], thought: 'I wondered.' })
+  })
+})
 
 describe('openingOf', () => {
   it('leads into the first line of the first verse as the lead sang it, in degrees, and takes the lead\'s throat', () => {

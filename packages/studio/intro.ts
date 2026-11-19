@@ -76,8 +76,8 @@ const run: Introducing = {
   dj: rezzy,
   mind,
   band: { wake: wakeBand, rest: restBand },
-  async speak(facts, persona) {
-    const text = await writeSpeech(persona, facts)
+  async speak(facts, speaker) {
+    const text = await writeSpeech(speaker, facts)
     return text ? { text, syllables: await syllableCount(text) } : undefined
   },
   grow: growIntro,
