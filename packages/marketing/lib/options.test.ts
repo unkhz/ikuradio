@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { addressOf, cutArgs, nameOf, sizeOf } from './options.js'
+import { addressOf, cutArgs, nameOf, placeOf, sizeOf } from './options.js'
 
 test('a size is width and height', () => {
   expect(sizeOf('1080x1920')).toEqual({ width: 1080, height: 1920 })
@@ -25,4 +25,12 @@ test('the capture is cut from the moment the front page went', () => {
   expect(args.slice(args.indexOf('-ss'), args.indexOf('-ss') + 2)).toEqual(['-ss', '1.250'])
   expect(args).toContain('scale=1280:720:flags=lanczos')
   expect(args.at(-1)).toBe('out.mp4')
+})
+
+test('a capture is kept in the folder asked for, under its own name, or in the file asked for', () => {
+  const name = 'song-1192-promo-45s.mp4'
+  expect(placeOf({ dir: 'clips', name, fallback: '/pkg/out', from: '/work' })).toBe(`/work/clips/${name}`)
+  expect(placeOf({ dir: '/elsewhere', name, fallback: '/pkg/out', from: '/work' })).toBe(`/elsewhere/${name}`)
+  expect(placeOf({ name, fallback: '/pkg/out', from: '/work' })).toBe(`/pkg/out/${name}`)
+  expect(placeOf({ file: 'a.mp4', dir: 'clips', name, fallback: '/pkg/out', from: '/work' })).toBe('/work/a.mp4')
 })

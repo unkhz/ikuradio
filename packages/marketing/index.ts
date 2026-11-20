@@ -1,16 +1,17 @@
 // Marketing: showing the Radio to people. For now, capturing a Song as video.
 //
 //   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
-//                        [--promo <seconds>] [--hold 1] [--scale 1] [--out file.mp4]
+//                        [--promo <seconds>] [--hold 1] [--scale 1]
+//                        [--dir <folder>] [--out <file.mp4>]
 //
 // With --promo, the Song's promo (the page at ?promo=<seconds>); without it, the
-// whole Song. The capture is kept in packages/marketing/out/. It needs Chrome, and
+// whole Song. The capture is kept in packages/marketing/out/, or in --dir, or exactly at --out. It needs Chrome, and
 // ffmpeg to cut and encode it; the page is shown on screen while it is captured.
 
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { capture } from './lib/capture.js'
-import { addressOf, nameOf, sizeOf } from './lib/options.js'
+import { addressOf, nameOf, placeOf, sizeOf } from './lib/options.js'
 
 const usage = 'bun marketing capture --screen 1280x720 --url <https://ikurad.io/s/<number>/<name>> [--promo <seconds>]'
 const { values, positionals } = parseArgs({
@@ -21,6 +22,7 @@ const { values, positionals } = parseArgs({
     promo: { type: 'string' },
     scale: { type: 'string', default: '1' },
     hold: { type: 'string', default: '1' },
+    dir: { type: 'string' },
     out: { type: 'string' },
   },
 })
@@ -31,7 +33,8 @@ if (command !== 'capture' || !values.url) {
 }
 const promo = values.promo === undefined ? undefined : Number(values.promo)
 const address = addressOf(values.url, promo)
-const out = values.out ?? join(import.meta.dir, 'out', nameOf(values.url, promo))
+// a relative --dir or --out is from where it is run: the repository's root, for `bun marketing`
+const out = placeOf({ file: values.out, dir: values.dir, name: nameOf(values.url, promo), fallback: join(import.meta.dir, 'out'), from: process.cwd() })
 // a promo ends by its own length; a whole Song, when it has ended
 const finish = promo === undefined ? 60 * 30 : promo + 120
 

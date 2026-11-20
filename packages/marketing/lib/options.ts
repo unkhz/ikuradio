@@ -1,5 +1,7 @@
 // What a capture is asked for, read from the command line.
 
+import { resolve } from 'node:path'
+
 export type Size = { width: number; height: number }
 
 /** `1080x1920` as a size; anything else is an error. */
@@ -25,6 +27,12 @@ export function addressOf(url: string, promo?: number): string {
 export function nameOf(url: string, promo?: number): string {
   const [, number] = /^\/s\/(\d+)\//.exec(new URL(url).pathname) ?? []
   return `song-${number}-${promo === undefined ? 'whole' : `promo-${promo}s`}.mp4`
+}
+
+/** Where a capture is kept: `file` if given, else its default name in `dir` (or the package's own `out/`), made absolute from `from`. */
+export function placeOf({ file, dir, name, fallback, from }: { file?: string; dir?: string; name: string; fallback: string; from: string }): string {
+  if (file) return resolve(from, file)
+  return resolve(from, dir ?? fallback, name)
 }
 
 /**
