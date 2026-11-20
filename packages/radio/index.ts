@@ -70,6 +70,21 @@ async function read<T>(path: string): Promise<T | undefined> {
 }
 
 /**
+ * A Session by its number: found, certainly not there (the Archive says 404), or not known for now,
+ * because the Archive did not answer in time or well. A Song that is there is never said to be
+ * missing for the Archive's stumble.
+ */
+async function sessionOf(song: string): Promise<{ found: Session } | 'missing' | 'unknown'> {
+  try {
+    const response = await fetch(new URL(paths.session(song), reading), { signal: AbortSignal.timeout(10_000) })
+    if (response.ok) return { found: (await response.json()) as Session }
+    return response.status === 404 || response.status === 403 ? 'missing' : 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+/**
  * A Session, if the Archive still holds the Recordings it names: a Song it
  * can still play. Voices sung from takes are never in the Archive's
  * recordings, so only a Recording kept as sound is looked for.
@@ -495,7 +510,10 @@ async function answer(request: Request): Promise<Response> {
   })()
   const asked = /^\/s\/(0|[1-9]\d{0,399})\/([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\-]{0,399})$/u.exec(said)
   if (asked) {
-    const session = asked[1] !== '0' ? await read<Session>(paths.session(asked[1])) : undefined
+    const got = asked[1] !== '0' ? await sessionOf(asked[1]) : 'missing'
+    // the Archive did not answer: the Song may well be there, so say "later", not "never"
+    if (got === 'unknown') return new Response(null, { status: 503, headers: { 'retry-after': '5' } })
+    const session = got === 'missing' ? undefined : got.found
     if (session?.name && linkOf(session)?.slug === asked[2]) return page(request, url, BigInt(asked[1]))
     return new Response(null, { status: 404 })
   }
