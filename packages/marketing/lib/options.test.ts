@@ -45,7 +45,6 @@ test('a sound alone is an mp3 with no picture, and has no cover unless asked for
   const args = cutArgs('raw.webm', 0, 'out.mp3', { width: 1280, height: 720 }, true)
   expect(args.join(' ')).toContain('-map 0:a')
   expect(args).not.toContain('libx264')
-  expect(args).not.toContain('mjpeg')
   expect(coverOf(undefined, true)).toBe(0)
   expect(coverOf(undefined, false)).toBe(1)
   expect(coverOf('2', true)).toBe(2)
@@ -62,6 +61,6 @@ test('a thumbnail is kept in the file as its attached picture, and the cut is of
 
 test('a sound has the thumbnail as its cover', () => {
   const args = cutArgs('raw.webm', 0, 'out.mp3', { width: 1280, height: 720 }, true, { thumbnail: 'still.png' })
-  expect(args.join(' ')).toContain('-map 1:v -c:v mjpeg')
+  expect(args.join(' ')).toContain('-map 1:v -c:v copy')
   expect(args).not.toContain('libx264')
 })

@@ -7,12 +7,13 @@
 //
 //   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
 //                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only]
-//                        [--dir <folder>] [--out <file.mp4>] [--thumbnail <image>] [--window]
+//                        [--dir <folder>] [--out <file.mp4>] [--thumbnail <image>] [--art-size 4000] [--window]
 //
 // The video begins with --cover seconds (1 by default) of the front page, its likeness and name,
 // so a platform that shows a video's first frame as its still shows the receiver.
 // The file keeps a thumbnail of its own, for a player or a service to show: a picture of the front page
-// (square, for a sound), or the --thumbnail image given; and the Song's name and address.
+// (for a sound, a square of --art-size pixels, 4000 by default, drawn at that size, 24 bits to a pixel and
+// said to be sRGB), or the --thumbnail image given; and the Song's name and address.
 // --audio-only keeps only the sound, as an mp3, for posting where there is only sound (a whole
 // Song, most of all), and then has no cover and no intro.
 // With --promo, the Song's promo (the page at ?promo=<seconds>); without it, the
@@ -40,6 +41,7 @@ const { values, positionals } = parseArgs({
     cover: { type: 'string' },
     'audio-only': { type: 'boolean', default: false },
     thumbnail: { type: 'string' },
+    'art-size': { type: 'string', default: '4000' },
     dir: { type: 'string' },
     out: { type: 'string' },
     window: { type: 'boolean', default: false },
@@ -94,6 +96,7 @@ await capture({
   cover: coverOf(values.cover, values['audio-only']),
   audioOnly: values['audio-only'],
   thumbnail: values.thumbnail && resolve(process.cwd(), values.thumbnail),
+  artSize: Number(values['art-size']),
   headless: !values.window,
   patience: { ready: 180, finish },
 })

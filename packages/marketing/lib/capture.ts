@@ -12,6 +12,7 @@ import { appendFile, mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { chromium } from 'playwright-core'
 import { cutArgs, type Keeping, type Size } from './options.js'
+import { tagSrgb } from './png.js'
 
 export type Capture = {
   address: string
@@ -25,6 +26,8 @@ export type Capture = {
   cover: number
   /** An image to keep in the file as its thumbnail, in place of a picture of the front page. */
   thumbnail?: string
+  /** Pixels along a side of the cover a sound has, if it is not given a thumbnail: 4000. */
+  artSize?: number
   /** Only its sound is kept: an mp3. */
   audioOnly?: boolean
   /** Chrome without a window on screen: it captures its own tab, and needs no permission to watch the screen. */
@@ -33,7 +36,7 @@ export type Capture = {
   patience: { ready: number; finish: number }
 }
 
-export async function capture({ address, out, size, scale, hold, cover, patience, headless = true, audioOnly = false, thumbnail }: Capture): Promise<void> {
+export async function capture({ address, out, size, scale, hold, cover, patience, headless = true, audioOnly = false, thumbnail, artSize = 4000 }: Capture): Promise<void> {
   await mkdir(dirname(out), { recursive: true })
   const raw = `${out}.raw.webm`
   await writeFile(raw, '')
@@ -108,9 +111,18 @@ export async function capture({ address, out, size, scale, hold, cover, patience
     const withoutButton = await page.addStyleTag({ content: '#tune { opacity: 0 }' })
     const still = thumbnail ?? `${out}.thumbnail.png`
     if (!thumbnail) {
-      // a sound's is square, from the middle of the page, as a service shows a sound's art
-      const clip = audioOnly ? { x: (size.width - size.height) / 2, y: 0, width: Math.min(size.width, size.height), height: size.height } : undefined
-      await page.screenshot({ path: still, ...(clip ? { clip } : {}) })
+      if (audioOnly) {
+        // a sound's cover is a square of its own, 8 bits of red, green and blue to a pixel, said to be sRGB:
+        // the front page drawn at that size, not a capture's picture made larger
+        const art = await (await browser.newContext({ viewport: { width: 800, height: 800 }, deviceScaleFactor: artSize / 800 })).newPage()
+        await art.goto(new URL('/', address).href)
+        await art.addStyleTag({ content: '#tune { opacity: 0 }' })
+        await art.waitForTimeout(2500)
+        await writeFile(still, tagSrgb(await art.screenshot({ type: 'png' })))
+        await art.context().close()
+      } else {
+        await page.screenshot({ path: still })
+      }
     }
     if (cover > 0) await page.waitForTimeout(cover * 1000)
     else await withoutButton.evaluate((style) => (style as HTMLElement).remove())

@@ -70,7 +70,7 @@ export function cutArgs(raw: string, from: number, out: string, size: Size, audi
     return [
       ...inputs,
       '-map', '0:a',
-      ...(thumbnail ? ['-map', '1:v', '-c:v', 'mjpeg', '-id3v2_version', '3', '-metadata:s:v', 'title=Album cover', '-metadata:s:v', 'comment=Cover (front)'] : []),
+      ...(thumbnail ? ['-map', '1:v', '-c:v', 'copy', '-id3v2_version', '3', '-metadata:s:v', 'title=Album cover', '-metadata:s:v', 'comment=Cover (front)'] : []),
       '-c:a', 'libmp3lame',
       '-b:a', '320k',
       ...marks,
