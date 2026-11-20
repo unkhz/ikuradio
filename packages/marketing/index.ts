@@ -1,9 +1,11 @@
 // Marketing: showing the Radio to people. For now, capturing a Song as video.
 //
 //   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
-//                        [--promo <seconds>] [--hold 1] [--scale 1]
+//                        [--promo <seconds>] [--hold 1] [--cover 1] [--scale 1]
 //                        [--dir <folder>] [--out <file.mp4>] [--window]
 //
+// The video begins with --cover seconds of the front page, its likeness and name, so
+// a platform that shows a video's first frame as its still shows the receiver.
 // With --promo, the Song's promo (the page at ?promo=<seconds>); without it, the
 // whole Song. The capture is kept in packages/marketing/out/, or in --dir, or exactly at --out. It needs Chrome, and
 // ffmpeg to cut and encode it. Chrome runs without a window, capturing its own tab, so
@@ -23,6 +25,7 @@ const { values, positionals } = parseArgs({
     promo: { type: 'string' },
     scale: { type: 'string', default: '1' },
     hold: { type: 'string', default: '1' },
+    cover: { type: 'string', default: '1' },
     dir: { type: 'string' },
     out: { type: 'string' },
     window: { type: 'boolean', default: false },
@@ -46,6 +49,7 @@ await capture({
   size: sizeOf(values.screen),
   scale: Number(values.scale),
   hold: Number(values.hold),
+  cover: Number(values.cover),
   headless: !values.window,
   patience: { ready: 180, finish },
 })

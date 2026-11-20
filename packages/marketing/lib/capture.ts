@@ -21,13 +21,15 @@ export type Capture = {
   scale: number
   /** Seconds to go on after the page says it is over, so its last moment is seen. */
   hold: number
+  /** Seconds of the front page, logo and name, that begin the video, so a platform's still of it is the receiver. */
+  cover: number
   /** Chrome without a window on screen: it captures its own tab, and needs no permission to watch the screen. */
   headless?: boolean
   /** Seconds to wait for the page to download, and, after it is played, for it to finish, at the most. */
   patience: { ready: number; finish: number }
 }
 
-export async function capture({ address, out, size, scale, hold, patience, headless = true }: Capture): Promise<void> {
+export async function capture({ address, out, size, scale, hold, cover, patience, headless = true }: Capture): Promise<void> {
   await mkdir(dirname(out), { recursive: true })
   const raw = `${out}.raw.webm`
   await writeFile(raw, '')
@@ -94,16 +96,22 @@ export async function capture({ address, out, size, scale, hold, patience, headl
       { hold },
     )
     console.log('filming the page; playing the Song')
+    if (cover > 0) {
+      // the front page is the video's first seconds, without its button, which would be the thumbnail's
+      await page.addStyleTag({ content: '#tune { opacity: 0 }' })
+      await page.waitForTimeout(cover * 1000)
+    }
     await page.click('#play')
 
     const from = await Promise.race([
       finished,
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`the page did not finish in ${patience.finish}s`)), patience.finish * 1000)),
     ])
-    console.log(`finished; cutting from ${from.toFixed(2)}s`)
+    const start = Math.max(0, from - cover)
+    console.log(`finished; cutting from ${start.toFixed(2)}s`)
     await browser.close()
     await new Promise<void>((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', cutArgs(raw, from, out, { width: size.width * scale, height: size.height * scale }), { stdio: ['ignore', 'ignore', 'inherit'] })
+      const ffmpeg = spawn('ffmpeg', cutArgs(raw, start, out, { width: size.width * scale, height: size.height * scale }), { stdio: ['ignore', 'ignore', 'inherit'] })
       ffmpeg.on('error', reject)
       ffmpeg.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg stopped with ${code}`))))
     })
