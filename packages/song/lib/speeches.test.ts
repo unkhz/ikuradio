@@ -15,7 +15,8 @@ describe('what the mind is given', () => {
     expect(input).toContain('Name: A thaw, slow')
     expect(input).toContain('Weather: snow and gears')
     expect(input).toContain('Sound: low strings')
-    expect(input).toContain('dorian, 60 beats a minute')
+    expect(input).toContain('Feel: dorian mode, very slow')
+    expect(input).not.toMatch(/beats a minute|bpm/)
     expect(input).toContain("What the song's mind thought of it, when it wrote it: I wondered what silence hears.")
     expect(factsInput({ ...facts, sound: undefined, thought: undefined, lyrics: undefined })).not.toContain('Sound')
   })
@@ -27,6 +28,7 @@ describe('what the mind is given', () => {
     expect(told).toContain('what it makes public')
     expect(told).toContain('in your own words and your own touch')
     expect(told).toContain('do not speak as the song\'s mind')
+    expect(told).toContain('never write "Rezzy says"')
   })
 
   it('is asked for a speech of a sensible length for fifteen seconds, and told how the last try missed', () => {
@@ -37,6 +39,12 @@ describe('what the mind is given', () => {
 })
 
 describe('spokenPlainly', () => {
+  it('takes off the narration and the quotation marks, so that only what is said aloud is left', () => {
+    expect(spokenPlainly("Rezzy says, 'Hear the sands whisper, feel the tundra.'", 'Rezzy')).toBe('Hear the sands whisper, feel the tundra.')
+    expect(spokenPlainly('"Hello there, friend." Come in.', 'Rezzy')).toBe('Hello there, friend. Come in.')
+    expect(spokenPlainly("It's Rezzy, here, and I'm glad you came.", 'Rezzy')).toBe("It's Rezzy, here, and I'm glad you came.")
+  })
+
   it('leaves plain words, and takes out what the throat cannot say', () => {
     expect(spokenPlainly('"Hello there, friend!" *waves* 🐾 It\'s 3 am.')).toBe("Hello there, friend! waves It's am.")
   })

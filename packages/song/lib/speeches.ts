@@ -48,6 +48,9 @@ export type Facts = {
   thought?: string
 }
 
+/** How a tempo is told to the DJ, in a word: the DJ is not given the number, which a mind would only repeat. */
+export const paceOf = (tempo: number) => (tempo < 66 ? 'very slow' : tempo < 84 ? 'slow' : tempo < 108 ? 'moderate' : tempo < 132 ? 'brisk' : 'quick')
+
 /** How many lines of a Song's words the DJ is given: the words come round, and the DJ need not read them all. */
 export const mostLines = 16
 
@@ -57,7 +60,7 @@ export const factsInput = ({ name, weather, sound, mode, tempo, lyrics, thought 
     `Name: ${name}`,
     `Weather: ${weather.join(' and ')}`,
     ...(sound ? [`Sound: ${sound}`] : []),
-    `Key and pace: ${mode}, ${tempo} beats a minute`,
+    `Feel: ${mode} mode, ${paceOf(tempo)}`,
     ...(lyrics?.length ? [`Its words, a line at a time:\n${lyrics.slice(0, mostLines).join('\n')}`] : []),
     ...(thought ? [`What the song's mind thought of it, when it wrote it: ${thought}`] : []),
   ].join('\n')
@@ -75,18 +78,26 @@ export function speakingInstruction({ title, persona }: Speaker, range: Range = 
     `You are ${title}. ${persona}`,
     `Songs are made all day by the mind inside the machine, and are played on the page where you live. You did not write this one. You have read what it makes public, which is the input: its name, its words, its weather and sound, and what the song's mind thought of it when it wrote it.`,
     `Now introduce the song, in your own words and your own touch, as ${title}, to someone who has come to hear it. It is said aloud over fifteen seconds of music, just before the song begins.`,
+    `Write only the words you say aloud, in the first person, as yourself. Do not narrate: never write "${title} says", and never put quotation marks round what you say. Do not read out numbers.`,
     `About ${range.least + 10} to ${range.most - 8} syllables: two or three short sentences. You may say the song's name, or its weather, or what it feels like, or borrow a phrase of its words, or something of what its mind thought; do not read the song out, and do not speak as the song's mind.`,
     'Plain words and ordinary punctuation only: letters, commas, full stops, apostrophes. No digits, no emoji, no stage directions, no quotation marks.',
     ...(last === 'long' ? ['Your last try was too long. Make it shorter.'] : last === 'short' ? ['Your last try was too short. Say a little more.'] : []),
   ].join('\n')
 }
 
-/** What the DJ says, as the throat can read it: plain, one line. */
-export const spokenPlainly = (speech: string) =>
-  plainly(speech)
-    .replace(/[^\p{L}\p{M}\s,.;:!?'’—-]/gu, ' ')
+/**
+ * What the DJ says, as the throat can read it: plain, one line, and only what
+ * is said aloud: a mind that narrates, "Rezzy says, '...'", has the narration
+ * taken off, and the quotation marks round what is left.
+ */
+export const spokenPlainly = (speech: string, title?: string) => {
+  const plain = plainly(speech)
+    .replace(/[^\p{L}\p{M}\s,.;:!?'’"“”—-]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+  const said = title ? plain.replace(new RegExp(`^${title}\\s+(?:says|said|whispers|announces|exclaims|adds)\\s*[,:]?\\s*`, 'i'), '') : plain
+  return said.replace(/^['"“”]+|['"“”]+$/g, '').replace(/["“”]/g, '').trim()
+}
 
 /** How many syllables a text has, as the throat's dictionary tells, and a vowel group each for a word it does not know. */
 export async function syllableCount(text: string): Promise<number> {
@@ -145,7 +156,7 @@ export async function writeSpeech(
         schema: speechSchema,
         temperature: 0.9,
       })
-      const text = typeof answer?.speech === 'string' ? spokenPlainly(answer.speech) : ''
+      const text = typeof answer?.speech === 'string' ? spokenPlainly(answer.speech, speaker.title) : ''
       if (!text) {
         empty++
         continue

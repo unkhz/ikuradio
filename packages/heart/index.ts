@@ -22,7 +22,7 @@ import { createWriteStream, existsSync, mkdirSync, renameSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { getEnv } from 'tools'
 import { archiveAddress, paths, type ArchiveIndex } from 'archive'
-import { waitingAfter } from './lib/beat.js'
+import { liveReached, waitingAfter, type Told } from './lib/beat.js'
 
 const { RADIO_URL, SONGS_AHEAD } = getEnv()
 /** The Studio beside the Heart, where it is called in. */
@@ -38,17 +38,16 @@ async function read<T>(url: URL): Promise<T | undefined> {
   }
 }
 
-type Told = { song: string } | null
-
 /**
- * The last Song the Radio has reached: the one playing, or the one it has
- * announced, or else the last one that aired. Undefined if the Radio cannot
- * be heard; null if it has never played anything.
+ * The last Song the Radio has reached: the live one playing, or the one it
+ * has announced, or else the last one that aired, an encore being none of
+ * them. Undefined if the Radio cannot be heard; null if it has never played
+ * anything.
  */
 async function reached(): Promise<string | null | undefined> {
   const tactus = await read<{ playing: Told; next: Told }>(new URL('tactus', RADIO_URL))
   if (!tactus) return undefined
-  const now = tactus.next?.song ?? tactus.playing?.song
+  const now = liveReached(tactus)
   if (now !== undefined) return now
   const [last] = (await read<Told[]>(new URL('songs?count=1', RADIO_URL))) ?? []
   return last?.song ?? null
