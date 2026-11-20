@@ -16,10 +16,13 @@ test('a promo is asked for with its length in the Song\'s own address, a whole S
   expect(() => addressOf('http://localhost:3101/')).toThrow()
 })
 
-test('a capture is named by its Song and what it holds', () => {
+test('a capture is named by its Song, and by the length of its promo if it is one', () => {
   const song = 'https://ikurad.io/s/1192/whispers-of-twilight'
-  expect(nameOf(song, 45)).toBe('song-1192-promo-45s.mp4')
-  expect(nameOf(song)).toBe('song-1192-whole.mp4')
+  expect(nameOf(song, 45)).toBe('ikuradio-1192-whispers-of-twilight-45.mp4')
+  expect(nameOf(song)).toBe('ikuradio-1192-whispers-of-twilight.mp4')
+  expect(nameOf(song, 0)).toBe('ikuradio-1192-whispers-of-twilight.mp4')
+  // a whole Song is named the same with or without its intro
+  expect(nameOf(song, 0, true)).toBe('ikuradio-1192-whispers-of-twilight.mp3')
 })
 
 test('the capture is cut from the moment the front page went', () => {
@@ -38,7 +41,7 @@ test('a capture is kept in the folder asked for, under its own name, or in the f
 })
 
 test('a sound alone is an mp3 with no picture, and has no cover unless asked for', () => {
-  expect(nameOf('https://ikurad.io/s/1192/whispers-of-twilight', undefined, true)).toBe('song-1192-whole.mp3')
+  expect(nameOf('https://ikurad.io/s/1192/whispers-of-twilight', undefined, true)).toBe('ikuradio-1192-whispers-of-twilight.mp3')
   const args = cutArgs('raw.webm', 0, 'out.mp3', { width: 1280, height: 720 }, true)
   expect(args.join(' ')).toContain('-map 0:a')
   expect(args).not.toContain('libx264')
