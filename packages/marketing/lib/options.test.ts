@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { addressOf, cutArgs, nameOf, placeOf, sizeOf } from './options.js'
+import { addressOf, coverOf, cutArgs, nameOf, placeOf, sizeOf } from './options.js'
 
 test('a size is width and height', () => {
   expect(sizeOf('1080x1920')).toEqual({ width: 1080, height: 1920 })
@@ -10,6 +10,8 @@ test('a promo is asked for with its length in the Song\'s own address, a whole S
   const song = 'http://localhost:3101/s/1192/whispers-of-twilight'
   expect(addressOf(song, 45)).toBe(`${song}?promo=45`)
   expect(addressOf(`${song}?promo=10`)).toBe(song)
+  expect(addressOf(song, undefined, { intro: false })).toBe(`${song}?intro=0`)
+  expect(addressOf(song, 30, { intro: false })).toBe(`${song}?promo=30&intro=0`)
   expect(() => addressOf(song, 5)).toThrow()
   expect(() => addressOf('http://localhost:3101/')).toThrow()
 })
@@ -33,4 +35,14 @@ test('a capture is kept in the folder asked for, under its own name, or in the f
   expect(placeOf({ dir: '/elsewhere', name, fallback: '/pkg/out', from: '/work' })).toBe(`/elsewhere/${name}`)
   expect(placeOf({ name, fallback: '/pkg/out', from: '/work' })).toBe(`/pkg/out/${name}`)
   expect(placeOf({ file: 'a.mp4', dir: 'clips', name, fallback: '/pkg/out', from: '/work' })).toBe('/work/a.mp4')
+})
+
+test('a sound alone is an mp3 with no picture, and has no cover unless asked for', () => {
+  expect(nameOf('https://ikurad.io/s/1192/whispers-of-twilight', undefined, true)).toBe('song-1192-whole.mp3')
+  const args = cutArgs('raw.webm', 0, 'out.mp3', { width: 1280, height: 720 }, true)
+  expect(args).toContain('-vn')
+  expect(args).not.toContain('libx264')
+  expect(coverOf(undefined, true)).toBe(0)
+  expect(coverOf(undefined, false)).toBe(1)
+  expect(coverOf('2', true)).toBe(2)
 })

@@ -11,23 +11,31 @@ export function sizeOf(text: string): Size {
   return { width: Number(found[1]), height: Number(found[2]) }
 }
 
-/** The address to capture: a Song's own, with `?promo=<seconds>` when it is a promo. Without it, the whole Song. */
-export function addressOf(url: string, promo?: number): string {
+/**
+ * The address to capture: a Song's own, with `?promo=<seconds>` when it is a promo, and
+ * `?intro=0` when its intro is to be left out. Without a promo, the whole Song.
+ */
+export function addressOf(url: string, promo?: number, { intro = true }: { intro?: boolean } = {}): string {
   const address = new URL(url)
   if (!/^\/s\/[1-9]\d*\/[^/]+$/.test(address.pathname)) throw new Error(`${url} is not a Song's own address: /s/<number>/<name>`)
   address.searchParams.delete('promo')
+  address.searchParams.delete('intro')
   if (promo !== undefined) {
     if (!Number.isFinite(promo) || promo < 20) throw new Error('a promo is at least 20 seconds')
     address.searchParams.set('promo', String(promo))
   }
+  if (!intro) address.searchParams.set('intro', '0')
   return address.href
 }
 
 /** The file a capture is kept in, by default: the Song's number and what was captured of it. */
-export function nameOf(url: string, promo?: number): string {
+export function nameOf(url: string, promo?: number, audioOnly = false): string {
   const [, number] = /^\/s\/(\d+)\//.exec(new URL(url).pathname) ?? []
-  return `song-${number}-${promo === undefined ? 'whole' : `promo-${promo}s`}.mp4`
+  return `song-${number}-${promo === undefined ? 'whole' : `promo-${promo}s`}.${audioOnly ? 'mp3' : 'mp4'}`
 }
+
+/** Seconds of the front page that begin a capture, unless asked for: a video has one, for its still; a sound has none. */
+export const coverOf = (asked: string | undefined, audioOnly: boolean): number => (asked === undefined ? (audioOnly ? 0 : 1) : Number(asked))
 
 /** Where a capture is kept: `file` if given, else its default name in `dir` (or the package's own `out/`), made absolute from `from`. */
 export function placeOf({ file, dir, name, fallback, from }: { file?: string; dir?: string; name: string; fallback: string; from: string }): string {
@@ -39,12 +47,12 @@ export function placeOf({ file, dir, name, fallback, from }: { file?: string; di
  * ffmpeg's arguments to cut the raw capture from `from` seconds and keep it as a video any
  * service takes, exactly `size` pixels: the browser's tab is a few pixels short of its window.
  */
-export function cutArgs(raw: string, from: number, out: string, size: Size): string[] {
+export function cutArgs(raw: string, from: number, out: string, size: Size, audioOnly = false): string[] {
+  const start = ['-y', '-loglevel', 'error', '-i', raw, '-ss', from.toFixed(3)]
+  // for posting where there is only sound to post: a sound at the best an mp3 is, as it was made
+  if (audioOnly) return [...start, '-vn', '-c:a', 'libmp3lame', '-b:a', '320k', out]
   return [
-    '-y',
-    '-loglevel', 'error',
-    '-i', raw,
-    '-ss', from.toFixed(3),
+    ...start,
     '-vf', `scale=${size.width}:${size.height}:flags=lanczos`,
     '-c:v', 'libx264',
     '-preset', 'slow',

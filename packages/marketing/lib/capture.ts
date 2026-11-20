@@ -23,13 +23,15 @@ export type Capture = {
   hold: number
   /** Seconds of the front page, logo and name, that begin the video, so a platform's still of it is the receiver. */
   cover: number
+  /** Only its sound is kept: an mp3. */
+  audioOnly?: boolean
   /** Chrome without a window on screen: it captures its own tab, and needs no permission to watch the screen. */
   headless?: boolean
   /** Seconds to wait for the page to download, and, after it is played, for it to finish, at the most. */
   patience: { ready: number; finish: number }
 }
 
-export async function capture({ address, out, size, scale, hold, cover, patience, headless = true }: Capture): Promise<void> {
+export async function capture({ address, out, size, scale, hold, cover, patience, headless = true, audioOnly = false }: Capture): Promise<void> {
   await mkdir(dirname(out), { recursive: true })
   const raw = `${out}.raw.webm`
   await writeFile(raw, '')
@@ -52,21 +54,25 @@ export async function capture({ address, out, size, scale, hold, cover, patience
 
     console.log(`opening ${address}`)
     await page.goto(address)
-    await page.waitForLoadState('networkidle')
+    // the page says when its downloads are done; the network is never quiet for long, it asks the Radio
     await page.waitForSelector('body[data-ready="yes"]', { timeout: patience.ready * 1000, state: 'attached' })
     console.log('the Song is downloaded and ready')
 
     // a click, so that the browser lets the page be filmed; the front page does not mind one
     await page.mouse.click(1, 1)
     await page.evaluate(
-      async ({ hold }) => {
+      async ({ hold, audioOnly }) => {
         const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { frameRate: 30 },
-          audio: true,
+          // the browser asks for a picture too; a sound alone takes a little of one and keeps none
+          video: { frameRate: audioOnly ? 1 : 30 },
+          // the tab's sound as it is: both channels, not tidied for a call
+          audio: { channelCount: 2, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
           preferCurrentTab: true,
           selfBrowserSurface: 'include',
         } as DisplayMediaStreamOptions)
-        const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 12_000_000 })
+        const recorder = audioOnly
+          ? new MediaRecorder(new MediaStream(stream.getAudioTracks()), { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 256_000 })
+          : new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 12_000_000 })
         const pieces: Promise<void>[] = []
         recorder.ondataavailable = ({ data }) => {
           pieces.push(
@@ -93,7 +99,7 @@ export async function capture({ address, out, size, scale, hold, cover, patience
           { once: true },
         )
       },
-      { hold },
+      { hold, audioOnly },
     )
     console.log('filming the page; playing the Song')
     if (cover > 0) {
@@ -111,7 +117,7 @@ export async function capture({ address, out, size, scale, hold, cover, patience
     console.log(`finished; cutting from ${start.toFixed(2)}s`)
     await browser.close()
     await new Promise<void>((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', cutArgs(raw, start, out, { width: size.width * scale, height: size.height * scale }), { stdio: ['ignore', 'ignore', 'inherit'] })
+      const ffmpeg = spawn('ffmpeg', cutArgs(raw, start, out, { width: size.width * scale, height: size.height * scale }, audioOnly), { stdio: ['ignore', 'ignore', 'inherit'] })
       ffmpeg.on('error', reject)
       ffmpeg.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg stopped with ${code}`))))
     })

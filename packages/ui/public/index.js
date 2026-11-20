@@ -1505,7 +1505,9 @@ let replay = replayAt(location.pathname)
 // A visit is the page's first entry being a Song's page: only then is the Song's
 // intro heard. Everything after the first entry, carrying on, the back button,
 // live, is not a visit, whatever address it lands on.
-let entry = Boolean(replay)
+// `?intro=0` leaves the intro out, for a capture of the Song's sound alone (packages/marketing)
+const introOff = new URLSearchParams(location.search).get('intro') === '0'
+let entry = Boolean(replay) && !introOff
 
 // Carrying on (plan "Carry on listening"). A Song heard again ends, and the
 // listener may carry on: to the next Song that aired, and the next, until
