@@ -1782,7 +1782,7 @@ async function readyReplay(index, visit) {
 const looking = new URLSearchParams(location.search).has('time')
 // a Song's own page has the space of its Song from the first moment, before it is played
 if (replay) addEventListener('DOMContentLoaded', () => window.space?.tune(String(replay.index)))
-let preloading = replay && !looking ? { song: String(replay.index), ready: readyReplay(replay.index, true).catch(() => undefined) } : undefined
+let preloading = replay && !looking ? { song: String(replay.index), ready: readyReplay(replay.index, !introOff).catch(() => undefined) } : undefined
 
 /**
  * Hidden signs for whatever films the page (packages/marketing): `started` when the
