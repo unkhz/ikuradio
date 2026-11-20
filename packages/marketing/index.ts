@@ -5,6 +5,11 @@
 //
 // prints a text about a Song, from what its Archive says of it. `tweet` is the intro, signed by the DJ, and the address, and nothing else.
 //
+//   bun marketing cover 1192 [--screen 4000x4000] [--scale 5] [--dir <folder>] [--out <file.png>]
+//
+// keeps a Song's cover, its front page held still, as a PNG (sRGB, 24 bits), for where a sound's
+// cover cannot be read from the mp3 (SoundCloud). --screen is its pixels; --scale lays the page out smaller.
+//
 //   bun marketing capture 1192 [--screen 1280x720]
 //   bun marketing capture --url https://ikurad.io/s/1192/whispers-of-twilight
 //                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only] [--intro 0|1]
@@ -31,19 +36,20 @@
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { capture } from './lib/capture.js'
+import { cover } from './lib/cover.js'
 import { assets, print, urlOf, type Asset, type Song } from './lib/print.js'
 import { addressOf, coverOf, nameOf, placeOf, sizeOf } from './lib/options.js'
 
-const usage = 'bun marketing print <song number> <asset: ' + assets.join('|') + '>\n       bun marketing capture <song number | --url https://ikurad.io/s/<number>/<name>> [--screen 1280x720] [--promo <seconds>]'
+const usage = 'bun marketing cover <song number | --url ...> [--screen 4000x4000]\n       bun marketing print <song number> <asset: ' + assets.join('|') + '>\n       bun marketing capture <song number | --url https://ikurad.io/s/<number>/<name>> [--screen 1280x720] [--promo <seconds>]'
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     url: { type: 'string' },
     radio: { type: 'string', default: 'https://ikurad.io' },
     archive: { type: 'string' },
-    screen: { type: 'string', default: '1280x720' },
+    screen: { type: 'string' },
     promo: { type: 'string' },
-    scale: { type: 'string', default: '1' },
+    scale: { type: 'string' },
     hold: { type: 'string', default: '1' },
     cover: { type: 'string' },
     'audio-only': { type: 'boolean', default: false },
@@ -88,7 +94,7 @@ if (command === 'print') {
 
 // a Song is asked for by its address, or by its number, which the Radio's address is made from
 const given = positionals[1]
-if (command !== 'capture' || (!values.url && !isNumber(given))) {
+if ((command !== 'capture' && command !== 'cover') || (!values.url && !isNumber(given))) {
   console.error(usage)
   process.exit(2)
 }
@@ -105,6 +111,14 @@ if (!url) {
     console.error((error as Error).message)
     process.exit(1)
   }
+}
+if (command === 'cover') {
+  // a square of 4000 pixels, as a sound's cover is, unless --screen says another; laid out at 800 unless --scale says
+  const size = sizeOf(values.screen ?? '4000x4000')
+  const place = placeOf({ file: values.out, dir: values.dir, name: nameOf(url, 0, false, 'png'), fallback: join(import.meta.dir, 'out'), from: process.cwd() })
+  await cover({ address: addressOf(url), out: place, size, scale: Number(values.scale ?? Math.max(1, size.width / 800)) })
+  console.log(`kept as ${place}`)
+  process.exit(0)
 }
 const promo = values.promo === undefined ? undefined : Number(values.promo)
 // Rezzy's introduction is made to be seen: a sound alone has none, unless --intro 1 asks for it, and --intro 0 leaves it out of a video
@@ -124,8 +138,8 @@ const finish = promo ? promo + 120 : 60 * 30
 await capture({
   address,
   out,
-  size: sizeOf(values.screen),
-  scale: Number(values.scale),
+  size: sizeOf(values.screen ?? '1280x720'),
+  scale: Number(values.scale ?? 1),
   hold: Number(values.hold),
   cover: coverOf(values.cover, values['audio-only']),
   audioOnly: values['audio-only'],

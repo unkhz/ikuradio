@@ -20,6 +20,7 @@ test('a capture is named by its Song, and by the length of its promo if it is on
   const song = 'https://ikurad.io/s/1192/whispers-of-twilight'
   expect(nameOf(song, 45)).toBe('ikuradio-1192-whispers-of-twilight-45s.mp4')
   expect(nameOf(song)).toBe('ikuradio-1192-whispers-of-twilight.mp4')
+  expect(nameOf('https://ikurad.io/s/1324/silicon-serenade%C2%B2', 0, false, 'png')).toBe('ikuradio-1324-silicon-serenade².png')
   expect(nameOf(song, 0)).toBe('ikuradio-1192-whispers-of-twilight.mp4')
   // a whole Song is named the same with or without its intro
   expect(nameOf(song, 0, true)).toBe('ikuradio-1192-whispers-of-twilight.mp3')

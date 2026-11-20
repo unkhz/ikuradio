@@ -31,9 +31,9 @@ export function addressOf(url: string, promo = 0, { intro = true }: { intro?: bo
  * The file a capture is kept in, by default: `ikuradio-<number>-<slug>-<promo length>s.<ext>` for a
  * promo, and `ikuradio-<number>-<slug>.<ext>` for the whole Song, with its intro or without.
  */
-export function nameOf(url: string, promo = 0, audioOnly = false): string {
+export function nameOf(url: string, promo = 0, audioOnly = false, extension = audioOnly ? 'mp3' : 'mp4'): string {
   const [, number, slug] = /^\/s\/(\d+)\/([^/]+)$/.exec(new URL(url).pathname) ?? []
-  return `ikuradio-${number}-${slug}${promo > 0 ? `-${promo}s` : ''}.${audioOnly ? 'mp3' : 'mp4'}`
+  return `ikuradio-${number}-${decodeURIComponent(slug)}${promo > 0 ? `-${promo}s` : ''}.${extension}`
 }
 
 /** Seconds of the front page that begin a capture, unless asked for: a video has one, for its still; a sound has none. */
