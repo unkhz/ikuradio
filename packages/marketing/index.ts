@@ -97,3 +97,5 @@ await capture({
   headless: !values.window,
   patience: { ready: 180, finish },
 })
+// nothing is left to wait for: a browser or a child that would not stop does not keep the person waiting
+process.exit(0)

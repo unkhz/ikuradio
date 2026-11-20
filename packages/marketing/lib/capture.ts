@@ -116,10 +116,13 @@ export async function capture({ address, out, size, scale, hold, cover, patience
     else await withoutButton.evaluate((style) => (style as HTMLElement).remove())
     await page.click('#play')
 
+    // the wait is given up on after `patience.finish`; the timer is cleared when it is no longer
+    // wanted, or it would keep the process alive for as long as it had left
+    let giveUp: ReturnType<typeof setTimeout> | undefined
     const from = await Promise.race([
       finished,
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`the page did not finish in ${patience.finish}s`)), patience.finish * 1000)),
-    ])
+      new Promise<never>((_, reject) => (giveUp = setTimeout(() => reject(new Error(`the page did not finish in ${patience.finish}s`)), patience.finish * 1000))),
+    ]).finally(() => clearTimeout(giveUp))
     const keeping: Keeping = { thumbnail: still, title: (await page.title()).replace(/ · ikuradio$/, ''), comment: address.replace(/\?.*$/, '') }
     const start = Math.max(0, from - cover)
     console.log(`finished; cutting from ${start.toFixed(2)}s`)
