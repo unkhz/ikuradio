@@ -27,6 +27,7 @@ import { normalize } from 'node:path'
 // @ts-ignore: written by the Receiver's build, and not there until it has run
 import { files as pageFiles, named as pageNames, release } from '../ui/dist/receiver.js'
 import { getEnv } from 'tools'
+import { addressAsked } from './lib/address.js'
 import { archiveAddress, linkOf, paths, publicArchive, sessionVersion, slugOf, type ArchiveIndex, type DjDeclaration, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
@@ -509,21 +510,13 @@ async function answer(request: Request): Promise<Response> {
   // A Song's only address: its number, and the slug its name makes. A wrong
   // slug is not found, like any path that is not the link: the Radio says
   // nothing of a Song it does not link.
-  // the address says a slug's letters by percent signs (silicon-serenade%C2%B2); the slug is what they spell
-  const said = (() => {
-    try {
-      return decodeURIComponent(url.pathname).normalize('NFC')
-    } catch {
-      return url.pathname
-    }
-  })()
-  const asked = /^\/s\/(0|[1-9]\d{0,399})\/([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\-]{0,399})$/u.exec(said)
+  const asked = addressAsked(url.pathname)
   if (asked) {
-    const got = asked[1] !== '0' ? await sessionOf(asked[1]) : 'missing'
+    const got = asked.song !== '0' ? await sessionOf(asked.song) : 'missing'
     // the Archive did not answer: the Song may well be there, so say "later", not "never"
     if (got === 'unknown') return new Response(null, { status: 503, headers: { 'retry-after': '5' } })
     const session = got === 'missing' ? undefined : got.found
-    if (session?.name && linkOf(session)?.slug === asked[2]) return page(request, url, BigInt(asked[1]))
+    if (session?.name && linkOf(session)?.slug === asked.slug) return page(request, url, BigInt(asked.song))
     return new Response(null, { status: 404 })
   }
 
