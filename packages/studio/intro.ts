@@ -5,7 +5,8 @@
 //
 //   bun run intro                 make the intros of the next few Songs that need one
 //   bun run intro --most 10       ...of the next ten
-//   bun run intro --song 1100     ...of that Song, if it has none
+//   bun run intro --song 1100     ...of that Song, whether it has one or not: it is made again
+//   bun run intro --song 1100,1101   ...of those Songs
 //   bun run intro --list          tell which Songs need one, and make none
 //
 // It ends with 0 if it made an intro or yielded to a Studio, 3 if no Song needs
@@ -24,7 +25,7 @@ import { holdStudioFree, StudioBusy } from './lib/lock.js'
 const { RADIO_URL, SONGS_AHEAD } = getEnv()
 const args = process.argv.slice(2)
 const option = (name: string) => (args.includes(name) ? args[args.indexOf(name) + 1] : undefined)
-const most = Number(option('--most') ?? 3)
+const most = option('--most') ? Number(option('--most')) : (option('--song')?.split(',').length ?? 3)
 
 // the Studio at work is let finish: this run keeps the mind and the band as a Studio does,
 // and the two shall not at once
@@ -56,7 +57,8 @@ if (playing === undefined) {
 }
 
 const keys = await store.kept('sessions/')
-const wanted = option('--song') ? [option('--song')!] : unintroduced(keys, playing)
+const named = option('--song')?.split(',').map((song) => song.trim()).filter(Boolean)
+const wanted = named ?? unintroduced(keys, playing)
 console.log(`the Archive is ${where}; ${wanted.length} Songs that have aired need an intro, newest first${wanted.length ? `: ${wanted.slice(0, 8).join(', ')}${wanted.length > 8 ? ', …' : ''}` : ''}`)
 if (args.includes('--list')) process.exit(0)
 if (!wanted.length) process.exit(3)
