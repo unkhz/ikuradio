@@ -530,6 +530,49 @@ function voices(audioContext) {
   return voiceBus
 }
 
+// A DJ's voice. It is not the choir's: no echo, which makes the words hard to
+// hear, and the processing of a voice on the radio. The low end is cleared away
+// and the warmth of a close microphone is given back, the presence where
+// consonants are is lifted, the dynamics are held close, and a little grit
+// from a worked valve is added. Everything is kept gentle, for the voice is
+// young and quiet, and has not to sound like it is shouting.
+let djBus
+function dj(audioContext) {
+  if (!djBus) {
+    const filter = (type, frequency, { gain = 0, q = 0.7 } = {}) => {
+      const node = audioContext.createBiquadFilter()
+      node.type = type
+      node.frequency.value = frequency
+      node.gain.value = gain
+      node.Q.value = q
+      return node
+    }
+    const chain = [
+      filter('highpass', 95),
+      filter('lowshelf', 190, { gain: 3 }),
+      filter('peaking', 3200, { gain: 4.5, q: 0.9 }),
+      filter('lowpass', 13000),
+    ]
+    const squeeze = audioContext.createDynamicsCompressor()
+    squeeze.threshold.value = -26
+    squeeze.knee.value = 10
+    squeeze.ratio.value = 5
+    squeeze.attack.value = 0.004
+    squeeze.release.value = 0.14
+    // soft saturation: a tanh curve, only a little bent
+    const grit = audioContext.createWaveShaper()
+    const drive = 1.6
+    grit.curve = Float32Array.from({ length: 1024 }, (_, i) => Math.tanh(((i / 511.5) - 1) * drive) / Math.tanh(drive))
+    grit.oversample = '2x'
+    const makeup = audioContext.createGain()
+    makeup.gain.value = 0.7
+    djBus = chain[0]
+    ;[...chain, squeeze, grit, makeup].reduce((from, to) => (from.connect(to), to))
+    makeup.connect(speakers(audioContext))
+  }
+  return djBus
+}
+
 // The Music. Each bed lies under its section of the song, at its own
 // loudness, without the voices' echo, and lets go softly at its end.
 let musicBus
@@ -647,9 +690,14 @@ function placeSounds(audioContext) {
         } else {
           const level = audioContext.createGain()
           level.gain.value = levelOf(recording)
-          const place = audioContext.createStereoPanner()
-          place.pan.value = standingOf(recording.voice)
-          source.connect(level).connect(place).connect(voices(audioContext))
+          if (recording.said) {
+            // a DJ speaks to the listener, in the middle, close, and without an echo
+            source.connect(level).connect(dj(audioContext))
+          } else {
+            const place = audioContext.createStereoPanner()
+            place.pan.value = standingOf(recording.voice)
+            source.connect(level).connect(place).connect(voices(audioContext))
+          }
         }
         if (since > 0) source.start(audioContext.currentTime, since)
         else source.start(when)
