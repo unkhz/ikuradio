@@ -542,7 +542,7 @@
       }
       /* the address, on the one lit patch of amber dots, like the switch it stands in for */
       #promo .address {
-        margin: 0.4em 0 0;
+        margin: 0.6em 0 0;
         padding: 0.45em 1.3em;
         font-size: 1.15em;
         font-weight: 600;
@@ -574,11 +574,13 @@
       #promo .address b {
         font-weight: 900;
       }
+      /* the line above the address, as the front page's offered Song is above its button */
       #promo .tagline {
         margin: 0;
-        color: var(--weather);
+        color: var(--chorus);
         font-size: 0.85em;
-        letter-spacing: 0.08em;
+        font-weight: 600;
+        text-align: center;
       }
       @media (max-width: 600px) {
         #output {
@@ -610,8 +612,8 @@
         <img class="likeness" src="/receiver.svg" width="288" height="288" alt="" />
         <img class="name" src="/wordmark.svg" width="294" height="54" alt="" />
       </div>
-      <p class="address">listen in <b>ikurad.io</b></p>
       <p class="tagline">the song that never ends</p>
+      <p class="address">listen in <b>ikurad.io</b></p>
     </div>
     <button id="knob" type="button" aria-label="What the receiver knows" aria-expanded="false" aria-controls="panel">
       <svg viewBox="0 0 40 40" fill="currentColor" aria-hidden="true">
