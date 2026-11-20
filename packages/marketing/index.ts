@@ -3,7 +3,7 @@
 //   bun marketing print <song number> <intro|name|slug|url|lyrics|meta|thoughts|tweet>
 //                       [--radio https://ikurad.io] [--archive <the Archive's address>]
 //
-// prints a text about a Song, from what its Archive says of it. `tweet` is the intro and the address.
+// prints a text about a Song, from what its Archive says of it. `tweet` is the intro and the address, and nothing else.
 //
 //   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
 //                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only]
@@ -63,8 +63,6 @@ if (command === 'print') {
   try {
     const text = print(song, asset as Asset)
     console.log(text)
-    // a post counts any address as 23 characters
-    if (asset === 'tweet') console.error(`${[...text.replace(/\S+$/, '').trimEnd()].length + 2 + 23} characters, the address counting as 23`)
   } catch (error) {
     console.error((error as Error).message)
     process.exit(1)
