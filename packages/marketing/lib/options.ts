@@ -42,24 +42,53 @@ export function placeOf({ file, dir, name, fallback, from }: { file?: string; di
   return resolve(from, dir ?? fallback, name)
 }
 
+/** What is kept in a capture besides its picture and sound. */
+export type Keeping = {
+  /** An image kept in the file as its thumbnail: what a player or a service shows before it plays. */
+  thumbnail?: string
+  /** The Song's name, and where it is heard. */
+  title?: string
+  comment?: string
+}
+
 /**
  * ffmpeg's arguments to cut the raw capture from `from` seconds and keep it as a video any
  * service takes, exactly `size` pixels: the browser's tab is a few pixels short of its window.
+ * The thumbnail is put in the file as its attached picture, and the Song's name and address as
+ * its title and comment.
  */
-export function cutArgs(raw: string, from: number, out: string, size: Size, audioOnly = false): string[] {
-  const start = ['-y', '-loglevel', 'error', '-i', raw, '-ss', from.toFixed(3)]
+export function cutArgs(raw: string, from: number, out: string, size: Size, audioOnly = false, keeping: Keeping = {}): string[] {
+  const { thumbnail, title, comment } = keeping
+  // the cut is of the input, so that the thumbnail, which has only a moment 0, is not cut with it
+  const inputs = ['-y', '-loglevel', 'error', '-ss', from.toFixed(3), '-i', raw, ...(thumbnail ? ['-i', thumbnail] : [])]
+  const marks = [...(title ? ['-metadata', `title=${title}`, '-metadata', 'artist=ikuradio'] : []), ...(comment ? ['-metadata', `comment=${comment}`] : [])]
   // for posting where there is only sound to post: a sound at the best an mp3 is, as it was made
-  if (audioOnly) return [...start, '-vn', '-c:a', 'libmp3lame', '-b:a', '320k', out]
+  if (audioOnly) {
+    return [
+      ...inputs,
+      '-map', '0:a',
+      ...(thumbnail ? ['-map', '1:v', '-c:v', 'mjpeg', '-id3v2_version', '3', '-metadata:s:v', 'title=Album cover', '-metadata:s:v', 'comment=Cover (front)'] : []),
+      '-c:a', 'libmp3lame',
+      '-b:a', '320k',
+      ...marks,
+      out,
+    ]
+  }
   return [
-    ...start,
-    '-vf', `scale=${size.width}:${size.height}:flags=lanczos`,
-    '-c:v', 'libx264',
+    ...inputs,
+    '-map', '0:v',
+    '-map', '0:a',
+    ...(thumbnail ? ['-map', '1:v'] : []),
+    '-filter:v:0', `scale=${size.width}:${size.height}:flags=lanczos`,
+    '-c:v:0', 'libx264',
     '-preset', 'slow',
     '-crf', '18',
     '-pix_fmt', 'yuv420p',
     '-r', '30',
+    ...(thumbnail ? ['-c:v:1', 'mjpeg', '-disposition:v:1', 'attached_pic'] : []),
     '-c:a', 'aac',
     '-b:a', '192k',
+    ...marks,
     '-movflags', '+faststart',
     out,
   ]

@@ -7,10 +7,12 @@
 //
 //   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
 //                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only]
-//                        [--dir <folder>] [--out <file.mp4>] [--window]
+//                        [--dir <folder>] [--out <file.mp4>] [--thumbnail <image>] [--window]
 //
 // The video begins with --cover seconds (1 by default) of the front page, its likeness and name,
 // so a platform that shows a video's first frame as its still shows the receiver.
+// The file keeps a thumbnail of its own, for a player or a service to show: a picture of the front page
+// (square, for a sound), or the --thumbnail image given; and the Song's name and address.
 // --audio-only keeps only the sound, as an mp3, for posting where there is only sound (a whole
 // Song, most of all), and then has no cover and no intro.
 // With --promo, the Song's promo (the page at ?promo=<seconds>); without it, the
@@ -18,7 +20,7 @@
 // ffmpeg to cut and encode it. Chrome runs without a window, capturing its own tab, so
 // nothing is shown and no permission to watch the screen is asked for; --window shows it.
 
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { capture } from './lib/capture.js'
 import { assets, print, type Asset, type Song } from './lib/print.js'
@@ -37,6 +39,7 @@ const { values, positionals } = parseArgs({
     hold: { type: 'string', default: '1' },
     cover: { type: 'string' },
     'audio-only': { type: 'boolean', default: false },
+    thumbnail: { type: 'string' },
     dir: { type: 'string' },
     out: { type: 'string' },
     window: { type: 'boolean', default: false },
@@ -90,6 +93,7 @@ await capture({
   hold: Number(values.hold),
   cover: coverOf(values.cover, values['audio-only']),
   audioOnly: values['audio-only'],
+  thumbnail: values.thumbnail && resolve(process.cwd(), values.thumbnail),
   headless: !values.window,
   patience: { ready: 180, finish },
 })

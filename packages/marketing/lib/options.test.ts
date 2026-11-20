@@ -40,9 +40,25 @@ test('a capture is kept in the folder asked for, under its own name, or in the f
 test('a sound alone is an mp3 with no picture, and has no cover unless asked for', () => {
   expect(nameOf('https://ikurad.io/s/1192/whispers-of-twilight', undefined, true)).toBe('song-1192-whole.mp3')
   const args = cutArgs('raw.webm', 0, 'out.mp3', { width: 1280, height: 720 }, true)
-  expect(args).toContain('-vn')
+  expect(args.join(' ')).toContain('-map 0:a')
   expect(args).not.toContain('libx264')
+  expect(args).not.toContain('mjpeg')
   expect(coverOf(undefined, true)).toBe(0)
   expect(coverOf(undefined, false)).toBe(1)
   expect(coverOf('2', true)).toBe(2)
+})
+
+test('a thumbnail is kept in the file as its attached picture, and the cut is of the video alone', () => {
+  const args = cutArgs('raw.webm', 1, 'out.mp4', { width: 1280, height: 720 }, false, { thumbnail: 'still.png', title: 'Whispers', comment: 'https://ikurad.io/s/1/w' })
+  // the cut is before the first input, so the thumbnail's one moment is not cut away
+  expect(args.indexOf('-ss')).toBeLessThan(args.indexOf('-i'))
+  expect(args).toContain('still.png')
+  expect(args.join(' ')).toContain('-disposition:v:1 attached_pic')
+  expect(args).toContain('title=Whispers')
+})
+
+test('a sound has the thumbnail as its cover', () => {
+  const args = cutArgs('raw.webm', 0, 'out.mp3', { width: 1280, height: 720 }, true, { thumbnail: 'still.png' })
+  expect(args.join(' ')).toContain('-map 1:v -c:v mjpeg')
+  expect(args).not.toContain('libx264')
 })

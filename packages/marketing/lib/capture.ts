@@ -11,7 +11,7 @@ import { spawn } from 'node:child_process'
 import { appendFile, mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { chromium } from 'playwright-core'
-import { cutArgs, type Size } from './options.js'
+import { cutArgs, type Keeping, type Size } from './options.js'
 
 export type Capture = {
   address: string
@@ -23,6 +23,8 @@ export type Capture = {
   hold: number
   /** Seconds of the front page, logo and name, that begin the video, so a platform's still of it is the receiver. */
   cover: number
+  /** An image to keep in the file as its thumbnail, in place of a picture of the front page. */
+  thumbnail?: string
   /** Only its sound is kept: an mp3. */
   audioOnly?: boolean
   /** Chrome without a window on screen: it captures its own tab, and needs no permission to watch the screen. */
@@ -31,7 +33,7 @@ export type Capture = {
   patience: { ready: number; finish: number }
 }
 
-export async function capture({ address, out, size, scale, hold, cover, patience, headless = true, audioOnly = false }: Capture): Promise<void> {
+export async function capture({ address, out, size, scale, hold, cover, patience, headless = true, audioOnly = false, thumbnail }: Capture): Promise<void> {
   await mkdir(dirname(out), { recursive: true })
   const raw = `${out}.raw.webm`
   await writeFile(raw, '')
@@ -102,22 +104,28 @@ export async function capture({ address, out, size, scale, hold, cover, patience
       { hold, audioOnly },
     )
     console.log('filming the page; playing the Song')
-    if (cover > 0) {
-      // the front page is the video's first seconds, without its button, which would be the thumbnail's
-      await page.addStyleTag({ content: '#tune { opacity: 0 }' })
-      await page.waitForTimeout(cover * 1000)
+    // the front page without its button: the video's first seconds, and the thumbnail kept in it
+    const withoutButton = await page.addStyleTag({ content: '#tune { opacity: 0 }' })
+    const still = thumbnail ?? `${out}.thumbnail.png`
+    if (!thumbnail) {
+      // a sound's is square, from the middle of the page, as a service shows a sound's art
+      const clip = audioOnly ? { x: (size.width - size.height) / 2, y: 0, width: Math.min(size.width, size.height), height: size.height } : undefined
+      await page.screenshot({ path: still, ...(clip ? { clip } : {}) })
     }
+    if (cover > 0) await page.waitForTimeout(cover * 1000)
+    else await withoutButton.evaluate((style) => (style as HTMLElement).remove())
     await page.click('#play')
 
     const from = await Promise.race([
       finished,
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`the page did not finish in ${patience.finish}s`)), patience.finish * 1000)),
     ])
+    const keeping: Keeping = { thumbnail: still, title: (await page.title()).replace(/ · ikuradio$/, ''), comment: address.replace(/\?.*$/, '') }
     const start = Math.max(0, from - cover)
     console.log(`finished; cutting from ${start.toFixed(2)}s`)
     await browser.close()
     await new Promise<void>((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', cutArgs(raw, start, out, { width: size.width * scale, height: size.height * scale }, audioOnly), { stdio: ['ignore', 'ignore', 'inherit'] })
+      const ffmpeg = spawn('ffmpeg', cutArgs(raw, start, out, { width: size.width * scale, height: size.height * scale }, audioOnly, keeping), { stdio: ['ignore', 'ignore', 'inherit'] })
       ffmpeg.on('error', reject)
       ffmpeg.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg stopped with ${code}`))))
     })
@@ -125,5 +133,6 @@ export async function capture({ address, out, size, scale, hold, cover, patience
   } finally {
     await browser.close().catch(() => {})
     await rm(raw, { force: true })
+    if (!thumbnail) await rm(`${out}.thumbnail.png`, { force: true })
   }
 }
