@@ -361,6 +361,8 @@ async function page(request: Request, url: URL, song?: bigint) {
     `<meta property="og:site_name" content="${escaped(site)}" />`,
     `<meta property="og:title" content="${escaped(title)}" />`,
     `<meta property="og:description" content="${escaped(description)}" />`,
+    // one address for a page, whatever ?promo= or ?intro= a capture put after it
+    `<link rel="canonical" href="${escaped(origin + url.pathname)}" />`,
     `<meta property="og:url" content="${escaped(origin + url.pathname)}" />`,
     `<meta property="og:image" content="${escaped(`${origin}/${names['card.png']}`)}" />`,
     `<meta property="og:image:width" content="1200" />`,
@@ -494,6 +496,13 @@ async function answer(request: Request): Promise<Response> {
     const received = tactus.history.filter((a) => a.mode !== 'encore' && a.begins <= Date.now()).map((a) => a.song)
     return new Response(sitemapOf(origin, received, introduced, slugs), {
       headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' },
+    })
+  }
+  // everyone may look; where the Songs are listed is said, so that a crawler need not guess it
+  if (url.pathname === '/robots.txt') {
+    const scheme = request.headers.get('x-forwarded-proto') ?? url.protocol.slice(0, -1)
+    return new Response(`User-agent: *\nAllow: /\n\nSitemap: ${scheme}://${request.headers.get('host') ?? url.host}/sitemap.xml\n`, {
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'max-age=3600' },
     })
   }
   if (url.pathname === '/' || url.pathname === '/index.html') return page(request, url)
