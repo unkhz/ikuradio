@@ -2,11 +2,12 @@
 //
 //   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
 //                        [--promo <seconds>] [--hold 1] [--scale 1]
-//                        [--dir <folder>] [--out <file.mp4>]
+//                        [--dir <folder>] [--out <file.mp4>] [--window]
 //
 // With --promo, the Song's promo (the page at ?promo=<seconds>); without it, the
 // whole Song. The capture is kept in packages/marketing/out/, or in --dir, or exactly at --out. It needs Chrome, and
-// ffmpeg to cut and encode it; the page is shown on screen while it is captured.
+// ffmpeg to cut and encode it. Chrome runs without a window, capturing its own tab, so
+// nothing is shown and no permission to watch the screen is asked for; --window shows it.
 
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -24,6 +25,7 @@ const { values, positionals } = parseArgs({
     hold: { type: 'string', default: '1' },
     dir: { type: 'string' },
     out: { type: 'string' },
+    window: { type: 'boolean', default: false },
   },
 })
 const [command] = positionals
@@ -44,5 +46,6 @@ await capture({
   size: sizeOf(values.screen),
   scale: Number(values.scale),
   hold: Number(values.hold),
+  headless: !values.window,
   patience: { ready: 180, finish },
 })

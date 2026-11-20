@@ -21,18 +21,22 @@ export type Capture = {
   scale: number
   /** Seconds to go on after the page says it is over, so its last moment is seen. */
   hold: number
+  /** Chrome without a window on screen: it captures its own tab, and needs no permission to watch the screen. */
+  headless?: boolean
   /** Seconds to wait for the page to download, and, after it is played, for it to finish, at the most. */
   patience: { ready: number; finish: number }
 }
 
-export async function capture({ address, out, size, scale, hold, patience }: Capture): Promise<void> {
+export async function capture({ address, out, size, scale, hold, patience, headless = true }: Capture): Promise<void> {
   await mkdir(dirname(out), { recursive: true })
   const raw = `${out}.raw.webm`
   await writeFile(raw, '')
   // Chrome, as the person has it: its sound and its codecs are what the page is made for
   const browser = await chromium.launch({
     channel: 'chrome',
-    headless: false,
+    headless,
+    // Playwright mutes a Chrome without a window, and a muted tab has no sound to capture
+    ignoreDefaultArgs: ['--mute-audio'],
     args: ['--auto-accept-this-tab-capture', '--autoplay-policy=no-user-gesture-required', '--hide-scrollbars'],
   })
   try {
