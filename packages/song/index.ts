@@ -30,7 +30,7 @@ export {
   type Naming,
 } from './lib/names.js'
 export { cutTo, factsInput, mostLines, sensibly, speakingInstruction, spokenPlainly, syllableCount, writeSpeech, type Facts, type Range, type Speaker, type Speaking } from './lib/speeches.js'
-export { longWear, wornDeep } from './lib/wear.js'
+export { longWear, stemOf, worn, wornDeep } from './lib/wear.js'
 export { stressedWords, stresses, stressOf, type StressedWord } from './lib/stress.js'
 
 /** How many syllables a line should have, and may have at most, to fit its bars at the Song's tempo and rate. */
@@ -186,14 +186,26 @@ function inMood(instruction: string, mood: readonly string[]) {
   return `${instruction} The mood of the song is ${mood.join(' and ')}: let every line live in it.`
 }
 
+/** What the mind is told of the words the last iteration leaned on. */
+const restingNote = (resting: readonly string[]) =>
+  resting.length ? ` These words have been sung too often lately; let them rest, and find others: ${resting.join(', ')}.` : ''
+
+/** What the mind is told of the words the song has leaned on for a long while. */
+const deepNote = (deep: readonly string[]) =>
+  deep.length ? ` The song has leaned on these for a long while, in every form of them; find other images: ${deep.join(', ')}.` : ''
+
 /**
- * The instruction a verse is asked for with, without what only the moment knew: the words resting, the
- * bars it must fit. The mind's memories, if it has them, and the weather it writes in.
+ * The instruction a verse is asked for with, as of the moment it is asked: the weather it is written in, the
+ * memories the mind has, the memory it tells (`focus`), the words resting and the words worn deep. Not the bars
+ * its lines must fit, which are the tune's: with no `fitting`, a line has between eight and fourteen syllables.
  */
-export function verseAsked(mood: readonly string[], memories: Memories = { own: [], heard: [] }, focus?: Focus): string {
+export function verseAsked(
+  mood: readonly string[],
+  { memories = { own: [], heard: [] }, focus, resting = [], deep = [] }: { memories?: Memories; focus?: Focus; resting?: readonly string[]; deep?: readonly string[] } = {},
+): string {
   const instruction =
     (memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction) + `\n${countInstruction(undefined)}`
-  return inMood(instruction, mood)
+  return inMood(instruction, mood) + restingNote(resting) + deepNote(deep)
 }
 
 /** How many resting words a verse may still use: one may slip in, as words do. */
@@ -216,12 +228,8 @@ export async function writeVerse(
   deep: readonly string[] = [],
   fitting?: Fitting,
 ) {
-  const rest = resting.length
-    ? ` These words have been sung too often lately; let them rest, and find others: ${resting.join(', ')}.`
-    : ''
-  const restDeep = deep.length
-    ? ` The song has leaned on these for a long while, in every form of them; find other images: ${deep.join(', ')}.`
-    : ''
+  const rest = restingNote(resting)
+  const restDeep = deepNote(deep)
   const instruction =
     (memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction) +
     `\n${countInstruction(fitting?.verse)}` +

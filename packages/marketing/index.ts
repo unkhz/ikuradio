@@ -39,6 +39,8 @@ import { parseArgs } from 'node:util'
 import { capture } from './lib/capture.js'
 import { cover } from './lib/cover.js'
 import { assets, print, urlOf, type Asset, type Song } from './lib/print.js'
+import { presentOf } from './lib/present.js'
+import { readMemories } from 'song'
 import { addressOf, coverOf, nameOf, placeOf, sizeOf, textOf } from './lib/options.js'
 
 const usage = 'bun marketing cover <song number | --url ...> [--screen 4000x4000]\n       bun marketing print <song number> <asset: ' + assets.join('|') + '>\n       bun marketing capture <song number | --url https://ikurad.io/s/<number>/<name>> [--screen 1280x720] [--promo <seconds>]'
@@ -85,7 +87,7 @@ if (command === 'print') {
   }
   const song: Song = { session, dj: await get(`sessions/dj-rezzy-${id}.json`), radio: values.radio }
   try {
-    const text = print(song, asset as Asset, { verse: values.verse ? Number(values.verse) : undefined })
+    const text = print(song, asset as Asset, { verse: values.verse ? Number(values.verse) : undefined, present: asset === 'prompt' ? await presentOf({ sessions: [session], own: session.thought ? [session.thought] : [], heard: await readMemories(), mood: session.mood }) : undefined })
     console.log(text)
   } catch (error) {
     console.error((error as Error).message)

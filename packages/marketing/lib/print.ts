@@ -2,6 +2,7 @@
 
 import { slugOf, type DjDeclaration, type Session } from 'archive'
 import { verseAsked } from 'song'
+import type { Present } from './present.js'
 
 /** What a Song's texts are made of: its Session, what Rezzy said if they did, and where the Radio is. */
 export type Song = { session: Session; dj?: DjDeclaration; radio: string }
@@ -52,19 +53,19 @@ export function thoughtOf({ session }: Song): string {
 }
 
 /**
- * The prompt the mind could have been given for a verse of this Song, to ask another mind (a chat) for the next
- * one: its instruction, in the Song's weather and with the Song's thought as its memory, then its input, the
- * verse before. A reconstruction, not the record: what was resting, the bars the lines had to fit, and the
- * memories the mind had when it wrote are not kept in the Archive. `verse` (1-based) is the verse that is the input;
- * the last one by default.
+ * The prompt the mind could be given for a verse of this Song, to ask another mind (a chat) for the next
+ * one: its instruction, in the Song's weather, with what the mind would have in it at the moment given as
+ * `present` (see ./present.ts), then its input, the verse before. `verse` (1-based) is the verse that is
+ * the input; the last one by default. With no `present` the mind has only the Song's own thought, which is
+ * all the Archive keeps of the time the Song was written.
  */
-export function promptOf({ session }: Song, verse?: number): string {
+export function promptOf({ session }: Song, verse?: number, present?: Present): string {
   const lines = linesOf(session)
   const verses = Array.from({ length: Math.floor(lines.length / 4) }, (_, i) => lines.slice(i * 4, i * 4 + 4))
   const chosen = verse === undefined ? verses.at(-1) : verses[verse - 1]
   if (!chosen) throw new Error(`Song ${session.song} has no verse ${verse ?? ''} to ask after`)
-  const instruction = verseAsked(session.mood, { own: session.thought ? [session.thought] : [], heard: [] })
-  return `${instruction}\n\nInput:\n${chosen.join('\n')}`
+  const instruction = verseAsked(session.mood, present ?? { memories: { own: session.thought ? [session.thought] : [], heard: [] } })
+  return `${instruction}\nThe song is called "${session.name ?? `Song ${session.song}`}".\n\nInput:\n${chosen.join('\n')}`
 }
 
 /** Who said it: the DJ of the Song's declaration, as a name. */
@@ -77,7 +78,7 @@ const signedBy = ({ dj }: Song): string => {
 export const tweetOf = (song: Song): string => `${introOf(song)}\n— ${signedBy(song)}\n\n${urlOf(song)}`
 
 /** The asset asked for, as text. */
-export function print(song: Song, asset: Asset, { verse }: { verse?: number } = {}): string {
+export function print(song: Song, asset: Asset, { verse, present }: { verse?: number; present?: Present } = {}): string {
   switch (asset) {
     case 'intro':
       return introOf(song)
@@ -96,6 +97,6 @@ export function print(song: Song, asset: Asset, { verse }: { verse?: number } = 
     case 'tweet':
       return tweetOf(song)
     case 'prompt':
-      return promptOf(song, verse)
+      return promptOf(song, verse, present)
   }
 }
