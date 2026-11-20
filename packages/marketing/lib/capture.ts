@@ -2,10 +2,10 @@
 // the front page goes until the page says what is filmed is over.
 //
 // The page is opened and left to download; when it says it is ready, the tab is
-// recorded from inside it, and play is clicked. The page says `started` when the
+// filmed from inside it, and play is clicked. The page says `started` when the
 // front page has gone and `finished` when the promo ends or, for a whole Song,
 // when the Song has, just before it shows what comes after (see `announce` in
-// packages/ui/public/index.js). The recording is cut at the first, ended at the second.
+// packages/ui/public/index.js). The capture is cut at the first, ended at the second.
 
 import { spawn } from 'node:child_process'
 import { appendFile, mkdir, rm, writeFile } from 'node:fs/promises'
@@ -50,7 +50,7 @@ export async function capture({ address, out, size, scale, hold, patience }: Cap
     await page.waitForSelector('body[data-ready="yes"]', { timeout: patience.ready * 1000, state: 'attached' })
     console.log('the Song is downloaded and ready')
 
-    // a click, so that the browser lets the page be recorded; the front page does not mind one
+    // a click, so that the browser lets the page be filmed; the front page does not mind one
     await page.mouse.click(1, 1)
     await page.evaluate(
       async ({ hold }) => {
@@ -89,7 +89,7 @@ export async function capture({ address, out, size, scale, hold, patience }: Cap
       },
       { hold },
     )
-    console.log('recording the page; playing the Song')
+    console.log('filming the page; playing the Song')
     await page.click('#play')
 
     const from = await Promise.race([

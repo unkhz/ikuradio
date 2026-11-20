@@ -20,7 +20,7 @@ test('a capture is named by its Song and what it holds', () => {
   expect(nameOf(song)).toBe('song-1192-whole.mp4')
 })
 
-test('the recording is cut from the moment the front page went', () => {
+test('the capture is cut from the moment the front page went', () => {
   const args = cutArgs('raw.webm', 1.25, 'out.mp4', { width: 1280, height: 720 })
   expect(args.slice(args.indexOf('-ss'), args.indexOf('-ss') + 2)).toEqual(['-ss', '1.250'])
   expect(args).toContain('scale=1280:720:flags=lanczos')

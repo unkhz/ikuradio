@@ -28,7 +28,7 @@ export function nameOf(url: string, promo?: number): string {
 }
 
 /**
- * ffmpeg's arguments to cut the raw recording from `from` seconds and keep it as a video any
+ * ffmpeg's arguments to cut the raw capture from `from` seconds and keep it as a video any
  * service takes, exactly `size` pixels: the browser's tab is a few pixels short of its window.
  */
 export function cutArgs(raw: string, from: number, out: string, size: Size): string[] {

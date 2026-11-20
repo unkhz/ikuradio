@@ -1,18 +1,18 @@
-// Marketing: showing the Radio to people. For now, recording a Song as video.
+// Marketing: showing the Radio to people. For now, capturing a Song as video.
 //
-//   bun marketing record --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
+//   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
 //                        [--promo <seconds>] [--hold 1] [--scale 1] [--out file.mp4]
 //
 // With --promo, the Song's promo (the page at ?promo=<seconds>); without it, the
-// whole Song. The video is kept in packages/marketing/out/. It needs Chrome, and
-// ffmpeg to cut and encode it; the page is shown on screen while it is recorded.
+// whole Song. The capture is kept in packages/marketing/out/. It needs Chrome, and
+// ffmpeg to cut and encode it; the page is shown on screen while it is captured.
 
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { capture } from './lib/capture.js'
 import { addressOf, nameOf, sizeOf } from './lib/options.js'
 
-const usage = 'bun marketing record --screen 1280x720 --url <https://ikurad.io/s/<number>/<name>> [--promo <seconds>]'
+const usage = 'bun marketing capture --screen 1280x720 --url <https://ikurad.io/s/<number>/<name>> [--promo <seconds>]'
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
@@ -25,7 +25,7 @@ const { values, positionals } = parseArgs({
   },
 })
 const [command] = positionals
-if (command !== 'record' || !values.url) {
+if (command !== 'capture' || !values.url) {
   console.error(usage)
   process.exit(2)
 }
