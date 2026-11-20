@@ -1,4 +1,9 @@
-// Marketing: showing the Radio to people. For now, capturing a Song as video.
+// Marketing: showing the Radio to people.
+//
+//   bun marketing print <song number> <intro|name|slug|url|lyrics|meta|thoughts|tweet>
+//                       [--radio https://ikurad.io] [--archive <the Archive's address>]
+//
+// prints a text about a Song, from what its Archive says of it. `tweet` is the intro and the address.
 //
 //   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
 //                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only]
@@ -16,13 +21,16 @@
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
 import { capture } from './lib/capture.js'
+import { assets, print, type Asset, type Song } from './lib/print.js'
 import { addressOf, coverOf, nameOf, placeOf, sizeOf } from './lib/options.js'
 
-const usage = 'bun marketing capture --screen 1280x720 --url <https://ikurad.io/s/<number>/<name>> [--promo <seconds>]'
+const usage = 'bun marketing print <song number> <asset: ' + assets.join('|') + '>\n       bun marketing capture --screen 1280x720 --url <https://ikurad.io/s/<number>/<name>> [--promo <seconds>]'
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     url: { type: 'string' },
+    radio: { type: 'string', default: 'https://ikurad.io' },
+    archive: { type: 'string' },
     screen: { type: 'string', default: '1280x720' },
     promo: { type: 'string' },
     scale: { type: 'string', default: '1' },
@@ -34,7 +42,36 @@ const { values, positionals } = parseArgs({
     window: { type: 'boolean', default: false },
   },
 })
-const [command] = positionals
+const [command, id, asset] = positionals
+
+if (command === 'print') {
+  if (!id || !/^[1-9]\d*$/.test(id) || !assets.includes(asset as Asset)) {
+    console.error(usage)
+    process.exit(2)
+  }
+  const archive = (values.archive ?? process.env.ARCHIVE_URL ?? process.env.ARCHIVE_PUBLIC_URL ?? 'https://hel1.your-objectstorage.com/ikuradio').replace(/\/?$/, '/')
+  const get = async (path: string) => {
+    const response = await fetch(new URL(path, archive))
+    return response.ok ? response.json() : undefined
+  }
+  const session = await get(`sessions/${id}.json`)
+  if (!session) {
+    console.error(`Song ${id} is not in the Archive at ${archive}`)
+    process.exit(1)
+  }
+  const song: Song = { session, dj: await get(`sessions/dj-rezzy-${id}.json`), radio: values.radio }
+  try {
+    const text = print(song, asset as Asset)
+    console.log(text)
+    // a post counts any address as 23 characters
+    if (asset === 'tweet') console.error(`${[...text.replace(/\S+$/, '').trimEnd()].length + 2 + 23} characters, the address counting as 23`)
+  } catch (error) {
+    console.error((error as Error).message)
+    process.exit(1)
+  }
+  process.exit(0)
+}
+
 if (command !== 'capture' || !values.url) {
   console.error(usage)
   process.exit(2)

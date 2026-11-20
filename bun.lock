@@ -44,6 +44,7 @@
       "name": "marketing",
       "version": "1.0.0",
       "dependencies": {
+        "archive": "workspace:*",
         "playwright-core": "1.65.1",
       },
     },

@@ -6,6 +6,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "archive": "workspace:*",
     "playwright-core": "1.65.1"
   }
 }
