@@ -516,12 +516,12 @@
         visibility: hidden;
         pointer-events: none;
         user-select: none;
-        transition: opacity 1.8s ease-in, visibility 0s 1.8s;
+        transition: opacity 2s ease-in-out, visibility 0s 2s;
       }
       body.promoted #promo {
         opacity: 1;
         visibility: visible;
-        transition: opacity 1.8s ease-in;
+        transition: opacity 2s ease-in-out;
       }
       body.promoted #status {
         display: none;
@@ -552,6 +552,24 @@
           #7a4f1a;
         border-radius: 0.5em;
         box-shadow: 0 0 2em rgba(255, 179, 71, 0.35);
+      }
+      /* in the last second the address flashes once, to catch the eye */
+      body.flash #promo .address {
+        animation: flash 1s ease-out 1;
+      }
+      @keyframes flash {
+        0% {
+          filter: brightness(1);
+          box-shadow: 0 0 2em rgba(255, 179, 71, 0.35);
+        }
+        25% {
+          filter: brightness(1.6);
+          box-shadow: 0 0 4.5em rgba(255, 179, 71, 0.95);
+        }
+        100% {
+          filter: brightness(1);
+          box-shadow: 0 0 2em rgba(255, 179, 71, 0.35);
+        }
       }
       #promo .address b {
         font-weight: 900;

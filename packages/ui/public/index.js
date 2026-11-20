@@ -1737,11 +1737,15 @@ function promoStep(audioContext, songOver) {
     document.body.classList.add('outro')
     promoOutAt = Date.now() + outroSeconds * 1000
   }
+  // the promo view comes up in the middle of the fade out, and its address flashes in the last second
+  if (promoPhase === 1) {
+    if (Date.now() >= promoOutAt - (outroSeconds / 2) * 1000) document.body.classList.add('promoted')
+    if (Date.now() >= promoOutAt - 1000) document.body.classList.add('flash')
+  }
   if (promoPhase === 1 && Date.now() >= promoOutAt) {
     promoPhase = 2
     for (const loop of loops.splice(0)) clearInterval(loop)
     audioContext.suspend().catch(() => {})
-    document.body.classList.add('promoted')
   }
   return promoPhase > 0
 }
