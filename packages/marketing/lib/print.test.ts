@@ -46,7 +46,7 @@ test('what is known of it is a thing to a line', () => {
 test('the intro, the thought, and the two as a post', () => {
   expect(print(song, 'intro')).toBe('Listen, the night whispers.')
   expect(print(song, 'thoughts')).toBe('I would keep the snowflake.')
-  expect(print(song, 'tweet')).toBe('Listen, the night whispers.\n\nhttps://ikurad.io/s/1192/whispers-of-twilight')
+  expect(print(song, 'tweet')).toBe('Listen, the night whispers.\n— Rezzy\n\nhttps://ikurad.io/s/1192/whispers-of-twilight')
 })
 
 test('what a Song does not have is said, not made up', () => {

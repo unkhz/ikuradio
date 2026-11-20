@@ -50,8 +50,14 @@ export function thoughtOf({ session }: Song): string {
   return session.thought
 }
 
-/** The introduction and the address, as a post. */
-export const tweetOf = (song: Song): string => `${introOf(song)}\n\n${urlOf(song)}`
+/** Who said it: the DJ of the Song's declaration, as a name. */
+const signedBy = ({ dj }: Song): string => {
+  const name = dj?.dj ?? ''
+  return name.charAt(0).toUpperCase() + name.slice(1)
+}
+
+/** The introduction, signed by the DJ who said it, and the address, as a post. */
+export const tweetOf = (song: Song): string => `${introOf(song)}\n— ${signedBy(song)}\n\n${urlOf(song)}`
 
 /** The asset asked for, as text. */
 export function print(song: Song, asset: Asset): string {

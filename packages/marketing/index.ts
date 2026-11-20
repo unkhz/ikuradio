@@ -3,7 +3,7 @@
 //   bun marketing print <song number> <intro|name|slug|url|lyrics|meta|thoughts|tweet>
 //                       [--radio https://ikurad.io] [--archive <the Archive's address>]
 //
-// prints a text about a Song, from what its Archive says of it. `tweet` is the intro and the address, and nothing else.
+// prints a text about a Song, from what its Archive says of it. `tweet` is the intro, signed by the DJ, and the address, and nothing else.
 //
 //   bun marketing capture 1192 [--screen 1280x720]
 //   bun marketing capture --url https://ikurad.io/s/1192/whispers-of-twilight
