@@ -53,3 +53,15 @@ test('what a Song does not have is said, not made up', () => {
   expect(() => print({ ...song, dj: undefined }, 'intro')).toThrow('no intro')
   expect(() => print({ ...song, session: { ...session, thought: undefined } as Session }, 'thoughts')).toThrow('no thought')
 })
+
+test('the prompt is the verse instruction, in the Song\'s weather and with its thought, then a verse as the input', () => {
+  const lyrics = ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4']
+  const verses = { ...song, session: { ...session, iterations: [{ parts: [{ lines: lyrics.map((text) => ({ text })) }] }] } as unknown as Session }
+  const prompt = print(verses, 'prompt')
+  expect(prompt).toContain('You are the mind that writes the words of a song that never ends')
+  expect(prompt).toContain('I would keep the snowflake.')
+  expect(prompt).toContain('drizzling rooftops and twilight\'s soft hues')
+  expect(prompt.endsWith('Input:\nb1\nb2\nb3\nb4')).toBe(true)
+  expect(print(verses, 'prompt', { verse: 1 }).endsWith('Input:\na1\na2\na3\na4')).toBe(true)
+  expect(() => print(verses, 'prompt', { verse: 3 })).toThrow('no verse 3')
+})

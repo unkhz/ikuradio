@@ -1,11 +1,12 @@
 // Texts about a Song, for posting where it is shown: what its Archive says of it.
 
 import { slugOf, type DjDeclaration, type Session } from 'archive'
+import { verseAsked } from 'song'
 
 /** What a Song's texts are made of: its Session, what Rezzy said if they did, and where the Radio is. */
 export type Song = { session: Session; dj?: DjDeclaration; radio: string }
 
-export const assets = ['intro', 'name', 'slug', 'url', 'lyrics', 'meta', 'thoughts', 'tweet'] as const
+export const assets = ['intro', 'name', 'slug', 'url', 'lyrics', 'meta', 'thoughts', 'tweet', 'prompt'] as const
 export type Asset = (typeof assets)[number]
 
 /** The Song's words as the page shows them: a line at a time, each once, in the order they are first sung. */
@@ -50,6 +51,22 @@ export function thoughtOf({ session }: Song): string {
   return session.thought
 }
 
+/**
+ * The prompt the mind could have been given for a verse of this Song, to ask another mind (a chat) for the next
+ * one: its instruction, in the Song's weather and with the Song's thought as its memory, then its input, the
+ * verse before. A reconstruction, not the record: what was resting, the bars the lines had to fit, and the
+ * memories the mind had when it wrote are not kept in the Archive. `verse` (1-based) is the verse that is the input;
+ * the last one by default.
+ */
+export function promptOf({ session }: Song, verse?: number): string {
+  const lines = linesOf(session)
+  const verses = Array.from({ length: Math.floor(lines.length / 4) }, (_, i) => lines.slice(i * 4, i * 4 + 4))
+  const chosen = verse === undefined ? verses.at(-1) : verses[verse - 1]
+  if (!chosen) throw new Error(`Song ${session.song} has no verse ${verse ?? ''} to ask after`)
+  const instruction = verseAsked(session.mood, { own: session.thought ? [session.thought] : [], heard: [] })
+  return `${instruction}\n\nInput:\n${chosen.join('\n')}`
+}
+
 /** Who said it: the DJ of the Song's declaration, as a name. */
 const signedBy = ({ dj }: Song): string => {
   const name = dj?.dj ?? ''
@@ -60,7 +77,7 @@ const signedBy = ({ dj }: Song): string => {
 export const tweetOf = (song: Song): string => `${introOf(song)}\n— ${signedBy(song)}\n\n${urlOf(song)}`
 
 /** The asset asked for, as text. */
-export function print(song: Song, asset: Asset): string {
+export function print(song: Song, asset: Asset, { verse }: { verse?: number } = {}): string {
   switch (asset) {
     case 'intro':
       return introOf(song)
@@ -78,5 +95,7 @@ export function print(song: Song, asset: Asset): string {
       return thoughtOf(song)
     case 'tweet':
       return tweetOf(song)
+    case 'prompt':
+      return promptOf(song, verse)
   }
 }

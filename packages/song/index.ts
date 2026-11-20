@@ -186,6 +186,16 @@ function inMood(instruction: string, mood: readonly string[]) {
   return `${instruction} The mood of the song is ${mood.join(' and ')}: let every line live in it.`
 }
 
+/**
+ * The instruction a verse is asked for with, without what only the moment knew: the words resting, the
+ * bars it must fit. The mind's memories, if it has them, and the weather it writes in.
+ */
+export function verseAsked(mood: readonly string[], memories: Memories = { own: [], heard: [] }, focus?: Focus): string {
+  const instruction =
+    (memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction) + `\n${countInstruction(undefined)}`
+  return inMood(instruction, mood)
+}
+
 /** How many resting words a verse may still use: one may slip in, as words do. */
 const slips = 1
 

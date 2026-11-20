@@ -7,6 +7,7 @@
   "license": "ISC",
   "dependencies": {
     "archive": "workspace:*",
+    "song": "workspace:*",
     "playwright-core": "1.65.1"
   }
 }

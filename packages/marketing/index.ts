@@ -1,9 +1,10 @@
 // Marketing: showing the Radio to people.
 //
-//   bun marketing print <song number> <intro|name|slug|url|lyrics|meta|thoughts|tweet>
+//   bun marketing print <song number> <intro|name|slug|url|lyrics|meta|thoughts|tweet|prompt>
 //                       [--radio https://ikurad.io] [--archive <the Archive's address>]
 //
-// prints a text about a Song, from what its Archive says of it. `tweet` is the intro, signed by the DJ, and the address, and nothing else.
+// prints a text about a Song, from what its Archive says of it. `prompt` is a reconstruction of the instruction the mind wrote a verse with
+// (the Song's weather and thought, and its last verse as input; --verse N for another), to ask a chat for the next verse. `tweet` is the intro, signed by the DJ, and the address, and nothing else.
 //
 //   bun marketing cover 1192 [--screen 4000x4000] [--scale 5] [--dir <folder>] [--out <file.png>]
 //
@@ -59,6 +60,7 @@ const { values, positionals } = parseArgs({
     dir: { type: 'string' },
     out: { type: 'string' },
     window: { type: 'boolean', default: false },
+    verse: { type: 'string' },
     patience: { type: 'string', default: '180' },
   },
 })
@@ -83,7 +85,7 @@ if (command === 'print') {
   }
   const song: Song = { session, dj: await get(`sessions/dj-rezzy-${id}.json`), radio: values.radio }
   try {
-    const text = print(song, asset as Asset)
+    const text = print(song, asset as Asset, { verse: values.verse ? Number(values.verse) : undefined })
     console.log(text)
   } catch (error) {
     console.error((error as Error).message)
