@@ -84,8 +84,8 @@ const promo = values.promo === undefined ? undefined : Number(values.promo)
 const address = addressOf(values.url, promo, { intro: !values['audio-only'] })
 // a relative --dir or --out is from where it is run: the repository's root, for `bun marketing`
 const out = placeOf({ file: values.out, dir: values.dir, name: nameOf(values.url, promo, values['audio-only']), fallback: join(import.meta.dir, 'out'), from: process.cwd() })
-// a promo ends by its own length; a whole Song, when it has ended
-const finish = promo === undefined ? 60 * 30 : promo + 120
+// a promo ends by its own length; a whole Song (no promo, or `--promo 0`), when it has ended
+const finish = promo ? promo + 120 : 60 * 30
 
 await capture({
   address,
