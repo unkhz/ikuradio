@@ -327,18 +327,24 @@ async function introOf(song, airing) {
   if (!said?.speech?.text) return recordings
   // a DJ has something to say: they may begin to walk on, while it is being said
   song.intro.coming = true
+  // a promo has less time: fewer sentences, said faster (see `briefIntro`)
+  const words = promoLength ? briefly(said.speech.text) : said.speech.text
+  const squeeze = promoLength ? (said.speech.squeeze ?? 1) * briefIntro.speed : said.speech.squeeze
   // a page that cannot speak still plays the intro's music
-  const spoken = await say(dj.request(said.speech.text, said.speech.squeeze)).catch((error) => {
+  const spoken = await say(dj.request(words, squeeze)).catch((error) => {
     console.warn(`the page cannot speak: ${error}`)
     return undefined
   })
   if (!spoken) return recordings
-  const at = -intro.seconds + said.at
+  // a promo's intro lasts as long as its speech and a short tail; what comes before is not heard,
+  // as if the page had joined the intro late, and the speech follows the Song's moment 0 back
+  if (promoLength) song.intro.seconds = Math.min(intro.seconds, briefIntro.lead + spoken.end + briefIntro.tail)
+  const at = promoLength ? -song.intro.seconds + briefIntro.lead : -intro.seconds + said.at
   const id = `dj-${dj.name}-${airing.song}`
   // the speech is already samples: it is heard like a take the page sang, and never fetched
   song.voices.set(id, spoken.samples)
   recordings.push({ id, said: true, at, kind: 'voice', voice: 'dj', seconds: spoken.end, gain: 0.9 })
-  song.intro.speech = { title: dj.title, at, seconds: spoken.end, words: said.speech.text, moves: dj.movements(spoken.segments) }
+  song.intro.speech = { title: dj.title, at, seconds: spoken.end, words, moves: dj.movements(spoken.segments) }
   return recordings
 }
 
@@ -356,14 +362,15 @@ function prepare(airing) {
   song.starting = new Promise((resolve) => (started = resolve))
   song.preparing = (async () => {
     song.session = await fetch(airing.session).then((r) => r.json())
-    // a visit to the Song's page hears its intro first, before its moment 0
-    const introduced = airing.visit ? await introOf(song, airing) : []
+    // a visit to the Song's page hears its intro first, before its moment 0. It is made ready
+    // alongside the Song, not before it: the intro's speech takes the throats' time, and the
+    // takes are sung meanwhile. The Song may begin once both are ready.
+    const introducing = (airing.visit ? introOf(song, airing) : Promise.resolve([])).catch(() => [])
+    let introduced
     // joined late, a listener needs nothing that is already over
     const from = Number.isFinite(airing.begins) ? Math.max(0, (now() - airing.begins) / 1000) : 0
     const heard = song.session.recordings
       .filter(({ at, seconds, fade }) => seconds === undefined || at + seconds + (fade ?? 0) > from)
-    heard.push(...introduced)
-    song.session.recordings.push(...introduced)
     heard.sort((a, b) => a.at - b.at)
     song.heard = new Set(heard)
     // the Music is fetched; the voices with takes are sung here, each once, however often it is heard
@@ -379,42 +386,58 @@ function prepare(airing) {
     song.first = first.size
     const here = (id) => song.files.has(id) || song.voices.has(id) || song.gone.has(id)
     song.done = () => {
-      if (song.startable) return
+      if (song.startable || !introduced) return
       if (![...first].every(here)) return
       song.startable = true
       started()
     }
     for (const recording of takes.values()) wantSung(song, recording)
-    song.done()
-    const done = song.done
+    const fetchOne = async (id) => {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const url = new URL(`recordings/${id}`, airing.archive)
+          const response = await fetch(url)
+          // a Song whose voices were lost before the Archive kept everything;
+          // its words remain, and the rest of it is not asked for
+          if ((response.status === 403 || response.status === 404) && attempt >= 1) return false
+          if (!response.ok) throw new Error(`${response.status}`)
+          song.files.set(id, await response.arrayBuffer())
+          song.fetched++
+          return true
+        } catch {
+          // the Archive is busy, or the way to it; ask again, a little later
+          await new Promise((resolve) => setTimeout(resolve, Math.min(10_000, 500 * 2 ** attempt)))
+        }
+      }
+    }
     const queue = [...ids]
     const worker = async () => {
       while (queue.length) {
         const id = queue.shift()
-        for (let attempt = 0; ; attempt++) {
-          try {
-            const url = new URL(`recordings/${id}`, airing.archive)
-            const response = await fetch(url)
-            // a Song whose voices were lost before the Archive kept everything;
-            // its words remain, and the rest of it is not asked for
-            if ((response.status === 403 || response.status === 404) && attempt >= 1) {
-              for (const lost of [id, ...queue.splice(0)]) song.gone.add(lost)
-              song.missing = song.gone.size
-              break
-            }
-            if (!response.ok) throw new Error(`${response.status}`)
-            song.files.set(id, await response.arrayBuffer())
-            song.fetched++
-            break
-          } catch {
-            // the Archive is busy, or the way to it; ask again, a little later
-            await new Promise((resolve) => setTimeout(resolve, Math.min(10_000, 500 * 2 ** attempt)))
-          }
+        if (!(await fetchOne(id))) {
+          for (const lost of [id, ...queue.splice(0)]) song.gone.add(lost)
+          song.missing = song.gone.size
         }
-        done()
+        song.done()
       }
     }
-    await Promise.all(Array.from({ length: fetching }, worker))
+    // the intro joins the Song when it is ready: its recordings are heard like any other
+    const joining = introducing.then(async (recordings) => {
+      heard.push(...recordings)
+      for (const recording of recordings) song.heard.add(recording)
+      song.session.recordings.push(...recordings)
+      for (const recording of recordings) if (recording.at < from + startingStretch) first.add(recording.id)
+      song.first = first.size
+      introduced = recordings
+      song.done()
+      for (const recording of recordings) {
+        if (recording.take || recording.said) continue
+        song.needed++
+        if (!(await fetchOne(recording.id))) song.gone.add(recording.id)
+        song.done()
+      }
+    })
+    await Promise.all([...Array.from({ length: fetching }, worker), joining])
     song.ready = true
   })().catch(() => {
     // a Session that cannot be read is forgotten, and asked for again
@@ -987,11 +1010,13 @@ const rezzy = (() => {
      * again, they are already on their way, or here. Returns when they will
      * be in position, in the page's time.
      */
-    comeIn() {
+    comeIn(standing = false) {
       if (on) return on.arrives
       fit()
       const since = now()
-      on = { moves: [], start: Infinity, walk: stillness.matches ? 'here' : 'in', since, arrives: since + (stillness.matches ? 0 : walkMs) }
+      // a promo has Rezzy there already, where the recording begins
+      const walks = !standing && !stillness.matches
+      on = { moves: [], start: Infinity, walk: walks ? 'in' : 'here', since, arrives: since + (walks ? walkMs : 0) }
       // out of sight to begin with, so that they are never seen at their place before they walk on
       canvas.style.transform = on.walk === 'in' ? `translateX(${parseFloat(canvas.style.width) + 96}px)` : ''
       canvas.hidden = false
@@ -1650,6 +1675,8 @@ addEventListener('popstate', () => {
  */
 async function readyReplay(index, visit) {
   const song = String(index)
+  // the throats' engine and dictionary are fetched while the Radio and the Archive are asked
+  openThroats()
   const tactus = await askRadio()
   // only what has been received may be heard again: nothing from the future
   const aired =
@@ -1678,6 +1705,23 @@ const promoLength = (() => {
   return replay && Number.isFinite(asked) && asked >= 20 ? asked : undefined
 })()
 const outroSeconds = 4
+// What a promo does to Rezzy's introduction, for it to be short: the speech is said this much
+// faster, is cut after the sentence that reaches this many syllables, begins this many seconds
+// into the intro, and the Song begins this many seconds after it ends.
+const briefIntro = { speed: 1.25, syllables: 36, lead: 0.6, tail: 1 }
+/** The first sentences of a speech, as many as fit `briefIntro.syllables`; the first always. */
+function briefly(text) {
+  const sentences = text.match(/[^.!?]+[.!?]*/g) ?? [text]
+  const syllables = (s) => (s.match(/[aeiouy]+/gi) ?? []).length
+  let kept = ''
+  let count = 0
+  for (const sentence of sentences) {
+    count += syllables(sentence)
+    if (kept && count > briefIntro.syllables) break
+    kept += sentence
+  }
+  return kept.trim()
+}
 if (promoLength) document.body.classList.add('promo')
 let promoClock // when the click began the promo, in ms
 let promoPhase = 0 // 0 playing, 1 fading out, 2 the promo view
@@ -1743,6 +1787,8 @@ async function listenAgain(output, audioContext) {
     return
   }
   airing.seconds = prepared.session.seconds
+  // a Song with no speech to introduce it has no use for Rezzy, who was in place for the promo
+  if (promoLength && !prepared.intro?.speech) rezzy.away()
   // a visit hears the Song's intro first, which lies before its moment 0, and begins
   // when the DJ, if there is one, is in position
   const arrives = prepared.intro?.speech ? rezzy.comeIn() : 0
@@ -1783,6 +1829,8 @@ const breath = '~ the song holds its breath ~'
 /** The first click: the page may sound from now on, and takes up the Song asked for, or live. */
 async function listen() {
   promoClock = Date.now()
+  // a promo's recording begins here: Rezzy is already in place, not walking on from an empty screen
+  if (promoLength) rezzy.comeIn(true)
   document.getElementById('controls').style.display = 'none'
   listening = { output: document.getElementById('output'), audioContext: new AudioContext() }
   // the first page of Songs comes with the first Song, so the dialog opens full
