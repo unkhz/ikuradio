@@ -107,22 +107,23 @@ export async function capture({ address, out, size, scale, hold, cover, patience
       { hold, audioOnly },
     )
     console.log('filming the page; playing the Song')
-    // the front page without its button: the video's first seconds, and the thumbnail kept in it
+    // the front page without its button: the video's first seconds
     const withoutButton = await page.addStyleTag({ content: '#tune { opacity: 0 }' })
+    // and the thumbnail kept in the file: the Song's own front page, held still at its moment 0, so that
+    // the same Song always has the same one. A sound's cover is a square of its own, 8 bits of red, green
+    // and blue to a pixel, said to be sRGB, and drawn at that size, not a picture made larger
     const still = thumbnail ?? `${out}.thumbnail.png`
     if (!thumbnail) {
-      if (audioOnly) {
-        // a sound's cover is a square of its own, 8 bits of red, green and blue to a pixel, said to be sRGB:
-        // the front page drawn at that size, not a capture's picture made larger
-        const art = await (await browser.newContext({ viewport: { width: 800, height: 800 }, deviceScaleFactor: artSize / 800 })).newPage()
-        await art.goto(new URL('/', address).href)
-        await art.addStyleTag({ content: '#tune { opacity: 0 }' })
-        await art.waitForTimeout(2500)
-        await writeFile(still, tagSrgb(await art.screenshot({ type: 'png' })))
-        await art.context().close()
-      } else {
-        await page.screenshot({ path: still })
-      }
+      const side = 800
+      const look = audioOnly ? { viewport: { width: side, height: side }, deviceScaleFactor: artSize / side } : { viewport: size, deviceScaleFactor: scale }
+      const art = await (await browser.newContext(look)).newPage()
+      const frontPage = new URL(address)
+      frontPage.search = '?time=0'
+      await art.goto(frontPage.href)
+      await art.addStyleTag({ content: '#tune { opacity: 0 }' })
+      await art.waitForTimeout(2500)
+      await writeFile(still, tagSrgb(await art.screenshot({ type: 'png' })))
+      await art.context().close()
     }
     if (cover > 0) await page.waitForTimeout(cover * 1000)
     else await withoutButton.evaluate((style) => (style as HTMLElement).remove())

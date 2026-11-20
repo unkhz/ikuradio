@@ -1778,7 +1778,11 @@ async function readyReplay(index, visit) {
 // A page that is opened at a Song begins to ready it at once, before anything
 // is clicked, so that the Song is ready sooner when it is. Only the page at
 // `/` waits for the click: it has nothing yet to ready.
-let preloading = replay ? { song: String(replay.index), ready: readyReplay(replay.index, true).catch(() => undefined) } : undefined
+// ?time=<seconds> is a look at the page, held still: nothing is readied until the Song is played
+const looking = new URLSearchParams(location.search).has('time')
+// a Song's own page has the space of its Song from the first moment, before it is played
+if (replay) addEventListener('DOMContentLoaded', () => window.space?.tune(String(replay.index)))
+let preloading = replay && !looking ? { song: String(replay.index), ready: readyReplay(replay.index, true).catch(() => undefined) } : undefined
 
 /**
  * Hidden signs for whatever films the page (packages/marketing): `started` when the
