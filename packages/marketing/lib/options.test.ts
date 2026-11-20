@@ -18,7 +18,7 @@ test('a promo is asked for with its length in the Song\'s own address, a whole S
 
 test('a capture is named by its Song, and by the length of its promo if it is one', () => {
   const song = 'https://ikurad.io/s/1192/whispers-of-twilight'
-  expect(nameOf(song, 45)).toBe('ikuradio-1192-whispers-of-twilight-45.mp4')
+  expect(nameOf(song, 45)).toBe('ikuradio-1192-whispers-of-twilight-45s.mp4')
   expect(nameOf(song)).toBe('ikuradio-1192-whispers-of-twilight.mp4')
   expect(nameOf(song, 0)).toBe('ikuradio-1192-whispers-of-twilight.mp4')
   // a whole Song is named the same with or without its intro
