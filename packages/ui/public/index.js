@@ -1108,6 +1108,35 @@ const weighs = (character) => (/[,;:]/.test(character) ? 3 : /[.!?]/.test(charac
  * them: a paragraph of its own, in its own light, whose room is kept from the
  * first, so the page does not jump as the words arrive.
  */
+/**
+ * Keeps a DJ's words from jumping when the Song's own text comes in under them. The page keeps
+ * its words at the bottom, so every new line pushes the ones above it up at once; here the push is
+ * seen: whatever the words' place in the page changes by, they are put back where they were seen,
+ * and let up to their place quickly. They are moved with `translate`, which the words' leaving, a
+ * `transform`, does not touch.
+ */
+function glide(node) {
+  if (stillness.matches) return
+  let top = node.offsetTop
+  let offset = 0
+  let before = performance.now()
+  const step = (at) => {
+    if (!node.isConnected) return
+    if (node.offsetTop !== top) {
+      offset += top - node.offsetTop
+      top = node.offsetTop
+    }
+    offset *= Math.exp(-(at - before) / 1000 / glideSeconds)
+    before = at
+    if (Math.abs(offset) < 0.3) offset = 0
+    node.style.translate = offset ? `0 ${offset}px` : ''
+    requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+/** How quickly words pushed up by the Song's text slide to their place: most of the way in this many seconds, a little over. */
+const glideSeconds = 0.16
+
 function typeSpeech(speech, t) {
   const output = listening?.output
   if (!output) return
@@ -1117,6 +1146,7 @@ function typeSpeech(speech, t) {
     node.className = 'dj'
     node.append(document.createTextNode(''), Object.assign(document.createElement('span'), { className: 'unsaid', textContent: speech.words }))
     output.appendChild(node)
+    glide(node)
     let total = 0
     speech.weights = [...speech.words].map((character) => (total += weighs(character)))
     speech.total = total
