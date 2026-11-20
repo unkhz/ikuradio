@@ -5,7 +5,8 @@
 //
 // prints a text about a Song, from what its Archive says of it. `tweet` is the intro and the address, and nothing else.
 //
-//   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
+//   bun marketing capture 1192 [--screen 1280x720]
+//   bun marketing capture --url https://ikurad.io/s/1192/whispers-of-twilight
 //                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only] [--intro 0|1]
 //                        [--dir <folder>] [--out <file.mp4>] [--thumbnail <image>] [--art-size 4000] [--window]
 //
@@ -25,10 +26,10 @@
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { capture } from './lib/capture.js'
-import { assets, print, type Asset, type Song } from './lib/print.js'
+import { assets, print, urlOf, type Asset, type Song } from './lib/print.js'
 import { addressOf, coverOf, nameOf, placeOf, sizeOf } from './lib/options.js'
 
-const usage = 'bun marketing print <song number> <asset: ' + assets.join('|') + '>\n       bun marketing capture --screen 1280x720 --url <https://ikurad.io/s/<number>/<name>> [--promo <seconds>]'
+const usage = 'bun marketing print <song number> <asset: ' + assets.join('|') + '>\n       bun marketing capture <song number | --url https://ikurad.io/s/<number>/<name>> [--screen 1280x720] [--promo <seconds>]'
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
@@ -51,15 +52,17 @@ const { values, positionals } = parseArgs({
 })
 const [command, id, asset] = positionals
 
+const archive = (values.archive ?? process.env.ARCHIVE_URL ?? process.env.ARCHIVE_PUBLIC_URL ?? 'https://hel1.your-objectstorage.com/ikuradio').replace(/\/?$/, '/')
+const get = async (path: string) => {
+  const response = await fetch(new URL(path, archive))
+  return response.ok ? response.json() : undefined
+}
+const isNumber = (text?: string): text is string => text !== undefined && /^[1-9]\d*$/.test(text)
+
 if (command === 'print') {
-  if (!id || !/^[1-9]\d*$/.test(id) || !assets.includes(asset as Asset)) {
+  if (!isNumber(id) || !assets.includes(asset as Asset)) {
     console.error(usage)
     process.exit(2)
-  }
-  const archive = (values.archive ?? process.env.ARCHIVE_URL ?? process.env.ARCHIVE_PUBLIC_URL ?? 'https://hel1.your-objectstorage.com/ikuradio').replace(/\/?$/, '/')
-  const get = async (path: string) => {
-    const response = await fetch(new URL(path, archive))
-    return response.ok ? response.json() : undefined
   }
   const session = await get(`sessions/${id}.json`)
   if (!session) {
@@ -77,16 +80,32 @@ if (command === 'print') {
   process.exit(0)
 }
 
-if (command !== 'capture' || !values.url) {
+// a Song is asked for by its address, or by its number, which the Radio's address is made from
+const given = positionals[1]
+if (command !== 'capture' || (!values.url && !isNumber(given))) {
   console.error(usage)
   process.exit(2)
+}
+let url = values.url
+if (!url) {
+  const session = await get(`sessions/${given}.json`)
+  if (!session) {
+    console.error(`Song ${given} is not in the Archive at ${archive}`)
+    process.exit(1)
+  }
+  try {
+    url = urlOf({ session, radio: values.radio })
+  } catch (error) {
+    console.error((error as Error).message)
+    process.exit(1)
+  }
 }
 const promo = values.promo === undefined ? undefined : Number(values.promo)
 // Rezzy's introduction is made to be seen: a sound alone has none, unless --intro 1 asks for it, and --intro 0 leaves it out of a video
 const intro = values.intro === undefined ? !values['audio-only'] : values.intro !== '0'
-const address = addressOf(values.url, promo, { intro })
+const address = addressOf(url, promo, { intro })
 // a relative --dir or --out is from where it is run: the repository's root, for `bun marketing`
-const out = placeOf({ file: values.out, dir: values.dir, name: nameOf(values.url, promo, values['audio-only']), fallback: join(import.meta.dir, 'out'), from: process.cwd() })
+const out = placeOf({ file: values.out, dir: values.dir, name: nameOf(url, promo, values['audio-only']), fallback: join(import.meta.dir, 'out'), from: process.cwd() })
 // a promo ends by its own length; a whole Song (no promo, or `--promo 0`), when it has ended
 const finish = promo ? promo + 120 : 60 * 30
 
