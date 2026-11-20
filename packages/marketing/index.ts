@@ -10,6 +10,9 @@
 //                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only] [--intro 0|1]
 //                        [--dir <folder>] [--out <file.mp4>] [--thumbnail <image>] [--art-size 4000] [--window] [--patience 180]
 //
+// --screen is the pixels of the video, 1280x720 by default; --scale (1 by default) makes the page that many times larger in it:
+// `--screen 1080x1920 --scale 2` is a phone's page laid out in 540x960, its text twice as large as at 1080 wide.
+//
 // The video begins with --cover seconds (1 by default) of the front page, its likeness and name,
 // so a platform that shows a video's first frame as its still shows the receiver.
 // The file keeps a thumbnail of its own, for a player or a service to show: a picture of the front page

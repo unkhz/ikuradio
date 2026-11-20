@@ -49,7 +49,10 @@ export async function capture({ address, out, size, scale, hold, cover, patience
     args: ['--auto-accept-this-tab-capture', '--autoplay-policy=no-user-gesture-required', '--hide-scrollbars'],
   })
   try {
-    const context = await browser.newContext({ viewport: size, deviceScaleFactor: scale })
+    // --screen is the pixels of the video; --scale makes the page that many times larger in it, so the page is laid out
+    // as on a screen of size / scale (a phone's 540x960 at 2 is 1080x1920 pixels) and its text is as large as there
+    const viewport = { width: Math.round(size.width / scale), height: Math.round(size.height / scale) }
+    const context = await browser.newContext({ viewport, deviceScaleFactor: scale })
     const page = await context.newPage()
     page.on('pageerror', (error) => console.warn(`the page: ${error.message}`))
     await page.exposeFunction('capturedPiece', (piece: string) => appendFile(raw, Buffer.from(piece, 'base64')))
@@ -115,7 +118,7 @@ export async function capture({ address, out, size, scale, hold, cover, patience
     const still = thumbnail ?? `${out}.thumbnail.png`
     if (!thumbnail) {
       const side = 800
-      const look = audioOnly ? { viewport: { width: side, height: side }, deviceScaleFactor: artSize / side } : { viewport: size, deviceScaleFactor: scale }
+      const look = audioOnly ? { viewport: { width: side, height: side }, deviceScaleFactor: artSize / side } : { viewport, deviceScaleFactor: scale }
       const art = await (await browser.newContext(look)).newPage()
       const frontPage = new URL(address)
       frontPage.search = '?time=0'
@@ -141,7 +144,7 @@ export async function capture({ address, out, size, scale, hold, cover, patience
     console.log(`finished; cutting from ${start.toFixed(2)}s`)
     await browser.close()
     await new Promise<void>((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', cutArgs(raw, start, out, { width: size.width * scale, height: size.height * scale }, audioOnly, keeping), { stdio: ['ignore', 'ignore', 'inherit'] })
+      const ffmpeg = spawn('ffmpeg', cutArgs(raw, start, out, size, audioOnly, keeping), { stdio: ['ignore', 'ignore', 'inherit'] })
       ffmpeg.on('error', reject)
       ffmpeg.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg stopped with ${code}`))))
     })
