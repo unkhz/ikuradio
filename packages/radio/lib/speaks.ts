@@ -24,10 +24,12 @@ export type Card = {
   seconds: number
   /** Its iterations, first and last, as the page counts them. */
   iterations?: { first: string; last: string }
+  /** What Rezzy says to introduce it, once an intro has been made: the Song's excerpt wherever it is quoted. */
+  intro?: string
 }
 
-/** A Session's card. */
-export function cardOf(session: Session): Card {
+/** A Session's card, with the words of its intro if it has one. */
+export function cardOf(session: Session, intro?: string): Card {
   const first = session.iterations?.[0]
   const last = session.iterations?.at(-1)
   return {
@@ -42,11 +44,41 @@ export function cardOf(session: Session): Card {
     ...(session.thought ? { thought: session.thought } : {}),
     seconds: session.seconds,
     ...(first && last ? { iterations: { first: first.iteration, last: last.iteration } } : {}),
+    ...(intro?.trim() ? { intro: intro.trim() } : {}),
   }
 }
 
 export const escaped = (text: string) =>
   text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+
+/**
+ * What a Song is titled by, wherever a crawler or a card quotes it: its name and its weather, the line
+ * that tells what it is, and the radio last.
+ */
+export function headlineOf(card: Card, site: string): string {
+  const name = card.name ?? `Song ${number(card.song)}`
+  const weather = card.mood.join(' + ')
+  return [name, ...(weather ? [weather] : []), site].join(' · ')
+}
+
+/** The most a description is, in characters: more is cut by whoever quotes it. */
+const mostExcerpt = 300
+
+/**
+ * What a Song is excerpted by: the words Rezzy says to introduce it, whole sentences of them, and,
+ * for a Song that has no intro yet, what is known of it.
+ */
+export function excerptOf(card: Card): string {
+  if (!card.intro) {
+    return `${card.mood.join(' + ')}: ${card.mode}, ${card.tempo} bpm, sung by ${card.choir}. ${Math.round(card.seconds / 60)} minutes, received from far away.`
+  }
+  const intro = card.intro.replace(/\s+/g, ' ')
+  if (intro.length <= mostExcerpt) return intro
+  // cut where a sentence ends, or, if none ends in time, at a word
+  const cut = intro.slice(0, mostExcerpt)
+  const sentence = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '))
+  return sentence > 80 ? cut.slice(0, sentence + 1) : `${cut.slice(0, cut.lastIndexOf(' '))}…`
+}
 
 /** A number as the page writes it. */
 const number = (n: string) => BigInt(n).toLocaleString('en')
@@ -97,6 +129,7 @@ export function structured(card: Card, url: string): string {
     url,
     duration: duration(card.seconds),
     keywords: card.mood.join(', '),
+    ...(card.intro ? { description: excerptOf(card) } : {}),
     inLanguage: 'en',
     byArtist: { '@type': 'MusicGroup', name: 'ikuradio' },
   }

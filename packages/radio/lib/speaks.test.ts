@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Session } from 'archive'
-import { cardOf, rowsOf, speak, structured } from './speaks.js'
+import { cardOf, excerptOf, headlineOf, rowsOf, speak, structured } from './speaks.js'
 
 const page = `<html><head>
     <title>ikuradio</title>
@@ -89,5 +89,41 @@ describe('a Song page that speaks', () => {
     expect(told).toContain('<p id="offered" data-served>Song 1,234</p>')
     expect(told).toContain('<dl id="details" data-served><dt>song</dt>')
     expect(structured(plain, url)).toContain('"name":"Song 1,234"')
+  })
+})
+
+describe('what a crawler is told', () => {
+  const plain = { ...session, name: 'Whispers of Twilight', mood: ['drizzling rooftops', "twilight's soft hues"] } as unknown as Session
+
+  it('titles a Song by its name and its weather, and the radio last', () => {
+    expect(headlineOf(cardOf(plain), 'ikuradio')).toBe("Whispers of Twilight · drizzling rooftops + twilight's soft hues · ikuradio")
+  })
+
+  it('titles a Song with no name by its number, and with no weather by its name alone', () => {
+    expect(headlineOf(cardOf({ ...plain, name: undefined } as unknown as Session), 'ikuradio')).toContain('Song 1,234 · ')
+    expect(headlineOf(cardOf({ ...plain, mood: [] } as unknown as Session), 'ikuradio')).toBe('Whispers of Twilight · ikuradio')
+  })
+
+  it('excerpts a Song by its intro, whole', () => {
+    const card = cardOf(plain, ' Listen, the night whispers.\n A snowflake, defiant. ')
+    expect(excerptOf(card)).toBe('Listen, the night whispers. A snowflake, defiant.')
+  })
+
+  it('cuts a long intro where a sentence ends', () => {
+    const sentence = 'The night whispers and the snow keeps falling on the quiet roofs of the town. '
+    const card = cardOf(plain, sentence.repeat(8))
+    const excerpt = excerptOf(card)
+    expect(excerpt.length).toBeLessThanOrEqual(300)
+    expect(excerpt.endsWith('town.')).toBe(true)
+  })
+
+  it('excerpts a Song with no intro yet by what is known of it', () => {
+    expect(excerptOf(cardOf(plain))).toContain('dorian, 80 bpm')
+  })
+
+  it('puts the intro into the structured data as its description', () => {
+    const data = JSON.parse(structured(cardOf(plain, 'Listen close.'), 'https://ikurad.io/s/1234/x'))
+    expect(data.description).toBe('Listen close.')
+    expect(JSON.parse(structured(cardOf(plain), 'https://ikurad.io/s/1234/x')).description).toBeUndefined()
   })
 })

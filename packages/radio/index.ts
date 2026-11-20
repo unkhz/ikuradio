@@ -27,12 +27,12 @@ import { normalize } from 'node:path'
 // @ts-ignore: written by the Receiver's build, and not there until it has run
 import { files as pageFiles, named as pageNames, release } from '../ui/dist/receiver.js'
 import { getEnv } from 'tools'
-import { archiveAddress, linkOf, paths, publicArchive, sessionVersion, slugOf, type ArchiveIndex, type Session } from 'archive'
+import { archiveAddress, linkOf, paths, publicArchive, sessionVersion, slugOf, type ArchiveIndex, type DjDeclaration, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
 import { favouriteSongs, inTurn } from './lib/favourites.js'
 import critic from '../../critic/scientist.json' with { type: 'json' }
-import { cardOf, speak, type Card } from './lib/speaks.js'
+import { cardOf, excerptOf, headlineOf, speak, type Card } from './lib/speaks.js'
 
 const { SERVER_PORT, CACHE_PATH } = getEnv()
 
@@ -276,20 +276,29 @@ const escaped = (text: string) =>
  * what was read once is kept; only its card is, a few hundred bytes, never
  * the Session with all its takes.
  */
-const cards = new Map<string, Card>()
+const cards = new Map<string, { card: Card; introAsked: number }>()
 const keptCards = 500
+/** A Song with no intro made is asked again after this long, in milliseconds: its intro is made after it has aired. */
+const introAskedAgainAfter = 10 * 60_000
+/** What Rezzy says to introduce a Song, if an intro has been made. */
+const introOf = async (song: string) => (await read<DjDeclaration>(paths.dj('rezzy', song)))?.parts.intro?.speech.text
 async function cardFor(song: string): Promise<Card | undefined> {
   const kept = cards.get(song)
   if (kept) {
+    if (!kept.card.intro && Date.now() - kept.introAsked > introAskedAgainAfter) {
+      const intro = await introOf(song)
+      kept.introAsked = Date.now()
+      if (intro?.trim()) kept.card = { ...kept.card, intro: intro.trim() }
+    }
     // the newest asked is the last let go
     cards.delete(song)
     cards.set(song, kept)
-    return kept
+    return kept.card
   }
-  const session = await read<Session>(paths.session(song))
+  const [session, intro] = await Promise.all([read<Session>(paths.session(song)), introOf(song)])
   if (!session) return undefined
-  const card = cardOf(session)
-  cards.set(song, card)
+  const card = cardOf(session, intro)
+  cards.set(song, { card, introAsked: Date.now() })
   if (cards.size > keptCards) cards.delete(cards.keys().next().value!)
   return card
 }
@@ -304,13 +313,9 @@ async function page(request: Request, url: URL, song?: bigint) {
   let card: Card | undefined
   if (song !== undefined) {
     card = tactus.history.some((a) => a.song === `${song}` && a.begins <= Date.now()) ? await cardFor(`${song}`) : undefined
-    // a Song's page is titled by its name, when it has one
-    title = card?.name ? `${card.name} · ${site}` : `Song ${song.toLocaleString('en')} · ${site}`
-    if (card) {
-      description =
-        `${card.mood.join(' + ')}: ${card.mode}, ${card.tempo} bpm, sung by ${card.choir}.` +
-        ` ${Math.round(card.seconds / 60)} minutes, received from far away.`
-    }
+    title = card ? headlineOf(card, site) : `Song ${song.toLocaleString('en')} · ${site}`
+    // and excerpted by its intro, the words Rezzy says of it, when an intro has been made
+    if (card) description = excerptOf(card)
   }
   const meta = [
     `<title>${escaped(title)}</title>`,
@@ -325,6 +330,8 @@ async function page(request: Request, url: URL, song?: bigint) {
     `<meta property="og:image:height" content="630" />`,
     `<meta property="og:image:alt" content="A lost receiver from another world, a little broken" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:title" content="${escaped(title)}" />`,
+    `<meta name="twitter:description" content="${escaped(description)}" />`,
   ].join('\n    ')
   const told = speak(pageText.replace(/<!--meta-->[\s\S]*<!--\/meta-->/, () => meta), card, origin + url.pathname)
   return new Response(told, {
