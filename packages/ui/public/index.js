@@ -474,6 +474,7 @@ function levelOf({ kind, gain, loudness }) {
 // Everything goes out through a gentle limiter, so that the moments when
 // the whole choir and the Music swell together are held, not clipped.
 let out
+let master
 function speakers(audioContext) {
   if (!out) {
     out = audioContext.createDynamicsCompressor()
@@ -482,7 +483,10 @@ function speakers(audioContext) {
     out.ratio.value = 12
     out.attack.value = 0.003
     out.release.value = 0.25
-    out.connect(audioContext.destination)
+    // the one level the whole page sounds at, so a promo can fade all of it out
+    master = audioContext.createGain()
+    out.connect(master)
+    master.connect(audioContext.destination)
   }
   return out
 }
@@ -1664,6 +1668,41 @@ async function readyReplay(index, visit) {
 // `/` waits for the click: it has nothing yet to ready.
 let preloading = replay ? { song: String(replay.index), ready: readyReplay(replay.index, true).catch(() => undefined) } : undefined
 
+// Promo (hidden): a Song's own address with `?promo=<seconds>` is a page to be
+// screen-recorded as a short film. The clock starts at the click. The Song
+// begins with its intro as a visit does, and at `seconds` minus `outro` the
+// sound and the words fade out together, and the promo view comes up, to
+// stay: no autoplay, no links, nothing to press.
+const promoLength = (() => {
+  const asked = Number(new URLSearchParams(location.search).get('promo'))
+  return replay && Number.isFinite(asked) && asked >= 20 ? asked : undefined
+})()
+const outroSeconds = 4
+if (promoLength) document.body.classList.add('promo')
+let promoClock // when the click began the promo, in ms
+let promoPhase = 0 // 0 playing, 1 fading out, 2 the promo view
+
+/** Steps the promo; true once it has taken over from the Song. */
+function promoStep(audioContext, songOver) {
+  const spent = (Date.now() - promoClock) / 1000
+  if (promoPhase === 0 && (songOver || spent >= promoLength - outroSeconds)) {
+    promoPhase = 1
+    const level = audioContext.currentTime
+    master?.gain.setValueAtTime(master.gain.value, level)
+    master?.gain.linearRampToValueAtTime(0, level + outroSeconds)
+    document.body.classList.add('outro')
+    promoOutAt = Date.now() + outroSeconds * 1000
+  }
+  if (promoPhase === 1 && Date.now() >= promoOutAt) {
+    promoPhase = 2
+    for (const loop of loops.splice(0)) clearInterval(loop)
+    audioContext.suspend().catch(() => {})
+    document.body.classList.add('promoted')
+  }
+  return promoPhase > 0
+}
+let promoOutAt = 0
+
 async function listenAgain(output, audioContext) {
   const mine = generation
   const { index, number: named } = replay
@@ -1715,6 +1754,7 @@ async function listenAgain(output, audioContext) {
     placeSounds(audioContext)
     singSoon()
     const t = (now() - airing.begins) / 1000
+    if (promoLength && promoStep(audioContext, t >= airing.seconds)) return
     const said = tellIntro(prepared, t)
     if (t < 0) return waiting(said ?? `Song ${named} begins in ${Math.ceil(-t)}s`)
     if (t < airing.seconds) {
@@ -1742,6 +1782,7 @@ const breath = '~ the song holds its breath ~'
 
 /** The first click: the page may sound from now on, and takes up the Song asked for, or live. */
 async function listen() {
+  promoClock = Date.now()
   document.getElementById('controls').style.display = 'none'
   listening = { output: document.getElementById('output'), audioContext: new AudioContext() }
   // the first page of Songs comes with the first Song, so the dialog opens full

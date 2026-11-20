@@ -482,6 +482,86 @@
       #page-down {
         bottom: 0.3rem;
       }
+      /* Promo (hidden, `?promo=<seconds>`): a clean page to record. Nothing
+         but the Song shows; at its end the sound and words fade out, and the
+         receiver's front page comes up, with where to find it. */
+      body.promo #knob,
+      body.promo #panel {
+        display: none;
+      }
+      body.promo.outro #status,
+      body.promo.outro #rezzy {
+        opacity: 0;
+        transition: opacity 0.6s;
+      }
+      body.promo #output {
+        transition: opacity 4s linear;
+      }
+      body.promo.outro #output {
+        opacity: 0;
+      }
+      body.promo.promoted {
+        cursor: none;
+      }
+      #promo {
+        position: fixed;
+        inset: 0;
+        z-index: 4;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 1.2em;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        user-select: none;
+        transition: opacity 1.8s ease-in, visibility 0s 1.8s;
+      }
+      body.promoted #promo {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 1.8s ease-in;
+      }
+      body.promoted #status {
+        display: none;
+      }
+      #promo .mark {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      #promo .likeness {
+        width: min(78vw, 432px, 50vh);
+        height: auto;
+      }
+      #promo .name {
+        width: min(72vw, 441px, 47vh);
+        height: auto;
+        margin-top: -1.2em;
+      }
+      /* the address, on the one lit patch of amber dots, like the switch it stands in for */
+      #promo .address {
+        margin: 0.4em 0 0;
+        padding: 0.45em 1.3em;
+        font-size: 1.15em;
+        font-weight: 600;
+        color: #120b02;
+        background:
+          radial-gradient(circle, var(--glow) 0 1.35px, transparent 1.75px) 0 0 / 3px 3px,
+          #7a4f1a;
+        border-radius: 0.5em;
+        box-shadow: 0 0 2em rgba(255, 179, 71, 0.35);
+      }
+      #promo .address b {
+        font-weight: 900;
+      }
+      #promo .tagline {
+        margin: 0;
+        color: var(--weather);
+        font-size: 0.85em;
+        letter-spacing: 0.08em;
+      }
       @media (max-width: 600px) {
         #output {
           padding: 3.5rem 1em 0.5em;
@@ -506,6 +586,14 @@
         <p id="offered" hidden></p>
         <button id="play" type="button">tune to live</button>
       </div>
+    </div>
+    <div id="promo" aria-hidden="true">
+      <div class="mark">
+        <img class="likeness" src="/receiver.svg" width="288" height="288" alt="" />
+        <img class="name" src="/wordmark.svg" width="294" height="54" alt="" />
+      </div>
+      <p class="address">listen in <b>ikurad.io</b></p>
+      <p class="tagline">the song that never ends</p>
     </div>
     <button id="knob" type="button" aria-label="What the receiver knows" aria-expanded="false" aria-controls="panel">
       <svg viewBox="0 0 40 40" fill="currentColor" aria-hidden="true">
