@@ -328,8 +328,8 @@ async function introOf(song, airing) {
   // a DJ has something to say: they may begin to walk on, while it is being said
   song.intro.coming = true
   // a promo has less time: fewer sentences, said faster (see `briefIntro`)
-  const words = promoLength ? briefly(said.speech.text) : said.speech.text
-  const squeeze = promoLength ? (said.speech.squeeze ?? 1) * briefIntro.speed : said.speech.squeeze
+  const words = shortened ? briefly(said.speech.text) : said.speech.text
+  const squeeze = shortened ? (said.speech.squeeze ?? 1) * briefIntro.speed : said.speech.squeeze
   // a page that cannot speak still plays the intro's music
   const spoken = await say(dj.request(words, squeeze)).catch((error) => {
     console.warn(`the page cannot speak: ${error}`)
@@ -338,8 +338,8 @@ async function introOf(song, airing) {
   if (!spoken) return recordings
   // a promo's intro lasts as long as its speech and a short tail; what comes before is not heard,
   // as if the page had joined the intro late, and the speech follows the Song's moment 0 back
-  if (promoLength) song.intro.seconds = Math.min(intro.seconds, briefIntro.lead + spoken.end + briefIntro.tail)
-  const at = promoLength ? -song.intro.seconds + briefIntro.lead : -intro.seconds + said.at
+  if (shortened) song.intro.seconds = Math.min(intro.seconds, briefIntro.lead + spoken.end + briefIntro.tail)
+  const at = shortened ? -song.intro.seconds + briefIntro.lead : -intro.seconds + said.at
   const id = `dj-${dj.name}-${airing.song}`
   // the speech is already samples: it is heard like a take the page sang, and never fetched
   song.voices.set(id, spoken.samples)
@@ -1714,10 +1714,19 @@ const announce = (name) => dispatchEvent(new CustomEvent(`ikuradio:${name}`))
 // begins with its intro as a visit does, and at `seconds` minus `outro` the
 // sound and the words fade out together, and the promo view comes up, to
 // stay: no autoplay, no links, nothing to press.
+// `?promo=<seconds>` (twenty or more) is a promo, as above. `?promo=0` is a capture of the Song
+// as it is, whole: the same page, with nothing in it that could come between a recording and
+// the Song (the Radio is not asked again, the Songs are not listed, an update does not
+// reload it), and no fade out: when the Song has ended, the page says so (`finished`) and rests.
 const promoLength = (() => {
-  const asked = Number(new URLSearchParams(location.search).get('promo'))
-  return replay && Number.isFinite(asked) && asked >= 20 ? asked : undefined
+  const asked = new URLSearchParams(location.search).get('promo')
+  if (!replay || asked === null) return undefined
+  const seconds = Number(asked)
+  return seconds === 0 || (Number.isFinite(seconds) && seconds >= 20) ? seconds : undefined
 })()
+const capturing = promoLength !== undefined
+/** A promo, which has a length, and so a brief intro and an outro. */
+const shortened = promoLength > 0
 const outroSeconds = 4
 // What a promo does to Rezzy's introduction, for it to be short: the speech is said this much
 // faster, is cut after the sentence that reaches this many syllables, begins this many seconds
@@ -1736,7 +1745,7 @@ function briefly(text) {
   }
   return kept.trim()
 }
-if (promoLength) document.body.classList.add('promo')
+if (capturing) document.body.classList.add('promo')
 let promoClock // when the click began the promo, in ms
 let promoPhase = 0 // 0 playing, 1 fading out, 2 the promo view
 
@@ -1807,19 +1816,19 @@ async function listenAgain(output, audioContext) {
   }
   airing.seconds = prepared.session.seconds
   // a Song with no speech to introduce it has no use for Rezzy, who was in place for the promo
-  if (promoLength && !prepared.intro?.speech) rezzy.away()
+  if (capturing && !prepared.intro?.speech) rezzy.away()
   // a visit hears the Song's intro first, which lies before its moment 0, and begins
   // when the DJ, if there is one, is in position
   const arrives = prepared.intro?.speech ? rezzy.comeIn() : 0
   airing.begins = Math.max(now() + 1500, arrives + 500) + (prepared.intro?.seconds ?? 0) * 1000
   // heard again, the page still asks, so it learns when it is out of date
-  every(5000, () => askRadio().catch(() => {}))
+  if (!capturing) every(5000, () => askRadio().catch(() => {}))
   let ended = false
   every(50, () => {
     placeSounds(audioContext)
     singSoon()
     const t = (now() - airing.begins) / 1000
-    if (promoLength && promoStep(audioContext, t >= airing.seconds)) return
+    if (shortened && promoStep(audioContext, t >= airing.seconds)) return
     const said = tellIntro(prepared, t)
     if (t < 0) return waiting(said ?? `Song ${named} begins in ${Math.ceil(-t)}s`)
     if (t < airing.seconds) {
@@ -1830,6 +1839,7 @@ async function listenAgain(output, audioContext) {
     if (ended) return
     ended = true
     announce('finished')
+    if (capturing) return
     bridgeEnds()
     weather(output, `Song ${named} has ended`)
     // a Radio that has moved on is taken up now; where the page lands is the Song it would have carried on to
@@ -1850,13 +1860,13 @@ const breath = '~ the song holds its breath ~'
 async function listen() {
   promoClock = Date.now()
   // a promo's recording begins here: Rezzy is already in place, not walking on from an empty screen
-  if (promoLength) rezzy.comeIn(true)
+  if (capturing) rezzy.comeIn(true)
   document.getElementById('controls').style.display = 'none'
   announce('started')
   listening = { output: document.getElementById('output'), audioContext: new AudioContext() }
   // the first page of Songs comes with the first Song, so the dialog opens full
   received.at = Date.now()
-  loadPage(0)
+  if (!capturing) loadPage(0)
   if (replay) return listenAgain(listening.output, listening.audioContext)
   return listenLive(listening.output, listening.audioContext)
 }

@@ -12,18 +12,17 @@ export function sizeOf(text: string): Size {
 }
 
 /**
- * The address to capture: a Song's own, with `?promo=<seconds>` when it is a promo, and
- * `?intro=0` when its intro is to be left out. Without a promo, the whole Song.
+ * The address to capture: a Song's own, with `?promo=<seconds>` for a promo and `?promo=0` for
+ * the whole Song as it is (a page that does not ask the Radio again, and rests when it has ended),
+ * and `?intro=0` when its intro is to be left out.
  */
-export function addressOf(url: string, promo?: number, { intro = true }: { intro?: boolean } = {}): string {
+export function addressOf(url: string, promo = 0, { intro = true }: { intro?: boolean } = {}): string {
   const address = new URL(url)
   if (!/^\/s\/[1-9]\d*\/[^/]+$/.test(address.pathname)) throw new Error(`${url} is not a Song's own address: /s/<number>/<name>`)
   address.searchParams.delete('promo')
   address.searchParams.delete('intro')
-  if (promo !== undefined) {
-    if (!Number.isFinite(promo) || promo < 20) throw new Error('a promo is at least 20 seconds')
-    address.searchParams.set('promo', String(promo))
-  }
+  if (promo !== 0 && (!Number.isFinite(promo) || promo < 20)) throw new Error('a promo is at least 20 seconds, or 0 for the whole Song')
+  address.searchParams.set('promo', String(promo))
   if (!intro) address.searchParams.set('intro', '0')
   return address.href
 }

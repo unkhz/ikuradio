@@ -9,8 +9,8 @@ test('a size is width and height', () => {
 test('a promo is asked for with its length in the Song\'s own address, a whole Song without', () => {
   const song = 'http://localhost:3101/s/1192/whispers-of-twilight'
   expect(addressOf(song, 45)).toBe(`${song}?promo=45`)
-  expect(addressOf(`${song}?promo=10`)).toBe(song)
-  expect(addressOf(song, undefined, { intro: false })).toBe(`${song}?intro=0`)
+  expect(addressOf(song)).toBe(`${song}?promo=0`)
+  expect(addressOf(song, 0, { intro: false })).toBe(`${song}?promo=0&intro=0`)
   expect(addressOf(song, 30, { intro: false })).toBe(`${song}?promo=30&intro=0`)
   expect(() => addressOf(song, 5)).toThrow()
   expect(() => addressOf('http://localhost:3101/')).toThrow()
