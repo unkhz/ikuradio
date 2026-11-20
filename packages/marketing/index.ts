@@ -8,7 +8,7 @@
 //   bun marketing capture 1192 [--screen 1280x720]
 //   bun marketing capture --url https://ikurad.io/s/1192/whispers-of-twilight
 //                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only] [--intro 0|1]
-//                        [--dir <folder>] [--out <file.mp4>] [--thumbnail <image>] [--art-size 4000] [--window]
+//                        [--dir <folder>] [--out <file.mp4>] [--thumbnail <image>] [--art-size 4000] [--window] [--patience 180]
 //
 // The video begins with --cover seconds (1 by default) of the front page, its likeness and name,
 // so a platform that shows a video's first frame as its still shows the receiver.
@@ -22,6 +22,8 @@
 // whole Song. The capture is kept in packages/marketing/out/, or in --dir, or exactly at --out. It needs Chrome, and
 // ffmpeg to cut and encode it. Chrome runs without a window, capturing its own tab, so
 // nothing is shown and no permission to watch the screen is asked for; --window shows it.
+// A Song the Radio has not received yet (it holds a Song a little after the Studio has made it) is said so at once, not waited
+// for; --patience is how many seconds the page may take to download the Song before the capture gives up.
 
 import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
@@ -48,6 +50,7 @@ const { values, positionals } = parseArgs({
     dir: { type: 'string' },
     out: { type: 'string' },
     window: { type: 'boolean', default: false },
+    patience: { type: 'string', default: '180' },
   },
 })
 const [command, id, asset] = positionals
@@ -104,6 +107,12 @@ const promo = values.promo === undefined ? undefined : Number(values.promo)
 // Rezzy's introduction is made to be seen: a sound alone has none, unless --intro 1 asks for it, and --intro 0 leaves it out of a video
 const intro = values.intro === undefined ? !values['audio-only'] : values.intro !== '0'
 const address = addressOf(url, promo, { intro })
+// the Radio answers 404 for a Song it has not received: say so now, instead of waiting for a page that will never be ready
+const asked = await fetch(url).catch(() => undefined)
+if (asked && asked.status === 404) {
+  console.error(`the Radio has not received that Song yet: ${url}. It takes a little while after the Song is made; try again soon.`)
+  process.exit(1)
+}
 // a relative --dir or --out is from where it is run: the repository's root, for `bun marketing`
 const out = placeOf({ file: values.out, dir: values.dir, name: nameOf(url, promo, values['audio-only']), fallback: join(import.meta.dir, 'out'), from: process.cwd() })
 // a promo ends by its own length; a whole Song (no promo, or `--promo 0`), when it has ended
@@ -120,7 +129,7 @@ await capture({
   thumbnail: values.thumbnail && resolve(process.cwd(), values.thumbnail),
   artSize: Number(values['art-size']),
   headless: !values.window,
-  patience: { ready: 180, finish },
+  patience: { ready: Number(values.patience), finish },
 })
 // nothing is left to wait for: a browser or a child that would not stop does not keep the person waiting
 process.exit(0)
