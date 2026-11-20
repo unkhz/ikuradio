@@ -38,7 +38,7 @@ import { parseArgs } from 'node:util'
 import { capture } from './lib/capture.js'
 import { cover } from './lib/cover.js'
 import { assets, print, urlOf, type Asset, type Song } from './lib/print.js'
-import { addressOf, coverOf, nameOf, placeOf, sizeOf } from './lib/options.js'
+import { addressOf, coverOf, nameOf, placeOf, sizeOf, textOf } from './lib/options.js'
 
 const usage = 'bun marketing cover <song number | --url ...> [--screen 4000x4000]\n       bun marketing print <song number> <asset: ' + assets.join('|') + '>\n       bun marketing capture <song number | --url https://ikurad.io/s/<number>/<name>> [--screen 1280x720] [--promo <seconds>]'
 const { values, positionals } = parseArgs({
@@ -116,7 +116,7 @@ if (command === 'cover') {
   // a square of 4000 pixels, as a sound's cover is, unless --screen says another; laid out at 800 unless --scale says
   const size = sizeOf(values.screen ?? '4000x4000')
   const place = placeOf({ file: values.out, dir: values.dir, name: nameOf(url, 0, false, 'png'), fallback: join(import.meta.dir, 'out'), from: process.cwd() })
-  await cover({ address: addressOf(url), out: place, size, scale: Number(values.scale ?? Math.max(1, size.width / 800)) })
+  await cover({ address: addressOf(url), out: place, size, scale: Number(values.scale ?? Math.max(1, size.width / 800)), text: values.scale ? textOf(size, Number(values.scale)) : '' })
   console.log(`kept as ${place}`)
   process.exit(0)
 }

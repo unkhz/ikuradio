@@ -11,8 +11,12 @@ import { spawn } from 'node:child_process'
 import { appendFile, mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { chromium } from 'playwright-core'
-import { cutArgs, type Keeping, type Size } from './options.js'
+import { cutArgs, textOf, type Keeping, type Size } from './options.js'
 import { tagSrgb } from './png.js'
+
+/** A script that puts a style on a page as it is made, before it is laid out. */
+const styling = (css: string) =>
+  `if (${JSON.stringify(css)}) { const style = document.createElement('style'); style.textContent = ${JSON.stringify(css)}; document.documentElement.appendChild(style) }`
 
 export type Capture = {
   address: string
@@ -53,6 +57,7 @@ export async function capture({ address, out, size, scale, hold, cover, patience
     // as on a screen of size / scale (a phone's 540x960 at 2 is 1080x1920 pixels) and its text is as large as there
     const viewport = { width: Math.round(size.width / scale), height: Math.round(size.height / scale) }
     const context = await browser.newContext({ viewport, deviceScaleFactor: scale })
+    await context.addInitScript(styling(textOf(size, scale)))
     const page = await context.newPage()
     page.on('pageerror', (error) => console.warn(`the page: ${error.message}`))
     await page.exposeFunction('capturedPiece', (piece: string) => appendFile(raw, Buffer.from(piece, 'base64')))
@@ -119,7 +124,9 @@ export async function capture({ address, out, size, scale, hold, cover, patience
     if (!thumbnail) {
       const side = 800
       const look = audioOnly ? { viewport: { width: side, height: side }, deviceScaleFactor: artSize / side } : { viewport, deviceScaleFactor: scale }
-      const art = await (await browser.newContext(look)).newPage()
+      const artContext = await browser.newContext(look)
+      if (!audioOnly) await artContext.addInitScript(styling(textOf(size, scale)))
+      const art = await artContext.newPage()
       const frontPage = new URL(address)
       frontPage.search = '?time=0'
       await art.goto(frontPage.href)

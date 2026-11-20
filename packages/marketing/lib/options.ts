@@ -45,6 +45,17 @@ export function placeOf({ file, dir, name, fallback, from }: { file?: string; di
   return resolve(from, dir ?? fallback, name)
 }
 
+/**
+ * The page sets its text by its width, between 16 and 28 pixels (2.8vw): laid out at half the width, as
+ * --scale 2 does, it would hit the least and barely grow. So the text is kept at the size the whole
+ * screen would give it, and the page is as many times larger in the picture as --scale says.
+ */
+export function textOf(size: Size, scale: number): string {
+  if (scale <= 1) return ''
+  const pixels = Math.min(28, Math.max(16, size.width * 0.028))
+  return `html body { font-size: ${pixels}px !important }`
+}
+
 /** What is kept in a capture besides its picture and sound. */
 export type Keeping = {
   /** An image kept in the file as its thumbnail: what a player or a service shows before it plays. */

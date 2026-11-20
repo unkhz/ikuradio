@@ -16,14 +16,18 @@ export type Cover = {
   size: Size
   /** The page is laid out as on a screen of size / scale, and drawn at size: it is not a picture made larger. */
   scale: number
+  /** Style for the page's text, if it is not to be as the page makes it. */
+  text?: string
 }
 
-export async function cover({ address, out, size, scale }: Cover): Promise<void> {
+export async function cover({ address, out, size, scale, text = '' }: Cover): Promise<void> {
   await mkdir(dirname(out), { recursive: true })
   const browser = await chromium.launch({ channel: 'chrome', headless: true })
   try {
     const viewport = { width: Math.round(size.width / scale), height: Math.round(size.height / scale) }
-    const page = await (await browser.newContext({ viewport, deviceScaleFactor: scale })).newPage()
+    const context = await browser.newContext({ viewport, deviceScaleFactor: scale })
+    if (text) await context.addInitScript(`const style = document.createElement('style'); style.textContent = ${JSON.stringify(text)}; document.documentElement.appendChild(style)`)
+    const page = await context.newPage()
     const frontPage = new URL(address)
     frontPage.search = '?time=0'
     await page.goto(frontPage.href)

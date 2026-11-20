@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { addressOf, coverOf, cutArgs, nameOf, placeOf, sizeOf } from './options.js'
+import { addressOf, coverOf, cutArgs, nameOf, placeOf, sizeOf, textOf } from './options.js'
 
 test('a size is width and height', () => {
   expect(sizeOf('1080x1920')).toEqual({ width: 1080, height: 1920 })
@@ -64,4 +64,10 @@ test('a sound has the thumbnail as its cover', () => {
   const args = cutArgs('raw.webm', 0, 'out.mp3', { width: 1280, height: 720 }, true, { thumbnail: 'still.png' })
   expect(args.join(' ')).toContain('-map 1:v -c:v copy')
   expect(args).not.toContain('libx264')
+})
+
+test('textOf leaves the page its own text at scale 1, and keeps what the whole screen would give it at a larger one', () => {
+  expect(textOf({ width: 1080, height: 1920 }, 1)).toBe('')
+  expect(textOf({ width: 1080, height: 1920 }, 2)).toContain('font-size: 28px')
+  expect(textOf({ width: 400, height: 800 }, 2)).toContain('font-size: 16px')
 })
