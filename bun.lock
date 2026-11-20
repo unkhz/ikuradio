@@ -40,6 +40,13 @@
         "tools": "workspace:*",
       },
     },
+    "packages/marketing": {
+      "name": "marketing",
+      "version": "1.0.0",
+      "dependencies": {
+        "playwright-core": "^1.65.1",
+      },
+    },
     "packages/melody": {
       "name": "melody",
       "version": "1.0.0",
@@ -148,6 +155,8 @@
 
     "heart": ["heart@workspace:packages/heart"],
 
+    "marketing": ["marketing@workspace:packages/marketing"],
+
     "melody": ["melody@workspace:packages/melody"],
 
     "mood": ["mood@workspace:packages/mood"],
@@ -155,6 +164,8 @@
     "music": ["music@workspace:packages/music"],
 
     "perspectives": ["perspectives@workspace:packages/perspectives"],
+
+    "playwright-core": ["playwright-core@1.65.1", "", { "bin": { "playwright-core": "cli.js" } }, "sha512-hqPpz7blSMPxWVdoeE1yiBSzXsKiVOd2k+kjCvmUywD2GPO2Dd9HfcWnq9NN0GHbNZDFgZ9JfBFr+X5/BLo0qw=="],
 
     "radio": ["radio@workspace:packages/radio"],
 

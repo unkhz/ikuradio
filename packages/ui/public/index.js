@@ -392,6 +392,8 @@ function prepare(airing) {
       started()
     }
     for (const recording of takes.values()) wantSung(song, recording)
+    // throats opened already, while the Session was fetched, are idle and are given the first takes now
+    singSoon()
     const fetchOne = async (id) => {
       for (let attempt = 0; ; attempt++) {
         try {
@@ -1687,13 +1689,23 @@ async function readyReplay(index, visit) {
       .catch(() => false))
   if (!aired) return { aired: false }
   const airing = { song, session: new URL(`sessions/${song}.json`, tactus.archive).href, archive: tactus.archive, begins: Infinity, seconds: 0, visit }
-  return { aired: true, tactus, airing, prepared: prepare(airing) }
+  const prepared = prepare(airing)
+  // a hidden sign for whatever films the page: everything is fetched and the Song may begin
+  Promise.all([prepared.starting, prepared.preparing]).then(() => prepared.startable && (document.body.dataset.ready = 'yes'))
+  return { aired: true, tactus, airing, prepared }
 }
 
 // A page that is opened at a Song begins to ready it at once, before anything
 // is clicked, so that the Song is ready sooner when it is. Only the page at
 // `/` waits for the click: it has nothing yet to ready.
 let preloading = replay ? { song: String(replay.index), ready: readyReplay(replay.index, true).catch(() => undefined) } : undefined
+
+/**
+ * Hidden signs for whatever films the page (packages/marketing): `started` when the
+ * front page has gone and the page is sounding, `finished` when what is filmed is over,
+ * just before the page shows anything after it. They change nothing in the page.
+ */
+const announce = (name) => dispatchEvent(new CustomEvent(`ikuradio:${name}`))
 
 // Promo (hidden): a Song's own address with `?promo=<seconds>` is a page to be
 // screen-recorded as a short film. The clock starts at the click. The Song
@@ -1746,6 +1758,7 @@ function promoStep(audioContext, songOver) {
     promoPhase = 2
     for (const loop of loops.splice(0)) clearInterval(loop)
     audioContext.suspend().catch(() => {})
+    announce('finished')
   }
   return promoPhase > 0
 }
@@ -1814,6 +1827,7 @@ async function listenAgain(output, audioContext) {
     }
     if (ended) return
     ended = true
+    announce('finished')
     bridgeEnds()
     weather(output, `Song ${named} has ended`)
     // a Radio that has moved on is taken up now; where the page lands is the Song it would have carried on to
@@ -1836,6 +1850,7 @@ async function listen() {
   // a promo's recording begins here: Rezzy is already in place, not walking on from an empty screen
   if (promoLength) rezzy.comeIn(true)
   document.getElementById('controls').style.display = 'none'
+  announce('started')
   listening = { output: document.getElementById('output'), audioContext: new AudioContext() }
   // the first page of Songs comes with the first Song, so the dialog opens full
   received.at = Date.now()

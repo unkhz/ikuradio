@@ -1,0 +1,11 @@
+{
+  "name": "marketing",
+  "version": "1.0.0",
+  "description": "Captures of the Radio's Songs as video, for showing it to people: a promo, or a whole Song",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright-core": "1.65.1"
+  }
+}
