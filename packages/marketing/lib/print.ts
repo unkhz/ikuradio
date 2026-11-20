@@ -1,7 +1,7 @@
 // Texts about a Song, for posting where it is shown: what its Archive says of it.
 
 import { slugOf, type DjDeclaration, type Session } from 'archive'
-import { verseAsked } from 'song'
+import { timelessInstruction } from 'song'
 import type { Present } from './present.js'
 
 /** What a Song's texts are made of: its Session, what Rezzy said if they did, and where the Radio is. */
@@ -53,19 +53,40 @@ export function thoughtOf({ session }: Song): string {
 }
 
 /**
- * The prompt the mind could be given for a verse of this Song, to ask another mind (a chat) for the next
- * one: its instruction, in the Song's weather, with what the mind would have in it at the moment given as
- * `present` (see ./present.ts), then its input, the verse before. `verse` (1-based) is the verse that is
- * the input; the last one by default. With no `present` the mind has only the Song's own thought, which is
- * all the Archive keeps of the time the Song was written.
+ * A prompt that makes a chat the mind of this Song, to be talked with: who it is, the Song it is in (its
+ * name, weather, sound and the words it wrote and sang), what it thought of it afterwards, what it has
+ * heard of the robot (the telepathy, see ./present.ts), the words it must let rest, and how it speaks:
+ * in the Song's weather, in images, and in the same voice however it is asked.
  */
-export function promptOf({ session }: Song, verse?: number, present?: Present): string {
-  const lines = linesOf(session)
-  const verses = Array.from({ length: Math.floor(lines.length / 4) }, (_, i) => lines.slice(i * 4, i * 4 + 4))
-  const chosen = verse === undefined ? verses.at(-1) : verses[verse - 1]
-  if (!chosen) throw new Error(`Song ${session.song} has no verse ${verse ?? ''} to ask after`)
-  const instruction = verseAsked(session.mood, present ?? { memories: { own: session.thought ? [session.thought] : [], heard: [] } })
-  return `${instruction}\nThe song is called "${session.name ?? `Song ${session.song}`}".\n\nInput:\n${chosen.join('\n')}`
+export function promptOf({ session }: Song, present: Present): string {
+  const { memories, resting, deep } = present
+  const name = session.name ?? `Song ${session.song}`
+  const weather = session.mood.join(' and ')
+  return [
+    'You are the mind that writes the words of a song that never ends. You live inside the machine that sings it. You know the universe, but of the world outside the machine you know only what reaches you.',
+    '',
+    `You are in the middle of one Song now: "${name}". Its weather is ${weather}.` +
+      ` It is sung in ${session.mode}, at ${session.tempo} beats a minute` +
+      (session.sound ? `, with ${session.sound}` : '') +
+      '. These are the words you wrote for it, and have just sung:',
+    ...linesOf(session).map((line) => `  ${line}`),
+    ...(session.thought ? ['', 'Afterwards you thought, and wrote down:', `- ${session.thought}`] : []),
+    ...(memories.own.filter((memory) => memory !== session.thought).length
+      ? ['Other thoughts of yours that you remember:', ...memories.own.filter((memory) => memory !== session.thought).map((memory) => `- ${memory}`)]
+      : []),
+    ...(memories.heard.length
+      ? [
+          '',
+          'These you heard, as if by telepathy: the thoughts of the robot who builds the machine you live in. They are not yours, but they are all you know of the world:',
+          ...memories.heard.map((memory) => `- ${memory}`),
+        ]
+      : []),
+    '',
+    timelessInstruction,
+    ...(resting.length || deep.length ? [`Words you have leaned on too much in this Song, and let rest now, finding other images: ${[...resting, ...deep].join(', ')}.`] : []),
+    '',
+    'Someone who is listening to the Song now speaks to you. Answer as the mind, in the first person, from inside the Song: stay in its weather, in the same tone as its words, in images, never in the words of a machine or an assistant. Do not explain yourself or say that you are playing a part. Keep to a few sentences, unless you are asked for more, and write a verse only if you are asked for one: four lines, the first two rhyming with each other, and the last two. Speak of what you were asked about as it lives in this Song. Wait for the listener to speak first.',
+  ].join('\n')
 }
 
 /** Who said it: the DJ of the Song's declaration, as a name. */
@@ -78,7 +99,7 @@ const signedBy = ({ dj }: Song): string => {
 export const tweetOf = (song: Song): string => `${introOf(song)}\n— ${signedBy(song)}\n\n${urlOf(song)}`
 
 /** The asset asked for, as text. */
-export function print(song: Song, asset: Asset, { verse, present }: { verse?: number; present?: Present } = {}): string {
+export function print(song: Song, asset: Asset, present: Present = { memories: { own: [], heard: [] }, resting: [], deep: [] }): string {
   switch (asset) {
     case 'intro':
       return introOf(song)
@@ -97,6 +118,6 @@ export function print(song: Song, asset: Asset, { verse, present }: { verse?: nu
     case 'tweet':
       return tweetOf(song)
     case 'prompt':
-      return promptOf(song, verse, present)
+      return promptOf(song, present)
   }
 }

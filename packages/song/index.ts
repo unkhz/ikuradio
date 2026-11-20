@@ -18,7 +18,7 @@ export {
   writeThought,
   type Thought,
 } from './lib/thoughts.js'
-export { itsAgeOf, ofItsAge, timeless } from './lib/timeless.js'
+export { itsAgeOf, ofItsAge, timeless, timelessInstruction } from './lib/timeless.js'
 export {
   longestName,
   modifyingInstruction,
@@ -193,20 +193,6 @@ const restingNote = (resting: readonly string[]) =>
 /** What the mind is told of the words the song has leaned on for a long while. */
 const deepNote = (deep: readonly string[]) =>
   deep.length ? ` The song has leaned on these for a long while, in every form of them; find other images: ${deep.join(', ')}.` : ''
-
-/**
- * The instruction a verse is asked for with, as of the moment it is asked: the weather it is written in, the
- * memories the mind has, the memory it tells (`focus`), the words resting and the words worn deep. Not the bars
- * its lines must fit, which are the tune's: with no `fitting`, a line has between eight and fourteen syllables.
- */
-export function verseAsked(
-  mood: readonly string[],
-  { memories = { own: [], heard: [] }, focus, resting = [], deep = [] }: { memories?: Memories; focus?: Focus; resting?: readonly string[]; deep?: readonly string[] } = {},
-): string {
-  const instruction =
-    (memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction) + `\n${countInstruction(undefined)}`
-  return inMood(instruction, mood) + restingNote(resting) + deepNote(deep)
-}
 
 /** How many resting words a verse may still use: one may slip in, as words do. */
 const slips = 1

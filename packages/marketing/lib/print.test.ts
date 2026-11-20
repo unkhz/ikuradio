@@ -54,14 +54,17 @@ test('what a Song does not have is said, not made up', () => {
   expect(() => print({ ...song, session: { ...session, thought: undefined } as Session }, 'thoughts')).toThrow('no thought')
 })
 
-test('the prompt is the verse instruction, in the Song\'s weather and with its thought, then a verse as the input', () => {
-  const lyrics = ['a1', 'a2', 'a3', 'a4', 'b1', 'b2', 'b3', 'b4']
-  const verses = { ...song, session: { ...session, iterations: [{ parts: [{ lines: lyrics.map((text) => ({ text })) }] }] } as unknown as Session }
-  const prompt = print(verses, 'prompt')
+test('the prompt makes a chat the Song\'s mind: its name, weather, words and thought, the robot it heard, and how it speaks', () => {
+  const present = { memories: { own: ['I would keep the snowflake.'], heard: ['The robot built a ship in the dark.'] }, resting: ['echo'], deep: ['lantern'] }
+  const prompt = print(song, 'prompt', present)
   expect(prompt).toContain('You are the mind that writes the words of a song that never ends')
-  expect(prompt).toContain('I would keep the snowflake.')
-  expect(prompt).toContain('drizzling rooftops and twilight\'s soft hues')
-  expect(prompt.endsWith('Input:\nb1\nb2\nb3\nb4')).toBe(true)
-  expect(print(verses, 'prompt', { verse: 1 }).endsWith('Input:\na1\na2\na3\na4')).toBe(true)
-  expect(() => print(verses, 'prompt', { verse: 3 })).toThrow('no verse 3')
+  expect(prompt).toContain('"Whispers of Twilight"')
+  expect(prompt).toContain("drizzling rooftops and twilight's soft hues")
+  expect(prompt).toContain('  I sang of a snowflake')
+  expect(prompt).toContain('- I would keep the snowflake.')
+  expect(prompt).toContain('- The robot built a ship in the dark.')
+  expect(prompt).toContain('echo, lantern')
+  expect(prompt).toContain('Someone who is listening to the Song now speaks to you')
+  // its own thought is told once
+  expect(prompt.split('I would keep the snowflake.').length).toBe(2)
 })
