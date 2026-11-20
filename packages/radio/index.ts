@@ -17,7 +17,7 @@
 //   GET /pulse      whether the song is alive (200) or not (503)
 //   GET /           the Receiver, for a browser
 //   GET /s/<n>/<slug>  the Receiver, tuned to Song n from its beginning: its only address
-//   GET /sitemap.xml  every Song's address, and nothing else
+//   GET /sitemap.xml  the address of every Song received that has its intro, and nothing else
 
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import { normalize } from 'node:path'
@@ -32,6 +32,7 @@ import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
 import { favouriteSongs, inTurn } from './lib/favourites.js'
 import critic from '../../critic/scientist.json' with { type: 'json' }
+import { Introduced, sitemapOf } from './lib/sitemap.js'
 import { aboutOf, cardOf, excerptOf, headlineOf, speak, type Card } from './lib/speaks.js'
 
 const { SERVER_PORT, CACHE_PATH } = getEnv()
@@ -190,6 +191,25 @@ async function keepCache() {
 }
 
 /**
+ * The Songs known to have their intro, for the sitemap. The Songs received are asked about, the
+ * ones not yet known to have it, now and again: an intro is made after its Song has aired.
+ */
+const introduced = new Introduced()
+let learning: Promise<void> | undefined
+function learnIntros() {
+  learning ??= (async () => {
+    try {
+      const received = tactus.history.filter((a) => a.mode !== 'encore' && a.begins <= Date.now()).map((a) => a.song)
+      const learned = await introduced.learn(received, (song) => read<DjDeclaration>(paths.dj('rezzy', song)))
+      if (learned) console.log(`${learned} more Songs have their intro: ${introduced.size} for the sitemap`)
+    } finally {
+      learning = undefined
+    }
+  })()
+  return learning
+}
+
+/**
  * The Archive's version, as it was last read: nothing, until it has been, or
  * if the Archive keeps none. Told in the Tactus beside the Radio's release, so
  * a Receiver knows when what it holds of either is old.
@@ -204,6 +224,8 @@ await Promise.all([readVersion(), listen()])
 setInterval(listen, 2000)
 setInterval(readVersion, 15_000)
 void keepCache()
+const firstIntros = learnIntros()
+setInterval(() => void learnIntros(), 10 * 60_000)
 setInterval(keepCache, 60_000)
 
 
@@ -446,19 +468,18 @@ async function answer(request: Request): Promise<Response> {
   }
 
   if (url.pathname === '/sitemap.xml') {
-    // every Song's address, and nothing else: the Songs that have a name,
-    // which is every Song, and no Song by its number alone
-    const [index, names] = await Promise.all([read<ArchiveIndex>(paths.index), read<Record<string, string>>(paths.names)])
-    const worn = new Map<string, string>()
-    for (const [slug, song] of Object.entries(names ?? {})) worn.set(song, slug)
+    // every Song's address, and nothing else: the Songs received that have their intro, which is
+    // every Song a search may quote by Rezzy's words, and no Song by its number alone. The first
+    // time it is asked for, it waits a little for the Songs to have been asked about
+    await Promise.race([firstIntros, new Promise((resolve) => setTimeout(resolve, 20_000))])
+    const names = await read<Record<string, string>>(paths.names)
+    const slugs = new Map<string, string>()
+    for (const [slug, song] of Object.entries(names ?? {})) slugs.set(song, slug)
     const origin = `${request.headers.get('x-forwarded-proto') ?? url.protocol.slice(0, -1)}://${request.headers.get('host') ?? url.host}`
-    const urls = (index?.songs ?? [])
-      .filter((song) => worn.has(song))
-      .map((song) => `  <url>\n    <loc>${escaped(`${origin}/s/${song}/${worn.get(song)}`)}</loc>\n  </url>`)
-    return new Response(
-      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`,
-      { headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } },
-    )
+    const received = tactus.history.filter((a) => a.mode !== 'encore' && a.begins <= Date.now()).map((a) => a.song)
+    return new Response(sitemapOf(origin, received, introduced, slugs), {
+      headers: { 'Content-Type': 'application/xml; charset=utf-8', 'Cache-Control': 'public, max-age=3600' },
+    })
   }
   if (url.pathname === '/' || url.pathname === '/index.html') return page(request, url)
   // A Song's only address: its number, and the slug its name makes. A wrong
