@@ -1942,7 +1942,7 @@ const breath = '~ the song holds its breath ~'
 async function listen() {
   promoClock = Date.now()
   // a promo's recording begins here: Rezzy is already in place, not walking on from an empty screen
-  if (capturing) rezzy.comeIn(true)
+  if (capturing && !introOff) rezzy.comeIn(true)
   document.getElementById('controls').style.display = 'none'
   announce('started')
   listening = { output: document.getElementById('output'), audioContext: new AudioContext() }

@@ -6,7 +6,7 @@
 // prints a text about a Song, from what its Archive says of it. `tweet` is the intro and the address, and nothing else.
 //
 //   bun marketing capture --screen 1280x720 --url https://ikurad.io/s/1192/whispers-of-twilight
-//                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only]
+//                        [--promo <seconds>] [--hold 1] [--cover <seconds>] [--scale 1] [--audio-only] [--intro 0|1]
 //                        [--dir <folder>] [--out <file.mp4>] [--thumbnail <image>] [--art-size 4000] [--window]
 //
 // The video begins with --cover seconds (1 by default) of the front page, its likeness and name,
@@ -14,6 +14,7 @@
 // The file keeps a thumbnail of its own, for a player or a service to show: a picture of the front page
 // (for a sound, a square of --art-size pixels, 4000 by default, drawn at that size, 24 bits to a pixel and
 // said to be sRGB), or the --thumbnail image given; and the Song's name and address.
+// --intro 0 leaves Rezzy's introduction out, to capture the Song alone; a sound has none by default.
 // --audio-only keeps only the sound, as an mp3, for posting where there is only sound (a whole
 // Song, most of all), and then has no cover and no intro.
 // With --promo, the Song's promo (the page at ?promo=<seconds>); without it, the
@@ -40,6 +41,7 @@ const { values, positionals } = parseArgs({
     hold: { type: 'string', default: '1' },
     cover: { type: 'string' },
     'audio-only': { type: 'boolean', default: false },
+    intro: { type: 'string' },
     thumbnail: { type: 'string' },
     'art-size': { type: 'string', default: '4000' },
     dir: { type: 'string' },
@@ -80,8 +82,9 @@ if (command !== 'capture' || !values.url) {
   process.exit(2)
 }
 const promo = values.promo === undefined ? undefined : Number(values.promo)
-// a sound alone has no use for Rezzy's introduction, which is made to be seen
-const address = addressOf(values.url, promo, { intro: !values['audio-only'] })
+// Rezzy's introduction is made to be seen: a sound alone has none, unless --intro 1 asks for it, and --intro 0 leaves it out of a video
+const intro = values.intro === undefined ? !values['audio-only'] : values.intro !== '0'
+const address = addressOf(values.url, promo, { intro })
 // a relative --dir or --out is from where it is run: the repository's root, for `bun marketing`
 const out = placeOf({ file: values.out, dir: values.dir, name: nameOf(values.url, promo, values['audio-only']), fallback: join(import.meta.dir, 'out'), from: process.cwd() })
 // a promo ends by its own length; a whole Song (no promo, or `--promo 0`), when it has ended
