@@ -22,7 +22,7 @@ const named = ({ session }: Song) => {
 }
 
 /** The address the Song is heard at. */
-export const urlOf = (song: Song): string => `${song.radio.replace(/\/$/, '')}/s/${song.session.song}/${slugOf(named(song))}`
+export const urlOf = (song: Song): string => `${song.radio.replace(/\/$/, '')}/s/${song.session.song}/${encodeURIComponent(slugOf(named(song)))}`
 
 /** What Rezzy said to introduce the Song. */
 export function introOf({ dj, session }: Song): string {

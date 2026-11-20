@@ -53,6 +53,6 @@ export function sitemapOf(origin: string, songs: Iterable<string>, introduced: {
   const urls = [...new Set(songs)]
     .filter((song) => introduced.has(song) && slugs.has(song))
     .sort((a, b) => (sortable(a) < sortable(b) ? 1 : -1))
-    .map((song) => `  <url>\n    <loc>${escaped(`${origin}/s/${song}/${slugs.get(song)}`)}</loc>\n  </url>`)
+    .map((song) => `  <url>\n    <loc>${escaped(`${origin}/s/${song}/${encodeURIComponent(slugs.get(song)!)}`)}</loc>\n  </url>`)
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`
 }

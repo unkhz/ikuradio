@@ -485,7 +485,15 @@ async function answer(request: Request): Promise<Response> {
   // A Song's only address: its number, and the slug its name makes. A wrong
   // slug is not found, like any path that is not the link: the Radio says
   // nothing of a Song it does not link.
-  const asked = /^\/s\/(0|[1-9]\d{0,399})\/([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\-]{0,399})$/u.exec(url.pathname)
+  // the address says a slug's letters by percent signs (silicon-serenade%C2%B2); the slug is what they spell
+  const said = (() => {
+    try {
+      return decodeURIComponent(url.pathname).normalize('NFC')
+    } catch {
+      return url.pathname
+    }
+  })()
+  const asked = /^\/s\/(0|[1-9]\d{0,399})\/([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\-]{0,399})$/u.exec(said)
   if (asked) {
     const session = asked[1] !== '0' ? await read<Session>(paths.session(asked[1])) : undefined
     if (session?.name && linkOf(session)?.slug === asked[2]) return page(request, url, BigInt(asked[1]))

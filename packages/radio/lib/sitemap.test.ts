@@ -46,7 +46,12 @@ describe('the sitemap', () => {
     const introduced = new Set(['9', '10', '100', '12'])
     const map = sitemapOf('https://ikurad.io', ['9', '10', '11', '100', '12'], { has: (s) => introduced.has(s) }, slugs)
     const locs = [...map.matchAll(/<loc>(.*?)<\/loc>/g)].map(([, loc]) => loc)
-    expect(locs).toEqual(['https://ikurad.io/s/100/hundred', 'https://ikurad.io/s/10/ten', 'https://ikurad.io/s/9/nine &amp; more'])
+    expect(locs).toEqual(['https://ikurad.io/s/100/hundred', 'https://ikurad.io/s/10/ten', 'https://ikurad.io/s/9/nine%20%26%20more'])
+  })
+
+  it('says the letters of a slug the way an address does', () => {
+    const map = sitemapOf('https://ikurad.io', ['1324'], { has: () => true }, new Map([['1324', 'silicon-serenade²']]))
+    expect(map).toContain('<loc>https://ikurad.io/s/1324/silicon-serenade%C2%B2</loc>')
   })
 
   it('is empty, and still a sitemap, while no Song has its intro', () => {

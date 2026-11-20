@@ -1576,7 +1576,12 @@ document.getElementById('close-songs').addEventListener('click', () => songsDial
 // is played from its beginning. The Radio serves it only when the slug is the
 // Song's; a Song is never asked for by its number alone.
 const replayAt = (path) => {
-  const asked = /^\/s\/([1-9]\d{0,399})\/([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\-]{0,399})$/u.exec(path)
+  // the address says a slug's letters by percent signs (silicon-serenade%C2%B2); the slug is what they spell
+  let said = path
+  try {
+    said = decodeURIComponent(path).normalize('NFC')
+  } catch {}
+  const asked = /^\/s\/([1-9]\d{0,399})\/([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\-]{0,399})$/u.exec(said)
   return asked ? { index: BigInt(asked[1]), number: BigInt(asked[1]).toLocaleString('en'), slug: asked[2] } : undefined
 }
 let replay = replayAt(location.pathname)
