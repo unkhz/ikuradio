@@ -80,6 +80,13 @@ export function excerptOf(card: Card): string {
   return sentence > 80 ? cut.slice(0, sentence + 1) : `${cut.slice(0, cut.lastIndexOf(' '))}…`
 }
 
+/**
+ * The page's first line of text, which a crawler reads first and a search quotes, said as `words`: a
+ * Song's excerpt on a Song's page, the radio's own tagline everywhere else. It is not drawn.
+ */
+export const aboutOf = (page: string, words: string): string =>
+  page.replace(/(<p id="about"[^>]*>)[^<]*(<\/p>)/, (_, open: string, close: string) => `${open}${escaped(words)}${close}`)
+
 /** A number as the page writes it. */
 const number = (n: string) => BigInt(n).toLocaleString('en')
 

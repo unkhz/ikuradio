@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Session } from 'archive'
-import { cardOf, excerptOf, headlineOf, rowsOf, speak, structured } from './speaks.js'
+import { aboutOf, cardOf, excerptOf, headlineOf, rowsOf, speak, structured } from './speaks.js'
 
 const page = `<html><head>
     <title>ikuradio</title>
@@ -125,5 +125,20 @@ describe('what a crawler is told', () => {
     const data = JSON.parse(structured(cardOf(plain, 'Listen close.'), 'https://ikurad.io/s/1234/x'))
     expect(data.description).toBe('Listen close.')
     expect(JSON.parse(structured(cardOf(plain), 'https://ikurad.io/s/1234/x')).description).toBeUndefined()
+  })
+})
+
+describe('the first line of text a crawler reads', () => {
+  const about = '<body><p id="about" class="visually-hidden">A lost receiver.</p><div id="controls" data-nosnippet></div></body>'
+
+  it('is said as the words asked, escaped, and nothing else is touched', () => {
+    expect(aboutOf(about, 'Listen, <b>the night</b> & "snow".')).toBe(
+      '<body><p id="about" class="visually-hidden">Listen, &lt;b&gt;the night&lt;/b&gt; &amp; &quot;snow&quot;.</p><div id="controls" data-nosnippet></div></body>',
+    )
+  })
+
+  it('is left alone if the page has none, and a $ in the words is only a $', () => {
+    expect(aboutOf('<body></body>', 'x')).toBe('<body></body>')
+    expect(aboutOf(about, 'costs $& and $1')).toContain('costs $&amp; and $1')
   })
 })

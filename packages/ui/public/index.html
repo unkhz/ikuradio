@@ -83,6 +83,18 @@
         -webkit-mask-image: linear-gradient(transparent, #000 35%);
         mask-image: linear-gradient(transparent, #000 35%);
       }
+      /* said to a crawler, and to a screen reader, and not drawn */
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        padding: 0;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
       p {
         margin: 0 0 1em;
         overflow-wrap: anywhere;
@@ -593,13 +605,15 @@
     </style>
   </head>
   <body>
+    <!-- what a crawler reads first: the Radio writes a Song's intro here, the radio's own words elsewhere -->
+    <p id="about" class="visually-hidden">A lost receiver, adrift online, still tuned to a song that never ends.</p>
     <canvas id="space" aria-hidden="true"></canvas>
     <div id="output"></div>
     <canvas id="rezzy" width="120" height="114" hidden aria-hidden="true"></canvas>
-    <div id="status"></div>
-    <div id="controls">
+    <div id="status" data-nosnippet></div>
+    <div id="controls" data-nosnippet>
       <div id="brand">
-        <img class="likeness" src="/receiver.svg" width="288" height="288" alt="A lost receiver, a little broken" />
+        <img class="likeness" src="/receiver.svg" width="288" height="288" alt="" />
         <img class="name" src="/wordmark.svg" width="294" height="54" alt="ikuradio" />
       </div>
       <div id="tune">
@@ -607,7 +621,7 @@
         <button id="play" type="button">tune to live</button>
       </div>
     </div>
-    <div id="promo" aria-hidden="true">
+    <div id="promo" aria-hidden="true" data-nosnippet>
       <div class="mark">
         <img class="likeness" src="/receiver.svg" width="288" height="288" alt="" />
         <img class="name" src="/wordmark.svg" width="294" height="54" alt="" />
@@ -615,6 +629,7 @@
       <p class="tagline">the song that never ends</p>
       <p class="address">listen on <b>ikurad.io</b></p>
     </div>
+    <div data-nosnippet style="display: contents">
     <button id="knob" type="button" aria-label="What the receiver knows" aria-expanded="false" aria-controls="panel">
       <svg viewBox="0 0 40 40" fill="currentColor" aria-hidden="true">
         <g><circle cx="32.0" cy="22.0" r="1.5"/><circle cx="31.2" cy="26.2" r="1.5"/><circle cx="28.8" cy="29.8" r="1.5"/><circle cx="25.2" cy="32.2" r="1.5"/><circle cx="21.0" cy="33.0" r="1.5"/><circle cx="16.8" cy="32.2" r="1.5"/><circle cx="13.2" cy="29.8" r="1.5"/><circle cx="10.8" cy="26.2" r="1.5"/><circle cx="10.0" cy="22.0" r="1.5"/><circle cx="10.8" cy="17.8" r="1.5"/><circle cx="13.2" cy="14.2" r="1.5"/><circle cx="16.8" cy="11.8" r="1.5"/><circle cx="21.0" cy="11.0" r="1.5"/><circle cx="25.2" cy="11.8" r="1.5"/><circle cx="28.8" cy="14.2" r="1.5"/><circle cx="31.2" cy="17.8" r="1.5"/></g>
@@ -622,7 +637,8 @@
         <g fill="var(--glow)"><circle cx="21.0" cy="22.0" r="1.6"/><circle cx="23.3" cy="19.7" r="1.6"/><circle cx="25.5" cy="17.5" r="1.6"/><circle cx="27.8" cy="15.2" r="1.9"/></g>
       </svg>
     </button>
-    <section id="panel" hidden aria-label="What the receiver knows">
+    </div>
+    <section id="panel" data-nosnippet hidden aria-label="What the receiver knows">
       <dl id="details"></dl>
       <figure id="thought" hidden>
         <figcaption>the mind</figcaption>
@@ -634,6 +650,7 @@
         <button id="autoplay" type="button" aria-pressed="false" hidden>autoplay</button>
       </nav>
     </section>
+    <div data-nosnippet style="display: contents">
     <dialog id="songs" aria-label="Songs received">
       <header>
         <span>every Song received, newest first</span>
@@ -650,6 +667,7 @@
         <button id="page-down" class="pager" type="button" aria-label="Older Songs">▼</button>
       </div>
     </dialog>
+    </div>
     <script type="module" src="/space.js"></script>
     <script src="/verses.js"></script>
     <script src="/dj.js"></script>

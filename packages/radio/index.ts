@@ -32,7 +32,7 @@ import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
 import { favouriteSongs, inTurn } from './lib/favourites.js'
 import critic from '../../critic/scientist.json' with { type: 'json' }
-import { cardOf, excerptOf, headlineOf, speak, type Card } from './lib/speaks.js'
+import { aboutOf, cardOf, excerptOf, headlineOf, speak, type Card } from './lib/speaks.js'
 
 const { SERVER_PORT, CACHE_PATH } = getEnv()
 
@@ -333,7 +333,7 @@ async function page(request: Request, url: URL, song?: bigint) {
     `<meta name="twitter:title" content="${escaped(title)}" />`,
     `<meta name="twitter:description" content="${escaped(description)}" />`,
   ].join('\n    ')
-  const told = speak(pageText.replace(/<!--meta-->[\s\S]*<!--\/meta-->/, () => meta), card, origin + url.pathname)
+  const told = speak(aboutOf(pageText.replace(/<!--meta-->[\s\S]*<!--\/meta-->/, () => meta), description), card, origin + url.pathname)
   return new Response(told, {
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
   })
