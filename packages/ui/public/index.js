@@ -65,6 +65,17 @@ function noticeVersions({ release, archiveVersion }) {
   }
 }
 
+/** Whether this page was reloaded to be updated while someone listened (a minute ago at most): it is, once, and then it is not. */
+function takeResume() {
+  try {
+    const at = Number(sessionStorage.getItem('ikuradio:resume'))
+    sessionStorage.removeItem('ikuradio:resume')
+    return at > 0 && Date.now() - at < 60_000
+  } catch {
+    return false
+  }
+}
+
 /** The release this page last reloaded for, so a Radio that keeps telling an old one does not send it round and round. */
 function reloadedFor() {
   try {
@@ -120,6 +131,10 @@ async function reloadForUpdate() {
   try {
     const { release } = await fetch(`${radio}/tactus`, { cache: 'no-store' }).then((r) => r.json())
     sessionStorage.setItem('ikuradio:reloaded', release)
+  } catch {}
+  // the page that comes back carries on listening by itself, where the listener was: not the front page, waiting for a click
+  try {
+    sessionStorage.setItem('ikuradio:resume', String(Date.now()))
   } catch {}
   location.reload()
 }
@@ -1589,7 +1604,9 @@ let replay = replayAt(location.pathname)
 // intro heard. Everything after the first entry, carrying on, the back button,
 // live, is not a visit, whatever address it lands on.
 // `?intro=0` leaves the intro out, for a capture of the Song's sound alone (packages/marketing)
-const introOff = new URLSearchParams(location.search).get('intro') === '0'
+// a page that carries on after an update has no use for an intro: it is not a visit
+const resuming = takeResume()
+const introOff = new URLSearchParams(location.search).get('intro') === '0' || resuming
 let entry = Boolean(replay) && !introOff
 
 // Carrying on (plan "Carry on listening"). A Song heard again ends, and the
@@ -2014,3 +2031,18 @@ async function listenLive(output, audioContext) {
 }
 
 document.getElementById('play').addEventListener('click', () => listen())
+
+// a page reloaded for an update carries on listening by itself. Where the browser will not sound without
+// a touch, it listens in silence and says so, and sounds at the first touch.
+if (resuming && !capturing && !looking) {
+  listen().then(() => {
+    const context = listening?.audioContext
+    context?.resume?.().catch(() => {})
+    setTimeout(() => {
+      if (!context || context.state === 'running') return
+      waiting('touch the screen to hear the receiver')
+      const wake = () => context.resume().then(() => context.state === 'running' && ['pointerdown', 'keydown'].forEach((name) => removeEventListener(name, wake)))
+      for (const name of ['pointerdown', 'keydown']) addEventListener(name, wake)
+    }, 1000)
+  })
+}
