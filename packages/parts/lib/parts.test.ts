@@ -71,7 +71,7 @@ describe('interchangeable', () => {
       expect(part).toBeInstanceOf(Part)
       expect(['written', 'none']).toContain(part.words)
       expect(['full', 'half']).toContain(part.ending)
-      expect(part.parameters.type).toBe('object')
+      expect((part.parameters as { type?: string }).type).toBe('object')
       const place = { iteration: 2548n, last: false }
       const phrases = part.phrases(firstTune, place)
       expect(Array.isArray(phrases)).toBe(true)

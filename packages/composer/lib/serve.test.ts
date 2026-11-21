@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { composer } from './serve.js'
 
 const partsLib = fileURLToPath(new URL('../../parts/lib/', import.meta.url))
-const typebox = Bun.resolveSync('@sinclair/typebox', partsLib)
+const typebox = Bun.resolveSync('typebox', partsLib)
 
 const get = async (answer: (request: Request) => Promise<Response>, path: string) => answer(new Request(`http://composer.test${path}`))
 

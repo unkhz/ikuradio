@@ -4,8 +4,8 @@
 // refused before anything is made. It lists every instance, in order, bridges included: nothing is
 // inserted by a rule. Instances with the same name sing the same words, so they must be the same part.
 
-import { Type, type Static, type TSchema } from '@sinclair/typebox'
-import { Value } from '@sinclair/typebox/value'
+import { Type, type Static, type TSchema } from 'typebox'
+import { Value } from 'typebox/value'
 import { Part, type Place } from './part.js'
 import type { PartRecord } from './registry.js'
 import { idSchema, parametersSchema, refusal } from './schema.js'

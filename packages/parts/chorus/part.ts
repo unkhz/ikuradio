@@ -1,4 +1,4 @@
-import { Type } from '@sinclair/typebox'
+import { Type } from 'typebox'
 import { chorusHook, type Phrase, type Tune } from 'melody'
 import { chorusOpening } from 'song'
 import { countOf, wordyMeasure } from '../lib/counting.js'

@@ -1,4 +1,4 @@
-import { Type } from '@sinclair/typebox'
+import { Type } from 'typebox'
 import { bridgeBeats, type Phrase } from 'melody'
 import { Part, type LineMeasure } from '../lib/part.js'
 import { melody } from '../lib/ranges.js'

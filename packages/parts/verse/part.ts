@@ -1,4 +1,4 @@
-import { Type } from '@sinclair/typebox'
+import { Type } from 'typebox'
 import type { Phrase, Tune } from 'melody'
 import { wordyMeasure } from '../lib/counting.js'
 import { Part, type LineContext, type LineMeasure } from '../lib/part.js'

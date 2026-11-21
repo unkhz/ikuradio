@@ -88,6 +88,8 @@ describe('what is refused', () => {
 
   it('a part that does not exist', () => {
     expect(refused((a) => (a.instances[0].part = 'refrain'))).toContain('/instances/0/part')
+    // and says which parts there are
+    expect(refused((a) => (a.instances[0].part = 'refrain'))).toContain('must be one of bridge, chorus, verse')
   })
 
   it('a parameter outside its range', () => {
@@ -98,6 +100,7 @@ describe('what is refused', () => {
 
   it('a parameter its part does not have', () => {
     expect(refused((a) => (a.instances[1].parameters = { wordiness: 0.5 }))).toContain('instance 2 ("bridge-1", a bridge)')
+    expect(refused((a) => (a.instances[1].parameters = { wordiness: 0.5 }))).toContain('wordiness')
   })
 
   it('one name for two parts', () => {

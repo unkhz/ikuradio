@@ -8,8 +8,8 @@
 // every part depends on what singing needs; a part that hums has the same
 // dependencies and does not use them.
 
-import type { TSchema } from '@sinclair/typebox'
-import { Value } from '@sinclair/typebox/value'
+import type { TSchema } from 'typebox'
+import { Value } from 'typebox/value'
 import type { Phrase, Tune } from 'melody'
 
 /** Where a part stands in its Song, for the parts that depend on it. */
