@@ -1,2 +1,4 @@
-// The data of the page: the page itself is drawn in step 7 of the plan "Evolution of Song".
-export default () => ({ comes: 'Step 7' })
+import { tuneAnswer } from '../../lib/making.js'
+
+/** The tune: its phrases, the verse evolving a step at a time, a Song's Variations. */
+export default () => tuneAnswer()

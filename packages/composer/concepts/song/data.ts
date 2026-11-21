@@ -1,2 +1,5 @@
-// The data of the page: the page itself is drawn in step 7 of the plan "Evolution of Song".
-export default () => ({ comes: 'Step 7' })
+import type { Context } from '../../lib/concepts.js'
+import { songAnswer } from '../../lib/making.js'
+
+/** The Song: what a Session records, and an Arrangement laid out as its parts would be. */
+export default ({ records, arrangementsDir, tempo }: Context) => songAnswer(records, arrangementsDir, tempo)

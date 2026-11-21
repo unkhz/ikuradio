@@ -141,7 +141,7 @@ nav { padding-top: 14px; }
 .weight span { position: absolute; inset: 0 auto 0 0; background: var(--shapes); opacity: 0.35; }
 .weight em { position: relative; font-size: 0.75rem; font-style: normal; padding-left: 8px; line-height: 1.3rem; }
 table.turns { table-layout: fixed; }
-table.turns td { border-bottom: none; font-size: 0.8rem; padding: 2px 6px 2px 0; word-break: break-word; overflow-wrap: anywhere; }
+table.turns td { border-bottom: none; font-size: 0.8rem; padding: 2px 6px 2px 0; word-break: normal; overflow-wrap: normal; }
 table.turns td:first-child { width: 45%; }
 .tree { margin-top: 8px; }
 .tree details { margin-left: 1rem; }
@@ -151,3 +151,19 @@ table.turns td:first-child { width: 45%; }
 .leaf-name { min-width: 11rem; }
 .leaf-value { color: var(--dim); font-size: 0.85rem; }
 .cards.tides { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+
+/* the pages of what a Song makes */
+.roll-box { overflow-x: auto; padding: 8px 0 4px; }
+.roll { display: block; background: #0f1119; border: 1px solid var(--line); border-radius: 6px; padding: 4px; }
+.step { margin: 10px 0; }
+.line { margin: 14px 0; }
+.line.unfit .roll { opacity: 0.5; }
+.slots { display: inline-flex; gap: 2px; vertical-align: middle; }
+.slots i { width: 8px; height: 14px; border: 1px solid var(--dim); border-radius: 2px; display: inline-block; }
+.slots i.on { background: var(--made); border-color: var(--made); }
+.slots em { color: var(--dim); font-style: normal; font-size: 0.8rem; }
+.count-block { margin: 12px 0; }
+.count-block h3 { margin: 0 0 4px; }
+.guide { width: 100%; max-width: 640px; height: auto; display: block; margin: 8px 0; }
+.songline { position: relative; height: 56px; background: #0f1119; border: 1px solid var(--line); border-radius: 6px; margin: 10px 0 16px; overflow: hidden; }
+.songpart { position: absolute; top: 4px; bottom: 4px; border-radius: 4px; color: #101015; font-size: 0.7rem; padding: 3px 4px; overflow: hidden; white-space: nowrap; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25); }

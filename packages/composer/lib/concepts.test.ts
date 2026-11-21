@@ -113,10 +113,14 @@ describe('the map, and the pages', () => {
     expect(await (await get(answer, '/arrangements.json?tempo=90')).json()).toEqual(asked)
   })
 
-  it('says, until its page is drawn, that it is not', async () => {
+  it('has a page for every concept: none is left saying it is not drawn yet', async () => {
     const answer = composer()
-    expect(await (await get(answer, '/tune.json')).json()).toEqual({ comes: 'Step 7' })
-    expect(await (await get(answer, '/song.json')).json()).toEqual({ comes: 'Step 7' })
+    const found = (await (await get(answer, '/concepts.json')).json()) as { id: string }[]
+    for (const { id } of found) {
+      const data = await (await get(answer, `/${id}.json`)).json()
+      expect(Object.keys(data as object)).not.toContain('comes')
+      expect(await (await get(answer, `/${id}/view.js`)).text()).not.toContain('is not drawn yet')
+    }
   })
 
   it('shows a concept nobody told the Composer of, linked, with no code changed', async () => {

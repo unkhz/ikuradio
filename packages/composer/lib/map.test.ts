@@ -81,6 +81,11 @@ describe('the map of the ten concepts', () => {
     expect(layout.boxes.filter((b) => b.band === 'made').map((b) => b.id)).toEqual(['tune', 'lyrics', 'score', 'beds', 'song'])
   })
 
+  it('begins just under the heading: nothing comes up into the top band, so it has no corridor above it', async () => {
+    const layout = mapOf(await readConcepts())
+    expect(Math.min(...layout.boxes.map((b) => b.y))).toBeLessThanOrEqual(2)
+  })
+
   it('arrives from above at the top of Tune and Lyrics, and leaves them from below or the side', async () => {
     const layout = mapOf(await readConcepts())
     const edges = (id: string) => ({ in: layout.arrows.filter((a) => a.to === id).map((a) => a.arrives), out: layout.arrows.filter((a) => a.from === id).map((a) => a.leaves) })
@@ -124,6 +129,8 @@ describe('made-up maps', () => {
     // one comes straight across, the other round under the band: both arrive at its left, where arrows arrive
     expect(intoMiddle.map((a) => a.arrives)).toEqual(['left', 'left'])
     expect(intoMiddle.map((a) => a.leaves).sort()).toEqual(['bottom', 'right'])
+    // and with an arrow coming up into the top band, there is a corridor above it to come by
+    expect(Math.min(...layout.boxes.map((b) => b.y))).toBeGreaterThanOrEqual(6)
     // a lead up arrives at the top, and leaves the side
     const up = layout.arrows.find((a) => a.to === 'up')!
     expect([up.leaves, up.arrives]).toEqual(['right', 'top'])

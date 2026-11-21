@@ -22,7 +22,7 @@ function drawConcept(root, data) {
   const active = data.perspectives.filter((p) => p.state === 'active')
   const cards = data.perspectives.map((p) => {
     const turns = p.turns.length
-      ? el('table', { className: 'turns' }, el('tbody', {}, ...p.turns.map((turn) => el('tr', {}, el('td', { textContent: turn.path.join('.') }), el('td', { textContent: `${show(turn.before)} → ${show(turn.after)}` })))))
+      ? el('table', { className: 'turns' }, el('tbody', {}, ...p.turns.map((turn) => el('tr', {}, el('td', {}, ...turn.path.flatMap((word, i) => (i ? [el('wbr'), `.${word}`] : [word]))), el('td', { textContent: `${show(turn.before)} → ${show(turn.after)}` })))))
       : el('p', { className: 'facts', textContent: 'Turns nothing from the defaults: what it asks for is already the usual.' })
     return el(
       'article',

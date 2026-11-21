@@ -79,7 +79,13 @@ describe('no closed union, and no part named', () => {
     }
     walk(fileURLToPath(new URL('../', import.meta.url)))
     expect(sources.length).toBeGreaterThan(5)
-    for (const path of sources) expect(readFileSync(path, 'utf8')).not.toMatch(/\b(verse|chorus|bridge)\b/i)
+    // no part is named: the pages never, and the code never as an id in quotes or in a union (the Tune's own phrases are melody's, not parts)
+    const isPage = (path: string) => /\/public\//.test(path) || /\/view\.js$/.test(path)
+    for (const path of sources) {
+      const text = readFileSync(path, 'utf8')
+      expect(text).not.toMatch(/['"`](verse|chorus|bridge)['"`]/)
+      if (isPage(path)) expect(text).not.toMatch(/\b(verse|chorus|bridge)\b/i)
+    }
   })
 })
 

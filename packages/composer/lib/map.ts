@@ -35,8 +35,13 @@ export function mapOf(concepts: readonly Lead[]): MapLayout {
   // room at the left for the bands' names, and the gutter beside it for the arrows that go round
   const pad = gap + 1.5
   const width = pad * 2 + columns * box.width + (columns - 1) * gap
-  const bandTop = (row: number) => corridor + row * (box.height + corridor)
-  const height = rowsUsed.length * (box.height + corridor) + corridor
+  // the corridor above the first band is there for arrows that come up into it; with none, the drawing begins just under the heading
+  const rowOfBand = new Map(rowsUsed.map(({ id }, row) => [id, row]))
+  const bandOf = new Map(concepts.map((concept) => [concept.id, rowOfBand.get(concept.band)!]))
+  const comesUp = concepts.some((concept) => concept.leads.some((lead) => bandOf.get(lead) === 0 && bandOf.get(concept.id)! > 0))
+  const top = comesUp ? corridor : 1.5
+  const bandTop = (row: number) => top + row * (box.height + corridor)
+  const height = bandTop(rowsUsed.length - 1) + box.height + corridor
 
   const boxes: Cell[] = []
   rowsUsed.forEach(({ id }, row) =>
@@ -54,7 +59,7 @@ export function mapOf(concepts: readonly Lead[]): MapLayout {
     return best
   }
   // corridor k lies above band k; corridor `rows` lies under the last
-  const corridorY = (k: number) => k * (box.height + corridor) + corridor / 2
+  const corridorY = (k: number) => (k === 0 ? top / 2 : bandTop(k - 1) + box.height + corridor / 2)
   const lanes = new Map<string, number>()
   const lane = (key: string) => {
     const n = lanes.get(key) ?? 0

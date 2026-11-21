@@ -16,12 +16,14 @@ function curveOf(tide, song, window) {
   const [from, to] = window
   const [lo, hi] = tide.range
   const x = (position) => left + ((position - from) / (to - from)) * (width - left - right)
-  const y = (value) => top + (1 - (value - lo) / (hi - lo)) * (height - top - bottom)
+  // the curve is drawn so that its peak is up: a Tide whose peak is below its rest (the ceiling falls as the melody climbs) is flipped, and the ends of the axis say the values
+  const flipped = tide.envelope.max < tide.envelope.min
+  const y = (value) => top + (flipped ? (value - lo) / (hi - lo) : 1 - (value - lo) / (hi - lo)) * (height - top - bottom)
   const path = tide.curve.map(([position, value], i) => `${i ? 'L' : 'M'}${x(position).toFixed(1)} ${y(value).toFixed(1)}`).join(' ')
   const tick = (value) => svgNode('text', { x: left - 6, y: y(value) + 4, fill: 'var(--dim)', 'font-size': 11, 'text-anchor': 'end' }, number(value))
   return svgNode(
     'svg',
-    { viewBox: `0 0 ${width} ${height}`, class: 'curve', role: 'img', 'aria-label': `${tide.title}: its value over the Songs around ${song}` },
+    { viewBox: `0 0 ${width} ${height}`, class: 'curve', role: 'img', 'aria-label': `${tide.title}: its value over the Songs around ${song}${flipped ? ', drawn with its peak up' : ''}` },
     svgNode('rect', { x: left, y: top, width: width - left - right, height: height - top - bottom, fill: 'none', stroke: 'var(--line)' }),
     svgNode('line', { x1: left, x2: width - right, y1: y(tide.envelope.min), y2: y(tide.envelope.min), stroke: 'var(--dim)', 'stroke-dasharray': '3 4', opacity: 0.6 }),
     svgNode('line', { x1: left, x2: width - right, y1: y(tide.envelope.max), y2: y(tide.envelope.max), stroke: 'var(--dim)', 'stroke-dasharray': '3 4', opacity: 0.6 }),
@@ -44,7 +46,7 @@ function drawConcept(root, first) {
     cards.replaceChildren(
       ...data.tides.map((tide) => {
         const { envelope } = tide
-        const facts = [`moves ${tide.moves.facet}${tide.moves.part ? `.${tide.moves.part}` : ''}.${tide.moves.setting}`, `can be ${tide.range[0]} to ${tide.range[1]}`, `a cycle lasts ${envelope.age[0]} to ${envelope.age[1]} Songs`, `rests at ${number(envelope.min)}, peaks at ${number(envelope.max)}`, `rises ${Math.round(envelope.attack * 100)}%, holds ${Math.round(envelope.hold * 100)}%, falls ${Math.round(envelope.decay * 100)}% of a cycle`]
+        const facts = [`${tide.envelope.max < tide.envelope.min ? 'falls in number as it climbs: drawn with its peak up' : 'climbs as its number rises'}`, `moves ${tide.moves.facet}${tide.moves.part ? `.${tide.moves.part}` : ''}.${tide.moves.setting}`, `can be ${tide.range[0]} to ${tide.range[1]}`, `a cycle lasts ${envelope.age[0]} to ${envelope.age[1]} Songs`, `rests at ${number(envelope.min)}, peaks at ${number(envelope.max)}`, `rises ${Math.round(envelope.attack * 100)}%, holds ${Math.round(envelope.hold * 100)}%, falls ${Math.round(envelope.decay * 100)}% of a cycle`]
         if (envelope.noise) facts.push(`wanders by ${Math.round(envelope.noise * 100)}% of its swing`)
         return el(
           'article',
