@@ -144,7 +144,7 @@ What to build, and nothing more:
 - `packages/parts/lib/part.ts`: the abstract `Part` class and its types (`LineContext`, `LineMeasure`, `Place`). Start from the sketch above; change it where building shows it is wrong, and say why in the commit.
 - `packages/parts/verse/`, `chorus/`, `bridge/`: each a `part.ts` whose default export is an instance of its subclass, and a short `part.md` saying what the part is, in the voice of the other records (`packages/tides/verse-ceiling/tide.md` is a good model).
 - `packages/parts/lib/registry.ts`: finds the parts by reading the package's folders, as `packages/tides/lib/tides.ts` does, and returns them by id. No list of ids written anywhere in code.
-- `packages/parts/lib/schema.ts`: the part ids, and each part's parameters, as TypeBox schemas made from what the registry found. Add `@sinclair/typebox` with an exact version.
+- `packages/parts/lib/schema.ts`: the part ids, and each part's parameters, as TypeBox schemas made from what the registry found. Use TypeBox 1.x, the package `typebox` (imports from `typebox` and `typebox/value`), not the 0.x `@sinclair/typebox`, at an exact version (1.4.7 when this was written). The scientist decided this after f1cbfb1, which had used 0.34.41.
 - `packages/parts/index.ts`: exports the class, the registry and the schemas.
 
 What the three parts declare, from the code as it is today:
