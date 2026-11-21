@@ -1,52 +1,59 @@
-// The Composer's page: it names no part. Everything it shows comes from /parts.json, /arrangements.json
-// and /check, and every rule about an Arrangement is the server's: the page never repeats one.
+// The page of the Arrangements: the ones there are, drawn, and an editor for one at a time. It names no part, and repeats
+// no rule: every rule about an Arrangement is the server's, asked at /check. The markup is static; everything the page
+// shows comes from /parts.json, /arrangements.json and /check, built with textContent: the only innerHTML is the static
+// markup below, which holds no data.
 
-/** A colour from a part's id, computed and never looked up: the same id is always the same colour. */
-function colour(id) {
-  let h = 0
-  for (const letter of id) h = (h * 31 + letter.charCodeAt(0)) >>> 0
-  return `hsl(${h % 360} 58% 62%)`
-}
+const arrangementMarkup = `
+<section aria-labelledby="arrangements">
+        <h2 id="arrangements">Arrangements</h2>
+        <div class="controls">
+          <label>Arrangement <select id="which"></select></label>
+          <label>Tempo <input id="tempo" type="number" min="20" max="300" step="1" value="72" /> bpm</label>
+          <span id="total" class="total"></span>
+        </div>
+        <p id="about" class="about"></p>
+        <div class="scroll"><div id="diagram" class="diagram"></div></div>
+        <ul class="key" id="key"></ul>
+        <table class="order" id="order"></table>
+      </section>
 
-const el = (tag, props = {}, ...children) => {
-  const node = Object.assign(document.createElement(tag), props)
-  node.append(...children)
-  return node
-}
-const $ = (id) => document.getElementById(id)
+      <section aria-labelledby="edit">
+        <h2 id="edit">Edit</h2>
+        <p class="about">Start from a copy of an Arrangement, from nothing, or from a file. Every change is checked by the Composer, and an Arrangement it accepts can be saved as a file to put in the repository.</p>
+        <div class="controls">
+          <label>A copy of <select id="start"></select></label>
+          <button id="copy" type="button">Copy it</button>
+          <button id="empty" type="button">Start empty</button>
+          <label class="file">Open a file <input id="open" type="file" accept=".json,application/json" /></label>
+        </div>
+        <div id="editor" hidden>
+          <div class="controls fields">
+            <label>Id <input id="draft-id" type="text" autocomplete="off" spellcheck="false" /></label>
+            <label>Title <input id="draft-title" type="text" class="wide" autocomplete="off" /></label>
+          </div>
+          <ol id="instances" class="instances"></ol>
+          <div class="controls">
+            <label>Add a <select id="add-part"></select></label>
+            <button id="add" type="button">Add</button>
+          </div>
+          <div id="verdict" class="verdict" role="status"></div>
+          <div class="controls">
+            <button id="save" type="button" disabled>Save as a file</button>
+            <span id="edit-total" class="total"></span>
+          </div>
+          <div id="edit-view" class="view">
+            <div class="scroll"><div id="edit-diagram" class="diagram"></div></div>
+            <ul class="key" id="edit-key"></ul>
+            <table class="order" id="edit-order"></table>
+          </div>
+        </div>
+      </section>
+`
 
-const seconds = (value) => `${value.toFixed(1)} s`
-const beatsOf = (value) => `${Number.isInteger(value) ? value : value.toFixed(1)} beats`
-const growsWords = "grows with the Song's age"
-
-let parts = []
-let arrangements = []
-
-// ---- the parts
-
-function showParts() {
-  $('cards').replaceChildren(
-    ...parts.map((part) => {
-      const facts = [part.words === 'written' ? 'words written by the mind' : 'no words', part.ending === 'full' ? 'ends at home' : 'ends open', part.beats ? `fixed at ${beatsOf(part.beats)}` : 'as long as its lines']
-      const rows = part.parameters.flatMap((p) => [
-        el('tr', { className: 'main' }, el('td', { textContent: p.name }), el('td', { textContent: `${p.minimum ?? '…'} to ${p.maximum ?? '…'}` }), el('td', { textContent: p.default ?? '' })),
-        ...(p.description ? [el('tr', {}, el('td', { className: 'desc', colSpan: 3, textContent: p.description }))] : []),
-      ])
-      const table = el('table', {}, el('thead', {}, el('tr', {}, ...['parameter', 'range', 'usual'].map((name) => el('th', { textContent: name })))), el('tbody', {}, ...rows))
-      const card = el(
-        'article',
-        { className: `card${part.state === 'active' ? '' : ' retired'}` },
-        el('h3', { textContent: part.title }),
-        el('div', { className: 'id', textContent: `${part.id}${part.state === 'active' ? '' : ` · ${part.state}`}` }),
-        el('p', { textContent: part.text }),
-        el('div', { className: 'facts', textContent: facts.join(' · ') }),
-        part.parameters.length ? table : el('p', { className: 'facts', textContent: 'No parameters.' }),
-      )
-      card.style.setProperty('--colour', colour(part.id))
-      return card
-    }),
-  )
-}
+function drawConcept(root) {
+  root.innerHTML = arrangementMarkup
+  let parts = []
+  let arrangements = []
 
 // ---- drawing a layout, in the viewer and in the editor
 
@@ -372,7 +379,6 @@ async function load() {
     if (arrangements.some((a) => a.id === before)) select.value = before
   }
   $('add-part').replaceChildren(...activeParts().map((p) => el('option', { value: p.id, textContent: p.id })))
-  showParts()
   showArrangement()
   // the draft a reload would have lost, if there was one
   if (!draft) {
@@ -384,6 +390,8 @@ async function load() {
   }
 }
 
-$('which').addEventListener('change', showArrangement)
-$('tempo').addEventListener('change', load)
-load()
+
+  $('which').addEventListener('change', showArrangement)
+  $('tempo').addEventListener('change', load)
+  load()
+}

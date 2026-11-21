@@ -1,30 +1,19 @@
-// What the Composer answers: the page, the parts as JSON, the Arrangements as JSON with their layouts. Made from the
-// parts and Arrangements the packages find, so a part added as a folder is shown without a line of code changed here.
+// What the Composer answers: the map and the concepts' pages, the parts and Arrangements as JSON, and the check of
+// a draft. Made from the parts, Arrangements and concepts the packages find and the folders hold, so a part or a
+// concept added as a folder is shown without a line of code changed here. The Composer writes no file.
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { firstTune } from 'melody'
-import { arrangementsHome, readArrangements, readParts, refuseArrangement, type Arrangement, type PartRecord } from 'parts'
+import { arrangementsHome, readParts, refuseArrangement, type Arrangement } from 'parts'
+import { arrangementsAnswer, partsAnswer } from './answers.js'
+import { conceptsHome, readConcepts } from './concepts.js'
 import { layoutOf } from './layout.js'
 
 const publicHome = fileURLToPath(new URL('../public/', import.meta.url))
 
 const types: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' }
-
-type Parameter = { name: string; minimum?: number; maximum?: number; default?: number; description?: string }
-
-/** A part's parameters, with their ranges, defaults and words, read from its schema. */
-function parametersOf({ part }: PartRecord): Parameter[] {
-  const { properties = {} } = part.parameters as { properties?: Record<string, Omit<Parameter, 'name'>> }
-  return Object.entries(properties).map(([name, { minimum, maximum, default: given, description }]) => ({
-    name,
-    ...(minimum !== undefined ? { minimum } : {}),
-    ...(maximum !== undefined ? { maximum } : {}),
-    ...(given !== undefined ? { default: given } : {}),
-    ...(description !== undefined ? { description } : {}),
-  }))
-}
 
 /** The tempo a request asks for: a number from 20 to 300, else the usual 72. */
 function tempoOf(url: URL): number {
@@ -32,45 +21,40 @@ function tempoOf(url: URL): number {
   return Number.isFinite(asked) && asked >= 20 && asked <= 300 ? asked : 72
 }
 
-/** The Composer's answers, given where its parts and Arrangements live. */
-export function composer({ partsHome, arrangementsDir = arrangementsHome }: { partsHome?: string; arrangementsDir?: string } = {}) {
+const typeOf = (file: string) => types[file.slice(file.lastIndexOf('.'))]
+
+/** The Composer's answers, given where its parts, Arrangements and concepts live. */
+export function composer({ partsHome, arrangementsDir = arrangementsHome, conceptsDir = conceptsHome }: { partsHome?: string; arrangementsDir?: string; conceptsDir?: string } = {}) {
   const json = (value: unknown) => Response.json(value, { headers: { 'cache-control': 'no-cache' } })
+  const file = (path: string) => {
+    try {
+      return new Response(readFileSync(path), { headers: { 'content-type': typeOf(path)!, 'cache-control': 'no-cache' } })
+    } catch {
+      return new Response(null, { status: 404 })
+    }
+  }
 
   return async function answer(request: Request): Promise<Response> {
     const url = new URL(request.url)
+    try {
+      return await route(request, url)
+    } catch (error) {
+      // a folder that is not whole is said, loudly, and not hidden
+      return new Response(`${(error as Error).message}\n`, { status: 500, headers: { 'content-type': 'text/plain; charset=utf-8' } })
+    }
+  }
+
+  async function route(request: Request, url: URL): Promise<Response> {
     const records = await readParts(partsHome)
 
-    if (url.pathname === '/parts.json') {
-      return json(
-        records.map((record) => ({
-          id: record.part.id,
-          title: record.title,
-          text: record.text,
-          state: record.state,
-          words: record.part.words,
-          ending: record.part.ending,
-          ...(record.part.beats !== undefined ? { beats: record.part.beats } : {}),
-          parameters: parametersOf(record),
-        })),
-      )
+    if (url.pathname === '/concepts.json') {
+      return json((await readConcepts(conceptsDir)).map(({ id, title, band, leads, line, more, state }) => ({ id, title, band, leads, line, more, state })))
     }
 
-    if (url.pathname === '/arrangements.json') {
-      const tempo = tempoOf(url)
-      const parts = new Map(records.map(({ part }) => [part.id, part]))
-      return json(
-        readArrangements(records, arrangementsDir).map(({ arrangement, title, text, state }) => ({
-          id: arrangement.id,
-          title,
-          text,
-          state,
-          declaration: arrangement,
-          layout: layoutOf(arrangement, parts, firstTune, tempo),
-        })),
-      )
-    }
+    // the Arrangements, as the editor asks for them
+    if (url.pathname === '/arrangements.json') return json(arrangementsAnswer(records, arrangementsDir, tempoOf(url)))
 
-    // the only thing that is asked of a draft, and the only place its rules are kept: the Composer writes no file
+    // the only thing that is asked of a draft, and the only place its rules are kept
     if (url.pathname === '/check') {
       if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
       const text = await request.text()
@@ -87,14 +71,20 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome }: { pa
       return json({ layout: layoutOf(draft as Arrangement, parts, firstTune, tempoOf(url)) })
     }
 
-    const file = url.pathname === '/' ? 'index.html' : url.pathname.slice(1)
-    if (/^[a-z0-9.-]+$/.test(file) && types[file.slice(file.lastIndexOf('.'))]) {
-      try {
-        return new Response(readFileSync(join(publicHome, file)), { headers: { 'content-type': types[file.slice(file.lastIndexOf('.'))]! } })
-      } catch {
-        // not there: not found, below
+    // a concept: its page, its script, and its data
+    const concept = /^\/([a-z0-9]+(?:-[a-z0-9]+)*)(\.json|\/|\/view\.js)$/.exec(url.pathname)
+    if (concept) {
+      const [, id, rest] = concept
+      const found = (await readConcepts(conceptsDir)).find((candidate) => candidate.id === id)
+      if (found) {
+        if (rest === '/') return file(join(publicHome, 'concept.html'))
+        if (rest === '/view.js') return file(join(found.dir, 'view.js'))
+        return json(await found.data({ records, arrangementsDir, tempo: tempoOf(url) }))
       }
     }
+
+    const name = url.pathname === '/' ? 'index.html' : url.pathname.slice(1)
+    if (/^[a-z0-9.-]+$/.test(name) && typeOf(name)) return file(join(publicHome, name))
     return new Response(null, { status: 404 })
   }
 }

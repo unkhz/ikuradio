@@ -35,7 +35,7 @@ try {
   page.on('pageerror', (error) => {
     throw new Error(`round trip: the page: ${error.message}`)
   })
-  await page.goto(base)
+  await page.goto(`${base}/arrangement/`)
   await page.waitForSelector('#diagram .block')
 
   // start from a copy, give it a name of its own

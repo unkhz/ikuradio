@@ -92,3 +92,28 @@ input[type="text"] { width: 12em; }
 .card tr.main td { border-bottom: none; padding-top: 6px; }
 .card tr.main td:nth-child(2) { white-space: nowrap; }
 .file input { max-width: 14em; }
+
+/* the map, and the pages of the concepts */
+:root { --shapes: #e8806f; --edits: #a98be0; --made: #46b8a8; }
+nav a { color: var(--dim); text-decoration: none; }
+nav a:hover { color: var(--words); }
+.pending { color: var(--dim); border: 1px dashed var(--line); padding: 14px 16px; border-radius: 8px; max-width: 60ch; }
+header .about p { margin: 0.5rem 0; max-width: 70ch; }
+
+.map { position: relative; display: flex; flex-direction: column; gap: 64px; padding: 36px 28px 40px; overflow-x: auto; }
+.map .arrows { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: visible; }
+.map .band { position: relative; z-index: 1; --band: var(--dim); }
+.map .band.shapes { --band: var(--shapes); }
+.map .band.edits { --band: var(--edits); }
+.map .band.made { --band: var(--made); }
+.map .band h2 { margin: 0 0 10px; color: var(--band); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.boxes { display: flex; flex-wrap: nowrap; gap: 28px; }
+.box { display: flex; flex-direction: column; gap: 4px; flex: 1 1 0; min-width: 10rem; max-width: 16rem; padding: 10px 14px; border: 1px solid var(--band); border-left-width: 6px; border-radius: 8px; background: var(--panel); color: var(--words); text-decoration: none; }
+.box strong { color: var(--band); font-size: 1.05rem; }
+.box span { color: var(--dim); font-size: 0.85rem; }
+.box:hover, .box:focus-visible { background: #1d2030; outline: none; }
+.arrows path.lead { stroke: var(--dim); stroke-width: 1.6; opacity: 0.8; color: var(--dim); }
+.arrows path.lead.shapes { stroke: var(--shapes); color: var(--shapes); }
+.arrows path.lead.edits { stroke: var(--edits); color: var(--edits); }
+.arrows path.lead.made { stroke: var(--made); color: var(--made); }
+nav { padding-top: 14px; }

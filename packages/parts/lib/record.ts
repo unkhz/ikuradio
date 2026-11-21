@@ -4,7 +4,7 @@
 export type RecordState = 'draft' | 'active' | 'retired'
 
 /** What a record says: its state and slug, its title (the heading), and the words under it. `where` names the folder, for the error. */
-export function parseRecord(text: string, where: string, what: string): { slug: string; title: string; state: RecordState; text: string } {
+export function parseRecord(text: string, where: string, what: string): { slug: string; title: string; state: RecordState; text: string; fields: Record<string, string> } {
   const match = /^---\n([\s\S]*?)\n---\n/.exec(text)
   if (!match) throw new Error(`${where}: ${what} record begins with frontmatter`)
   const fields = Object.fromEntries(
@@ -16,5 +16,5 @@ export function parseRecord(text: string, where: string, what: string): { slug: 
   const body = text.slice(match[0].length)
   const title = /^# (.+)$/m.exec(body)?.[1]?.trim() ?? fields.slug
   const words = body.replace(/^# .+$/m, '').trim()
-  return { slug: fields.slug as string, title: title as string, state: fields.state as RecordState, text: words }
+  return { slug: fields.slug as string, title: title as string, state: fields.state as RecordState, text: words, fields: fields as Record<string, string> }
 }

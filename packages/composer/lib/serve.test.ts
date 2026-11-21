@@ -14,7 +14,7 @@ describe('the real parts and Arrangements', () => {
   const answer = composer()
 
   it('answers the page and the files it needs', async () => {
-    for (const path of ['/', '/composer.css', '/composer.js']) expect((await get(answer, path)).status).toBe(200)
+    for (const path of ['/', '/map.js', '/composer.css', '/concept.js', '/parts/', '/parts/view.js', '/arrangement/', '/arrangement/view.js']) expect((await get(answer, path)).status).toBe(200)
     expect((await get(answer, '/nothing.js')).status).toBe(404)
     expect((await get(answer, '/..%2Fpackage.json')).status).toBe(404)
   })
