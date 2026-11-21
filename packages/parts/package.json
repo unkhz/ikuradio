@@ -1,0 +1,18 @@
+{
+  "name": "parts",
+  "version": "1.0.0",
+  "description": "The parts a Song is made of, each a module: what it sings, how it counts, how it ends",
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@sinclair/typebox": "0.34.41",
+    "melody": "workspace:*",
+    "song": "workspace:*",
+    "vocals": "workspace:*"
+  },
+  "devDependencies": {
+    "perspectives": "workspace:*",
+    "tides": "workspace:*"
+  }
+}

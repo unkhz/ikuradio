@@ -69,6 +69,20 @@
         "vocals": "workspace:*",
       },
     },
+    "packages/parts": {
+      "name": "parts",
+      "version": "1.0.0",
+      "dependencies": {
+        "@sinclair/typebox": "0.34.41",
+        "melody": "workspace:*",
+        "song": "workspace:*",
+        "vocals": "workspace:*",
+      },
+      "devDependencies": {
+        "perspectives": "workspace:*",
+        "tides": "workspace:*",
+      },
+    },
     "packages/perspectives": {
       "name": "perspectives",
       "version": "1.0.0",
@@ -143,6 +157,8 @@
   "packages": {
     "@chenglou/pretext": ["@chenglou/pretext@1.0.0", "", {}, "sha512-BxKiDMxWJhyzL8asvcgg3T9YnUU7OUFsKO8oRaR2SYAPX4Sh2wM9gqTBjrBaZ4fnl84cEQ8czC0Q1M83z3chsA=="],
 
+    "@sinclair/typebox": ["@sinclair/typebox@0.34.41", "", {}, "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="],
+
     "@types/bun": ["@types/bun@1.4.4", "", { "dependencies": { "bun-types": "1.4.4" } }, "sha512-9wkRDXUXK124pEnAutE6n/l18j+i9GC5IAHK8TmX/2nlySETmky0OU6yL5U8pW1AoKh++AN9auDCr647BfurjQ=="],
 
     "@types/node": ["@types/node@26.6.6", "", { "dependencies": { "undici-types": "~8.9.0" } }, "sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog=="],
@@ -164,6 +180,8 @@
     "mood": ["mood@workspace:packages/mood"],
 
     "music": ["music@workspace:packages/music"],
+
+    "parts": ["parts@workspace:packages/parts"],
 
     "perspectives": ["perspectives@workspace:packages/perspectives"],
 
