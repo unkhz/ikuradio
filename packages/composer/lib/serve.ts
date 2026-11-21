@@ -83,7 +83,7 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
       if (found) {
         if (rest === '/') return file(join(publicHome, 'concept.html'))
         if (rest === '/view.js') return file(join(found.dir, 'view.js'))
-        return json(await found.data({ records, arrangementsDir, tempo: tempoOf(url) }))
+        return json(await found.data({ records, arrangementsDir, tempo: tempoOf(url), query: url.searchParams }))
       }
     }
 

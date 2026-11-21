@@ -1,2 +1,4 @@
-// The data of the page: the page itself is drawn in step 6 of the plan "Evolution of Song".
-export default () => ({ comes: 'Step 6' })
+import { moodAnswer } from '../../lib/shaping.js'
+
+/** The Mood: what it holds, the weather it draws from, the modes and the range of tempo, as the packages say them. */
+export default () => moodAnswer()

@@ -1,2 +1,4 @@
-// The data of the page: the page itself is drawn in step 6 of the plan "Evolution of Song".
-export default () => ({ comes: 'Step 6' })
+import { perspectivesAnswer } from '../../lib/shaping.js'
+
+/** Every Perspective with what it turns, and the Settings as a tree. */
+export default () => perspectivesAnswer()

@@ -1,9 +1,9 @@
 import { firstCharacter, type Character } from 'melody'
-import { hear, settle } from './lib/character.js'
+import { fastest, hear, settle, slowest, stride } from './lib/character.js'
 import { firstWeather, weather } from './lib/weather.js'
 import { forecast, isWeather } from './lib/forecast.js'
 
-export { hear, settle, weather, firstWeather, forecast, isWeather }
+export { hear, settle, weather, firstWeather, forecast, isWeather, slowest, fastest, stride }
 
 /**
  * The weather a Song grows in. Every Iteration of a Song shares one Mood.

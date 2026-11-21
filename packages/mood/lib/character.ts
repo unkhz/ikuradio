@@ -8,10 +8,11 @@
 import { modes, type Breath, type Character, type ModeName, type Singer } from 'melody'
 import { ask, Unshapely } from 'tools'
 
-const slowest = 56
-const fastest = 132
+/** The slowest and the fastest tempo a Mood may have, in beats per minute. */
+export const slowest = 56
+export const fastest = 132
 /** How far the tempo may move between two Songs, in beats per minute. */
-const stride = 16
+export const stride = 16
 
 const schema = {
   type: 'object',

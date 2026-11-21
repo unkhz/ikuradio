@@ -115,8 +115,8 @@ describe('the map, and the pages', () => {
 
   it('says, until its page is drawn, that it is not', async () => {
     const answer = composer()
-    expect(await (await get(answer, '/mood.json')).json()).toEqual({ comes: 'Step 6' })
     expect(await (await get(answer, '/tune.json')).json()).toEqual({ comes: 'Step 7' })
+    expect(await (await get(answer, '/song.json')).json()).toEqual({ comes: 'Step 7' })
   })
 
   it('shows a concept nobody told the Composer of, linked, with no code changed', async () => {

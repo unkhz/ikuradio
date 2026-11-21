@@ -17,7 +17,7 @@ export const bands = [
 export type Band = (typeof bands)[number]['id']
 
 /** What a data.ts is given: the parts and where the Arrangements are, and a tempo. */
-export type Context = { records: readonly PartRecord[]; arrangementsDir: string; tempo: number }
+export type Context = { records: readonly PartRecord[]; arrangementsDir: string; tempo: number; query: URLSearchParams }
 
 export type Concept = {
   id: string
