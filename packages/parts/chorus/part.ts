@@ -1,5 +1,5 @@
 import { Type } from '@sinclair/typebox'
-import type { Phrase, Tune } from 'melody'
+import { chorusHook, type Phrase, type Tune } from 'melody'
 import { chorusOpening } from 'song'
 import { countOf, wordyMeasure } from '../lib/counting.js'
 import { Part, type LineContext, type LineMeasure, type Place } from '../lib/part.js'
@@ -19,8 +19,9 @@ class Chorus extends Part {
 
   measure({ line, tune, tempo, rate, parameters }: LineContext): LineMeasure {
     const phrase = tune.chorus[line % tune.chorus.length]!
-    if (line === 0) return { ...countOf(phrase, tempo, rate), grows: true }
-    return wordyMeasure(phrase, tempo, rate, parameters.wordiness ?? 0.5)
+    // the line that has a reciting note grows on it, a bar at a time: melody says which
+    if (chorusHook[line % chorusHook.length]?.reciting !== undefined) return { ...countOf(phrase, tempo, rate), grows: true }
+    return wordyMeasure(phrase, tempo, rate, this.given(parameters).wordiness!)
   }
 
   phrases(tune: Tune): Phrase[] {

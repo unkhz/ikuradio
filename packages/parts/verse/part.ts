@@ -12,7 +12,7 @@ class Verse extends Part {
   readonly parameters = Type.Object({ wordiness: wordiness(), ...melody() })
 
   measure({ line, tune, tempo, rate, parameters }: LineContext): LineMeasure {
-    return wordyMeasure(tune.verse[line % tune.verse.length]!, tempo, rate, parameters.wordiness ?? 0.5)
+    return wordyMeasure(tune.verse[line % tune.verse.length]!, tempo, rate, this.given(parameters).wordiness!)
   }
 
   phrases(tune: Tune): Phrase[] {

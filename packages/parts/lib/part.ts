@@ -9,6 +9,7 @@
 // dependencies and does not use them.
 
 import type { TSchema } from '@sinclair/typebox'
+import { Value } from '@sinclair/typebox/value'
 import type { Phrase, Tune } from 'melody'
 
 /** Where a part stands in its Song, for the parts that depend on it. */
@@ -51,6 +52,11 @@ export abstract class Part {
   readonly beats?: number
   /** Its parameters and their ranges, as a TypeBox schema: wordiness, ceiling, span, travel. */
   abstract readonly parameters: TSchema
+
+  /** A part's parameters as its instance sets them, with the schema's defaults filled in for those not set: the one place a default is said is the schema. */
+  protected given(parameters: Readonly<Record<string, number>>): Readonly<Record<string, number>> {
+    return Value.Default(this.parameters, { ...parameters }) as Record<string, number>
+  }
 
   /** THE interchangeable contract: how many syllables line `line` should carry and may carry, and whether it may grow past its bars. */
   abstract measure(line: LineContext): LineMeasure

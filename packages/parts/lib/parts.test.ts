@@ -41,9 +41,22 @@ describe('equivalence with what the Studio counts a line by today', () => {
   })
 })
 
+describe('parameters not set take the schema\'s defaults', () => {
+  it('a line counted with no parameters is counted as the usual wordiness counts it', () => {
+    for (const id of ['verse', 'chorus']) {
+      for (const line of [0, 1, 2, 3]) {
+        const asked = (parameters: Record<string, number>) => byId.get(id)!.measure({ line, tune: firstTune, tempo: 72, rate, parameters })
+        expect(asked({})).toEqual(asked({ wordiness: usualLyrics.wordiness }))
+      }
+    }
+  })
+})
+
 describe("the Archive's ids", () => {
-  it('verse, chorus and bridge can never go', () => {
-    for (const id of ['verse', 'chorus', 'bridge']) expect(byId.has(id)).toBe(true)
+  it('verse, chorus and bridge can never go: they exist, whatever their state', () => {
+    // a retired part is still read, and still in the Archive: it has not gone
+    const found = new Set(records.map(({ part }) => part.id))
+    for (const id of ['verse', 'chorus', 'bridge']) expect(found.has(id)).toBe(true)
   })
 
   it('a part is found by its folder, and says its folder as its id', () => {
