@@ -30,8 +30,11 @@
       "version": "1.0.0",
       "dependencies": {
         "melody": "workspace:*",
+        "mood": "workspace:*",
         "parts": "workspace:*",
+        "perspectives": "workspace:*",
         "playwright-core": "1.65.1",
+        "tides": "workspace:*",
       },
     },
     "packages/dj": {
