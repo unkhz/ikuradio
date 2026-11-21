@@ -40,7 +40,8 @@ export function refusal(schema: TSchema, value: unknown): string | undefined {
   if (!error) return undefined
   const where = error.instancePath || '/'
   if (error.keyword === 'additionalProperties') return `${where} ${error.message}: ${((error.params as { additionalProperties: string[] }).additionalProperties).join(', ')}`
-  const allowed = errors.filter(({ keyword }) => keyword === 'const').map(({ params }) => String((params as { allowedValue?: unknown }).allowedValue))
+  // only the options for this one place: another instance's are not this one's
+  const allowed = errors.filter(({ keyword, instancePath }) => keyword === 'const' && instancePath === error.instancePath).map(({ params }) => String((params as { allowedValue?: unknown }).allowedValue))
   if (error.keyword === 'const' && allowed.length > 1) return `${where} must be one of ${allowed.join(', ')}`
   return `${where} ${error.message}`
 }

@@ -68,3 +68,27 @@ th, td { text-align: left; padding: 3px 6px 3px 0; border-bottom: 1px solid var(
 th { color: var(--dim); font-weight: 600; }
 .retired { opacity: 0.6; }
 @media (max-width: 600px) { body { font-size: 14px; } }
+
+/* the editor */
+button { background: var(--panel); color: var(--words); border: 1px solid var(--line); padding: 4px 12px; font: inherit; cursor: pointer; border-radius: 4px; }
+button:hover:not(:disabled) { border-color: var(--dim); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+input.wide { width: 22em; max-width: 100%; }
+input[type="text"] { width: 12em; }
+.instances { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-left: 6px solid var(--colour, var(--line)); border-radius: 6px; padding: 8px 10px; }
+.row .n { color: var(--dim); width: 1.6em; text-align: right; }
+.row .shares { color: var(--dim); font-size: 0.8rem; }
+.row .params { display: flex; flex-wrap: wrap; gap: 6px 14px; flex-basis: 100%; padding-left: 2.4em; }
+.param { display: flex; flex-direction: column; gap: 1px; font-size: 0.85rem; }
+.param input { width: 6em; }
+.param small { color: var(--dim); max-width: 26em; }
+.verdict { margin: 12px 0; padding: 8px 12px; border-radius: 6px; min-height: 2.4em; background: var(--panel); border: 1px solid var(--line); color: var(--dim); }
+.verdict.refused { color: #ffb4a8; border-color: #8a3a30; }
+.verdict.accepted { color: #b8e0b0; }
+.view.dim { opacity: 0.4; }
+.block .grows { font-size: 0.75rem; font-style: italic; }
+.card td.desc { color: var(--dim); font-size: 0.8rem; padding-bottom: 8px; }
+.card tr.main td { border-bottom: none; padding-top: 6px; }
+.card tr.main td:nth-child(2) { white-space: nowrap; }
+.file input { max-width: 14em; }

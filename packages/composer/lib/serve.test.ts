@@ -82,3 +82,50 @@ describe('no closed union, and no part named', () => {
     for (const path of sources) expect(readFileSync(path, 'utf8')).not.toMatch(/\b(verse|chorus|bridge)\b/i)
   })
 })
+
+describe('POST /check', () => {
+  const answer = composer()
+  const check = async (body: unknown, query = '') => (await answer(new Request(`http://composer.test/check${query}`, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) }))).json() as Promise<{ refusal?: string; layout?: { tempo: number; beats: number; instances: { name: string }[] } }>
+
+  it('gives the Song the layout /arrangements.json gives', async () => {
+    const [song] = (await (await get(answer, '/arrangements.json?tempo=80')).json()) as { id: string; layout: unknown }[]
+    const declared = JSON.parse(readFileSync(fileURLToPath(new URL('../../parts/arrangements/the-song/arrangement.json', import.meta.url)), 'utf8'))
+    expect((await check(declared, '?tempo=80')) as unknown).toEqual({ layout: song!.layout })
+  })
+
+  it('says each refusal in its words', async () => {
+    const good = () => JSON.parse(readFileSync(fileURLToPath(new URL('../../parts/arrangements/the-song/arrangement.json', import.meta.url)), 'utf8'))
+    const refused = async (change: (a: any) => void) => {
+      const a = good()
+      change(a)
+      return (await check(a)).refusal
+    }
+    expect(await refused((a) => (a.instances[0].part = 'refrain'))).toContain('must be one of')
+    expect(await refused((a) => (a.instances[0].parameters = { wordiness: 3 }))).toContain('/wordiness')
+    expect(await refused((a) => (a.instances[1].parameters = { wordiness: 0.5 }))).toContain('must not have additional properties: wordiness')
+    expect(await refused((a) => (a.instances[1].name = 'verse-1'))).toContain('one name, one part')
+    expect(await refused((a) => (a.instances = []))).toContain('/instances')
+    expect((await check('{ not json')).refusal).toContain('not JSON')
+  })
+
+  it('takes only a POST', async () => {
+    expect((await get(answer, '/check')).status).toBe(405)
+  })
+
+  it('accepts an Arrangement of a part nobody told it of, from a temporary folder', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'parts-'))
+    const dir = join(home, 'refrain')
+    mkdirSync(dir)
+    writeFileSync(join(dir, 'part.md'), '---\nstate: active\nid: 7\nkind: part\nslug: refrain\n---\n# The refrain returns\n\nEight beats.\n')
+    writeFileSync(
+      join(dir, 'part.ts'),
+      `import { Type } from '${typebox}'\nimport { Part } from '${partsLib}part.ts'\nclass Refrain extends Part {\n  readonly id = 'refrain'\n  readonly words = 'none'\n  readonly ending = 'half'\n  readonly beats = 8\n  readonly parameters = Type.Object({ echoes: Type.Number({ minimum: 1, maximum: 4, default: 2 }) })\n  measure() { return { target: 0, most: 0, grows: false } }\n  phrases() { return [] }\n}\nexport default new Refrain()\n`,
+    )
+    const made = composer({ partsHome: home })
+    const asked = await made(new Request('http://composer.test/check', { method: 'POST', body: JSON.stringify({ id: 'r', title: 'R', instances: [{ name: 'a', part: 'refrain', parameters: { echoes: 3 } }, { name: 'b', part: 'refrain' }] }) }))
+    const { layout } = (await asked.json()) as { layout: { beats: number } }
+    expect(layout.beats).toBe(16)
+    const refused = await made(new Request('http://composer.test/check', { method: 'POST', body: JSON.stringify({ id: 'r', title: 'R', instances: [{ name: 'a', part: 'refrain', parameters: { echoes: 9 } }] }) }))
+    expect(((await refused.json()) as { refusal: string }).refusal).toContain('/echoes')
+  })
+})

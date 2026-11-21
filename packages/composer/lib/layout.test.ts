@@ -24,6 +24,10 @@ describe('the Song laid out at 72 bpm', () => {
     for (const placed of layout.instances.filter(({ part }) => part === 'chorus')) expect(placed.beats).toBe(sum(firstTune.chorus))
   })
 
+  it('marks the parts that may grow with the Song\'s age: the chorus, and none of the others', () => {
+    expect(layout.instances.filter(({ grows }) => grows).map(({ part }) => part)).toEqual(['chorus', 'chorus'])
+  })
+
   it('has its starts add up, with no gaps', () => {
     let at = 0
     for (const placed of layout.instances) {

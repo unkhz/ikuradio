@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { firstTune } from 'melody'
-import { arrangementsHome, readArrangements, readParts, type PartRecord } from 'parts'
+import { arrangementsHome, readArrangements, readParts, refuseArrangement, type Arrangement, type PartRecord } from 'parts'
 import { layoutOf } from './layout.js'
 
 const publicHome = fileURLToPath(new URL('../public/', import.meta.url))
@@ -24,6 +24,12 @@ function parametersOf({ part }: PartRecord): Parameter[] {
     ...(given !== undefined ? { default: given } : {}),
     ...(description !== undefined ? { description } : {}),
   }))
+}
+
+/** The tempo a request asks for: a number from 20 to 300, else the usual 72. */
+function tempoOf(url: URL): number {
+  const asked = Number(url.searchParams.get('tempo') ?? 72)
+  return Number.isFinite(asked) && asked >= 20 && asked <= 300 ? asked : 72
 }
 
 /** The Composer's answers, given where its parts and Arrangements live. */
@@ -50,8 +56,7 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome }: { pa
     }
 
     if (url.pathname === '/arrangements.json') {
-      const asked = Number(url.searchParams.get('tempo') ?? 72)
-      const tempo = Number.isFinite(asked) && asked >= 20 && asked <= 300 ? asked : 72
+      const tempo = tempoOf(url)
       const parts = new Map(records.map(({ part }) => [part.id, part]))
       return json(
         readArrangements(records, arrangementsDir).map(({ arrangement, title, text, state }) => ({
@@ -59,9 +64,27 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome }: { pa
           title,
           text,
           state,
+          declaration: arrangement,
           layout: layoutOf(arrangement, parts, firstTune, tempo),
         })),
       )
+    }
+
+    // the only thing that is asked of a draft, and the only place its rules are kept: the Composer writes no file
+    if (url.pathname === '/check') {
+      if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
+      const text = await request.text()
+      if (text.length > 1_000_000) return json({ refusal: 'an Arrangement is a small thing; this one is not' })
+      let draft: unknown
+      try {
+        draft = JSON.parse(text)
+      } catch (error) {
+        return json({ refusal: `that is not JSON: ${(error as Error).message}` })
+      }
+      const refusal = refuseArrangement(draft, records)
+      if (refusal) return json({ refusal })
+      const parts = new Map(records.map(({ part }) => [part.id, part]))
+      return json({ layout: layoutOf(draft as Arrangement, parts, firstTune, tempoOf(url)) })
     }
 
     const file = url.pathname === '/' ? 'index.html' : url.pathname.slice(1)

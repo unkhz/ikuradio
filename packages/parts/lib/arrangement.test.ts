@@ -108,6 +108,15 @@ describe('what is refused', () => {
     expect(message).toContain('the name "verse-1" is already a verse; one name, one part')
   })
 
+  it('two instances wrong: the options told are the first one\'s, not both mixed', () => {
+    const message = refused((a) => {
+      a.instances[0].part = 'refrain'
+      a.instances[1].part = 'interlude'
+    })!
+    expect(message).toContain('/instances/0/part must be one of bridge, chorus, verse')
+    expect(message.match(/bridge/g)).toHaveLength(1)
+  })
+
   it('no instances', () => {
     expect(refused((a) => (a.instances = []))).toContain('/instances')
   })

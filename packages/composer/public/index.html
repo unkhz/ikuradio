@@ -26,6 +26,38 @@
         <table class="order" id="order"></table>
       </section>
 
+      <section aria-labelledby="edit">
+        <h2 id="edit">Edit</h2>
+        <p class="about">Start from a copy of an Arrangement, from nothing, or from a file. Every change is checked by the Composer, and an Arrangement it accepts can be saved as a file to put in the repository.</p>
+        <div class="controls">
+          <label>A copy of <select id="start"></select></label>
+          <button id="copy" type="button">Copy it</button>
+          <button id="empty" type="button">Start empty</button>
+          <label class="file">Open a file <input id="open" type="file" accept=".json,application/json" /></label>
+        </div>
+        <div id="editor" hidden>
+          <div class="controls fields">
+            <label>Id <input id="draft-id" type="text" autocomplete="off" spellcheck="false" /></label>
+            <label>Title <input id="draft-title" type="text" class="wide" autocomplete="off" /></label>
+          </div>
+          <ol id="instances" class="instances"></ol>
+          <div class="controls">
+            <label>Add a <select id="add-part"></select></label>
+            <button id="add" type="button">Add</button>
+          </div>
+          <div id="verdict" class="verdict" role="status"></div>
+          <div class="controls">
+            <button id="save" type="button" disabled>Save as a file</button>
+            <span id="edit-total" class="total"></span>
+          </div>
+          <div id="edit-view" class="view">
+            <div class="scroll"><div id="edit-diagram" class="diagram"></div></div>
+            <ul class="key" id="edit-key"></ul>
+            <table class="order" id="edit-order"></table>
+          </div>
+        </div>
+      </section>
+
       <section aria-labelledby="parts">
         <h2 id="parts">Parts</h2>
         <div id="cards" class="cards"></div>
