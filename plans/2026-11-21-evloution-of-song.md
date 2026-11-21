@@ -198,6 +198,53 @@ The proof, as tests in `packages/parts`:
 
 Then message the Composer session for review.
 
+Built as 6fac7e9. Where building changed it:
+
+- `refuseArrangement(value, records)` takes the parts it checks against, because the registry is asynchronous.
+- The full `arrangementSchema(records)` and `refuseArrangement` agree on everything the schema can express, and a test holds them to it. Only `refuseArrangement` can say "one name, one part", and it says everything plainly.
+- An Arrangement's record is an arkku kind, `arrangement`, with the same frontmatter as a part's.
+- A `Place`'s `before` and `after` carry part ids. If a later step needs the neighbours' instance names, they are added beside the ids, not in their place.
+
+### Step 3 in detail: composer, to look
+
+What to build, and nothing more:
+
+- `packages/composer/`, a workspace package added to `lint` and `test`, depending on `parts` and `melody` only: no mind, no music, no Archive, no Studio.
+- `packages/composer/lib/layout.ts`: `layoutOf(arrangement, parts, tune, tempo)`, a plain function, tested, that gives each instance what the diagram draws:
+  - its name and part id;
+  - its start and length in beats, and in seconds at `tempo`. A part with `beats` lasts that long. A part with phrases lasts as long as its phrases' notes, summed from the notes as `melody` gives them; if melody has no function for this, export one there.
+  - its ending from `ending(part, place)`;
+  - its neighbours from `placesOf`;
+  - whether its words are heard elsewhere in the Arrangement: the other indices with the same name.
+- `packages/composer/index.ts`: a `Bun.serve` on `COMPOSER_PORT` (default 3200), started with `bun run composer`. It answers:
+  - `/`: the page.
+  - `/parts.json`: every part the registry finds, with its record's title and text, `words`, `ending`, `beats`, and its parameters with their ranges, defaults and descriptions, read from its schema.
+  - `/arrangements.json`: every Arrangement, each with its layout at the first tune and a tempo the request may give (`?tempo=`, default 72).
+- The page lives in `packages/composer/public/`: plain HTML, CSS and a classic script, as the Receiver's page is, with no framework. It shows:
+  - **The parts**: a card for each, with its title, its record's words, what it is (written or none, how it ends, its beats if fixed), and a table of its parameters: name, range, default, description.
+  - **An Arrangement**, chosen from a list, drawn as a diagram. Its instances stand in order along one line, each as wide as its beats. The colour comes from the part id; the colour is computed from the id, never looked up from a list of them. A tempo control redraws it in seconds.
+    - Instances that share words are joined, or marked alike.
+    - A part with no words says where it runs from and to.
+    - Each part's end is marked as home (`full`) or open (`half`).
+  - Nothing on the page can be changed yet; that is step 4.
+- The page and the server name no part id. Everything they show comes from the JSON.
+
+The proof:
+
+- **Layout tests**: for `the-song` at 72 bpm:
+  - the ten instances are in order;
+  - each bridge lasts 16 beats;
+  - each written part lasts as long as its phrases;
+  - the starts add up with no gaps;
+  - the two `chorus` instances point at each other;
+  - the endings and neighbours are those step 2 proved.
+- **Interchangeable**: a test adds a made-up part in a temporary parts folder and checks that `/parts.json` and the layout include it without any code changes. If the registry can't yet be pointed at another folder for this, give it that option (it already takes `home`).
+- **No closed union** in `packages/composer`, as in parts.
+- **Seen**: run it on xitra, capture the page at `the-song` with Playwright (as `packages/marketing` captures), and include the image's path in the review message, so the Composer session can look at it.
+- `bun run lint` and `bun run test` pass.
+
+Then message the Composer session for review.
+
 ### Still open
 
 - **The Intro as a part.** It could be a part whose making waits for its Song to have aired, played or not by what triggers it. It is decided when the other parts are written out and it can be seen whether anything in the intro cannot be a parameter.
