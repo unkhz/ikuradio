@@ -289,6 +289,8 @@ The proof:
 
 Then message the Composer session for review. After step 4 the plan's own steps are done; step 5's pieces are each a plan of their own, which the scientist starts.
 
+Built as e2b1e38 and reviewed: steps 1 to 4 are done. `bun run composer` serves the page on `COMPOSER_PORT` (3200). `bun packages/composer/roundtrip.ts <url> <folder>` proves the round trip again against a running Composer; it needs Chrome, so it is run by hand, not in `bun run test`. Nothing in the Studio, the Radio, the Receiver or the Archive has changed.
+
 ### Still open
 
 - **The Intro as a part.** It could be a part whose making waits for its Song to have aired, played or not by what triggers it. It is decided when the other parts are written out and it can be seen whether anything in the intro cannot be a parameter.
