@@ -22,7 +22,7 @@ import { createWriteStream, existsSync, mkdirSync, renameSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { getEnv } from 'tools'
 import { archiveAddress, paths, type ArchiveIndex } from 'archive'
-import { liveReached, waitingAfter, type Told } from './lib/beat.js'
+import { liveReached, nextWork, waitingAfter, type Told } from './lib/beat.js'
 
 const { RADIO_URL, SONGS_AHEAD } = getEnv()
 /** The Studio beside the Heart, where it is called in. */
@@ -77,6 +77,10 @@ function keep(child: ChildProcess, file = studioLog, who = 'the Studio') {
 let studio: ChildProcess | undefined
 /** Until when the Heart asks for no more intros, because none was needed or the last run fell. */
 let introsRestUntil = 0
+/** When the run that makes intros was last called in. */
+let introsAt = 0
+/** How often, while no slack comes, intros are made before the next Studio: a few every twelve minutes. */
+const introsEvery = 12 * 60_000
 let resting = false
 let deaf = false
 /**
@@ -113,9 +117,10 @@ async function listen() {
   if (deaf) console.log('the Radio can be heard again')
   deaf = false
   const waiting = waitingAfter(index?.songs ?? [], radio)
-  if (waiting >= SONGS_AHEAD) {
-    // enough Songs wait: the slack is for the intros of Songs that have aired
-    if (Date.now() >= introsRestUntil) makeIntros()
+  const work = nextWork({ waiting, ahead: SONGS_AHEAD, since: introsAt, every: introsEvery, restUntil: introsRestUntil, now: Date.now() })
+  if (work !== 'studio') {
+    // enough Songs wait: the slack is for the intros of Songs that have aired; or intros are owed a share of the time
+    if (work === 'intros') makeIntros(waiting < SONGS_AHEAD)
     return
   }
   console.log(`${waiting} Songs waiting, ${SONGS_AHEAD} wanted: the Studio is called in`)
@@ -140,9 +145,11 @@ async function listen() {
  * does not ask again for ten minutes; with anything else it fell, and the
  * Heart waits a minute.
  */
-function makeIntros() {
-  console.log('enough Songs wait: the slack is for intros')
-  const called = spawn('bun', [`${studioHome}intro.ts`], { cwd: studioHome, stdio: ['ignore', 'pipe', 'pipe'] })
+function makeIntros(owed = false) {
+  console.log(owed ? 'intros are owed a share: a few are made before the next Studio' : 'enough Songs wait: the slack is for intros')
+  introsAt = Date.now()
+  // a share is taken while one Song waits, and gives way only when none does
+  const called = spawn('bun', [`${studioHome}intro.ts`, ...(owed ? ['--waiting', '1'] : [])], { cwd: studioHome, stdio: ['ignore', 'pipe', 'pipe'] })
   studio = called
   keep(called, introLog, 'the run that makes intros')
   called.on('exit', (code) => {

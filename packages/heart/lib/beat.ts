@@ -27,3 +27,21 @@ export function liveReached(tactus: { playing: Told; next: Told }): string | und
 export function waitingAfter(songs: readonly string[], reached: string | null): number {
   return songs.filter((song) => reached === null || after(song, reached)).length
 }
+
+/** What the Heart does on a beat: calls in a Studio, runs the intros, or lets be. */
+export type Work = 'studio' | 'intros' | 'rest'
+
+/**
+ * What the Heart does next, with `waiting` Songs ahead of the Radio and `ahead` wanted. When enough
+ * Songs wait, the slack is for intros. But a Studio that keeps pace with the Radio leaves no slack
+ * (a Song is made in about seven minutes and sung in eight or nine, and the next is begun as one
+ * is taken), so intros that wait for slack never come, and neither do the new Songs' own. So when
+ * a Song does wait, and no intros have been made for `every` milliseconds (`since` is when they
+ * last were asked for), a few are made before the next Studio is called. `restUntil` is when the
+ * Heart last learned that none is needed, or that the run fell.
+ */
+export function nextWork({ waiting, ahead, since, every, restUntil, now }: { waiting: number; ahead: number; since: number; every: number; restUntil: number; now: number }): Work {
+  const owed = waiting >= 1 && now - since >= every
+  if (waiting >= ahead || owed) return now >= restUntil ? 'intros' : waiting >= ahead ? 'rest' : 'studio'
+  return 'studio'
+}

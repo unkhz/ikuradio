@@ -63,13 +63,16 @@ console.log(`the Archive is ${where}; ${wanted.length} Songs that have aired nee
 if (args.includes('--list')) process.exit(0)
 if (!wanted.length) process.exit(3)
 
+/** How many Songs must wait for the run to go on: the Heart's number, or fewer when the Heart asks for a share of the time. */
+const keepWaiting = Number(option('--waiting') ?? SONGS_AHEAD)
+
 /** Whether a Studio is wanted: fewer Songs wait than the Heart wants, counted after the one the Radio has reached. */
 async function yields() {
   const [index, now] = await Promise.all([read<{ songs: string[] }>(new URL(paths.index, where.endsWith('/') ? where : `${where}/`)), read<typeof tactus>(new URL('tactus', RADIO_URL))])
   if (!index || !now) return false
   const reached = now.next?.song ?? now.playing?.song
   const waiting = reached === undefined ? index.songs.length : index.songs.filter((song) => BigInt(song) > BigInt(reached)).length
-  return waiting < SONGS_AHEAD
+  return waiting < keepWaiting
 }
 
 const mind = new Sleeper()
