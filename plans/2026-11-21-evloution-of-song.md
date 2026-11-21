@@ -167,6 +167,37 @@ The proof, as tests in `packages/parts`:
 
 Then message the Composer session for review.
 
+Built as f1cbfb1. Where building changed the sketch above:
+
+- `words` and `ending` are abstract: every part says them, none inherits them.
+- `measure` and `fixedLine` take the line's number as `line`.
+- `instruction` is not on the class yet. The verse's instruction is a private constant in `packages/song`, and the chorus's is built inside `pickChorus` from the throat's pronouncing dictionary when the mind is asked. It joins the class when the Studio moves.
+- The parameter ranges are kept in `packages/parts/lib/ranges.ts`, since parts sit above the Tides, not beside them. A test holds them equal to the Tides' `validRange` and the usual Settings.
+
+### Step 2 in detail: the first Arrangement
+
+What to build, and nothing more:
+
+- `packages/parts/lib/arrangement.ts`: the Arrangement schema, made from the registry, as the part schemas are. An Arrangement is `{ id, title, instances }`, and an instance is `{ name, part, parameters? }`: `part` is a part id the registry found, and `parameters` is checked by that part's own parameter schema. Export `arrangementSchema(records)`, and `refuseArrangement(value)` that gives the first thing wrong, said plainly, or nothing.
+- What the schema alone cannot say is checked beside it, in the same refusal:
+  - instances with the same `name` must name the same `part`, since they sing the same words;
+  - an Arrangement has at least one instance.
+- `packages/parts/arrangements/`: one folder for each Arrangement, as the parts have, each with an `arrangement.json` and an `arrangement.md` saying what it is. The first is `arrangements/the-song/`: today's Song written out, all ten instances in order, bridges included. Nothing is inserted by a rule.
+- Its instances, by name: `verse-1`, `bridge-1`, `chorus`, `bridge-2`, `verse-2`, `bridge-3`, `chorus`, `bridge-4`, `verse-3`, `final-chorus`. `final-chorus` is a `verse`, as `Lyrics.finalChorus` is today. The bridges have names of their own, one each, because each runs between different neighbours.
+- `placesOf(arrangement, iteration)` in the same file: each instance's `Place` (`before`, `after`, `last`, `iteration`). Add `ending(part, place)`, which gives `'full'` when the place is last and otherwise the part's `ending`. That is how a place says otherwise, as the sketch promised.
+- The registry finds the Arrangements by their folders, as it finds the parts. A folder whose `arrangement.json` is refused fails loudly, naming the folder and the refusal.
+
+The proof, as tests in `packages/parts`:
+
+- **Equivalence with `arrange()`**: for any `Lyrics`, `arrange(lyrics)` in `packages/song` gives, part for part, the instance's part id as its `type`. For each instance with words, the Lyrics field whose content `arrange()` puts there is the same field every time that instance's name appears. Write a small map in the test, from instance name to Lyrics field (`verse-1` to `firstVerse` … `final-chorus` to `finalChorus`); the map is the test's, not the package's.
+- **The same cadences**: `ending(part, place)` for every instance equals what `perform.ts` says today (`part === 'chorus' || last ? 'full' : 'half'`). Write the rule out in the test; don't import perform.
+- **The same journeys**: each bridge's `before` and `after` are the parts `arrange()` puts on either side of it.
+- **Refusals**: a part that does not exist, a parameter outside its range, a parameter its part does not have, one name used for two parts, and no instances are each refused, with a message that says which.
+- **Interchangeable still**: nothing in `arrangement.ts` names a part id. The no-closed-union test covers the new files.
+- `bun run lint` and `bun run test` pass.
+
+Then message the Composer session for review.
+
 ### Still open
 
 - **The Intro as a part.** It could be a part whose making waits for its Song to have aired, played or not by what triggers it. It is decided when the other parts are written out and it can be seen whether anything in the intro cannot be a parameter.
