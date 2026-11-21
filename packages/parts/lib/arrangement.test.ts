@@ -9,7 +9,7 @@ import { readParts } from './registry.js'
 
 const records = await readParts()
 const byId = new Map(records.map(({ part }) => [part.id, part]))
-const [first] = readArrangements(records)
+const first = readArrangements(records).find(({ arrangement }) => arrangement.id === 'the-song')
 const theSong = first!.arrangement
 
 const lyrics: Lyrics = {

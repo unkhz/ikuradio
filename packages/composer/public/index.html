@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Composer · ikuradio</title>
+    <link rel="stylesheet" href="/composer.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Composer</h1>
+      <p class="lede">The parts a Song is made of, and the Arrangements that put them in order. To look at, for now.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="arrangements">
+        <h2 id="arrangements">Arrangements</h2>
+        <div class="controls">
+          <label>Arrangement <select id="which"></select></label>
+          <label>Tempo <input id="tempo" type="number" min="20" max="300" step="1" value="72" /> bpm</label>
+          <span id="total" class="total"></span>
+        </div>
+        <p id="about" class="about"></p>
+        <div class="scroll"><div id="diagram" class="diagram"></div></div>
+        <ul class="key" id="key"></ul>
+        <table class="order" id="order"></table>
+      </section>
+
+      <section aria-labelledby="parts">
+        <h2 id="parts">Parts</h2>
+        <div id="cards" class="cards"></div>
+      </section>
+    </main>
+
+    <script src="/composer.js"></script>
+  </body>
+</html>

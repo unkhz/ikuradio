@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'bun:test'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { composer } from './serve.js'
+
+const partsLib = fileURLToPath(new URL('../../parts/lib/', import.meta.url))
+const typebox = Bun.resolveSync('@sinclair/typebox', partsLib)
+
+const get = async (answer: (request: Request) => Promise<Response>, path: string) => answer(new Request(`http://composer.test${path}`))
+
+describe('the real parts and Arrangements', () => {
+  const answer = composer()
+
+  it('answers the page and the files it needs', async () => {
+    for (const path of ['/', '/composer.css', '/composer.js']) expect((await get(answer, path)).status).toBe(200)
+    expect((await get(answer, '/nothing.js')).status).toBe(404)
+    expect((await get(answer, '/..%2Fpackage.json')).status).toBe(404)
+  })
+
+  it('answers every part, with its record, what it is, and its parameters with their ranges', async () => {
+    const found = (await (await get(answer, '/parts.json')).json()) as { id: string; title: string; text: string; words: string; ending: string; parameters: { name: string; minimum?: number; maximum?: number; default?: number }[] }[]
+    expect(found.map(({ id }) => id).sort()).toEqual(['bridge', 'chorus', 'verse'])
+    const verse = found.find(({ id }) => id === 'verse')!
+    expect(verse.title).toBeTruthy()
+    expect(verse.text.length).toBeGreaterThan(20)
+    expect(verse.parameters.find(({ name }) => name === 'wordiness')).toMatchObject({ minimum: 0, maximum: 1, default: 0.5 })
+    expect(found.find(({ id }) => id === 'bridge')).toMatchObject({ words: 'none', beats: 16 })
+  })
+
+  it('answers every Arrangement with its layout, at a tempo that may be asked for', async () => {
+    const [song] = (await (await get(answer, '/arrangements.json?tempo=90')).json()) as { id: string; layout: { tempo: number; instances: unknown[] } }[]
+    expect(song!.id).toBe('the-song')
+    expect(song!.layout.tempo).toBe(90)
+    expect(song!.layout.instances).toHaveLength(10)
+    // a tempo that is not one is the usual
+    expect(((await (await get(answer, '/arrangements.json?tempo=nonsense')).json()) as { layout: { tempo: number } }[])[0]!.layout.tempo).toBe(72)
+  })
+})
+
+describe('a part nobody has told the Composer of', () => {
+  it('is shown, and laid out, without a line of code changed', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'parts-'))
+    const dir = join(home, 'refrain')
+    mkdirSync(dir)
+    writeFileSync(join(dir, 'part.md'), '---\nstate: active\nid: 7\nkind: part\nslug: refrain\n---\n# The refrain returns\n\nEight beats of nothing but itself.\n')
+    writeFileSync(
+      join(dir, 'part.ts'),
+      `import { Type } from '${typebox}'\nimport { Part } from '${partsLib}part.ts'\nclass Refrain extends Part {\n  readonly id = 'refrain'\n  readonly words = 'none'\n  readonly ending = 'half'\n  readonly beats = 8\n  readonly parameters = Type.Object({ echoes: Type.Number({ minimum: 1, maximum: 4, default: 2, description: 'How many times it returns' }) })\n  measure() { return { target: 0, most: 0, grows: false } }\n  phrases() { return [] }\n}\nexport default new Refrain()\n`,
+    )
+    const arrangements = mkdtempSync(join(tmpdir(), 'arrangements-'))
+    const one = join(arrangements, 'only-refrain')
+    mkdirSync(one)
+    writeFileSync(join(one, 'arrangement.md'), '---\nstate: active\nid: 1\nkind: arrangement\nslug: only-refrain\n---\n# Only the refrain\n\nIt comes, and comes.\n')
+    writeFileSync(join(one, 'arrangement.json'), JSON.stringify({ id: 'only-refrain', title: 'Only the refrain', instances: [{ name: 'a', part: 'refrain' }, { name: 'b', part: 'refrain', parameters: { echoes: 3 } }] }))
+
+    const answer = composer({ partsHome: home, arrangementsDir: arrangements })
+    const parts = (await (await get(answer, '/parts.json')).json()) as { id: string; title: string; beats: number; parameters: { name: string; maximum: number }[] }[]
+    expect(parts).toHaveLength(1)
+    expect(parts[0]).toMatchObject({ id: 'refrain', title: 'The refrain returns', beats: 8 })
+    expect(parts[0]!.parameters[0]).toMatchObject({ name: 'echoes', maximum: 4 })
+    const [shown] = (await (await get(answer, '/arrangements.json')).json()) as { layout: { beats: number; instances: { part: string; start: number }[] } }[]
+    expect(shown!.layout.beats).toBe(16)
+    expect(shown!.layout.instances.map(({ part, start }) => [part, start])).toEqual([['refrain', 0], ['refrain', 8]])
+  })
+})
+
+describe('no closed union, and no part named', () => {
+  it('names no part anywhere in the Composer, in code or in its page', () => {
+    const sources: string[] = []
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        if (name === 'node_modules') continue
+        const path = join(dir, name)
+        if (statSync(path).isDirectory()) walk(path)
+        else if (/\.(ts|js|html|css)$/.test(name) && !name.endsWith('.test.ts')) sources.push(path)
+      }
+    }
+    walk(fileURLToPath(new URL('../', import.meta.url)))
+    expect(sources.length).toBeGreaterThan(5)
+    for (const path of sources) expect(readFileSync(path, 'utf8')).not.toMatch(/\b(verse|chorus|bridge)\b/i)
+  })
+})

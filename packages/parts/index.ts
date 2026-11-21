@@ -3,6 +3,7 @@
 // schemas Arrangements are checked by are made from what it found.
 
 export { Part, type LineContext, type LineMeasure, type Place } from './lib/part.js'
+export { parseRecord, type RecordState } from './lib/record.js'
 export { partsById, partsHome, readParts, type PartRecord } from './lib/registry.js'
 export { arrangementSchema, ending, isArrangement, placesOf, refuseArrangement, type Arrangement, type Instance } from './lib/arrangement.js'
 export { arrangementsHome, readArrangements, type ArrangementRecord } from './lib/arrangements.js'

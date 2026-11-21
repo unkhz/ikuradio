@@ -279,6 +279,9 @@ export function setGuide({
   }
 }
 
+/** How long a phrase takes, its rest included, in beats: the line as the tune first has it, before any words bend or grow it. */
+export const phraseBeats = ({ notes, rest }: Phrase): number => notes.reduce((sum, [, beats]) => sum + beats, 0) + rest
+
 /** How long a line takes, rest included, in seconds. */
 export function scoreSeconds(score: Score): number {
   const beats = score.notes.reduce((sum, [, b]) => sum + b, 0)
