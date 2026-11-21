@@ -6,7 +6,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@sinclair/typebox": "0.34.41",
+    "@sinclair/typebox": "0.34.52",
     "melody": "workspace:*",
     "song": "workspace:*",
     "vocals": "workspace:*"
