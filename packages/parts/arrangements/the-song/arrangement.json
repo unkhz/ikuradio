@@ -1,0 +1,16 @@
+{
+  "id": "the-song",
+  "title": "The Song",
+  "instances": [
+    { "name": "verse-1", "part": "verse" },
+    { "name": "bridge-1", "part": "bridge" },
+    { "name": "chorus", "part": "chorus" },
+    { "name": "bridge-2", "part": "bridge" },
+    { "name": "verse-2", "part": "verse" },
+    { "name": "bridge-3", "part": "bridge" },
+    { "name": "chorus", "part": "chorus" },
+    { "name": "bridge-4", "part": "bridge" },
+    { "name": "verse-3", "part": "verse" },
+    { "name": "final-chorus", "part": "verse" }
+  ]
+}

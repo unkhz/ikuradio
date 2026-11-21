@@ -4,4 +4,6 @@
 
 export { Part, type LineContext, type LineMeasure, type Place } from './lib/part.js'
 export { partsById, partsHome, readParts, type PartRecord } from './lib/registry.js'
+export { arrangementSchema, ending, isArrangement, placesOf, refuseArrangement, type Arrangement, type Instance } from './lib/arrangement.js'
+export { arrangementsHome, readArrangements, type ArrangementRecord } from './lib/arrangements.js'
 export { idSchema, idsOf, parameterSchemas, parametersSchema, refusal, schemas } from './lib/schema.js'
