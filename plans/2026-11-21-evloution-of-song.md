@@ -346,6 +346,12 @@ The composer may now import `mood`, `perspectives`, `tides` and `song` as well a
 
 All three steps: `bun run lint` and `bun run test` pass. After each push, message the Composer session for review with the commit range and the captures.
 
+Built and reviewed: step 5 as 6160a0e, the map's routing made provable (`mapOf`, `/map.json`) as f3b29b4, step 6 after it, step 7 as 0bd1261, and its fixes as 2873c96. Steps 1 to 7 are done. Where building settled things the brief left open:
+- The Tides are marked at a Song given by `?song=` or `COMPOSER_SONG` (default 1), since the Composer reads neither the Archive nor the Radio.
+- The Score counts syllables with the throat's pronouncing dictionary where the throat is built (xitra), and by a rough rule elsewhere, shown in italics. A word stands under its first note, with a dash under each note that carries the rest of it.
+- The pages write no part id themselves: names come from the data (the Tune's own keys, the part that holds the Song's age). The code under `lib/` may use `melody`'s and `song`'s own names.
+- The Score's and the Beds' sample words are Song 1192's first verse, written into `lib/making.ts`. The Beds' guide is a fixed-seed sample, not any real Song's.
+
 ### Still open
 
 - **The Intro as a part.** It could be a part whose making waits for its Song to have aired, played or not by what triggers it. It is decided when the other parts are written out and it can be seen whether anything in the intro cannot be a parameter.
