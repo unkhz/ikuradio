@@ -1,7 +1,7 @@
 ---
 owner: scientist
 date: 2026-11-21
-state: draft
+state: active
 id: 20
 kind: plan
 slug: evloution-of-song
@@ -120,6 +120,14 @@ The Archive is forever, and its schema can still grow: addition is backwards com
 - **composer** depends on parts. It needs no mind and no music: it runs anywhere, on the Mac or on xitra. It is the scientist's place to see and change the parts and the Arrangements.
 - The Studio, the Receiver and the Radio move to the new world only when parts and composer are excellent. Until then nothing in the running song changes.
 
+### How the work is done
+
+- The **work loop** (the session "Ikuradio work loop") builds this plan, one step at a time, in its usual way: commits, tests, pushes through arkku, thoughts.
+- The **Composer session** (`local_fc37e40e-0716-4eb8-8cf6-bb6cf79eca3d`) reviews it. After every push that belongs to this plan, the loop sends that session one message: the step, the commit range, and anything it was unsure of. Its review comes back as a message; the loop takes it up in its next round, before going on.
+- The Composer session only reviews and refines the plan. It never edits the files the loop is building, so nothing is written twice.
+- A step is done when its proof passes (each step says what that is) and its review has nothing left to change. Then the next step begins.
+- Nothing in the running song changes in steps 1 to 4: no Studio, Radio, Receiver or Archive code is touched, except where a step says so.
+
 ### Steps
 
 1. **parts**: the Part superclass; `verse`, `chorus` and `bridge` declaring today's behaviour as scalars and functions; the registry that finds them; the schemas made from them; the test that the three can never go. The proof is equivalence: at the first tune and the usual Settings, every line's `measure` is what `fittingFor` gives today, the chorus's first line included.
@@ -127,6 +135,37 @@ The Archive is forever, and its schema can still grow: addition is backwards com
 3. **composer, to look**: a page that shows every part, its parameters and their ranges, and an Arrangement drawn as a diagram: its instances in order, along the bars at a tempo, the shared words, where the bridges run from and to, where each part comes home.
 4. **composer, to change**: making and editing Arrangements, parameters within their ranges, the schema's refusals said plainly, and saving an Arrangement as a file to download.
 5. **Later, each a plan of its own**: opening the readers to new ids; the Studio made with parts and the first Arrangement, Song for Song identical to what it makes now; the Intro; and playing a test version of a Song in the composer, which needs the mind and the band and so the Heart's slack.
+
+### Step 1 in detail: the parts package
+
+What to build, and nothing more:
+
+- `packages/parts/`, a workspace package like the others (`package.json`, `tsconfig.json`, added to the root `lint` list).
+- `packages/parts/lib/part.ts`: the abstract `Part` class and its types (`LineContext`, `LineMeasure`, `Place`). Start from the sketch above; change it where building shows it is wrong, and say why in the commit.
+- `packages/parts/verse/`, `chorus/`, `bridge/`: each a `part.ts` whose default export is an instance of its subclass, and a short `part.md` saying what the part is, in the voice of the other records (`packages/tides/verse-ceiling/tide.md` is a good model).
+- `packages/parts/lib/registry.ts`: finds the parts by reading the package's folders, as `packages/tides/lib/tides.ts` does, and returns them by id. No list of ids written anywhere in code.
+- `packages/parts/lib/schema.ts`: the part ids, and each part's parameters, as TypeBox schemas made from what the registry found. Add `@sinclair/typebox` with an exact version.
+- `packages/parts/index.ts`: exports the class, the registry and the schemas.
+
+What the three parts declare, from the code as it is today:
+
+- `verse`: words written; ends half; its lines' phrases are `tune.verse`; its parameter `wordiness` (0 to 1, usually 0.5) and its melody `ceiling`, `span`, `travel` (ranges as the Tides use them).
+- `chorus`: words written; ends full; its phrases are `tune.chorus`; the same parameters; and its first line is the song's age (`chorusOpening` in `packages/song`), measured from its phrase exactly, never touched by wordiness, growing on its reciting note (`chorusHook[0].reciting` in `packages/melody`).
+- `bridge`: no words; ends half; 16 beats (`bridgeBeats` in `packages/melody`); its melody runs from the part before it to the part after it.
+
+`measure` returns, for a line, `{ target, most }` syllables and whether it may grow past its bars. For now it is the counting only: `target` is the phrase's note count, `most` is `mostSyllables(phrase, spacing(tempo, rate))`, and wordiness moves them as `wordyCount` does. The check that a written line truly fits (`fittingFor`'s `check`) needs the throat and `stressedLine`, which lives in `packages/studio`; parts must not import the Studio, so that check moves in a later step, when the Studio moves.
+
+Import from `melody`, `song` and `vocals` freely; nothing in them may import `parts`. If a function you need is not exported, export it; do not copy it.
+
+The proof, as tests in `packages/parts`:
+
+- **Equivalence**: for `firstTune`, the usual Settings (`defaults(1)` in `packages/perspectives`) and a few tempos (60, 72, 94, 120 bpm) at the usual rate (6 syllables a second, `SYLLABLES_PER_SECOND`), every line's `measure` for `verse` and `chorus` equals what `fittingFor(...)` in `packages/studio/lib/compose.ts` gives for that part and line, the chorus's first line included. Do it also at wordiness 0.2 and 0.9. (`fittingFor` may be imported in the test only.)
+- **The Archive's ids**: a test fails if `verse`, `chorus` or `bridge` is not found.
+- **Interchangeable**: one test takes every part the registry finds and calls everything the superclass promises, without knowing which part it has.
+- **No closed union**: `packages/parts` has no `'verse' | 'chorus' | 'bridge'` type anywhere.
+- `bun run lint` and `bun run test` pass.
+
+Then message the Composer session for review.
 
 ### Still open
 
