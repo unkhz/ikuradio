@@ -4,36 +4,50 @@
 // that counts them as a person would does not run here.
 
 import { bridgeBeats, chorusHook, composeGuide, evolve, firstTune, fitToCount, growOnReciting, modes, roaming, spacing, timedLine, variations, wrongness, type Phrase, type Tune } from 'melody'
-import { arrange, chorusOpening, firstLyrics, type Lyrics } from 'song'
+import { arrange, chorusOpening, firstLyrics, stresses, type Lyrics } from 'song'
 import { readArrangements, type Part, type PartRecord } from 'parts'
 import { layoutOf } from './layout.js'
 
 type Syllables = { stresses: number[]; comma?: boolean }
-export type Word = { text: string; syllables: string[]; stresses: number[]; comma: boolean }
+/** A word of a line: its syllables' stress, and whether the dictionary knew it (else they were counted by a rough rule). */
+export type Word = { text: string; stresses: number[]; comma: boolean; rough: boolean }
 
-/** The pieces of a word, a vowel and the letters round it: a rough count of its syllables. */
+/** The pieces of a word, a vowel and the letters round it: a rough count of its syllables, for a word the dictionary does not know. */
 export function piecesOf(word: string): string[] {
   const letters = word.replace(/[^a-z']/gi, '')
   const pieces = letters.match(/[^aeiouy']*[aeiouy]+(?:'?s$|[^aeiouy]+$)?/gi)
   // a silent final e does not make a syllable of its own
-  if (pieces && pieces.length > 1 && /^[^aeiouy]*e$/i.test(pieces.at(-1)!) ) pieces.pop()
+  if (pieces && pieces.length > 1 && /^[^aeiouy]*e$/i.test(pieces.at(-1)!)) pieces.pop()
   return pieces?.length ? pieces : [letters]
 }
 
-/** Words as the bar fit sees them: the first syllable of a word of more than one is main, a short word is light, a long one main. */
-export function wordsOf(line: string): Word[] {
-  return line
-    .split(/[\s-]+/)
-    .filter(Boolean)
-    .map((raw) => {
-      const syllables = piecesOf(raw)
+/** The rough stress of a word: its first syllable is main when it has more than one; a short word is light, a long one main. */
+const roughStresses = (text: string): number[] => {
+  const count = piecesOf(text).length
+  return Array.from({ length: count }, (_, i) => (count === 1 ? (text.length > 3 ? 1 : 0) : i === 0 ? 1 : 0))
+}
+
+/**
+ * Words as the bar fit sees them, with their syllables counted from the pronouncing dictionary the song already uses
+ * (the throat's, read by `stresses` in the song package), and by a rough rule only for a word it does not know, or when
+ * the throat has not been built here: those are marked `rough`.
+ */
+export async function wordsOf(line: string): Promise<Word[]> {
+  // hyphens let words apart, as the throat sings them
+  const raws = line.replace(/[-–—]+/g, ' ').split(/\s+/).filter(Boolean)
+  return Promise.all(
+    raws.map(async (raw) => {
       const text = raw.replace(/[,.;:!?]+$/, '')
-      const stresses = syllables.map((_, i) => (syllables.length === 1 ? (text.length > 3 ? 1 : 0) : i === 0 ? 1 : 0))
-      return { text, syllables, stresses, comma: /[,;:.!?]$/.test(raw) }
-    })
+      const [heard] = await stresses(text).catch(() => [])
+      return { text, stresses: heard?.stresses ?? roughStresses(text), comma: /[,;:.!?]$/.test(raw), rough: !heard?.stresses }
+    }),
+  )
 }
 
 const forFit = (words: readonly Word[]): Syllables[] => words.map(({ stresses, comma }) => ({ stresses, ...(comma ? { comma } : {}) }))
+
+/** How many syllables a line has. */
+export const syllablesOf = (words: readonly Word[]) => words.reduce((sum, word) => sum + word.stresses.length, 0)
 
 /** How long a phrase is, its rest included, in beats. */
 export const lengthOf = (phrase: Phrase) => phrase.notes.reduce((sum, [, beats]) => sum + beats, 0) + phrase.rest
@@ -44,26 +58,35 @@ const drawn = (phrase: Phrase, reciting?: number): Drawn => ({ notes: phrase.not
 
 // ---- the Tune
 
-/** How many Songs the tune is evolved for, to show a verse moving step by step. */
+/** How many Songs the tune is evolved for, to show its phrases moving step by step. */
 const evolved = 6
 
-/** The tune: its phrases as drawn, a few Songs of the verse evolving while the chorus stays, and a Song's Variations. */
+/** What changed between two phrases: one flag to each note. */
+const changed = (a: Phrase, b: Phrase) => a.notes.map(([degree, beats], i) => degree !== b.notes[i]?.[0] || beats !== b.notes[i]?.[1])
+
+/**
+ * The tune, by its own names: each of its keys (`Object.keys(firstTune)`) with its phrases as drawn, the reciting note ringed;
+ * which of them evolve from Song to Song and which stay; the evolving ones a step at a time; and a Song's Variations.
+ */
 export function tuneAnswer() {
+  const names = Object.keys(firstTune) as (keyof Tune)[]
   const steps: Tune[] = [firstTune]
   for (let i = 1; i <= evolved; i++) steps.push(evolve(steps[i - 1]!, `composer:${i}`))
-  const changed = (a: Phrase, b: Phrase) => a.notes.map(([degree, beats], i) => degree !== b.notes[i]?.[0] || beats !== b.notes[i]?.[1])
-  const refrain = firstTune.chorus.map((phrase, i) => drawn(phrase, chorusHook[i]?.reciting))
+  const made = variations(firstTune, 4, 'composer', { ornaments: 1, steps: 1 })
+  const moves = (tunes: readonly Tune[], key: keyof Tune) => tunes.some((tune) => JSON.stringify(tune[key]) !== JSON.stringify(firstTune[key]))
+  // the reciting note is the melody's, kept by the hook the tune was born with
+  const hooks: Partial<Record<keyof Tune, readonly Phrase[]>> = { chorus: chorusHook }
+  const recitingOf = (key: keyof Tune, i: number) => (hooks[key]?.[i] as { reciting?: number } | undefined)?.reciting
+  const phrasesOf = (tune: Tune, key: keyof Tune, from?: Tune) =>
+    tune[key].map((phrase, i) => ({ ...drawn(phrase, recitingOf(key, i)), changed: from ? changed(from[key][i]!, phrase) : phrase.notes.map(() => false) }))
   return {
-    refrain,
-    refrainStays: steps.every((tune) => JSON.stringify(tune.chorus) === JSON.stringify(firstTune.chorus)),
-    evolution: steps.map((tune, step) => ({
-      step,
-      phrases: tune.verse.map((phrase, i) => ({ ...drawn(phrase), changed: step ? changed(steps[step - 1]!.verse[i]!, phrase) : phrase.notes.map(() => false) })),
-    })),
-    variations: variations(firstTune, 4, 'composer', { ornaments: 1, steps: 1 }).map((tune, v) => ({
-      variation: v,
-      phrases: tune.verse.map((phrase, i) => ({ ...drawn(phrase), changed: changed(firstTune.verse[i]!, phrase) })),
-    })),
+    names,
+    born: Object.fromEntries(names.map((key) => [key, phrasesOf(firstTune, key)])),
+    evolves: names.filter((key) => moves(steps, key)),
+    stays: names.filter((key) => !moves(steps, key)),
+    evolution: steps.map((tune, step) => ({ step, tunes: Object.fromEntries(names.map((key) => [key, phrasesOf(tune, key, step ? steps[step - 1] : undefined)])) })),
+    variations: made.map((tune, variation) => ({ variation, tunes: Object.fromEntries(names.map((key) => [key, phrasesOf(tune, key, firstTune)])) })),
+    varies: names.filter((key) => moves(made, key)),
   }
 }
 
@@ -72,8 +95,13 @@ export function tuneAnswer() {
 const sampleWordiness = [0.2, 0.5, 0.9]
 const written = (part: Part) => part.words === 'written'
 
+/** The part whose first line is not the mind's to write but the Song's age (found by asking each part for its fixed line), if one is. */
+export function ageIn(records: readonly PartRecord[]): string | undefined {
+  return records.find(({ part }) => part.fixedLine?.(0, { iteration: 1n, last: false }) !== undefined)?.part.id
+}
+
 /** The five fields of Lyrics, the instances of the Arrangement each fills, each line's count at a tempo, and the Song's age growing. */
-export function lyricsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number, rate = 6) {
+export async function lyricsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number, rate = 6) {
   const fields = Object.keys(firstLyrics) as (keyof Lyrics)[]
   // each field is given its own name for a text, so that arrange() shows where every field is sung
   const named = Object.fromEntries(fields.map((field) => [field, field])) as Lyrics
@@ -89,19 +117,20 @@ export function lyricsAnswer(records: readonly PartRecord[], arrangementsDir: st
       counts: sampleWordiness.map((wordiness) => ({ wordiness, ...part.measure({ line, tune: firstTune, tempo, rate, parameters: { wordiness } }) })),
     })),
   }))
-  return { fields, arrangement: first?.arrangement.id, fills, tempo, rate, lines, age: [1, 12, 2548].map((iteration) => ageOf(BigInt(iteration), tempo, rate)) }
+  return { fields, arrangement: first?.arrangement.id, fills, tempo, rate, lines, ageIn: ageIn(records), age: await Promise.all([1, 12, 2548].map((iteration) => ageOf(BigInt(iteration), tempo, rate))) }
 }
 
-/** The Song's age as the first line of the chorus: its words, and how many bars it grows past its phrase on the reciting note. */
-export function ageOf(iteration: bigint, tempo: number, rate: number) {
+/** The Song's age as the first line of its refrain: its words, and how many bars it grows past its phrase on the reciting note. */
+export async function ageOf(iteration: bigint, tempo: number, rate: number) {
   const text = chorusOpening(iteration)
-  const words = wordsOf(text)
+  const words = await wordsOf(text)
   const phrase = { ...firstTune.chorus[0]!, reciting: chorusHook[0]!.reciting }
   const fitted = growOnReciting(phrase, forFit(words), spacing(tempo, rate))
   return {
     iteration: Number(iteration),
     text,
-    syllables: words.reduce((sum, word) => sum + word.syllables.length, 0),
+    syllables: syllablesOf(words),
+    rough: words.some((word) => word.rough),
     grown: fitted ? Math.round((lengthOf(fitted) - lengthOf(firstTune.chorus[0]!)) / 4) : undefined,
   }
 }
@@ -111,38 +140,80 @@ export function ageOf(iteration: bigint, tempo: number, rate: number) {
 /** Sample words, a line to each phrase of a verse: the words of a Song the radio sang. */
 export const sampleVerse = ["In the crystal memory of a winter's night,", 'I sang of a snowflake in defiance, bright.', 'It did not melt, as others swiftly did,', 'Eternity in fragile form, my bid.']
 
-/** A line fitted to its phrase: its words in syllables, the notes they stand on, and whether it fitted, grew, or did not. */
-export function fittedLine(phrase: Phrase, line: string, tempo: number, rate: number) {
-  const words = wordsOf(line)
+/** How the page sets a word under its notes: pixels to a beat, to a letter, between two, and to a row. The server places the words by it, so none can be set over another. */
+export const captionScale = { beat: 56, glyph: 6.8, gap: 5, row: 13 } as const
+
+export type Caption = { text: string; at: number; row: number; rough: boolean }
+
+/**
+ * The words under the notes of a line, a word under the note its first syllable stands on and a dash (the mark a hymnal
+ * uses) under each note that carries the rest of it; a caption goes on the first row where it does not touch the one before.
+ */
+export function captionsOf(words: readonly Word[], notes: readonly (readonly [number, number])[]): Caption[] {
+  const { beat, glyph, gap } = captionScale
+  const syllables = words.flatMap((word) => word.stresses.map((_, i) => ({ text: i === 0 ? word.text : '–', rough: word.rough })))
+  const ends: number[] = []
+  let at = 0
+  const captions: Caption[] = []
+  for (const [n, [, beats]] of notes.entries()) {
+    const syllable = syllables[n]
+    if (syllable) {
+      const x = at * beat
+      let row = ends.findIndex((end) => end <= x)
+      if (row < 0) row = ends.length
+      ends[row] = x + syllable.text.length * glyph + gap
+      captions.push({ ...syllable, at, row })
+    }
+    at += beats
+  }
+  return captions
+}
+
+/** A line fitted to its phrase: its words, the notes they stand on, the words set under them, and whether it fitted, grew, or did not. */
+export async function fittedLine(phrase: Phrase, line: string, tempo: number, rate: number) {
+  const words = await wordsOf(line)
   const k = spacing(tempo, rate)
   const fit = fitToCount(phrase, forFit(words), k)
   return {
     words,
-    syllables: words.reduce((sum, word) => sum + word.syllables.length, 0),
+    syllables: syllablesOf(words),
     phrase: drawn(phrase, (phrase as { reciting?: number }).reciting),
     fitted: fit ? drawn(fit.phrase) : undefined,
+    captions: fit ? captionsOf(words, fit.phrase.notes) : [],
     grown: fit?.grown ?? 0,
     fits: Boolean(fit),
   }
 }
 
-/** The grid a voice sings on, and a verse's four sample lines and the chorus's first, as the Score sets them. */
-export function scoreAnswer(tempo: number, rate: number) {
+/** The grid a voice sings on, and a verse's four sample lines and the age line, as the Score sets them. */
+export async function scoreAnswer(records: readonly PartRecord[], tempo: number, rate: number) {
   const k = spacing(tempo, rate)
   return {
     tempo,
     rate,
     k,
-    // sixteenths of a beat, and a syllable no sooner than k of them after the one before
-    lines: sampleVerse.map((line, i) => fittedLine(firstTune.verse[i]!, line, tempo, rate)),
-    // the first line of the chorus, as the Song's age, which grows when the words outgrow the phrase
-    age: [1, 12, 2548].map((iteration) => {
-      const opening = chorusOpening(BigInt(iteration))
-      const words = wordsOf(opening)
-      const phrase = { ...firstTune.chorus[0]!, reciting: chorusHook[0]!.reciting }
-      const grown = growOnReciting(phrase, forFit(words), k)
-      return { iteration, text: opening, words, phrase: drawn(phrase, chorusHook[0]!.reciting), fitted: grown ? drawn(grown) : undefined, grownBars: grown ? Math.round((lengthOf(grown) - lengthOf(firstTune.chorus[0]!)) / 4) : undefined }
-    }),
+    scale: captionScale,
+    ageIn: ageIn(records),
+    // a syllable no sooner than k sixteenths after the one before
+    lines: await Promise.all(sampleVerse.map((line, i) => fittedLine(firstTune.verse[i]!, line, tempo, rate))),
+    // the first line of the refrain, as the Song's age, which grows when the words outgrow the phrase
+    age: await Promise.all(
+      [1, 12, 2548].map(async (iteration) => {
+        const opening = chorusOpening(BigInt(iteration))
+        const words = await wordsOf(opening)
+        const phrase = { ...firstTune.chorus[0]!, reciting: chorusHook[0]!.reciting }
+        const grown = growOnReciting(phrase, forFit(words), k)
+        return {
+          iteration,
+          text: opening,
+          words,
+          phrase: drawn(phrase, chorusHook[0]!.reciting),
+          fitted: grown ? drawn(grown) : undefined,
+          captions: grown ? captionsOf(words, grown.notes) : [],
+          grownBars: grown ? Math.round((lengthOf(grown) - lengthOf(firstTune.chorus[0]!)) / 4) : undefined,
+        }
+      }),
+    ),
   }
 }
 
@@ -152,20 +223,20 @@ export function scoreAnswer(tempo: number, rate: number) {
 export const kindOf = (part: Part, before?: string, after?: string) => (part.words === 'none' ? `${part.id}:${before ?? 'start'}>${after ?? 'end'}` : part.id)
 
 /** The kinds of bed an Arrangement asks for, and the guide the first section's lines make. */
-export function bedsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
+export async function bedsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
   const parts = new Map(records.map(({ part }) => [part.id, part]))
   const first = readArrangements(records, arrangementsDir).find(({ state }) => state === 'active')
   const layout = first ? layoutOf(first.arrangement, parts, firstTune, tempo) : undefined
   const kinds = layout?.instances.map((instance) => ({ instance: instance.name, part: instance.part, kind: kindOf(parts.get(instance.part)!, instance.before, instance.after), beats: instance.beats, seconds: instance.seconds })) ?? []
   // the guide of a verse: its four sample lines, as timed syllables, and the chords that change where the words lean
   let at = 0
-  const syllables = sampleVerse.flatMap((line, i) => {
-    const fitted = fittedLine(firstTune.verse[i]!, line, tempo, 6)
+  const syllables: ReturnType<typeof timedLine> = []
+  for (const [i, line] of sampleVerse.entries()) {
+    const fitted = await fittedLine(firstTune.verse[i]!, line, tempo, 6)
     const notes = fitted.fitted?.notes ?? firstTune.verse[i]!.notes
-    const timed = timedLine(fitted.words.map(({ stresses, comma }) => ({ stresses, comma })), notes, at)
+    syllables.push(...timedLine(fitted.words.map(({ stresses, comma }) => ({ stresses, comma })), notes, at))
     at += lengthOf(firstTune.verse[i]!) + (fitted.grown ? 4 * fitted.grown : 0)
-    return timed
-  })
+  }
   const guide = composeGuide({ syllables, beats: at, bpm: tempo, mode: modes.aeolian, ending: 'half', random: wrongness('composer:guide'), progression: roaming })
   return {
     tempo,

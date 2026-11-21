@@ -39,10 +39,10 @@ const svgElement = (tag, attributes = {}, ...children) => {
 
 /**
  * Phrases laid end to end as a piano roll: the beats along, the degree up. Each phrase is { notes: [[degree, beats]], rest, reciting? }.
- * `changed[i]` marks that phrase's notes that differ (in the other colour), `labels[i]` is a word for each of its notes (a syllable),
+ * `changed[i]` marks that phrase's notes that differ (in the other colour), `captions` are words set under the first phrase, each { at (beats), text, row, rough },
  * a reciting note is ringed, and `grid` draws the beats and bars (and the sixteenths, if `sixteenths`).
  */
-function rollSvg({ phrases, changed = [], labels = [], grid = false, sixteenths = false, beat = 24, row = 9, gap = 10 }) {
+function rollSvg({ phrases, changed = [], captions = [], grid = false, sixteenths = false, beat = 24, row = 9, gap = 10 }) {
   const degrees = phrases.flatMap((phrase) => phrase.notes.map(([degree]) => degree))
   const [low, high] = [Math.min(...degrees) - 1, Math.max(...degrees) + 1]
   const height = (high - low + 1) * row
@@ -62,9 +62,6 @@ function rollSvg({ phrases, changed = [], labels = [], grid = false, sixteenths 
       })
       notes.push(rect)
       if (phrase.reciting === n) notes.push(svgElement('rect', { x: x * beat - 2, y: (high - degree) * row - 2, width: Math.max(2, beats * beat - 1.5) + 4, height: row + 2, rx: 3, fill: 'none', stroke: 'var(--words)', 'stroke-dasharray': '3 2' }))
-      const label = labels[p]?.[n]
-      // the labels stand on two rows, so that short notes do not write over one another
-      if (label) notes.push(svgElement('text', { x: x * beat + 2, y: height + 13 + (n % 2) * 13, fill: 'var(--words)', 'font-size': 11 }, label))
       x += beats
     })
     marks.push(at)
@@ -79,6 +76,9 @@ function rollSvg({ phrases, changed = [], labels = [], grid = false, sixteenths 
       if (strong) lines.push(svgElement('line', { x1: (q / 4) * beat, x2: (q / 4) * beat, y1: 0, y2: height, stroke: strong }))
     }
   }
-  const labelRoom = labels.length ? 34 : 0
+  // the captions come with their rows: the server has set them so that none touches another
+  const rows = captions.reduce((most, caption) => Math.max(most, caption.row + 1), 0)
+  const labelRoom = rows ? rows * 13 + 6 : 0
+  for (const caption of captions) notes.push(svgElement('text', { x: caption.at * beat + 2, y: height + 12 + caption.row * 13, fill: 'var(--words)', 'font-size': 11, 'font-style': caption.rough ? 'italic' : 'normal' }, caption.text))
   return svgElement('svg', { viewBox: `0 0 ${Math.max(1, total) * beat} ${height + labelRoom}`, class: 'roll', style: `width:${Math.max(1, total) * beat}px;max-width:100%`, role: 'img' }, ...lines, ...notes)
 }

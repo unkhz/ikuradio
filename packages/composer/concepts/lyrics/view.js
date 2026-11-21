@@ -33,12 +33,12 @@ function drawConcept(root, data) {
     'table',
     {},
     el('thead', {}, el('tr', {}, ...['iteration', 'the line', 'syllables', 'bars it grows'].map((name) => el('th', { textContent: name })))),
-    el('tbody', {}, ...data.age.map((age) => el('tr', {}, el('td', { textContent: age.iteration }), el('td', { textContent: age.text }), el('td', { textContent: `about ${age.syllables}` }), el('td', {}, age.grown === undefined ? 'does not fit' : el('span', { className: 'slots' }, ...Array.from({ length: Math.max(1, age.grown) }, (_, i) => el('i', { className: age.grown > i ? 'on' : '' })), el('small', { textContent: ` ${age.grown}` })))))),
+    el('tbody', {}, ...data.age.map((age) => el('tr', {}, el('td', { textContent: age.iteration }), el('td', { textContent: age.text }), el('td', { textContent: `${age.rough ? 'about ' : ''}${age.syllables}` }), el('td', {}, age.grown === undefined ? 'does not fit' : el('span', { className: 'slots' }, ...Array.from({ length: Math.max(1, age.grown) }, (_, i) => el('i', { className: age.grown > i ? 'on' : '' })), el('small', { textContent: ` ${age.grown}` })))))),
   )
 
   root.replaceChildren(
     section('What the mind writes', el('p', { className: 'facts', textContent: `Five fields, filled for an iteration, each from the one in the same place before it. ${data.arrangement ? `Here they are sung as the Arrangement "${data.arrangement}" lays them out:` : ''}` }), fields),
     section('How many syllables a line carries', el('p', { className: 'facts', textContent: `At ${data.tempo} beats a minute, ${data.rate} syllables a second at the most. Filled slots are what a line is meant to have; outlined, the most its phrase can carry. Wordiness moves the meant count between sparse and full.` }), ...counts),
-    section("The Song's age", el('p', { className: 'facts', textContent: "The first line of the refrain is not the mind's to write: it is how long the song has been going, and has more syllables every year, so it grows past its phrase, a bar at a time, on the note it is chanted on. (Syllables here are counted by a rough rule.)" }), ages),
+    section("The Song's age", el('p', { className: 'facts', textContent: `The first line of the ${data.ageIn} is not the mind's to write: it is how long the song has been going, and has more syllables every year, so it grows past its phrase, a bar at a time, on the note it is chanted on.${data.age.some((age) => age.rough) ? ' (A word the dictionary does not know has its syllables counted by a rough rule.)' : ''}` }), ages),
   )
 }

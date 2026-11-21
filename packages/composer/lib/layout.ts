@@ -34,9 +34,6 @@ export type Layout = { tempo: number; beats: number; seconds: number; instances:
 
 /** Syllables a second the tune is counted at, as the Studio's usual rate: only the growing of a line is asked of it here. */
 const usualRate = 6
-/** How many lines of a part are asked whether they grow: a part's phrases are four. */
-const firstLines = 4
-
 /** Whether any line of a part may grow past its bars. */
 const growsOf = (part: Part, lines: number, tune: Tune, tempo: number): boolean =>
   Array.from({ length: lines }, (_, line) => line).some((line) => part.measure({ line, tune, tempo, rate: usualRate, parameters: {} }).grows)
@@ -59,7 +56,7 @@ export function layoutOf(arrangement: Arrangement, parts: ReadonlyMap<string, Pa
       startSeconds: (start * 60) / tempo,
       seconds: (beats * 60) / tempo,
       words: part.words,
-      grows: growsOf(part, firstLines, tune, tempo),
+      grows: growsOf(part, part.phrases(tune, place).length, tune, tempo),
       ending: ending(part, place),
       ...(place.before !== undefined ? { before: place.before } : {}),
       ...(place.after !== undefined ? { after: place.after } : {}),
