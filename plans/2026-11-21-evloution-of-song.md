@@ -245,6 +245,50 @@ The proof:
 
 Then message the Composer session for review.
 
+Built as a1e763b. `melody` now exports `phraseBeats`. The layout is drawn at the first tune, as the tune first has it: a chorus's first line grows past that with the Song's age, so the chorus is drawn shorter than it is sung in a later iteration.
+
+### Step 4 in detail: composer, to change
+
+First, if it is not already done: packages/parts on TypeBox 1.x (see step 1), in its own commit.
+
+What to build, and nothing more:
+
+- **The server stays read-only.** It never writes a file. Git is where Arrangements are kept: the scientist downloads a file and commits it into `packages/parts/arrangements/<id>/`.
+- `POST /check` takes an Arrangement as JSON (and `?tempo=`). It answers `{ refusal }`, with `refuseArrangement`'s plain words, or `{ layout }` from `layoutOf`. Checking happens only here, on the server, against the parts the registry finds; the page never repeats the rules.
+- The page gains an editor for one Arrangement at a time:
+  - **Start** from any Arrangement in the list (a copy, with a new id and title to give), from an empty one, or by opening a `.json` file from disk.
+  - **Instances**:
+    - add one, choosing its part from the parts the server lists;
+    - remove one;
+    - move one earlier or later;
+    - name it.
+    - Naming an instance after another is how words are shared; the page says so beside the name.
+  - **Parameters**: for each instance, a control per parameter of its part, made from the schema's minimum, maximum, default and description. A parameter left alone is not written into the declaration, so the part's default stands; a "reset" removes one that was set.
+  - After every change the page asks `/check`. It redraws the diagram and the table from the answer, or shows the refusal plainly beside the editor, keeping the last good drawing dimmed beneath it.
+  - **Save**: download `<id>.json`, the declaration exactly as `/check` accepted it, pretty-printed with two spaces as `the-song`'s is. Saving is refused while `/check` refuses.
+  - The unsaved draft is kept in the browser's `localStorage`, so a reload doesn't lose it, wrapped in try/catch, as a convenience only.
+- From step 3's review:
+  - mark an instance whose line may grow (the layout carries `grows` from any of its lines' `measure`), e.g. "grows with the Song's age";
+  - let the part cards' parameter tables breathe: the description on its own row or below, not a narrow column;
+  - show a bridge's full name on hover where its block is too narrow.
+
+The proof:
+
+- **`/check` tests**:
+  - `the-song` gives the same layout as `/arrangements.json`;
+  - each refusal step 2 proved comes back as `{ refusal }` with its words;
+  - an Arrangement of a made-up part from a temporary folder is accepted.
+- **Round trip, end to end**, with Playwright against the server on xitra (captured from the Mac's Chrome through the tunnel, as in step 3):
+  - start from `the-song`, give it the id `no-bridges`, remove the four bridges, set `verse-1`'s wordiness to 0.9, and save;
+  - the downloaded file is accepted by `refuseArrangement`, and `readArrangements` reads it when placed in a temporary `arrangements/no-bridges/` with a record;
+  - its instances are the six parts with words, in order, and `verse-1` alone carries a parameter.
+  - Write this as a script in `packages/composer` that can be run again, not a one-off.
+- **Refused, seen**: the same run sets a name already used by a different part, sees the refusal on the page, and finds Save disabled.
+- Capture the page twice, editing `no-bridges` and showing a refusal, and send both paths in the review message.
+- `bun run lint` and `bun run test` pass.
+
+Then message the Composer session for review. After step 4 the plan's own steps are done; step 5's pieces are each a plan of their own, which the scientist starts.
+
 ### Still open
 
 - **The Intro as a part.** It could be a part whose making waits for its Song to have aired, played or not by what triggers it. It is decided when the other parts are written out and it can be seen whether anything in the intro cannot be a parameter.
