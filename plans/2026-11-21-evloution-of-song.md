@@ -134,7 +134,10 @@ The Archive is forever, and its schema can still grow: addition is backwards com
 2. **The first Arrangement**: the Arrangement schema, and the Song as it always was, written out as a JSON declaration. The proof: it gives exactly what `arrange()` gives, the same ten parts in the same order, with the same sharing and the same cadences.
 3. **composer, to look**: a page that shows every part, its parameters and their ranges, and an Arrangement drawn as a diagram: its instances in order, along the bars at a tempo, the shared words, where the bridges run from and to, where each part comes home.
 4. **composer, to change**: making and editing Arrangements, parameters within their ranges, the schema's refusals said plainly, and saving an Arrangement as a file to download.
-5. **Later, each a plan of its own**: opening the readers to new ids; the Studio made with parts and the first Arrangement, Song for Song identical to what it makes now; the Intro; and playing a test version of a Song in the composer, which needs the mind and the band and so the Heart's slack.
+5. **composer, the map**: a front page that draws the Song's concepts and how they lead into one another, each a link to a page of its own. The parts and Arrangement pages built so far move behind it.
+6. **composer, the pages of what shapes a Song**: the Mood, the Perspectives and their Facets, and the Tides, each illustrated: its variables, their ranges, and how it moves. Nothing is editable yet.
+7. **composer, the pages of what a Song makes**: the Tune, the Lyrics, the Score, the Beds and the Song itself, each illustrated from the first tune and sample values, with no mind and no music.
+8. **Later, each a plan of its own**: opening the readers to new ids; the Studio made with parts and the first Arrangement, Song for Song identical to what it makes now; the Intro; and playing a test version of a Song in the composer, which needs the mind and the band and so the Heart's slack.
 
 ### Step 1 in detail: the parts package
 
@@ -287,9 +290,61 @@ The proof:
 - Capture the page twice, editing `no-bridges` and showing a refusal, and send both paths in the review message.
 - `bun run lint` and `bun run test` pass.
 
-Then message the Composer session for review. After step 4 the plan's own steps are done; step 5's pieces are each a plan of their own, which the scientist starts.
+Then message the Composer session for review.
 
 Built as e2b1e38 and reviewed: steps 1 to 4 are done. `bun run composer` serves the page on `COMPOSER_PORT` (3200). `bun packages/composer/roundtrip.ts <url> <folder>` proves the round trip again against a running Composer; it needs Chrome, so it is run by hand, not in `bun run test`. Nothing in the Studio, the Radio, the Receiver or the Archive has changed.
+
+### Steps 5 to 7 in detail: a map of the concepts, and a page for each
+
+The scientist's wish, 2026-11-21: the composer's front page shows how the concepts of a Song relate, as a diagram, and each concept leads to a page of its own. Where there is nothing to edit, the page illustrates the concept's variables and draws its inner structure. The map the scientist approved, drawn in the Composer session:
+
+- **Shapes it** (coral): Mood (mode and tempo), Perspectives (Facets make the Settings), Tides (the Settings drift slowly).
+- **Composer edits** (purple): Arrangement (instances in order), Parts (verse, chorus, bridge).
+- **Made every Song** (teal): Tune (phrases, evolving), Lyrics (written by the mind), Score (words on notes), Beds (MusicGen from the guide), Song (the Session, aired and kept).
+- **How they lead into one another**:
+  - the Mood gives the Tune its mode;
+  - the Perspectives and the Tides set the Parts' parameters;
+  - the Arrangement orders the Parts;
+  - the Parts choose the Tune's phrases and measure the Lyrics;
+  - the Tune and the Lyrics make the Score;
+  - the Score guides the Beds;
+  - the Beds and the Lyrics make the Song.
+
+Each concept is a folder, as the parts are: `packages/composer/concepts/<id>/`, holding:
+- `concept.md`: its record. The frontmatter has `band` (`shapes`, `edits` or `made`) and `leads` (the ids it leads into); the body says what the concept is.
+- `data.ts`: a default export that gives the page's JSON, made from the packages that own the concept.
+- `view.js`: a classic script that draws the page from that JSON.
+
+The server finds the concepts by reading the folders and serves `/concepts.json` (records and links), `/<id>/` (the page) and `/<id>.json` (its data). No list of concepts and no list of links is written in code, and adding a concept is adding a folder.
+
+The composer may now import `mood`, `perspectives`, `tides` and `song` as well as `parts` and `melody`, to read them only: never the mind, the throat, the band, the Studio, or the Archive over the network. Where a value lives in a package the composer must not import (the Beds' kinds in `music`, for instance), export it from a package it may import, or say it in the concept's record. Never copy code.
+
+**Step 5, the map.**
+- `/` draws the map from `/concepts.json`. A box is a concept, coloured by its band, with its title and a short line; an arrow is a lead. Lay it out by band, top to bottom (shapes, edits, made), in a way that needs no coordinates written per concept: a new concept finds its place by its band and its leads.
+- Every box links to its page.
+- The parts cards move to `/parts/`, and the Arrangements' drawing and editor to `/arrangement/`, unchanged. All ten concepts' folders are made in this step, with their records and leads, so the map is whole from the start. The pages that come in steps 6 and 7 say so until then.
+- Proof:
+  - every folder is on the map;
+  - every lead names a concept that exists, and the map refuses one that doesn't, loudly, naming the folder;
+  - a made-up concept in a temporary folder appears on the map, linked, with no code changed;
+  - the step 3 and step 4 tests still pass at their new addresses, and `roundtrip.ts` follows them;
+  - a capture of the map.
+
+**Step 6, the pages of what shapes a Song.** Each shows the concept's variables with their ranges and defaults, and draws how it moves:
+- **Mood**: `firstMood` and what a Mood holds, its character (mode and tempo) and its weather. Draw the mode as a scale, the degrees the Tune is sung in, and the tempo's range.
+- **Perspectives**: every Perspective, found as the package finds them, with its record. Show which Settings it turns and how far, and its weight. Then show the Settings themselves (`defaults(1)`) as a tree, each leaf with the Perspectives that can move it.
+- **Tides**: every Tide with its record, the Setting it moves, its range (`validRange`), and its envelope drawn as a curve over a long stretch of iterations (`valueAt` at many positions), with today's position marked.
+- Proof: each page's JSON is tested against the package it comes from (every Perspective and every Tide is there; the ranges are the packages' own); a capture of each page.
+
+**Step 7, the pages of what a Song makes.** Each is illustrated from the first tune and sample values:
+- **Tune**: `firstTune`'s verse and chorus phrases drawn as a piano roll (degree by beats), the rests between them, and the chorus's reciting note marked. Then a few iterations of `evolve`, so the verse can be seen moving step by step while the chorus stays, and a Song's Variations (`variations`).
+- **Lyrics**: the five fields of `Lyrics` and the instances of `the-song` they fill. For each line, its `measure` at a tempo (target and most, drawn as syllable slots), wordiness moving it, and the chorus's first line, `chorusOpening`, at a few iterations (1, 12, 2548), growing.
+- **Score**: one phrase and one sample line, fitted (`fitToCount`) at a tempo and rate. Draw the notes with their syllables on the sixteenth grid, `spacing`'s `k`, and a line that grows on the reciting note.
+- **Beds**: the guide made from the Scores (`setGuide`) and what the Beds are told: their kinds, including the bridges' `bridge:verse>chorus`. Say plainly that the Beds themselves are made by MusicGen from the guide, and are not drawn here.
+- **Song**: what a Session records (its parts in order with their kinds, their words and timing), with `the-song` laid out as a Session's parts would be. Say plainly that a recorded Song is in the Archive, not here.
+- Proof: each page's JSON is tested against the functions it is made from; a capture of each page.
+
+All three steps: `bun run lint` and `bun run test` pass. After each push, message the Composer session for review with the commit range and the captures.
 
 ### Still open
 
