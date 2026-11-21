@@ -211,6 +211,8 @@ async function keepCache() {
  * ones not yet known to have it, now and again: an intro is made after its Song has aired.
  */
 const introduced = new Introduced()
+/** Whether the Songs have been asked about once, so that the sitemap is what is known and not what is yet to be learnt. */
+let learnedOnce = false
 let learning: Promise<void> | undefined
 function learnIntros() {
   learning ??= (async () => {
@@ -218,6 +220,7 @@ function learnIntros() {
       const received = tactus.history.filter((a) => a.mode !== 'encore' && a.begins <= Date.now()).map((a) => a.song)
       const learned = await introduced.learn(received, (song) => read<DjDeclaration>(paths.dj('rezzy', song)))
       if (learned) console.log(`${learned} more Songs have their intro: ${introduced.size} for the sitemap`)
+      learnedOnce = true
     } finally {
       learning = undefined
     }
@@ -490,6 +493,8 @@ async function answer(request: Request): Promise<Response> {
     // every Song a search may quote by Rezzy's words, and no Song by its number alone. The first
     // time it is asked for, it waits a little for the Songs to have been asked about
     await Promise.race([firstIntros, new Promise((resolve) => setTimeout(resolve, 20_000))])
+    // a Radio that has only just begun has not yet asked: an empty list now would be taken (and kept) for the whole list, so it says 'later'
+    if (!learnedOnce) return new Response(null, { status: 503, headers: { 'Retry-After': '30', 'Cache-Control': 'no-store' } })
     const names = await read<Record<string, string>>(paths.names)
     const slugs = new Map<string, string>()
     for (const [slug, song] of Object.entries(names ?? {})) slugs.set(song, slug)
