@@ -9,6 +9,7 @@ import { firstTune } from 'melody'
 import { arrangementsHome, readParts, refuseArrangement, type Arrangement } from 'parts'
 import { arrangementsAnswer, partsAnswer } from './answers.js'
 import { conceptsHome, readConcepts } from './concepts.js'
+import { mapOf } from './map.js'
 import { layoutOf } from './layout.js'
 
 const publicHome = fileURLToPath(new URL('../public/', import.meta.url))
@@ -50,6 +51,9 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
     if (url.pathname === '/concepts.json') {
       return json((await readConcepts(conceptsDir)).map(({ id, title, band, leads, line, more, state }) => ({ id, title, band, leads, line, more, state })))
     }
+
+    // where the boxes stand and the arrows run, worked out here and only drawn by the page
+    if (url.pathname === '/map.json') return json(mapOf(await readConcepts(conceptsDir)))
 
     // the Arrangements, as the editor asks for them
     if (url.pathname === '/arrangements.json') return json(arrangementsAnswer(records, arrangementsDir, tempoOf(url)))

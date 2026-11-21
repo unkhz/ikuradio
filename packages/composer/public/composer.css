@@ -100,15 +100,16 @@ nav a:hover { color: var(--words); }
 .pending { color: var(--dim); border: 1px dashed var(--line); padding: 14px 16px; border-radius: 8px; max-width: 60ch; }
 header .about p { margin: 0.5rem 0; max-width: 70ch; }
 
-.map { position: relative; display: flex; flex-direction: column; gap: 64px; padding: 36px 28px 40px; overflow-x: auto; }
-.map .arrows { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: visible; }
-.map .band { position: relative; z-index: 1; --band: var(--dim); }
-.map .band.shapes { --band: var(--shapes); }
-.map .band.edits { --band: var(--edits); }
-.map .band.made { --band: var(--made); }
-.map .band h2 { margin: 0 0 10px; color: var(--band); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.08em; }
-.boxes { display: flex; flex-wrap: nowrap; gap: 28px; }
-.box { display: flex; flex-direction: column; gap: 4px; flex: 1 1 0; min-width: 10rem; max-width: 16rem; padding: 10px 14px; border: 1px solid var(--band); border-left-width: 6px; border-radius: 8px; background: var(--panel); color: var(--words); text-decoration: none; }
+.map { position: relative; margin: 8px 0 40px; }
+.map .arrows { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 0; overflow: visible; }
+.band-label { position: absolute; left: 4px; z-index: 1; margin: 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; white-space: nowrap; }
+.band-label.shapes { color: var(--shapes); }
+.band-label.edits { color: var(--edits); }
+.band-label.made { color: var(--made); }
+.box { position: absolute; z-index: 1; --band: var(--dim); display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border: 1px solid var(--band); border-left-width: 6px; border-radius: 8px; background: var(--panel); color: var(--words); text-decoration: none; overflow: hidden; }
+.box.shapes { --band: var(--shapes); }
+.box.edits { --band: var(--edits); }
+.box.made { --band: var(--made); }
 .box strong { color: var(--band); font-size: 1.05rem; }
 .box span { color: var(--dim); font-size: 0.85rem; }
 .box:hover, .box:focus-visible { background: #1d2030; outline: none; }
@@ -117,3 +118,4 @@ header .about p { margin: 0.5rem 0; max-width: 70ch; }
 .arrows path.lead.edits { stroke: var(--edits); color: var(--edits); }
 .arrows path.lead.made { stroke: var(--made); color: var(--made); }
 nav { padding-top: 14px; }
+.map-scroll { overflow-x: auto; }

@@ -131,6 +131,17 @@ describe('the map, and the pages', () => {
     expect(await (await get(answer, '/echoes/view.js')).text()).toContain('drawConcept')
   })
 
+  it('answers where every box stands and every arrow runs, and a concept nobody told it of stands there too', async () => {
+    const { home } = folderWith('ending', { band: 'made', id: 10 })
+    addTo(home, 'echoes', { band: 'made', leads: 'ending', id: 11 })
+    const layout = (await (await get(composer({ conceptsDir: home }), '/map.json')).json()) as { boxes: { id: string; row: number }[]; arrows: { from: string; to: string }[] }
+    expect(layout.boxes.map(({ id }) => id)).toEqual(['ending', 'echoes'])
+    expect(layout.arrows.map(({ from, to }) => `${from}>${to}`)).toEqual(['echoes>ending'])
+    const real = (await (await get(composer(), '/map.json')).json()) as { boxes: unknown[]; arrows: unknown[] }
+    expect(real.boxes).toHaveLength(10)
+    expect(real.arrows).toHaveLength(11)
+  })
+
   it('names no concept in the map or the page that draws it', async () => {
     const answer = composer()
     for (const path of ['/map.js', '/concept.js', '/', '/concept.html']) {
