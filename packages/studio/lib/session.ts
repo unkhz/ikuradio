@@ -18,10 +18,10 @@ export type Made = {
   guides?: Guide[]
 }
 
-const seconds = (n: number) => Math.round(n * 1000) / 1000
+export const seconds = (n: number) => Math.round(n * 1000) / 1000
 
 /** A take as a Session keeps it: only what the throat reads. */
-const takeOf = ({ bpm, lyrics, notes, t0, vibrato, pressure, tension, breathiness }: Take) => ({
+export const takeOf = ({ bpm, lyrics, notes, t0, vibrato, pressure, tension, breathiness }: Take) => ({
   bpm,
   lyrics,
   notes,

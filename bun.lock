@@ -129,6 +129,7 @@
         "melody": "workspace:*",
         "mood": "workspace:*",
         "music": "workspace:*",
+        "parts": "workspace:*",
         "perspectives": "workspace:*",
         "song": "workspace:*",
         "tides": "workspace:*",

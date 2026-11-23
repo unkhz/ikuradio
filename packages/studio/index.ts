@@ -23,6 +23,7 @@ import { describePerspectives } from 'perspectives'
 import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { perform, type SungLine } from './lib/perform.js'
+import { shadowCheck } from './lib/shadow.js'
 import { toSession, type Made } from './lib/session.js'
 import { guidesFor, humGuides, type Guide } from './lib/guide.js'
 import { sweep } from './lib/sweep.js'
@@ -250,6 +251,8 @@ const session = toSession(
   thought,
   named,
 )
+// beside it, the Session the Arrangement's timeline gives: compared, said, and never published (plan "The Studio on timelines", step 2)
+await shadowCheck({ made, session, name: (file) => ids.get(file)!, loudness: (file) => loudness.get(file), throat: throatName(), thought, songName: named })
 await store.putSession(session)
 // the thought is kept only once its Song is published: a Song made again is thought about again
 if (thought) {
