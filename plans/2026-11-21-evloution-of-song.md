@@ -473,10 +473,13 @@ Built as 390befb and reviewed. Then, from the scientist (2026-11-23): **the iter
 
   Proof: `roundtrip.ts` grows to make `tempo-turns` from `the-song` in the editor and save it, and the saved file equals the one in the repo.
 
+Built and reviewed: step 10 as 30a77ae, with its fixes in 8168842 and 6dedf1d (words shared within an iteration only, a "↩" where a name continues across a turn, the order table from `resolve`, Blocks marked by their Track's initial and a number, `beatsPerBar` in `melody`), and step 11 as 2959298. Steps 1 to 11 are done. `POST /format` is the one place an Arrangement's file text is made, so the editor's file and a hand-written one are the same text. `roundtrip.ts` makes `tempo-turns` from `the-song` in the editor, byte for byte.
+
 ### Still open
 
 - **The Intro as a part.** It could be a part whose making waits for its Song to have aired, played or not by what triggers it. It is decided when the other parts are written out and it can be seen whether anything in the intro cannot be a parameter.
 - **Tempo ramps.** Changes are jumps; an accelerando or a ritardando between two tempi is decided later.
 - **Words in free time.** Fitting words without a grid, so a part with written words can be sung where the tempo is null.
 - **A Track that plays the whole Song.** A maker for a drum Track, or any instrument longer than a bed: the wasm instruments idea.
+- **A DAW's hands.** The editor is rows of fields. Dragging and stretching Blocks on the drawing, and picking a Block's source from the regions, are still to come.
 - **Facets in an Arrangement.** How an Arrangement's ranges for Facets meet the Perspectives and the Tides.
