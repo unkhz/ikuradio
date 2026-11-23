@@ -55,6 +55,16 @@ const said = 40
  * where the Composer does, and never throws: a Studio whose shadow fails goes on, and says that it did. It returns the differences, or nothing if it could not be made.
  */
 export async function shadowCheck({ made, session, name, loudness, throat, thought, songName, arrangement = 'the-song' }: ShadowOf, log: Pick<Console, 'log' | 'warn'> = console): Promise<string[] | undefined> {
+  // the Session written is for ever: the shadow works on a copy of what was made, since the Session shares arrays (a take's notes, a guide's chords) with it, and it is
+  // looked at before and after, so that a shadow that changed it would be said, loudly, and its result thrown away
+  const before = JSON.stringify(session)
+  let copy: readonly Made[]
+  try {
+    copy = structuredClone(made)
+  } catch (error) {
+    log.warn(`shadow: what was made could not be copied, so the shadow is not made: ${(error as Error).message}`)
+    return undefined
+  }
   try {
     const { readArrangements, readParts, readTracks } = await import('parts')
     const { sessionOf } = await import('./timeline.js')
@@ -62,8 +72,12 @@ export async function shadowCheck({ made, session, name, loudness, throat, thoug
     const tracks = await readTracks()
     const found = (await readArrangements(records, undefined, tracks)).find((one) => one.arrangement.id === arrangement && one.state === 'active')
     if (!found) throw new Error(`there is no active Arrangement "${arrangement}"`)
-    const shadow = sessionOf({ arrangement: found.arrangement, tracks, made, name, loudness, throat, thought, songName })
-    const found_ = differences(JSON.parse(JSON.stringify(session)), JSON.parse(JSON.stringify(shadow)))
+    const shadow = sessionOf({ arrangement: found.arrangement, tracks, made: copy, name, loudness, throat, thought, songName })
+    if (JSON.stringify(session) !== before) {
+      log.warn('shadow: the written Session was changed by the shadow: its result is thrown away')
+      return undefined
+    }
+    const found_ = differences(JSON.parse(before), JSON.parse(JSON.stringify(shadow)))
     if (found_.length === 0) log.log(`shadow: the Session from the timeline "${arrangement}" is the Session written`)
     else {
       log.warn(`shadow: the Session from the timeline "${arrangement}" differs from the Session written in ${found_.length} place${found_.length > 1 ? 's' : ''}:`)

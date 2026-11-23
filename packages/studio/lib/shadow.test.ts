@@ -46,6 +46,36 @@ describe('the shadow of a Song', () => {
     expect(said.slice(1).every((line) => line.startsWith('shadow:   '))).toBe(true)
   })
 
+  it('works on a copy: what was made, and the Session written, are as they were after it', async () => {
+    const made = madeFromSession(archived(1862))
+    const session = toSession(made, name)
+    const madeBefore = structuredClone(made)
+    const sessionBefore = JSON.stringify(session)
+    const { log } = logs()
+    await shadowCheck({ made, session, name }, log)
+    expect(made).toEqual(madeBefore)
+    expect(JSON.stringify(session)).toBe(sessionBefore)
+  })
+
+  it('says loudly, and throws its result away, if the Session written changed while it was made', async () => {
+    const made = madeFromSession(archived(1862))
+    const session = toSession(made, name)
+    let asked = 0
+    // a Session that is not the same when it is looked at again
+    Object.defineProperty(session, 'toJSON', { enumerable: false, value: () => ({ asked: ++asked }) })
+    const { said, log } = logs()
+    expect(await shadowCheck({ made, session, name }, log)).toBeUndefined()
+    expect(said).toEqual(['shadow: the written Session was changed by the shadow: its result is thrown away'])
+  })
+
+  it('is not made if what was made cannot be copied, and says so', async () => {
+    const made = madeFromSession(archived(1862))
+    ;(made[0]!.composed as unknown as { tune: unknown }).tune = () => undefined
+    const { said, log } = logs()
+    expect(await shadowCheck({ made, session: toSession(madeFromSession(archived(1862)), name), name }, log)).toBeUndefined()
+    expect(said[0]).toContain('what was made could not be copied, so the shadow is not made')
+  })
+
   it('never throws: an Arrangement that is not there, or a Song that does not fit it, is said, and the Studio goes on', async () => {
     const made = madeFromSession(archived(1862))
     const session = toSession(made, name)
