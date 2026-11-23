@@ -39,17 +39,20 @@ function tempoOf({ slowest, fastest, stride }, born) {
   )
 }
 
-function drawBody(root, data) {
+function drawBody(root, data, { fold = false } = {}) {
   const section = (title, ...children) => el('section', { className: 'block-section' }, el('h2', { textContent: title }), ...children)
   const chips = (words, lit = []) => el('div', { className: 'chips' }, ...words.map((word) => el('span', { className: `chip${lit.includes(word) ? ' lit' : ''}`, textContent: word })))
+  const holds = section('What a Mood holds', el('table', {}, el('tbody', {}, ...data.holds.map((held) => el('tr', {}, el('td', { textContent: held.name }), el('td', { className: 'desc', textContent: held.says }))))))
+  const bornIn = section('The Mood the song was born in', chips(data.first.descriptions, data.first.descriptions), el('p', { className: 'facts', textContent: `Sung in ${data.first.character.mode}, at ${data.first.character.tempo} beats a minute.` }))
+  const drawsFrom = section('The weather it draws from', el('p', { className: 'facts', textContent: 'When the mind cannot choose, a new description is drawn from this list. The ones the song was born in are marked.' }), chips(data.weather, data.first.descriptions))
+  const modes = section('The modes', el('p', { className: 'facts', textContent: 'The mind hears the weather and chooses one. Each is a scale of seven degrees within an octave: the keys it sings are marked with their place in it.' }), ...data.modes.map((mode) => scaleOf(mode, data.born)))
+  const tempo = section('The tempo', el('p', { className: 'facts', textContent: 'It may not leap: between two Songs it moves a few beats a minute, as a walker changes pace.' }), tempoOf(data.tempo, data.born))
+  if (!fold) return root.replaceChildren(holds, bornIn, drawsFrom, modes, tempo)
+  // in Edit, what the bench changes is shown, once: the scale of the mode the song is heard in, how it is sung, and the tempo; the weather picked is the bench's own chips. The rest of the page is folded away
+  const heard = data.modes.find((mode) => mode.name === data.born.mode)
   root.replaceChildren(
-    section(
-      'What a Mood holds',
-      el('table', {}, el('tbody', {}, ...data.holds.map((held) => el('tr', {}, el('td', { textContent: held.name }), el('td', { className: 'desc', textContent: held.says }))))),
-    ),
-    section('The Mood the song was born in', chips(data.first.descriptions, data.first.descriptions), el('p', { className: 'facts', textContent: `Sung in ${data.first.character.mode}, at ${data.first.character.tempo} beats a minute.` })),
-    section('The weather it draws from', el('p', { className: 'facts', textContent: 'When the mind cannot choose, a new description is drawn from this list. The ones the song was born in are marked.' }), chips(data.weather, data.first.descriptions)),
-    section('The modes', el('p', { className: 'facts', textContent: 'The mind hears the weather and chooses one. Each is a scale of seven degrees within an octave: the keys it sings are marked with their place in it.' }), ...data.modes.map((mode) => scaleOf(mode, data.born))),
-    section('The tempo', el('p', { className: 'facts', textContent: 'It may not leap: between two Songs it moves a few beats a minute, as a walker changes pace.' }), tempoOf(data.tempo, data.born)),
+    section('The mode', el('p', { className: 'facts', textContent: `Sung in ${data.first.character.mode}, at ${data.first.character.tempo} beats a minute.` }), scaleOf(heard, data.born)),
+    tempo,
+    el('details', { className: 'details' }, el('summary', { textContent: 'Details' }), holds, bornIn, drawsFrom, modes),
   )
 }

@@ -39,7 +39,7 @@ function drawEdit(root, data) {
     const answer = await fetch('/bench/mood', { method: 'POST', body: JSON.stringify(state) }).then((r) => r.json())
     if (mine !== asking) return
     settles.textContent = answer.bench.settled === state.tempo ? '' : `asked ${state.tempo}, it settles to ${answer.bench.settled}: the next Song may move ${data.tempo.stride} either way`
-    drawBody(body, answer)
+    drawBody(body, answer, { fold: true })
   }
   mode.addEventListener('change', () => {
     state.mode = mode.value

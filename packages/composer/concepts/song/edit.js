@@ -23,7 +23,7 @@ function drawEdit(root, data) {
     const mine = ++asking
     const answer = await fetch('/bench/song', { method: 'POST', body: JSON.stringify({ arrangement: arrangement.value || data.arrangement, tempo: Number(tempo.value) || data.tempo }) }).then((r) => r.json())
     if (mine !== asking) return
-    drawBody(body, answer)
+    drawBody(body, answer, { fold: true })
   }
   arrangement.addEventListener('change', show)
   tempo.addEventListener('input', show)

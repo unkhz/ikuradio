@@ -102,11 +102,12 @@ async function theSong(records: readonly PartRecord[], arrangementsDir: string, 
 }
 
 /**
- * The Lyrics field each instance sings. A name's words are the field `arrange()` places at the name's first hearing, and every
- * hearing of the name sings it: after a turn too, where the name goes on with its own words. An instance that continues another
- * name sings the field that one does.
+ * The Lyrics field each instance sings. A name's words are the field `arrange()` places where the Song as it always was (the `reference`) first hears the
+ * name, and every hearing of the name sings it: after a turn too, where the name goes on with its own words. An instance that continues another name sings
+ * the field that one does. So an Arrangement that lists other names, or the same in another order, still gives each name its own words, by name and not by place.
+ * A name the reference does not have has no field of its own here.
  */
-export function fieldsOf(instances: readonly { name: string; continues?: string }[]): (keyof Lyrics | undefined)[] {
+export function fieldsOf(instances: readonly { name: string; continues?: string }[], reference: readonly { name: string }[] = instances): (keyof Lyrics | undefined)[] {
   const named = Object.fromEntries((Object.keys(firstLyrics) as (keyof Lyrics)[]).map((field) => [field, field])) as Lyrics
   const sung = arrange(named)
   const byName = new Map(instances.map((instance) => [instance.name, instance]))
@@ -115,8 +116,8 @@ export function fieldsOf(instances: readonly { name: string; continues?: string 
     return next !== undefined && !seen.has(name) ? rootOf(next, seen.add(name)) : name
   }
   const fieldOfName = (name: string): keyof Lyrics | undefined => {
-    const first = instances.findIndex((instance) => instance.name === name)
-    return sung[first]?.content ? (sung[first]!.content as keyof Lyrics) : undefined
+    const first = reference.findIndex((instance) => instance.name === name)
+    return first >= 0 && sung[first]?.content ? (sung[first]!.content as keyof Lyrics) : undefined
   }
   return instances.map(({ name }) => fieldOfName(rootOf(name)))
 }
@@ -284,7 +285,9 @@ export async function bedsAnswer(records: readonly PartRecord[], arrangementsDir
 export async function songAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number, arrangementId: string = songsArrangement) {
   const parts = new Map(records.map(({ part }) => [part.id, part]))
   const first = await theSong(records, arrangementsDir, arrangementId)
-  const fieldOf = first ? fieldsOf(first.arrangement.instances) : []
+  // each name's own words are those the Song as it always was gives it
+  const reference = (await theSong(records, arrangementsDir))?.arrangement.instances
+  const fieldOf = first ? fieldsOf(first.arrangement.instances, reference) : []
   const layout = first ? layoutOf(first.arrangement, parts, firstTune, tempo) : undefined
   // where the timeline puts each part, which is where the tempo map and free time say, and not only the tune's beats at one tempo
   const timeline = first && layout ? timelineOf(first.arrangement, layout, await readTracks(), tempo) : undefined
@@ -298,6 +301,7 @@ export async function songAnswer(records: readonly PartRecord[], arrangementsDir
       part: instance.part,
       kind: kindOf(parts.get(instance.part)!, instance.before, instance.after),
       words: fieldOf[i],
+      sings: parts.get(instance.part)!.words,
       start: resolved?.regions[i]?.startSeconds ?? instance.startSeconds,
       seconds: resolved?.regions[i]?.seconds ?? instance.seconds,
       ending: instance.ending,

@@ -571,10 +571,17 @@ try {
 
   // the Mood: the whole page, drawn by the same function
   await learnPage('mood')
-  const moodLearn = await page.locator('#root').innerHTML()
+  const sectionsOf = (selector: string) => page.locator(selector).evaluateAll((nodes) => nodes.map((node) => node.outerHTML))
+  const moodLearn = await sectionsOf('#root > .block-section')
+  const moodScale = await page.locator('#root .mode.born').evaluate((node) => node.outerHTML)
   await benchPage('mood')
   await nothingSaved()
-  must((await page.locator('#bench-body').innerHTML()) === moodLearn, 'the Mood bench at its sample is not the Mood page')
+  // what the bench changes is shown, once: the scale and the tempo; the rest of the page is a closed Details, and is the Mood page's own
+  const moodShown = async () => ({ details: await sectionsOf('#bench-body details > .block-section'), tempo: (await sectionsOf('#bench-body > .block-section')).at(-1), scale: await page.locator('#bench-body > .block-section .mode.born').evaluate((node) => node.outerHTML) })
+  const atSample = await moodShown()
+  must(JSON.stringify(atSample.details) === JSON.stringify(moodLearn.slice(0, 4)) && atSample.tempo === moodLearn[4] && atSample.scale === moodScale, 'the Mood bench at its sample is not the Mood page')
+  must(!(await page.locator('#bench-body details').evaluate((node) => (node as HTMLDetailsElement).open)), 'the Details of the Mood bench are open')
+  must((await page.locator('.chip:visible', { hasText: 'eternity' }).count()) === 1, 'the weather is drawn more than once')
   // the weather picked, a mode chosen, the tempo dragged past what it may reach: it settles
   await choosing(() => page.locator('#bench-weather .chip').nth(2).click())
   await page.locator('#bench-mode').selectOption('dorian')
@@ -584,7 +591,7 @@ try {
   must((await page.locator('#bench-body').innerText()).includes('dorian'), 'the mode chosen is not the Mood the song is heard in')
   await page.screenshot({ path: join(keep, 'bench-mood.png'), fullPage: true })
   await page.click('#bench-sample')
-  await page.waitForFunction((html) => document.querySelector('#bench-body')?.innerHTML === html, moodLearn, { timeout: 4000 })
+  await page.waitForFunction((html) => document.querySelector('#bench-body > .block-section .mode.born')?.outerHTML === html, moodScale, { timeout: 4000 })
 
   // the Tune: the tune as Learn draws it after the Songs it evolves, each phrase's roll, and then on and back
   await learnPage('tune')
@@ -649,15 +656,19 @@ try {
 
   // the Song: the Session the Song would make, as the Song page draws it, and another Arrangement's
   await learnPage('song')
-  const songLearn = await page.locator('#root').innerHTML()
+  const songLearn = await sectionsOf('#root > .block-section')
   await benchPage('song')
   await page.waitForTimeout(300)
-  must((await page.locator('#bench-body').innerHTML()) === songLearn, 'the Song bench at its sample is not the Song page')
+  must(JSON.stringify(await sectionsOf('#bench-body > .block-section')) === JSON.stringify(songLearn.slice(0, 2)) && JSON.stringify(await sectionsOf('#bench-body details > .block-section')) === JSON.stringify(songLearn.slice(2)), 'the Song bench at its sample is not the Song page')
+  must(!(await page.locator('#bench-body details').evaluate((node) => (node as HTMLDetailsElement).open)), 'the Details of the Song bench are open')
   const arrangementOptions = await page.locator('#bench-arrangement option').evaluateAll((nodes) => nodes.map((node) => (node as HTMLOptionElement).value))
   const other = arrangementOptions.find((id) => id !== first!.id)!
   await page.locator('#bench-arrangement').selectOption(other)
   await page.waitForFunction((id) => document.querySelector('#bench-body .facts')?.textContent?.includes(`"${id}"`), other, { timeout: 4000 })
   must((await page.locator('#bench-body').innerText()).includes('The recordings it would name'), 'the Session names no recordings')
+  // each name sings its own words, by name: the last verse of tempo-turns is not the chorus, and no field is said as its code name
+  const words = await page.locator('#bench-body table').first().locator('tbody tr').evaluateAll((rows) => rows.map((row) => [row.children[1]!.textContent, row.children[3]!.textContent]))
+  must(JSON.stringify(words.find(([name]) => name === 'verse-2')) !== JSON.stringify(['verse-2', 'the chorus']) && words.every(([, said]) => !/[a-z][A-Z]/.test(said ?? '')), `the words are ${JSON.stringify(words)}`)
   await page.screenshot({ path: join(keep, 'bench-song.png'), fullPage: true })
 
   console.log(`round trip: ok. kept ${saved}, ${join(keep, 'editing.png')}, ${join(keep, 'refused.png')}`)

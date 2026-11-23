@@ -7,7 +7,6 @@ function lineSlots(count) {
     'span',
     { className: 'slots', title: `${count.target} meant, at most ${count.most}${count.grows ? ', and it grows on its reciting note' : ''}` },
     ...Array.from({ length: count.most }, (_, i) => el('i', { className: i < count.target ? 'on' : '' })),
-    count.grows ? el('em', { textContent: ' + bars' }) : '',
   )
 }
 
@@ -28,7 +27,7 @@ function drawBody(root, data) {
       'div',
       { className: 'count-block' },
       el('h3', { textContent: part.part, style: `color:${colour(part.part)}` }),
-      el('table', {}, el('thead', {}, el('tr', {}, el('th', { textContent: 'line' }), ...part.lines[0].counts.map((count) => el('th', { textContent: `wordiness ${count.wordiness}` })))), el('tbody', {}, ...part.lines.map((line) => el('tr', {}, el('td', { textContent: line.line + 1 }), ...line.counts.map((count) => el('td', {}, slots(count), el('small', { textContent: ` ${count.target} of ${count.most}` }))))))),
+      el('table', {}, el('thead', {}, el('tr', {}, el('th', { textContent: 'line' }), ...part.lines[0].counts.map((count) => el('th', { textContent: `wordiness ${count.wordiness}` })))), el('tbody', {}, ...part.lines.map((line) => el('tr', {}, el('td', { textContent: line.line + 1 }), ...line.counts.map((count) => el('td', {}, slots(count), el('small', { textContent: ` ${count.target} of ${count.most}${count.grows ? ' · grows with the Song\'s age' : ''}` }))))))),
     ),
   )
 

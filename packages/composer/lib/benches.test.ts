@@ -95,6 +95,16 @@ describe('what a bench changes', () => {
     expect((await ask('/bench/beds?tempo=72', { part: hummed })).guide).toBeUndefined()
   })
 
+  it("gives each name its own words by name, whatever the Arrangement lists or in what order", async () => {
+    const song = await ask('/bench/song?tempo=72', { arrangement: 'the-song' })
+    const turns = await ask('/bench/song?tempo=72', { arrangement: 'tempo-turns' })
+    const wordsOf = (answered: any, name: string) => answered.parts.find((part: any) => part.instance === name).words
+    for (const name of ['verse-1', 'chorus', 'verse-2']) expect(wordsOf(turns, name)).toBe(wordsOf(song, name))
+    expect(wordsOf(turns, 'verse-2')).not.toBe(wordsOf(turns, 'chorus'))
+    // a bridge is hummed in both
+    expect(wordsOf(turns, 'bridge-2')).toBeUndefined()
+  })
+
   it('names the recordings a Session would make: one to a key of the timeline, placed as many times as the key is', async () => {
     const turns = await ask('/bench/song?tempo=72', { arrangement: 'tempo-turns' })
     const chorus = turns.recordings.find((one: any) => one.key === 'voice:chorus')
