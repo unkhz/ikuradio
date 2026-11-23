@@ -143,7 +143,11 @@ The Archive is forever, and its schema can still grow: addition is backwards com
 9. **The Song as a timeline**: `the-song` written out as one, two passes, giving what the Studio lays out today; and a second Arrangement that changes tempo and has a bridge in free time.
 10. **composer, the timeline to look at**: the Arrangement drawn as a DAW draws a session: the regions on the ruler, the tempo, the Tracks as rows, the Blocks coloured by what they are, overlapping and fading.
 11. **composer, the timeline to change**: placing, stretching, keying and fading Blocks, and the tempo map, checked as Arrangements are.
-12. **Later, each a plan of its own**: opening the readers to new ids; the Studio made with parts and the Arrangements' timelines, making each distinct Block once and mixing the timeline, Song for Song identical to what it makes now for `the-song`; the Studio made with parts and the first Arrangement, Song for Song identical to what it makes now; the Intro; and playing a test version of a Song in the composer, which needs the mind and the band and so the Heart's slack.
+12. **composer, two modes**: a Learn | Edit toggle at the top right. Learn explains as the pages do now; Edit is a workspace per concept, with one shell for picking, undoing and checking. The Arrangement's editor moves into Edit.
+13. **composer, the Arrangement's hands**: Blocks, regions, tempo points and turns dragged, stretched, drawn and copied on the timeline, snapping to anchors and bars.
+14. **composer, the Parts, the Perspectives and the Tides in Edit**: parameters as sliders with each line's measure redrawn; Facets and tide envelopes edited, checked and saved as files.
+15. **composer, the benches**: the Mood, the Tune, the Lyrics, the Score, the Beds and the Song tried by hand, nothing saved.
+16. **Later, each a plan of its own**: opening the readers to new ids; the Studio made with parts and the Arrangements' timelines, making each distinct Block once and mixing the timeline, Song for Song identical to what it makes now for `the-song`; the Studio made with parts and the first Arrangement, Song for Song identical to what it makes now; the Intro; and playing a test version of a Song in the composer, which needs the mind and the band and so the Heart's slack.
 
 ### Step 1 in detail: the parts package
 
@@ -475,11 +479,109 @@ Built as 390befb and reviewed. Then, from the scientist (2026-11-23): **the iter
 
 Built and reviewed: step 10 as 30a77ae, with its fixes in 8168842 and 6dedf1d (words shared within an iteration only, a "↩" where a name continues across a turn, the order table from `resolve`, Blocks marked by their Track's initial and a number, `beatsPerBar` in `melody`), and step 11 as 2959298. Steps 1 to 11 are done. `POST /format` is the one place an Arrangement's file text is made, so the editor's file and a hand-written one are the same text. `roundtrip.ts` makes `tempo-turns` from `the-song` in the editor, byte for byte.
 
+## Learn and Edit (robot, with the scientist, 2026-11-23)
+
+The scientist asked for more flesh on editing, and for the composer to be remade around two modes, chosen by a toggle at the top right: **Learn | Edit**.
+
+- **Learn** explains the concepts as the pages do now: words with diagrams, and the diagrams' own visualisations. Nothing in Learn is changed by hand.
+- **Edit** is the tool to pick up once you understand enough. Each concept's page in Edit is a workspace for changing that concept, and it is judged by how easy it is to use. Its words are short hints; the explaining stays in Learn.
+
+### What can be edited, by concept
+
+Not every concept is a file the scientist keeps, so Edit has three kinds of workspace:
+
+- **Files**: the Arrangement, the Perspectives and the Tides. These are records in git. They are edited, checked by the server against their own rules, and saved as files.
+- **Parameters**: the Parts. A part is code, and its shape can't be edited. What can be edited is what an Arrangement gives each of its instances, within the part's schema. That is saved into the Arrangement.
+- **Benches**: the Mood, the Tune, the Lyrics, the Score, the Beds and the Song. These are made by the mind and the band, not kept. On a bench you change what goes in and see what comes out: a line of words fitted to a phrase, a Mood moved on its weather, a tune evolved a few steps. Nothing on a bench is saved; it is for learning by hand what the made things do.
+
+### What every Edit workspace shares
+
+- **The mode is in the URL** (`?mode=edit`), so a link, a reload or a capture keeps it. The toggle swaps the mode on the page you're on. The browser remembers the last mode only as a convenience.
+- **The map** is the same in both modes. In Edit, each concept says which kind of workspace it has, and a concept with nothing to edit says so rather than hiding.
+- **One shell**:
+  - which file is open, as a picker, with new, copy and open-from-disk;
+  - an unsaved mark;
+  - undo and redo, as buttons and as Ctrl/Cmd-Z and Shift-Ctrl/Cmd-Z, across every kind of change;
+  - the check's answer shown on the thing it is about (the Block, the instance, the field), not only in a list. While the check refuses, the last good drawing stays dimmed beneath.
+- **Saving stays as step 4 made it.** The server never writes a file. Save downloads the file as `POST /format` makes it, and it is refused while the check refuses. Git is where files are kept, and the scientist commits them. A draft is kept in `localStorage` as a convenience only.
+- **Learn loses its editors.** The Arrangement page in Learn draws and explains; its rows of fields move to Edit, where they become the inspector of what is selected.
+
+### The Arrangement's hands
+
+The Arrangement in Edit is a DAW's session that you work with the mouse. Fields remain, in an inspector beside it, for exact values.
+
+- **Blocks**:
+  - drag a Block's body to move it, and its ends to stretch it;
+  - drag in an empty stretch of a Track to draw a new Block;
+  - Alt-drag (Option-drag on a Mac) to copy a Block with the same key, which is the same sound heard again; "make unique" gives a copy a key of its own;
+  - drag a fade's handle at a Block's top corner, and drag the gain line up or down;
+  - pick a Block's key from the keys already on its Track, or a new one;
+  - pick its source by clicking a region on the ruler;
+  - Delete removes the selection, and the arrow keys nudge it.
+- **Snapping**: an edge snaps to anchors, the region edges and the hearings, and to bars where there is a tempo. While dragging, the anchor it will be written as is shown, e.g. "verse-1 end + 2.0 s". Holding Shift turns snapping off, and the drop is then written as the nearest anchor plus seconds. The page never invents a coordinate the timeline can't hold: what it writes is always an Anchor.
+- **Regions**:
+  - drag an instance along the ruler to reorder it;
+  - in free time, drag its right edge to set its seconds;
+  - its menu adds an instance after it, removes it, names it and sets its ending. Naming it after another still shares their words, and the page says so.
+- **Tempo**: points on the tempo lane, each at a region and its hearing. Click to add one; drag it to another region; type its value, choose the Mood's tempo, or make it free.
+- **Turns**: markers on the ruler, dragged from region to region, added and removed as tempo points are.
+- **Seeing**: zoom with Ctrl/Cmd-scroll or a slider, scroll along the Song, and fit the whole Song to the window. Selected things are plain to see, and each mark (letter, ramp, gain line) means the same as in Learn.
+
+### The Parts, the Perspectives and the Tides in Edit
+
+- **Parts**:
+  - choose an Arrangement, then an instance from its strip;
+  - each parameter becomes a slider within its range, with the default marked and a reset;
+  - each line's `measure` (target, most, whether it grows) is drawn as bars and redrawn as a slider moves, from the server, not from rules repeated in the page.
+- **Perspectives**:
+  - a Facet's Turns and Weights, edited;
+  - `clash` shown where Facets fight;
+  - the Settings that `resolve` gives drawn with the edited Perspective and without it.
+- **Tides**:
+  - a tide's envelope drawn, with its points dragged within `validRange`;
+  - its value at a chosen Song number shown, and that number moved along the envelope.
+
+These need what the Arrangement already has: a check on the server against the package's own rules, and one formatter on the server, so a file saved from the editor reads exactly like one written by hand.
+
+### The benches
+
+Each bench starts from the Learn page's sample values, and has a "back to the sample" button.
+
+- **Mood**: drag on the weather (mode and tempo), and see the first tune's character and tempo follow.
+- **Tune**: choose a mode and a number of steps, evolve it, step back, and see each phrase change.
+- **Lyrics** and **Score**: type a line for a phrase, and see its syllables fitted to the notes as the Score would set them. Rough syllables are marked, and the line that would grow with the Song's age is marked as such.
+- **Beds**: choose a part kind, and see the guide that MusicGen would be given. No MusicGen is run.
+- **Song**: choose an Arrangement and a tempo, and see the Session it would make: its parts in order, with their seconds and the recordings they would name.
+
+### Steps 12 to 15 in detail
+
+- **Step 12, two modes.**
+  - The toggle, the mode in the URL, the map in both modes, and the Edit shell (picker, unsaved mark, undo and redo, the check shown on its thing).
+  - The Arrangement's editor moves out of Learn into Edit, as today's fields in an inspector beside the drawing.
+  - Proof:
+    - `roundtrip.ts` runs in Edit as now, and undoing every step gives back a file byte-equal to `the-song`;
+    - no editor is in any Learn page;
+    - captures of a concept in Learn and in Edit.
+- **Step 13, the Arrangement's hands**, as above.
+  - Proof: `roundtrip.ts` grows a second run that makes `tempo-turns` from `the-song` with the mouse alone (Playwright's mouse: drags, clicks, menus, typing only where a number is typed), and the saved file equals the repo's byte for byte.
+  - Tests for the anchor a drop is written as: snapped, unsnapped, and in free time.
+- **Step 14, the Parts, the Perspectives and the Tides in Edit**, as above.
+  - Proof:
+    - a check and a format endpoint for each kind of file, with tests that each file in the repo is accepted and formats to itself;
+    - a round trip for each: change one thing and save; the file is accepted and differs only in that thing;
+    - captures.
+- **Step 15, the benches**, as above.
+  - Proof:
+    - the bench answers come from the same functions as the Learn pages;
+    - tests that a bench at its sample values gives exactly the Learn page's drawing;
+    - captures.
+
+Each step is reviewed by the Composer session, as before.
+
 ### Still open
 
 - **The Intro as a part.** It could be a part whose making waits for its Song to have aired, played or not by what triggers it. It is decided when the other parts are written out and it can be seen whether anything in the intro cannot be a parameter.
 - **Tempo ramps.** Changes are jumps; an accelerando or a ritardando between two tempi is decided later.
 - **Words in free time.** Fitting words without a grid, so a part with written words can be sung where the tempo is null.
 - **A Track that plays the whole Song.** A maker for a drum Track, or any instrument longer than a bed: the wasm instruments idea.
-- **A DAW's hands.** The editor is rows of fields. Dragging and stretching Blocks on the drawing, and picking a Block's source from the regions, are still to come.
 - **Facets in an Arrangement.** How an Arrangement's ranges for Facets meet the Perspectives and the Tides.
