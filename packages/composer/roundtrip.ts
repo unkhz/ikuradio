@@ -2,8 +2,8 @@
 //
 //   bun packages/composer/roundtrip.ts [http://localhost:3200 [folder for what it keeps]]
 //
-// Against a Composer that is running, with Chrome, it starts from the first Arrangement, gives it the id
-// no-bridges, removes every part that has no words, sets the first instance that has a wordiness to 0.9,
+// Against a Composer that is running, with Chrome, it opens the regions of the first Arrangement (as a file with no timeline: the
+// editor edits the regions until step 11 teaches it blocks), gives it the id no-bridges, removes every part that has no words, sets the first instance that has a wordiness to 0.9,
 // and saves: the file it downloads must be accepted by the parts' own check, and be read back by the
 // registry of Arrangements from a folder of its own. Then it gives one instance the name of another that
 // is a different part, and sees the refusal on the page, and Save disabled. It captures the page twice, in
@@ -26,7 +26,9 @@ const must = (ok: unknown, said: string) => {
 type PartJson = { id: string; words: string; parameters: { name: string }[] }
 const parts = (await (await fetch(`${base}/parts.json`)).json()) as PartJson[]
 const wordless = new Set(parts.filter(({ words }) => words === 'none').map(({ id }) => id))
-const [first] = (await (await fetch(`${base}/arrangements.json`)).json()) as { id: string; declaration: Arrangement }[]
+const listed = (await (await fetch(`${base}/arrangements.json`)).json()) as { id: string; title: string; declaration: Arrangement }[]
+// the Song, whose regions have words and bridges to remove; found by its id: the Composer lists its Arrangements by theirs
+const first = listed.find(({ id }) => id === 'the-song')
 must(first, 'the Composer lists no Arrangement to start from')
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true })
@@ -38,9 +40,11 @@ try {
   await page.goto(`${base}/arrangement/`)
   await page.waitForSelector('#diagram .block')
 
-  // start from a copy, give it a name of its own
-  await page.selectOption('#start', first!.id)
-  await page.click('#copy')
+  // open its regions as a file, and give them a name of their own
+  const opened = join(keep, 'opened.json')
+  writeFileSync(opened, JSON.stringify({ id: first!.id, title: first!.title, instances: first!.declaration.instances }))
+  await page.setInputFiles('#open', opened)
+  await page.waitForSelector('#instances .row')
   await page.fill('#draft-id', 'no-bridges')
   await page.fill('#draft-title', 'No bridges')
 
@@ -83,7 +87,7 @@ try {
   mkdirSync(dir)
   writeFileSync(join(dir, 'arrangement.json'), readFileSync(saved))
   writeFileSync(join(dir, 'arrangement.md'), '---\nstate: active\nid: 9\nkind: arrangement\nslug: no-bridges\n---\n# No bridges\n')
-  const [read] = readArrangements(records, home)
+  const [read] = await readArrangements(records, home)
   must(read?.arrangement.id === 'no-bridges', 'the registry did not read it')
 
   const expected = first!.declaration.instances.filter(({ part }) => !wordless.has(part))

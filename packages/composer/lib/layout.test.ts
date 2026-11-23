@@ -5,14 +5,14 @@ import { layoutOf } from './layout.js'
 
 const records = await readParts()
 const parts = new Map(records.map(({ part }) => [part.id, part]))
-const theSong = readArrangements(records).find(({ arrangement }) => arrangement.id === 'the-song')!.arrangement
+const theSong = (await readArrangements(records)).find(({ arrangement }) => arrangement.id === 'the-song')!.arrangement
 const layout = layoutOf(theSong, parts, firstTune, 72)
 const sum = (phrases: readonly Parameters<typeof phraseBeats>[0][]) => phrases.reduce((total, phrase) => total + phraseBeats(phrase), 0)
 
 describe('the Song laid out at 72 bpm', () => {
-  it('has its ten instances, in order', () => {
+  it('has its twenty instances, in order: the Song walks its whole order twice', () => {
     expect(layout.instances.map(({ name }) => name)).toEqual(theSong.instances.map(({ name }) => name))
-    expect(layout.instances.map(({ index }) => index)).toEqual([...Array(10).keys()])
+    expect(layout.instances.map(({ index }) => index)).toEqual([...Array(20).keys()])
   })
 
   it('lasts 16 beats for each bridge', () => {
@@ -25,7 +25,7 @@ describe('the Song laid out at 72 bpm', () => {
   })
 
   it('marks the parts that may grow with the Song\'s age: the chorus, and none of the others', () => {
-    expect(layout.instances.filter(({ grows }) => grows).map(({ part }) => part)).toEqual(['chorus', 'chorus'])
+    expect(layout.instances.filter(({ grows }) => grows).map(({ part }) => part)).toEqual(['chorus', 'chorus', 'chorus', 'chorus'])
   })
 
   it('has its starts add up, with no gaps', () => {
@@ -39,11 +39,13 @@ describe('the Song laid out at 72 bpm', () => {
     for (const placed of layout.instances) expect(placed.seconds).toBeCloseTo((placed.beats * 60) / 72, 9)
   })
 
-  it('has the two choruses point at each other', () => {
-    const [one, other] = layout.instances.filter(({ name }) => name === 'chorus')
-    expect(one!.heardAgain).toEqual([other!.index])
-    expect(other!.heardAgain).toEqual([one!.index])
-    expect(layout.instances.filter(({ name }) => name !== 'chorus').every(({ heardAgain }) => heardAgain.length === 0)).toBe(true)
+  it('has the two choruses of each pass point at each other, and the passes share nothing', () => {
+    for (const name of ['chorus', 'chorus-again']) {
+      const [one, other] = layout.instances.filter((instance) => instance.name === name)
+      expect(one!.heardAgain).toEqual([other!.index])
+      expect(other!.heardAgain).toEqual([one!.index])
+    }
+    expect(layout.instances.filter(({ name }) => !name.startsWith('chorus')).every(({ heardAgain }) => heardAgain.length === 0)).toBe(true)
   })
 
   it('has the endings and neighbours step 2 proved', () => {

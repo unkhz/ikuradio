@@ -6,10 +6,12 @@ import { arrange, type Lyrics } from 'song'
 import { arrangementSchema, ending, isArrangement, placesOf, refuseArrangement, type Arrangement } from './arrangement.js'
 import { readArrangements } from './arrangements.js'
 import { readParts } from './registry.js'
+import { readTracks } from './tracks.js'
 
 const records = await readParts()
+const tracks = await readTracks()
 const byId = new Map(records.map(({ part }) => [part.id, part]))
-const first = readArrangements(records).find(({ arrangement }) => arrangement.id === 'the-song')
+const first = (await readArrangements(records)).find(({ arrangement }) => arrangement.id === 'the-song')
 const theSong = first!.arrangement
 
 const lyrics: Lyrics = {
@@ -30,29 +32,46 @@ const fieldOf: Record<string, keyof Lyrics> = {
 }
 
 describe('the first Arrangement is the Song as it always was', () => {
-  it('is found by its folder, and is the Song', () => {
+  const pass = ['verse-1', 'bridge-1', 'chorus', 'bridge-2', 'verse-2', 'bridge-3', 'chorus', 'bridge-4', 'verse-3', 'final-chorus']
+  /** What arrange() sings in a pass, and a second pass of it: the Song walks the whole order twice. */
+  const twice = [...sung, ...sung]
+
+  it('is found by its folder, and is the Song: its regions twice, a pass at a time, the second pass named by itself', () => {
     expect(first!.arrangement.id).toBe('the-song')
     expect(first!.state).toBe('active')
-    expect(theSong.instances.map(({ name }) => name)).toEqual(['verse-1', 'bridge-1', 'chorus', 'bridge-2', 'verse-2', 'bridge-3', 'chorus', 'bridge-4', 'verse-3', 'final-chorus'])
+    expect(theSong.instances.map(({ name }) => name)).toEqual([...pass, ...pass.map((name) => `${name}-again`)])
   })
 
-  it('has the parts arrange() gives, part for part, and the same words in the same places', () => {
-    expect(theSong.instances.map(({ part }) => part)).toEqual(sung.map(({ type }) => type))
+  it('has the parts arrange() gives, part for part and pass for pass, and the same words in the same places', () => {
+    expect(theSong.instances.map(({ part }) => part)).toEqual(twice.map(({ type }) => type))
     for (const [i, { name }] of theSong.instances.entries()) {
-      const part = sung[i]!
+      const part = twice[i]!
+      const original = name.replace(/-again$/, '')
       if (part.type === 'bridge') expect(part.content).toBe('')
-      else expect(part.content).toBe(lyrics[fieldOf[name]!])
+      else expect(part.content).toBe(lyrics[fieldOf[original]!])
     }
+  })
+
+  it('has the second pass continue the first: each region that has words follows the words of its place before, and no bridge does', () => {
+    theSong.instances.forEach(({ name, part, continues }, i) => {
+      if (i < 10 || part === 'bridge') expect(continues).toBeUndefined()
+      else expect(continues).toBe(theSong.instances[i - 10]!.name)
+    })
+  })
+
+  it('is one tempo, the Mood\'s, given as the Mood\'s and not a number', () => {
+    expect(theSong.tempo).toEqual([{ bpm: 'mood' }])
   })
 
   it("is made by no rule: an Arrangement's bridges are the ones it lists", () => {
     const without: Arrangement = { id: 'plain', title: 'Plain', instances: [{ name: 'a', part: 'verse' }, { name: 'b', part: 'chorus' }] }
-    expect(refuseArrangement(without, records)).toBeUndefined()
+    expect(refuseArrangement(without, records, tracks)).toBeUndefined()
     expect(placesOf(without, 1n).map(({ before, after }) => [before, after])).toEqual([[undefined, 'chorus'], ['verse', undefined]])
   })
 
-  it('ends as perform ends it today: a chorus, or the last, at home; the others open', () => {
-    // the rule perform.ts keeps, written out here: part === 'chorus' || last ? 'full' : 'half'
+  it("ends as perform's rule ends it, applied to the Arrangement as a whole: a chorus, or the very last, at home", () => {
+    // the rule perform.ts keeps, written out here: part === 'chorus' || last ? 'full' : 'half'. The Studio makes the last part of each
+    // iteration come home; an Arrangement that walks two passes knows only its own last
     const today = (part: string, last: boolean) => (part === 'chorus' || last ? 'full' : 'half')
     const places = placesOf(theSong, 2548n)
     for (const [i, { part }] of theSong.instances.entries()) {
@@ -60,16 +79,16 @@ describe('the first Arrangement is the Song as it always was', () => {
     }
   })
 
-  it('its bridges run from and to the parts arrange() puts on either side', () => {
+  it('has its bridges run from and to the parts arrange() puts on either side, in each pass', () => {
     const places = placesOf(theSong, 1n)
     for (const [i, { part }] of theSong.instances.entries()) {
       if (part !== 'bridge') continue
-      expect(places[i]!.before).toBe(sung[i - 1]!.type)
-      expect(places[i]!.after).toBe(sung[i + 1]!.type)
+      expect(places[i]!.before).toBe(twice[i - 1]!.type)
+      expect(places[i]!.after).toBe(twice[i + 1]!.type)
     }
     expect(places[0]!.before).toBeUndefined()
     expect(places.at(-1)!.after).toBeUndefined()
-    expect(places.map(({ last }) => last)).toEqual([...Array(9).fill(false), true])
+    expect(places.map(({ last }) => last)).toEqual([...Array(19).fill(false), true])
   })
 })
 
@@ -78,12 +97,12 @@ describe('what is refused', () => {
   const refused = (change: (a: any) => void) => {
     const declared = good()
     change(declared)
-    return refuseArrangement(declared, records)
+    return refuseArrangement(declared, records, tracks)
   }
 
   it('accepts the Song', () => {
-    expect(refuseArrangement(theSong, records)).toBeUndefined()
-    expect(isArrangement(theSong, records)).toBe(true)
+    expect(refuseArrangement(theSong, records, tracks)).toBeUndefined()
+    expect(isArrangement(theSong, records, tracks)).toBe(true)
   })
 
   it('a part that does not exist', () => {
@@ -128,8 +147,8 @@ describe('what is refused', () => {
   })
 
   it('the whole schema agrees: what the refusal accepts it accepts, and what the shape refuses it refuses', () => {
-    const schema = arrangementSchema(records)
-    expect(isArrangement(theSong, records)).toBe(true)
+    const schema = arrangementSchema(records, tracks)
+    expect(isArrangement(theSong, records, tracks)).toBe(true)
     for (const bad of [
       (a: any) => (a.instances[0].part = 'refrain'),
       (a: any) => (a.instances[0].parameters = { wordiness: 1.5 }),
@@ -138,30 +157,30 @@ describe('what is refused', () => {
     ]) {
       const declared = good()
       bad(declared)
-      expect(isArrangement(declared, records)).toBe(false)
-      expect(refuseArrangement(declared, records)).toBeDefined()
+      expect(isArrangement(declared, records, tracks)).toBe(false)
+      expect(refuseArrangement(declared, records, tracks)).toBeDefined()
     }
     expect(schema).toBeDefined()
   })
 })
 
 describe('the registry', () => {
-  it('fails loudly, naming the folder and the refusal, for a declaration that is refused', () => {
+  it('fails loudly, naming the folder and the refusal, for a declaration that is refused', async () => {
     const home = mkdtempSync(join(tmpdir(), 'arrangements-'))
     const dir = join(home, 'broken')
     mkdirSync(dir)
     writeFileSync(join(dir, 'arrangement.md'), '---\nstate: active\nid: 9\nkind: arrangement\nslug: broken\n---\n# Broken\n')
     writeFileSync(join(dir, 'arrangement.json'), JSON.stringify({ id: 'broken', title: 'Broken', instances: [{ name: 'a', part: 'refrain' }] }))
-    expect(() => readArrangements(records, home)).toThrow(/broken.*instances\/0\/part/)
+    await expect(readArrangements(records, home)).rejects.toThrow(/broken.*instances\/0\/part/)
   })
 
-  it("an Arrangement's id is its folder's", () => {
+  it("an Arrangement's id is its folder's", async () => {
     const home = mkdtempSync(join(tmpdir(), 'arrangements-'))
     const dir = join(home, 'one')
     mkdirSync(dir)
     writeFileSync(join(dir, 'arrangement.md'), '---\nstate: active\nid: 9\nkind: arrangement\nslug: one\n---\n# One\n')
     writeFileSync(join(dir, 'arrangement.json'), readFileSync(join(first!.dir, 'arrangement.json'), 'utf8'))
-    expect(() => readArrangements(records, home)).toThrow(/id is its folder's/)
+    await expect(readArrangements(records, home)).rejects.toThrow(/id is its folder's/)
   })
 })
 

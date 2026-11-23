@@ -56,7 +56,7 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
     if (url.pathname === '/map.json') return json(mapOf(await readConcepts(conceptsDir)))
 
     // the Arrangements, as the editor asks for them
-    if (url.pathname === '/arrangements.json') return json(arrangementsAnswer(records, arrangementsDir, tempoOf(url)))
+    if (url.pathname === '/arrangements.json') return json(await arrangementsAnswer(records, arrangementsDir, tempoOf(url)))
 
     // the only thing that is asked of a draft, and the only place its rules are kept
     if (url.pathname === '/check') {

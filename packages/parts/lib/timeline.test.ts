@@ -83,6 +83,17 @@ describe('resolve', () => {
     expect(resolved.seconds).toBe(32 + 5 + 32 + 32 + 32)
   })
 
+  it("keeps a tail past the Song's end in the last region: its beats are the last tempo's, not the first's", () => {
+    const arrangement = made({ tempo: [{ bpm: 60 }, { region: 'chorus', bpm: 120 }], blocks: [block({ key: 'tail', from: { region: 'chorus', hearing: 2, edge: 'start' }, to: { region: 'chorus', hearing: 2, edge: 'end', plus: 3 } })] })
+    const resolved = resolve(arrangement, { beats, mood: 90 })
+    // the last region is 32 beats at 120, 16 s; the tail is 3 s more, under the same tempo
+    expect(resolved.blocks[0]).toMatchObject({ startSeconds: 80, endSeconds: 99, seconds: 19, startBeats: 64, beats: 38 })
+    // and a Block that begins in the first region's tempo and ends past the end has none to count
+    const across = resolve(made({ tempo: [{ bpm: 60 }, { region: 'chorus', bpm: 120 }], blocks: [block({ key: 'long', to: { edge: 'end', plus: 3 } })] }), { beats, mood: 90 })
+    expect(across.blocks[0]!.beats).toBeUndefined()
+    expect(across.blocks[0]!.endSeconds).toBe(across.seconds + 3)
+  })
+
   it('says plainly what it cannot resolve', () => {
     expect(() => resolve(made({ blocks: [block({ from: { region: 'nowhere', edge: 'start' } })] }), { beats, mood: 60 })).toThrow('no region "nowhere"')
     expect(() => resolve(made({ blocks: [block({ from: { region: 'chorus', edge: 'end' }, to: { region: 'chorus', edge: 'start' } })] }), { beats, mood: 60 })).toThrow('ends before it begins')
@@ -139,6 +150,28 @@ describe('what is refused', () => {
     // a part with written words cannot be sung where there is no beat
     expect(refused({ tempo: [{ bpm: 'mood' }, { region: 'chorus', bpm: null }] })).toContain('it has written words, and cannot be in free time')
     expect(refused({}, bridge)).toContain('it has seconds but is under a tempo')
+  })
+
+  it('a region that continues what is not there, what is not its part, or itself', () => {
+    const continuing = (name: string, continues: string) => instances.map((instance) => (instance.name === name ? { ...instance, continues } : instance))
+    expect(refused({}, continuing('verse-2', 'coda'))).toContain('region 4 ("verse-2", a verse): it continues "coda", which the Arrangement does not have')
+    expect(refused({}, continuing('verse-2', 'chorus'))).toContain('it continues "chorus", which is a chorus: a region follows the words of its own part')
+    expect(refused({}, continuing('verse-2', 'verse-2'))).toContain('it continues itself')
+    expect(refused({}, continuing('verse-2', 'verse-1'))).toBeUndefined()
+  })
+
+  it('a Block on a track the Arrangement does not list, since the list is the lanes it draws', () => {
+    expect(refused({ tracks: ['voice'], blocks: [block({ track: 'bed' })] })).toContain('does not list the track "bed": it lists voice')
+    expect(refused({ tracks: [], blocks: [block({ track: 'bed' })] })).toContain('it lists none')
+    // a lane with no Blocks yet is still a lane
+    expect(refused({ tracks: ['voice', 'bed', 'guide'], blocks: [block({ track: 'bed' })] })).toBeUndefined()
+  })
+
+  it('a Block that begins before the Song does', () => {
+    expect(refused({ blocks: [block({ from: { edge: 'start', plus: -1 } })] })).toContain('it begins before the Song does')
+    expect(() => resolve(made({ blocks: [block({ from: { region: 'bridge-1', edge: 'start', plus: -40 } })] }), { beats, mood: 60 })).toThrow('begins before the Song does')
+    // a Block may begin before a region, if not before the Song
+    expect(refused({ blocks: [block({ from: { region: 'bridge-1', edge: 'start', plus: -2 } })] })).toBeUndefined()
   })
 
   it('a tempo map that goes backwards, or begins elsewhere than the start', () => {

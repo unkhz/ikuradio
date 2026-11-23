@@ -92,6 +92,31 @@ export function tuneAnswer() {
 
 // ---- the Lyrics
 
+/** The Arrangement the pages of what a Song makes are drawn from: the Song as it always was, which `arrange()` in the song package lays out. */
+export const songsArrangement = 'the-song'
+
+/** That Arrangement, if it is there and active. */
+async function theSong(records: readonly PartRecord[], arrangementsDir: string) {
+  return (await readArrangements(records, arrangementsDir)).find(({ arrangement, state }) => arrangement.id === songsArrangement && state === 'active')
+}
+
+/**
+ * The Lyrics field each instance sings. The instances that continue nothing take the fields `arrange()` places, in order; one that
+ * continues another sings the field that one does, as an iteration's verse follows the one before it.
+ */
+export function fieldsOf(instances: readonly { name: string; continues?: string }[]): (keyof Lyrics | undefined)[] {
+  const named = Object.fromEntries((Object.keys(firstLyrics) as (keyof Lyrics)[]).map((field) => [field, field])) as Lyrics
+  const sung = arrange(named)
+  const own = new Map<string, keyof Lyrics | undefined>()
+  instances.filter(({ continues }) => continues === undefined).forEach(({ name }, k) => own.set(name, sung[k]?.content ? (sung[k]!.content as keyof Lyrics) : undefined))
+  const byName = new Map(instances.map((instance) => [instance.name, instance]))
+  const rootOf = (name: string, seen = new Set<string>()): string => {
+    const next = byName.get(name)?.continues
+    return next !== undefined && !seen.has(name) ? rootOf(next, seen.add(name)) : name
+  }
+  return instances.map(({ name }) => own.get(rootOf(name)))
+}
+
 const sampleWordiness = [0.2, 0.5, 0.9]
 const written = (part: Part) => part.words === 'written'
 
@@ -103,13 +128,9 @@ export function ageIn(records: readonly PartRecord[]): string | undefined {
 /** The five fields of Lyrics, the instances of the Arrangement each fills, each line's count at a tempo, and the Song's age growing. */
 export async function lyricsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number, rate = 6) {
   const fields = Object.keys(firstLyrics) as (keyof Lyrics)[]
-  // each field is given its own name for a text, so that arrange() shows where every field is sung
-  const named = Object.fromEntries(fields.map((field) => [field, field])) as Lyrics
-  const sung = arrange(named)
-  const first = readArrangements(records, arrangementsDir).find(({ state }) => state === 'active')
-  const fills = first
-    ? first.arrangement.instances.map(({ name, part }, i) => ({ instance: name, part, field: sung[i]?.content ? (sung[i]!.content as keyof Lyrics) : undefined }))
-    : []
+  const first = await theSong(records, arrangementsDir)
+  const fieldOf = first ? fieldsOf(first.arrangement.instances) : []
+  const fills = first ? first.arrangement.instances.map(({ name, part }, i) => ({ instance: name, part, field: fieldOf[i] })) : []
   const lines = records.filter(({ part }) => written(part)).map(({ part }) => ({
     part: part.id,
     lines: [0, 1, 2, 3].map((line) => ({
@@ -225,7 +246,7 @@ export const kindOf = (part: Part, before?: string, after?: string) => (part.wor
 /** The kinds of bed an Arrangement asks for, and the guide the first section's lines make. */
 export async function bedsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
   const parts = new Map(records.map(({ part }) => [part.id, part]))
-  const first = readArrangements(records, arrangementsDir).find(({ state }) => state === 'active')
+  const first = await theSong(records, arrangementsDir)
   const layout = first ? layoutOf(first.arrangement, parts, firstTune, tempo) : undefined
   const kinds = layout?.instances.map((instance) => ({ instance: instance.name, part: instance.part, kind: kindOf(parts.get(instance.part)!, instance.before, instance.after), beats: instance.beats, seconds: instance.seconds })) ?? []
   // the guide of a verse: its four sample lines, as timed syllables, and the chords that change where the words lean
@@ -249,11 +270,10 @@ export async function bedsAnswer(records: readonly PartRecord[], arrangementsDir
 // ---- the Song
 
 /** What a Song is made of once it is a Session, and where each part of it comes from: the parts in order, with their kinds, their words, their timing. */
-export function songAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
+export async function songAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
   const parts = new Map(records.map(({ part }) => [part.id, part]))
-  const first = readArrangements(records, arrangementsDir).find(({ state }) => state === 'active')
-  const fields = Object.keys(firstLyrics) as (keyof Lyrics)[]
-  const sung = arrange(Object.fromEntries(fields.map((field) => [field, field])) as Lyrics)
+  const first = await theSong(records, arrangementsDir)
+  const fieldOf = first ? fieldsOf(first.arrangement.instances) : []
   const layout = first ? layoutOf(first.arrangement, parts, firstTune, tempo) : undefined
   return {
     arrangement: first?.arrangement.id,
@@ -263,7 +283,7 @@ export function songAnswer(records: readonly PartRecord[], arrangementsDir: stri
       instance: instance.name,
       part: instance.part,
       kind: kindOf(parts.get(instance.part)!, instance.before, instance.after),
-      words: sung[i]?.content || undefined,
+      words: fieldOf[i],
       start: instance.startSeconds,
       seconds: instance.seconds,
       ending: instance.ending,

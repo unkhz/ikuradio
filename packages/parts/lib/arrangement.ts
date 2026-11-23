@@ -16,7 +16,7 @@ import type { TrackRecord } from './tracks.js'
 const named = (description: string) => Type.String({ pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', description })
 
 /** One part in an Arrangement, a region of its timeline: its name, its identity within it; the part it is; the parameters it sets, if any; its seconds, if it is in free time. */
-export type Instance = { name: string; part: string; parameters?: Record<string, number>; seconds?: number }
+export type Instance = { name: string; part: string; parameters?: Record<string, number>; seconds?: number; continues?: string }
 
 /** What an Arrangement says: its regions, and, by addition, its tempo map, its tracks and the blocks on them. */
 export type Arrangement = { id: string; title: string; instances: Instance[] } & Timeline
@@ -27,7 +27,7 @@ export function arrangementSchema(records: readonly PartRecord[], tracks: readon
   const instance = Type.Union(
     active.map((record) =>
       Type.Object(
-        { name: named('The instance'), part: Type.Literal(record.part.id), parameters: Type.Optional(parametersSchema(record)), seconds: Type.Optional(Type.Number({ exclusiveMinimum: 0 })) },
+        { name: named('The instance'), part: Type.Literal(record.part.id), parameters: Type.Optional(parametersSchema(record)), seconds: Type.Optional(Type.Number({ exclusiveMinimum: 0 })), continues: Type.Optional(named('The instance it continues')) },
         { additionalProperties: false },
       ),
     ),
@@ -45,7 +45,7 @@ const shape = (records: readonly PartRecord[]) =>
       id: named('The Arrangement'),
       title: Type.String({ minLength: 1 }),
       instances: Type.Array(
-        Type.Object({ name: named('The instance'), part: idSchema(records), parameters: Type.Optional(Type.Record(Type.String(), Type.Unknown())), seconds: Type.Optional(Type.Number({ exclusiveMinimum: 0 })) }, { additionalProperties: false }),
+        Type.Object({ name: named('The instance'), part: idSchema(records), parameters: Type.Optional(Type.Record(Type.String(), Type.Unknown())), seconds: Type.Optional(Type.Number({ exclusiveMinimum: 0 })), continues: Type.Optional(named('The instance it continues')) }, { additionalProperties: false }),
         { minItems: 1 },
       ),
       ...timelineShape(),

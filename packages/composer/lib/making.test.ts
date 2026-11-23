@@ -9,7 +9,7 @@ import { ageIn, ageOf, bedsAnswer, captionScale, captionsOf, fittedLine, kindOf,
 
 const records = await readParts()
 const parts = new Map(records.map(({ part }) => [part.id, part]))
-const theSong = readArrangements(records).find(({ arrangement }) => arrangement.id === 'the-song')!.arrangement
+const theSong = (await readArrangements(records)).find(({ arrangement }) => arrangement.id === 'the-song')!.arrangement
 const fieldNames = Object.keys(firstLyrics) as (keyof Lyrics)[]
 /** What arrange() sings in each place, when every field is given its own name for a text. */
 const sung = arrange(Object.fromEntries(fieldNames.map((field) => [field, field])) as Lyrics)
@@ -80,19 +80,21 @@ describe('the Lyrics', () => {
     theSong.instances.forEach(({ name }, i) => {
       const fill = lyrics.fills[i]!
       expect(fill.instance).toBe(name)
-      expect(fill.field as string | undefined).toBe(sung[i]!.content || undefined)
+      // the Song walks the whole order twice, and the second pass continues the words of the first
+      expect(fill.field as string | undefined).toBe(sung[i % 10]!.content || undefined)
     })
-    // a field sung twice is sung by two instances: the refrain's, and nothing else is
-    const twice = lyrics.fields.filter((field) => lyrics.fills.filter((fill) => fill.field === field).length > 1)
-    expect(twice).toHaveLength(1)
+    // each field is sung once in an iteration by as many instances as arrange() puts it in, and so twice as many in two passes
+    for (const field of lyrics.fields) {
+      expect(lyrics.fills.filter((fill) => fill.field === field)).toHaveLength(2 * sung.filter(({ content }) => content === field).length)
+    }
   })
 
   it("names the part whose first line is the Song's age, by asking the parts for their fixed lines", () => {
     expect(lyrics.ageIn).toBe(ageIn(records))
-    expect(lyrics.ageIn).toBe(theSong.instances.find((_, i) => sung[i]!.content === twiceField())!.part)
+    expect(lyrics.ageIn).toBe(theSong.instances.find((_, i) => sung[i % 10]!.content === twiceField())!.part)
     expect(score.ageIn).toBe(lyrics.ageIn)
     function twiceField() {
-      return fieldNames.find((field) => theSong.instances.filter((_, i) => sung[i]!.content === field).length > 1)
+      return fieldNames.find((field) => sung.filter(({ content }) => content === field).length > 1)
     }
   })
 
@@ -229,8 +231,9 @@ describe('the Score', () => {
 describe('the Beds', () => {
   it("asks for a bed to each part: the part's name, or, with no words, the parts either side of it", () => {
     const expected = sung.map((part, i) => (part.content ? part.type : `${part.type}:${sung[i - 1]!.type}>${sung[i + 1]!.type}`))
-    expect(beds.kinds.map(({ kind }) => kind)).toEqual(expected)
-    expect(beds.kinds.filter(({ kind }) => kind.includes('>'))).toHaveLength(4)
+    // twice: the Song walks the whole order twice
+    expect(beds.kinds.map(({ kind }) => kind)).toEqual([...expected, ...expected])
+    expect(beds.kinds.filter(({ kind }) => kind.includes('>'))).toHaveLength(8)
     expect(kindOf(parts.get(theSong.instances[0]!.part)!)).toBe(theSong.instances[0]!.part)
   })
 
@@ -256,13 +259,15 @@ describe('the Beds', () => {
   })
 })
 
+const song = await songAnswer(records, arrangementsHome, 72)
+
 describe('the Song', () => {
-  const answer = songAnswer(records, arrangementsHome, 72)
+  const answer = song
   const layout = layoutOf(theSong, parts, firstTune, 72)
 
   it("lays the Arrangement out as a Session's parts would be: in order, with kinds, words and timing", () => {
     expect(answer.parts.map(({ instance }) => instance)).toEqual(theSong.instances.map(({ name }) => name))
-    expect(answer.parts.map(({ words }) => words)).toEqual(sung.map(({ content }) => content || undefined))
+    expect(answer.parts.map(({ words }) => words as string | undefined)).toEqual([...sung, ...sung].map(({ content }) => content || undefined))
     expect(answer.parts.map(({ start }) => start)).toEqual(layout.instances.map(({ startSeconds }) => startSeconds))
     expect(answer.seconds).toBe(layout.seconds)
     expect(answer.parts.map(({ kind }) => kind)).toEqual(beds.kinds.map(({ kind }) => kind))

@@ -31,7 +31,7 @@ export type TempoPoint = { region?: string; hearing?: number; bpm: number | 'moo
 export type Timeline = { tempo?: TempoPoint[]; tracks?: string[]; blocks?: Block[] }
 
 /** A region as an Arrangement's instance says it, as far as the timeline needs it. */
-export type Region = { name: string; part: string; seconds?: number }
+export type Region = { name: string; part: string; seconds?: number; continues?: string }
 
 // ---- schemas
 
@@ -216,7 +216,8 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
       const end = region.startSeconds + region.seconds
       if (side === 'start' ? seconds >= region.startSeconds && seconds < end : seconds > region.startSeconds && seconds <= end) return region
     }
-    return side === 'start' ? placed.at(-1) : placed[0]
+    // past the Song's end is in the last region (a bed's tail on the last part), and before its beginning in the first
+    return side === 'start' ? placed[0] : placed.at(-1)
   }
 
   const blocks: ResolvedBlock[] = (arrangement.blocks ?? []).map((block, index) => {
@@ -226,6 +227,7 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
     if (!to) throw new Error(`block ${index + 1} ("${block.key}"): ${missing(regions, block.to)}`)
     const startSeconds = boundarySeconds(from.boundary) + from.plus
     const endSeconds = boundarySeconds(to.boundary) + to.plus
+    if (startSeconds < 0) throw new Error(`block ${index + 1} ("${block.key}"): it begins before the Song does`)
     if (endSeconds < startSeconds) throw new Error(`block ${index + 1} ("${block.key}"): it ends before it begins`)
     const seconds = endSeconds - startSeconds
     const first = regionOf(startSeconds, 'start')
@@ -260,6 +262,15 @@ export function refuseTimeline(
   const byId = new Map(tracks.map((record) => [record.track.id, record]))
   const where = (i: number) => `region ${i + 1} ("${regions[i]!.name}", a ${regions[i]!.part})`
 
+  // a region that continues another follows its words, as an iteration's verse follows the one before it: that one is there, and of the same part
+  for (const [i, region] of regions.entries()) {
+    if (region.continues === undefined) continue
+    const before = regions.find((other) => other.name === region.continues)
+    if (!before) return `${where(i)}: it continues "${region.continues}", which the Arrangement does not have`
+    if (before.part !== region.part) return `${where(i)}: it continues "${region.continues}", which is a ${before.part}: a region follows the words of its own part`
+    if (region.continues === region.name) return `${where(i)}: it continues itself`
+  }
+
   for (const id of arrangement.tracks ?? []) if (!byId.has(id)) return `the Arrangement names the track "${id}", which does not exist: the tracks are ${[...byId.keys()].join(', ') || 'none'}`
 
   // the tempo map: its regions are there, in order
@@ -287,6 +298,8 @@ export function refuseTimeline(
     const label = `block ${i + 1} ("${block.key}")`
     const record = byId.get(block.track)
     if (!record) return `${label}: there is no track "${block.track}": the tracks are ${[...byId.keys()].join(', ') || 'none'}`
+    // the tracks an Arrangement lists are the lanes it draws: a Block is on one of them
+    if (arrangement.tracks && !arrangement.tracks.includes(block.track)) return `${label}: the Arrangement does not list the track "${block.track}": it lists ${arrangement.tracks.join(', ') || 'none'}`
     const problem = refusal(blockSchema(record), { ...(block.gain !== undefined ? { gain: block.gain } : {}), ...(block.fadeIn !== undefined ? { fadeIn: block.fadeIn } : {}), ...(block.fadeOut !== undefined ? { fadeOut: block.fadeOut } : {}) })
     if (problem) return `${label} on the ${block.track} track: the parameter ${problem}`
     for (const side of ['from', 'to'] as const) {
@@ -297,6 +310,8 @@ export function refuseTimeline(
     // a block that ends before it begins, where it can be told without the lengths: the same boundary, or a plain order of boundaries
     const from = boundaryOf(regions, block.from)!
     const to = boundaryOf(regions, block.to)!
+    // a pickup before the first region is the Intro's business, which is still open
+    if (from.boundary === 0 && from.plus < 0) return `${label}: it begins before the Song does`
     if ((from.boundary === to.boundary && from.plus > to.plus) || (from.boundary > to.boundary && from.plus >= 0 && to.plus <= 0)) return `${label}: it ends before it begins`
     // one key is one sound: one Track, and one source
     const source = JSON.stringify(block.source ?? [])

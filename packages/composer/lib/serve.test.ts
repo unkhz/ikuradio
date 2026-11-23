@@ -30,10 +30,11 @@ describe('the real parts and Arrangements', () => {
   })
 
   it('answers every Arrangement with its layout, at a tempo that may be asked for', async () => {
-    const [song] = (await (await get(answer, '/arrangements.json?tempo=90')).json()) as { id: string; layout: { tempo: number; instances: unknown[] } }[]
-    expect(song!.id).toBe('the-song')
+    const arrangements = (await (await get(answer, '/arrangements.json?tempo=90')).json()) as { id: string; layout: { tempo: number; instances: unknown[] } }[]
+    expect(arrangements.map(({ id }) => id)).toEqual(['tempo-turns', 'the-song'])
+    const song = arrangements.find(({ id }) => id === 'the-song')
     expect(song!.layout.tempo).toBe(90)
-    expect(song!.layout.instances).toHaveLength(10)
+    expect(song!.layout.instances).toHaveLength(20)
     // a tempo that is not one is the usual
     expect(((await (await get(answer, '/arrangements.json?tempo=nonsense')).json()) as { layout: { tempo: number } }[])[0]!.layout.tempo).toBe(72)
   })
@@ -94,7 +95,7 @@ describe('POST /check', () => {
   const check = async (body: unknown, query = '') => (await answer(new Request(`http://composer.test/check${query}`, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) }))).json() as Promise<{ refusal?: string; layout?: { tempo: number; beats: number; instances: { name: string }[] } }>
 
   it('gives the Song the layout /arrangements.json gives', async () => {
-    const [song] = (await (await get(answer, '/arrangements.json?tempo=80')).json()) as { id: string; layout: unknown }[]
+    const song = ((await (await get(answer, '/arrangements.json?tempo=80')).json()) as { id: string; layout: unknown }[]).find(({ id }) => id === 'the-song')
     const declared = JSON.parse(readFileSync(fileURLToPath(new URL('../../parts/arrangements/the-song/arrangement.json', import.meta.url)), 'utf8'))
     expect((await check(declared, '?tempo=80')) as unknown).toEqual({ layout: song!.layout })
   })

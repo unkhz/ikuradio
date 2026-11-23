@@ -33,9 +33,9 @@ export const partsAnswer = (records: readonly PartRecord[]) =>
   }))
 
 /** Every Arrangement, with its declaration and its layout at the first tune and a tempo. */
-export function arrangementsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
+export async function arrangementsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
   const parts = new Map(records.map(({ part }) => [part.id, part]))
-  return readArrangements(records, arrangementsDir).map(({ arrangement, title, text, state }) => ({
+  return (await readArrangements(records, arrangementsDir)).map(({ arrangement, title, text, state }) => ({
     id: arrangement.id,
     title,
     text,
