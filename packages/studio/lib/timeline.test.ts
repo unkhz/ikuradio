@@ -31,6 +31,21 @@ describe('the Session from the timeline, for Songs in the Archive', () => {
     })
   }
 
+  it('places a bridge voice only where the bridge was hummed aloud: no recording, and no error, where it was not', () => {
+    const count = (song: number) => {
+      const made = madeFromSession(archived(song))
+      const shadow = sessionOf({ arrangement: theSong, tracks, made, name })
+      const bridges = made.flatMap(({ lines }) => lines.filter((line) => line.part === 'bridge'))
+      const aloud = bridges.filter((line) => !line.unheard).length
+      return { aloud, silent: bridges.length - aloud, voices: shadow.recordings.filter(({ kind, at }) => kind === 'voice' && shadow.iterations.some(({ parts }) => parts.some((part) => part.type === 'bridge' && Math.abs(part.at - at) < 1e-6))).length }
+    }
+    const counted = [1855, 1862, 1864].map(count)
+    // one Session with a bridge hummed aloud and one that has a bridge not hummed, at least; the voices placed under bridges are the bridges hummed aloud, singers and all
+    expect(counted.some(({ aloud }) => aloud > 0)).toBe(true)
+    expect(counted.some(({ silent }) => silent > 0)).toBe(true)
+    for (const { aloud, voices } of counted) expect(voices).toBeGreaterThanOrEqual(aloud)
+  })
+
   it('says where it differs, in a Song that has changed under it: a bed that is somewhere else', () => {
     const made = madeFromSession(archived(1862))
     made[1]!.beds[3]!.at += 0.5
