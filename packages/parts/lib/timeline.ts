@@ -188,15 +188,18 @@ export type ResolvedBlock = {
 /** `iterations` is how many the Song has, the turns and one: its age moves that many numbers. */
 export type Resolved = { seconds: number; iterations: number; regions: ResolvedRegion[]; blocks: ResolvedBlock[] }
 
-/** What `resolve` is given: how many beats each region lasts (where it has a tempo), and the Mood's tempo, for a region that is under it. */
-export type Lengths = { beats: readonly (number | undefined)[]; mood?: number }
+/**
+ * What `resolve` is given: how many beats each region lasts (where it has a tempo), and the Mood's tempo, for a region that is under it. A region that has
+ * been made lasts what it was made for: its measured seconds stand instead of its beats at a tempo (and, in free time, instead of the seconds it was given).
+ */
+export type Lengths = { beats?: readonly (number | undefined)[]; seconds?: readonly (number | undefined)[]; mood?: number }
 
 /**
  * Every region's and Block's start and length: in seconds, always, and in beats where there is a tempo. A tempo change begins a
  * segment, from whose start the beats count again, and the seconds run on. A region in free time lasts its own seconds. Anything
  * the timeline cannot resolve is said plainly, as `refuseTimeline` says it beforehand.
  */
-export function resolve(arrangement: { instances: readonly Region[] } & Timeline, { beats, mood }: Lengths): Resolved {
+export function resolve(arrangement: { instances: readonly Region[] } & Timeline, { beats, seconds: measured, mood }: Lengths): Resolved {
   const regions = arrangement.instances
   const under = tempoOf(regions, arrangement.tempo)
   const segments = segmentsOf(regions, arrangement.tempo)
@@ -206,13 +209,17 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
     const t = under[index]!
     const bpm = t === 'mood' ? mood : t
     let seconds: number
-    let length: number | undefined
-    if (bpm === null || bpm === undefined) {
-      if (t !== null) throw new Error(`region ${index + 1} ("${region.name}"): it is under the Mood's tempo, and none is given`)
+    const sung = measured?.[index]
+    if (t !== null && (bpm === null || bpm === undefined)) throw new Error(`region ${index + 1} ("${region.name}"): it is under the Mood's tempo, and none is given`)
+    if (sung !== undefined) {
+      // a region that was made lasts what it was made for
+      if (!(sung >= 0) || !Number.isFinite(sung)) throw new Error(`region ${index + 1} ("${region.name}"): its measured seconds are not a length`)
+      seconds = sung
+    } else if (bpm === null || bpm === undefined) {
       if (region.seconds === undefined) throw new Error(`region ${index + 1} ("${region.name}"): it is in free time, and so needs its seconds`)
       seconds = region.seconds
     } else {
-      length = beats[index]
+      const length = beats?.[index]
       if (length === undefined) throw new Error(`region ${index + 1} ("${region.name}"): its length in beats is not known`)
       seconds = (length * 60) / bpm
     }
@@ -262,6 +269,43 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
     return resolved
   })
   return { seconds: at, iterations: (iterations.at(-1) ?? 0) + 1, regions: placed, blocks }
+}
+
+// ---- what a timeline asks to be made
+
+/** One place a Block is played: the moment, the length, and how it is laid. */
+export type Placing = { block: number; at: number; seconds: number; gain: number; fadeIn: number; fadeOut: number; startBeats?: number; beats?: number }
+
+/** What a timeline asks to be made: one sound, by its key on its Track, from its source, and every place it is played. */
+export type ToMake = {
+  track: string
+  key: string
+  /** Whether it is heard: a guide is made and never played. */
+  heard: boolean
+  /** The regions it is made from, by name. */
+  source: string[]
+  /** The longest of its placings, in seconds: it is made as long as it is played the longest. */
+  seconds: number
+  placings: Placing[]
+}
+
+/**
+ * What a resolved timeline asks to be made, and where it goes: each distinct key on each Track once, in the order its first placing is in the timeline, with its
+ * source, its length (the longest of its placings) and every place it is played. `tracks` say which are heard; a Track not among them is taken to be.
+ */
+export function makingsOf(resolved: Pick<Resolved, 'blocks'>, tracks: readonly { track: { id: string; heard: boolean } }[] = []): ToMake[] {
+  const heard = new Map(tracks.map(({ track }) => [track.id, track.heard]))
+  const found = new Map<string, ToMake>()
+  for (const block of resolved.blocks) {
+    const id = `${block.track}\u0000${block.key}`
+    const placing: Placing = { block: block.index, at: block.startSeconds, seconds: block.seconds, gain: block.gain, fadeIn: block.fadeIn, fadeOut: block.fadeOut, ...(block.startBeats !== undefined ? { startBeats: block.startBeats } : {}), ...(block.beats !== undefined ? { beats: block.beats } : {}) }
+    const had = found.get(id)
+    if (had) {
+      had.placings.push(placing)
+      had.seconds = Math.max(had.seconds, block.seconds)
+    } else found.set(id, { track: block.track, key: block.key, heard: heard.get(block.track) ?? true, source: [...block.source], seconds: block.seconds, placings: [placing] })
+  }
+  return [...found.values()]
 }
 
 // ---- refusals
