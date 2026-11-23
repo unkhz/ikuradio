@@ -2,8 +2,9 @@
 // concepts that are those (see concepts/parts and concepts/arrangement).
 
 import { firstTune } from 'melody'
-import { readArrangements, type PartRecord } from 'parts'
+import { readArrangements, readTracks, type PartRecord, type TrackRecord } from 'parts'
 import { layoutOf } from './layout.js'
+import { timelineOf } from './timeline.js'
 
 type Parameter = { name: string; minimum?: number; maximum?: number; default?: number; description?: string }
 
@@ -32,15 +33,12 @@ export const partsAnswer = (records: readonly PartRecord[]) =>
     parameters: parametersOf(record),
   }))
 
-/** Every Arrangement, with its declaration and its layout at the first tune and a tempo. */
-export async function arrangementsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
+/** Every Arrangement, with its declaration, its layout at the first tune and a tempo, and its timeline resolved at them. */
+export async function arrangementsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number, tracks?: readonly TrackRecord[]) {
   const parts = new Map(records.map(({ part }) => [part.id, part]))
-  return (await readArrangements(records, arrangementsDir)).map(({ arrangement, title, text, state }) => ({
-    id: arrangement.id,
-    title,
-    text,
-    state,
-    declaration: arrangement,
-    layout: layoutOf(arrangement, parts, firstTune, tempo),
-  }))
+  const lanes = tracks ?? (await readTracks())
+  return (await readArrangements(records, arrangementsDir, lanes)).map(({ arrangement, title, text, state }) => {
+    const layout = layoutOf(arrangement, parts, firstTune, tempo)
+    return { id: arrangement.id, title, text, state, declaration: arrangement, layout, timeline: timelineOf(arrangement, layout, lanes, tempo) }
+  })
 }

@@ -6,11 +6,12 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { firstTune } from 'melody'
-import { arrangementsHome, readParts, readTracks, refuseArrangement, type Arrangement } from 'parts'
+import { arrangementsHome, readParts, readTracks, refuseArrangement, tracksHome, type Arrangement } from 'parts'
 import { arrangementsAnswer, partsAnswer } from './answers.js'
 import { conceptsHome, readConcepts } from './concepts.js'
 import { mapOf } from './map.js'
 import { layoutOf } from './layout.js'
+import { timelineOf } from './timeline.js'
 
 const publicHome = fileURLToPath(new URL('../public/', import.meta.url))
 
@@ -25,7 +26,7 @@ function tempoOf(url: URL): number {
 const typeOf = (file: string) => types[file.slice(file.lastIndexOf('.'))]
 
 /** The Composer's answers, given where its parts, Arrangements and concepts live. */
-export function composer({ partsHome, arrangementsDir = arrangementsHome, conceptsDir = conceptsHome }: { partsHome?: string; arrangementsDir?: string; conceptsDir?: string } = {}) {
+export function composer({ partsHome, arrangementsDir = arrangementsHome, conceptsDir = conceptsHome, tracksDir = tracksHome }: { partsHome?: string; arrangementsDir?: string; conceptsDir?: string; tracksDir?: string } = {}) {
   const json = (value: unknown) => Response.json(value, { headers: { 'cache-control': 'no-cache' } })
   const file = (path: string) => {
     try {
@@ -56,7 +57,7 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
     if (url.pathname === '/map.json') return json(mapOf(await readConcepts(conceptsDir)))
 
     // the Arrangements, as the editor asks for them
-    if (url.pathname === '/arrangements.json') return json(await arrangementsAnswer(records, arrangementsDir, tempoOf(url)))
+    if (url.pathname === '/arrangements.json') return json(await arrangementsAnswer(records, arrangementsDir, tempoOf(url), await readTracks(tracksDir)))
 
     // the only thing that is asked of a draft, and the only place its rules are kept
     if (url.pathname === '/check') {
@@ -69,10 +70,12 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
       } catch (error) {
         return json({ refusal: `that is not JSON: ${(error as Error).message}` })
       }
-      const refusal = refuseArrangement(draft, records, await readTracks())
+      const tracks = await readTracks(tracksDir)
+      const refusal = refuseArrangement(draft, records, tracks)
       if (refusal) return json({ refusal })
       const parts = new Map(records.map(({ part }) => [part.id, part]))
-      return json({ layout: layoutOf(draft as Arrangement, parts, firstTune, tempoOf(url)) })
+      const layout = layoutOf(draft as Arrangement, parts, firstTune, tempoOf(url))
+      return json({ layout, timeline: timelineOf(draft as Arrangement, layout, tracks, tempoOf(url)) })
     }
 
     // a concept: its page, its script, and its data

@@ -25,7 +25,6 @@ input { width: 5em; }
 .total { color: var(--dim); }
 
 .scroll { overflow-x: auto; padding: 12px 0 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.diagram { display: flex; width: max-content; min-width: 100%; min-height: 96px; }
 .block {
   position: relative;
   flex: none;
@@ -50,6 +49,41 @@ input { width: 5em; }
 .block.lit { outline-color: var(--words); }
 .block.narrow .what, .block.narrow .time, .block.narrow .journey { display: none; }
 .block .name { overflow: hidden; text-overflow: ellipsis; }
+/* the timeline drawn as a session: lanes, a label on the left that stays, and a canvas that is as long as the Song */
+.diagram { position: relative; display: block; min-width: 100%; min-height: 96px; }
+.lane { display: flex; border-bottom: 1px solid var(--line); }
+.lane .label { flex: none; width: 128px; box-sizing: border-box; padding: 6px 10px 6px 0; position: sticky; left: 0; z-index: 3; background: var(--night); display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; color: var(--dim); }
+.lane .label strong { color: var(--words); font-size: 0.9rem; }
+.lane .label small { font-size: 0.72rem; line-height: 1.25; }
+.lane .canvas { position: relative; flex: none; height: 52px; }
+.lane.ruler .canvas { height: 22px; }
+.lane.ruler .label, .lane.pace .label { padding-top: 3px; }
+.lane.pace .canvas { height: 28px; }
+.lane.regions .canvas { height: 72px; }
+.tick { position: absolute; top: 2px; padding-left: 4px; font-size: 0.72rem; color: var(--dim); border-left: 1px solid var(--line); height: 18px; }
+.region { position: absolute; top: 4px; bottom: 4px; box-sizing: border-box; border-radius: 5px; padding: 4px 6px; overflow: hidden; color: #101015; outline: 2px solid transparent; transition: outline-color 0.12s; border-right: 2px solid var(--night); }
+.region .name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.85rem; }
+.region .what { font-size: 0.72rem; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.region .words { position: absolute; bottom: 4px; left: 6px; font-size: 0.72rem; font-weight: 700; padding: 0 7px; border-radius: 99px; background: rgba(0, 0, 0, 0.25); color: #fff; }
+.region .end { position: absolute; bottom: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid rgba(0, 0, 0, 0.7); }
+.region .end.full { background: rgba(0, 0, 0, 0.7); }
+.region.lit { outline-color: var(--words); }
+.stretch { position: absolute; top: 3px; bottom: 3px; box-sizing: border-box; border-radius: 4px; padding: 3px 7px; font-size: 0.75rem; color: var(--words); background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); overflow: hidden; white-space: nowrap; }
+.stretch.free { background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255, 255, 255, 0.07) 6px 7px); border-style: dashed; color: var(--dim); font-style: italic; }
+.bar { position: absolute; bottom: 0; width: 1px; height: 6px; background: var(--dim); opacity: 0.6; }
+.lane.track .canvas { min-height: 36px; }
+.lane.empty .label strong, .lane.empty .label small { font-style: italic; }
+.lane.silent .canvas { background: repeating-linear-gradient(90deg, transparent 0 11px, rgba(255, 255, 255, 0.03) 11px 12px); }
+.nothing { position: sticky; left: 140px; box-sizing: border-box; width: 340px; height: 28px; margin: 4px 0; border: 1px dashed var(--line); border-radius: 4px; color: var(--dim); font-size: 0.8rem; font-style: italic; display: flex; align-items: center; padding-left: 10px; }
+.clip { position: absolute; height: 24px; box-sizing: border-box; border-radius: 4px; overflow: hidden; color: #101015; display: flex; align-items: center; gap: 5px; padding: 0 6px; font-size: 0.72rem; outline: 2px solid transparent; transition: outline-color 0.12s; border: 1px solid rgba(0, 0, 0, 0.35); }
+.clip .letter { font-weight: 700; background: rgba(0, 0, 0, 0.25); color: #fff; border-radius: 99px; padding: 0 6px; flex: none; position: relative; z-index: 2; }
+.clip .source { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; z-index: 2; opacity: 0.85; }
+.clip.lit { outline-color: var(--words); }
+.ramp { position: absolute; top: 0; bottom: 0; background: rgba(16, 16, 21, 0.62); z-index: 1; }
+.ramp.in { left: 0; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.ramp.out { right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.turn { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--words); z-index: 2; pointer-events: none; }
+.turn span { position: absolute; top: 2px; left: 4px; font-size: 0.72rem; white-space: nowrap; color: var(--words); background: var(--night); padding: 0 4px; border-radius: 3px; }
 .order { margin-top: 1.25rem; }
 .order td:nth-child(n+4):nth-child(-n+6) { text-align: right; padding-right: 14px; }
 .key { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 0; margin: 12px 0 0; color: var(--dim); font-size: 0.85rem; }

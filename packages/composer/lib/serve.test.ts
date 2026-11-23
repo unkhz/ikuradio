@@ -86,6 +86,9 @@ describe('no closed union, and no part named', () => {
       const text = readFileSync(path, 'utf8')
       expect(text).not.toMatch(/['"`](verse|chorus|bridge)['"`]/)
       if (isPage(path)) expect(text).not.toMatch(/\b(verse|chorus|bridge)\b/i)
+      // nor a Track, in the Composer's code or in the page of the Arrangements: the Tracks there are come in the answers, with what they are (the pages of what a Song makes talk of a guide, which is not a Track)
+      if (/\/lib\/[^/]+\.ts$/.test(path) || /\/arrangement\/view\.js$/.test(path)) expect(text).not.toMatch(/['"`](voice|bed|guide)['"`]/)
+      if (/\/arrangement\/view\.js$/.test(path)) expect(text).not.toMatch(/\b(voice|bed|guide)\b/i)
     }
   })
 })
@@ -95,9 +98,9 @@ describe('POST /check', () => {
   const check = async (body: unknown, query = '') => (await answer(new Request(`http://composer.test/check${query}`, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) }))).json() as Promise<{ refusal?: string; layout?: { tempo: number; beats: number; instances: { name: string }[] } }>
 
   it('gives the Song the layout /arrangements.json gives', async () => {
-    const song = ((await (await get(answer, '/arrangements.json?tempo=80')).json()) as { id: string; layout: unknown }[]).find(({ id }) => id === 'the-song')
+    const song = ((await (await get(answer, '/arrangements.json?tempo=80')).json()) as { id: string; layout: unknown; timeline: unknown }[]).find(({ id }) => id === 'the-song')
     const declared = JSON.parse(readFileSync(fileURLToPath(new URL('../../parts/arrangements/the-song/arrangement.json', import.meta.url)), 'utf8'))
-    expect((await check(declared, '?tempo=80')) as unknown).toEqual({ layout: song!.layout })
+    expect((await check(declared, '?tempo=80')) as unknown).toEqual({ layout: song!.layout, timeline: song!.timeline })
   })
 
   it('says each refusal in its words', async () => {

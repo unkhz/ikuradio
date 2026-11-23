@@ -38,7 +38,7 @@ try {
     throw new Error(`round trip: the page: ${error.message}`)
   })
   await page.goto(`${base}/arrangement/`)
-  await page.waitForSelector('#diagram .block')
+  await page.waitForSelector('#diagram .region')
 
   // open its regions as a file, and give them a name of their own
   const opened = join(keep, 'opened.json')
