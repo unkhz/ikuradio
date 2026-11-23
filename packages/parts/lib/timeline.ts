@@ -180,6 +180,8 @@ export type ResolvedBlock = {
   fadeIn: number
   fadeOut: number
   gain: number
+  /** The tempo it lies under, in beats a minute, where it begins: none (null) in free time. */
+  tempo: number | null
   /** Where it begins in beats from the start of its segment, and how long it is, when the whole of it is under one tempo: otherwise none. */
   startBeats?: number
   beats?: number
@@ -260,7 +262,7 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
     const seconds = endSeconds - startSeconds
     const first = regionOf(startSeconds, 'start')
     const last = regionOf(endSeconds, 'end')
-    const resolved: ResolvedBlock = { index, track: block.track, key: block.key, source: block.source ?? [], startSeconds, endSeconds, seconds, fadeIn: block.fadeIn ?? 0, fadeOut: block.fadeOut ?? 0, gain: block.gain ?? 1 }
+    const resolved: ResolvedBlock = { index, track: block.track, key: block.key, source: block.source ?? [], startSeconds, endSeconds, seconds, fadeIn: block.fadeIn ?? 0, fadeOut: block.fadeOut ?? 0, gain: block.gain ?? 1, tempo: first?.tempo ?? null }
     // in beats only where there is a tempo, and a Block under two tempi has no beats to count
     if (first && last && first.segment === last.segment && first.tempo !== null && first.startBeats !== undefined) {
       resolved.startBeats = first.startBeats + ((startSeconds - first.startSeconds) * first.tempo) / 60
@@ -274,7 +276,7 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
 // ---- what a timeline asks to be made
 
 /** One place a Block is played: the moment, the length, and how it is laid. */
-export type Placing = { block: number; at: number; seconds: number; gain: number; fadeIn: number; fadeOut: number; startBeats?: number; beats?: number }
+export type Placing = { block: number; at: number; seconds: number; gain: number; fadeIn: number; fadeOut: number; /** The tempo it lies under where it begins (none in free time). */ bpm: number | null; startBeats?: number; beats?: number }
 
 /** What a timeline asks to be made: one sound, by its key on its Track, from its source, and every place it is played. */
 export type ToMake = {
@@ -291,19 +293,24 @@ export type ToMake = {
 
 /**
  * What a resolved timeline asks to be made, and where it goes: each distinct key on each Track once, in the order its first placing is in the timeline, with its
- * source, its length (the longest of its placings) and every place it is played. `tracks` say which are heard; a Track not among them is taken to be.
+ * source, its length (the longest of its placings) and every place it is played, and the tempo it lies under there. A key is one sound, from one source: a key
+ * placed from two is refused, plainly. `tracks` are the Tracks there are, and say which are heard; a Block on a Track that is not among them is refused, not
+ * taken to be heard, since a guide put on the air by a mistake cannot be taken back.
  */
-export function makingsOf(resolved: Pick<Resolved, 'blocks'>, tracks: readonly { track: { id: string; heard: boolean } }[] = []): ToMake[] {
+export function makingsOf(resolved: Pick<Resolved, 'blocks'>, tracks: readonly { track: { id: string; heard: boolean } }[]): ToMake[] {
   const heard = new Map(tracks.map(({ track }) => [track.id, track.heard]))
   const found = new Map<string, ToMake>()
   for (const block of resolved.blocks) {
+    const known = heard.get(block.track)
+    if (known === undefined) throw new Error(`${block.key} is on the track "${block.track}", which is not among the tracks: ${[...heard.keys()].join(', ') || 'none'}`)
     const id = `${block.track}\u0000${block.key}`
-    const placing: Placing = { block: block.index, at: block.startSeconds, seconds: block.seconds, gain: block.gain, fadeIn: block.fadeIn, fadeOut: block.fadeOut, ...(block.startBeats !== undefined ? { startBeats: block.startBeats } : {}), ...(block.beats !== undefined ? { beats: block.beats } : {}) }
+    const placing: Placing = { block: block.index, at: block.startSeconds, seconds: block.seconds, gain: block.gain, fadeIn: block.fadeIn, fadeOut: block.fadeOut, bpm: block.tempo, ...(block.startBeats !== undefined ? { startBeats: block.startBeats } : {}), ...(block.beats !== undefined ? { beats: block.beats } : {}) }
     const had = found.get(id)
     if (had) {
+      if (JSON.stringify(had.source) !== JSON.stringify(block.source)) throw new Error(`${block.key} is placed from ${had.source.join(', ') || 'nothing'} and from ${block.source.join(', ') || 'nothing'}: one key, one source`)
       had.placings.push(placing)
       had.seconds = Math.max(had.seconds, block.seconds)
-    } else found.set(id, { track: block.track, key: block.key, heard: heard.get(block.track) ?? true, source: [...block.source], seconds: block.seconds, placings: [placing] })
+    } else found.set(id, { track: block.track, key: block.key, heard: known, source: [...block.source], seconds: block.seconds, placings: [placing] })
   }
   return [...found.values()]
 }

@@ -116,6 +116,24 @@ describe('what a timeline asks to be made', () => {
     expect(ofTrack('voice').concat(ofTrack('bed')).every(({ heard }) => heard)).toBe(true)
   })
 
+  it('says the tempo each placing lies under: 72 throughout for the Song as it always was, and two for a chorus at two tempi, none in free time', () => {
+    expect(asked.every((making) => making.placings.every(({ bpm }) => bpm === tempo))).toBe(true)
+    const turns = arrangementOf('tempo-turns')
+    const made = makingsOf(resolve(turns, { beats: turns.instances.map(({ part }) => beatsOfPart(part)), mood: tempo }), tracks)
+    expect(made.find(({ key }) => key === 'voice:chorus')!.placings.map(({ bpm }) => bpm)).toEqual([72, 96])
+    expect(made.find(({ key }) => key === 'guide:bridge-2')!.placings.map(({ bpm }) => bpm)).toEqual([null])
+  })
+
+  it('refuses a key placed from two sources, and a Block on a Track that is not there', () => {
+    const blocks = unmeasured.blocks.map((block) => ({ ...block }))
+    const verses = blocks.filter((block) => block.key === 'bed:verse:1')
+    verses[1]!.source = ['verse-2']
+    expect(() => makingsOf({ blocks }, tracks)).toThrow('bed:verse:1 is placed from verse-1 and from verse-2: one key, one source')
+    expect(() => makingsOf(unmeasured, tracks.filter(({ track }) => track.id !== 'guide'))).toThrow('which is not among the tracks: bed, voice')
+    // a Track that is there and not heard keeps a guide off the air
+    expect(makingsOf(unmeasured, tracks).filter(({ track }) => track === 'guide').every(({ heard }) => !heard)).toBe(true)
+  })
+
   it('has every placing in the order of the timeline, and its key first where it is first played', () => {
     for (const making of asked) {
       const at = making.placings.map(({ at: moment }) => moment)
