@@ -426,6 +426,12 @@ The proof, as tests:
 - A made-up Track in a temporary folder is usable with no code changed.
 - No closed union of Track ids or part ids in the package.
 
+Built as 8df5174 and reviewed. Decided in the review, for step 9:
+- **A pass is not a field.** Each pass's instances have distinct names (the second pass of `the-song`, e.g. `verse-1-again`). An optional `continues` on an instance names the instance whose words it follows from. Today's rule, that a verse continues the verse in the same place in the iteration before, becomes data in `the-song`, and an Arrangement in which nothing continues writes everything fresh. A `continues` naming nothing, or naming another part's instance, is refused.
+- **`tracks` is binding**: the lanes the Arrangement draws, including a lane with no Blocks. A Block on a Track not listed is refused.
+- **Nothing before 0**: a Block may not begin before the Song does. A pickup before the first region is the Intro's question.
+- **A fix in `resolve`**: a moment past the Song's end is in the last region, and one before its start is in the first.
+
 ### Step 9 in detail: the Song as a timeline
 
 - `arrangements/the-song/` becomes a timeline:
