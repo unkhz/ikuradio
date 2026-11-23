@@ -116,8 +116,9 @@ try {
   // ---- then the Song becomes tempo-turns, in the editor
   const target = readFileSync(join(arrangementsHome, 'tempo-turns', 'arrangement.json'), 'utf8')
   const want = JSON.parse(target) as { id: string; title: string; instances: { name: string; seconds?: number; ending?: string }[]; tempo: { region?: string; hearing?: number; bpm: number | 'mood' | null }[]; blocks: any[]; tracks: string[] }
-  await page.selectOption('#which-file', 'the-song')
-  await page.click('#open-file')
+  await page.selectOption('#which-file', first!.id)
+  await page.waitForFunction((id) => document.querySelector('#open-name')?.textContent === id, first!.id)
+  must((await page.inputValue('#which-file')) === '', 'the chooser keeps a stale selection beside what is open')
   must(!(await page.locator('#unsaved').isVisible()), 'the Song is open as it is, and is said to be unsaved')
   await page.waitForFunction(() => document.querySelectorAll('#instances .row').length === 20)
   await page.fill('#draft-id', want.id)

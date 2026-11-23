@@ -207,7 +207,7 @@ table.turns td:first-child { width: 45%; }
 input.short { width: 5em; }
 .anchor { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
 #editor h3 { margin: 1.4rem 0 0.25rem; font-size: 1rem; color: var(--dim); }
-.row .params > span, .row .params > label { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.row .params > span, .row .params > label:not(.param) { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
 .block-row input.iname { width: 18em; }
 
 /* the two modes */
@@ -229,3 +229,13 @@ header { position: relative; }
 input.refused, select.refused { background: #2a1714; }
 .why { flex-basis: 100%; width: 100%; color: #ffb4a8; font-size: 0.8rem; margin-top: 4px; }
 body[data-mode="edit"] main, body[data-mode="edit"] header { max-width: 1700px; }
+
+/* parameters in the inspector: the label and its range on the left, the field with its reset beside it, the description under both */
+.params { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.param { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; font-size: 0.85rem; }
+.param > span:first-child { text-align: left; }
+.param > span:nth-child(2) { display: inline-flex; gap: 6px; align-items: center; justify-self: end; }
+.param small { grid-column: 1 / -1; text-align: left; max-width: none; }
+.row .params { display: grid; grid-template-columns: minmax(0, 1fr); padding-left: 0; }
+.details { margin-top: 12px; }
+.details summary { cursor: pointer; color: var(--dim); }

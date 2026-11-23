@@ -11,8 +11,11 @@ const editMarkup = `
     </div>
     <div id="edit-view" class="view">
       <div class="scroll"><div id="edit-diagram" class="diagram"></div></div>
-      <ul class="key" id="edit-key"></ul>
-      <table class="order" id="edit-order"></table>
+      <details class="details">
+        <summary>Details</summary>
+        <ul class="key" id="edit-key"></ul>
+        <table class="order" id="edit-order"></table>
+      </details>
     </div>
   </section>
   <aside class="inspector" aria-label="The Arrangement, in fields">

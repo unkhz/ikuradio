@@ -15,9 +15,9 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
   const snapshot = () => JSON.stringify(state.draft)
   const dirty = () => state.draft !== undefined && snapshot() !== state.saved
 
-  const picker = el('select', { id: 'which-file', title: `The ${noun} to open` })
-  const open = el('button', { id: 'open-file', type: 'button', textContent: 'Open' })
-  const copy = el('button', { id: 'copy', type: 'button', textContent: 'Copy it' })
+  // a chooser, never a stale selection: it says "Open…" whatever is open, and what is open is named beside it
+  const picker = el('select', { id: 'which-file', title: `Open another ${noun}` })
+  const copy = el('button', { id: 'copy', type: 'button', textContent: 'Copy the open one' })
   const empty = el('button', { id: 'empty', type: 'button', textContent: 'New' })
   const disk = el('label', { className: 'file' }, 'Open from disk ', el('input', { id: 'open', type: 'file', accept: '.json,application/json' }))
   const undo = el('button', { id: 'undo', type: 'button', textContent: '↶ Undo', title: 'Ctrl/Cmd-Z' })
@@ -29,7 +29,7 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
   const bar = el(
     'div',
     { className: 'shell' },
-    el('div', { className: 'controls' }, el('label', {}, `${noun} `, picker), open, copy, empty, disk),
+    el('div', { className: 'controls' }, picker, copy, empty, disk),
     el('div', { className: 'controls' }, nameOf, mark, undo, redo, save),
     verdict,
   )
@@ -39,6 +39,7 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
     redo.disabled = state.at >= state.history.length - 1
     mark.hidden = !dirty()
     nameOf.textContent = state.draft === undefined ? '' : idOf(state.draft) || '(no name yet)'
+    copy.disabled = state.draft === undefined
     save.disabled = state.draft === undefined || state.answer === undefined || Boolean(state.answer.refusal)
   }
 
@@ -116,12 +117,14 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
     event.preventDefault()
   })
 
-  open.addEventListener('click', async () => {
-    if (picker.value) begin(structuredClone(await fetchOne(picker.value)), { saved: true })
+  picker.addEventListener('change', async () => {
+    const id = picker.value
+    picker.value = ''
+    if (id) begin(structuredClone(await fetchOne(id)), { saved: true })
   })
-  copy.addEventListener('click', async () => {
-    if (!picker.value) return
-    const from = structuredClone(await fetchOne(picker.value))
+  copy.addEventListener('click', () => {
+    if (state.draft === undefined) return
+    const from = JSON.parse(snapshot())
     from.id = `${from.id}-copy`
     from.title = `${from.title} (copy)`
     begin(from, { saved: false })
@@ -168,9 +171,8 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
     /** Fills the picker with the files there are, and opens the one a reload would have lost, if there was one. */
     async load() {
       const files = await list()
-      const before = picker.value
-      picker.replaceChildren(...files.map((file) => el('option', { value: file.id, textContent: file.title })))
-      if (files.some((file) => file.id === before)) picker.value = before
+      picker.replaceChildren(el('option', { value: '', textContent: 'Open…' }), ...files.map((file) => el('option', { value: file.id, textContent: file.title })))
+      picker.value = ''
       if (state.draft === undefined) {
         try {
           const kept = JSON.parse(localStorage.getItem(memory) ?? 'null')
