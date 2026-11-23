@@ -449,6 +449,14 @@ Built as 8df5174 and reviewed. Decided in the review, for step 9:
   - one bed Block running under two regions.
 - `ITERATION_COUNT` stays in the env for the Studio until the Studio moves (step 12). The composer reads the passes from the Arrangement.
 
+Built as 390befb and reviewed. Then, from the scientist (2026-11-23): **the iteration is a marker**, as a tempo change is, so that nothing binding is built on it:
+- An Arrangement may list **turns**: anchors where the words turn over and a new iteration begins.
+- Within an iteration, regions of one name sing the same words, as the chorus does. A name heard after a turn continues its own words from before the turn.
+- **The Song's age moves at a turn.** Each iteration sings the next number. An Arrangement with no turn is one iteration with one number, and one that wants a new number for every chorus puts a turn before each. The age still only goes forward.
+- `the-song` goes back to its ten names, listed twice, with one turn at the second hearing of `verse-1`. The "-again" names and their `continues` go. `continues` stays as an optional tool, to follow a *different* name's words.
+- **An instance may say its own `ending`** (`full` or `half`), and its place takes it over the part's. `the-song`'s `final-chorus` says `full`, so every iteration comes home as the Studio makes it now, with no rule about turns. Cadence equivalence across both iterations joins the proof.
+- Blocks' keys stay explicit: a turn changes no key by itself.
+
 ### Steps 10 and 11 in detail: the timeline in the composer
 
 - **Step 10, to look.** The Arrangement page draws the timeline as a DAW draws a session:
