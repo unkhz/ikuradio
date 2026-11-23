@@ -580,6 +580,8 @@ Each step is reviewed by the Composer session, as before.
 
 Built and reviewed: step 12 as e09626c, with its fixes in 8814413 (a chooser that never stands beside the open file, the parameters in a grid, Learn's legend and table folded away in Edit); step 13 as 87825f1, with its polish in 8295469; step 14 as 26d176a. In Edit the check names the thing it refuses (`where`), and the page marks it there. A drop on the timeline is always an Anchor, and a test resolves every anchor the page writes to the moment the page showed. A Perspective's Turn is code (`actions.ts`), so Edit changes the Perspective's record and shows its Turn, but does not edit it. A Tide's envelope is data in its `actions.ts`, and is edited and saved with its record.
 
+Step 15 is built as 0c29e59, with its review in 4101d60. Steps 12 to 15 are done. In Edit, each page shows only what its workspace changes; the rest of the Learn page waits under a closed "Details". A Song's words are found by name, not by place: a name sings what the Song as it always was gives that name, and a name `the-song` lacks has no words of its own yet. That holds for the composer only. The Studio made on timelines (step 16) needs the same rule, and a way for an Arrangement to give a new name its own words.
+
 ### Still open
 
 - **Anchors on bars.** A drop snapped to a bar is written as its region's start plus seconds, so it doesn't follow the bar if the tempo before it changes. An anchor to a bar would.
