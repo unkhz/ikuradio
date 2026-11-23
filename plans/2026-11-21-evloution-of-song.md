@@ -147,7 +147,7 @@ The Archive is forever, and its schema can still grow: addition is backwards com
 13. **composer, the Arrangement's hands**: Blocks, regions, tempo points and turns dragged, stretched, drawn and copied on the timeline, snapping to anchors and bars.
 14. **composer, the Parts, the Perspectives and the Tides in Edit**: parameters as sliders with each line's measure redrawn; Facets and tide envelopes edited, checked and saved as files.
 15. **composer, the benches**: the Mood, the Tune, the Lyrics, the Score, the Beds and the Song tried by hand, nothing saved.
-16. **Later, each a plan of its own**: opening the readers to new ids; the Studio made with parts and the Arrangements' timelines, making each distinct Block once and mixing the timeline, Song for Song identical to what it makes now for `the-song`; the Studio made with parts and the first Arrangement, Song for Song identical to what it makes now; the Intro; and playing a test version of a Song in the composer, which needs the mind and the band and so the Heart's slack.
+16. **Later, each a plan of its own**: opening the readers to new ids; the Studio made with parts and the Arrangements' timelines, making each distinct Block once and mixing the timeline, Song for Song identical to what it makes now for `the-song`; the Studio made with parts and the first Arrangement, Song for Song identical to what it makes now; the Intro; and playing a test version of a Song in the composer, which needs the mind and the band and so the Heart's slack. The Studio on timelines is the first chosen, and is planned in `plans/2026-11-23-studio-on-timelines.md`.
 
 ### Step 1 in detail: the parts package
 
