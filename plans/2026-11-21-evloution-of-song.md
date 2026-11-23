@@ -578,7 +578,12 @@ Each bench starts from the Learn page's sample values, and has a "back to the sa
 
 Each step is reviewed by the Composer session, as before.
 
+Built and reviewed: step 12 as e09626c, with its fixes in 8814413 (a chooser that never stands beside the open file, the parameters in a grid, Learn's legend and table folded away in Edit); step 13 as 87825f1, with its polish in 8295469; step 14 as 26d176a. In Edit the check names the thing it refuses (`where`), and the page marks it there. A drop on the timeline is always an Anchor, and a test resolves every anchor the page writes to the moment the page showed. A Perspective's Turn is code (`actions.ts`), so Edit changes the Perspective's record and shows its Turn, but does not edit it. A Tide's envelope is data in its `actions.ts`, and is edited and saved with its record.
+
 ### Still open
+
+- **Anchors on bars.** A drop snapped to a bar is written as its region's start plus seconds, so it doesn't follow the bar if the tempo before it changes. An anchor to a bar would.
+- **Turns as data.** A Perspective's Turn is code. Making Turns data, so that Edit can change what a Perspective does, would be a plan of its own.
 
 - **The Intro as a part.** It could be a part whose making waits for its Song to have aired, played or not by what triggers it. It is decided when the other parts are written out and it can be seen whether anything in the intro cannot be a parameter.
 - **Tempo ramps.** Changes are jumps; an accelerando or a ritardando between two tempi is decided later.
