@@ -36,6 +36,20 @@ const arrangementMarkup = `
             <label>Add a <select id="add-part"></select></label>
             <button id="add" type="button">Add</button>
           </div>
+          <h3>Tempo</h3>
+          <p class="about">The tempo holds from a region until the next change: the Mood's, a number, or free time, which has no beat and lasts as many seconds as its region says.</p>
+          <ol id="tempo-points" class="rows"></ol>
+          <div class="controls"><button id="add-tempo" type="button">Add a change of tempo</button></div>
+          <h3>Turns</h3>
+          <p class="about">Where the words turn over and a new iteration begins: between two regions.</p>
+          <ol id="turn-points" class="rows"></ol>
+          <div class="controls"><button id="add-turn" type="button">Add a turn</button></div>
+          <h3>Tracks</h3>
+          <div id="track-list" class="controls"></div>
+          <h3>Blocks</h3>
+          <p class="about">A clip on a Track, placed by anchors to regions: the start or end of a region, which time it is heard, so many seconds beyond. One key is one sound, made once and placed again.</p>
+          <ol id="blocks" class="rows"></ol>
+          <div class="controls"><button id="add-block" type="button">Add a Block</button></div>
           <div id="verdict" class="verdict" role="status"></div>
           <div class="controls">
             <button id="save" type="button" disabled>Save as a file</button>
@@ -317,13 +331,6 @@ const recalled = () => {
 const tempo = () => Number($('tempo').value) || 72
 const activeParts = () => parts.filter((part) => part.state === 'active')
 
-/** The declaration as the files are written: its fields a line each, an instance to a line. */
-function serialize(value) {
-  const inline = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? `{ ${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inline(x)}`).join(', ')} }` : JSON.stringify(v))
-  const instances = draft.instances.map((instance) => `    ${inline(instance)}`).join(',\n')
-  return `{\n  "id": ${JSON.stringify(value.id)},\n  "title": ${JSON.stringify(value.title)},\n  "instances": [${instances ? `\n${instances}\n  ` : ''}]\n}\n`
-}
-
 async function check() {
   const mine = ++checking
   remember()
@@ -410,6 +417,7 @@ function showRows() {
         shares.clear()
         for (const [k, v] of sharing()) shares.set(k, v)
         for (const other of $('instances').querySelectorAll('.row')) other.dispatchEvent(new Event('say'))
+        showTimeline()
         check()
       })
       li.addEventListener('say', say)
@@ -440,11 +448,26 @@ function showRows() {
         showRows()
         check()
       })
+      const secondsInput = numberInput(instance.seconds, { min: 0, className: 'short', placeholder: 'none' })
+      secondsInput.dataset.field = 'seconds'
+      secondsInput.addEventListener('input', () => {
+        setOrDrop(instance, 'seconds', secondsInput.value === '' ? '' : Number(secondsInput.value))
+        check()
+      })
+      const endingSelect = el('select', {}, el('option', { value: '', textContent: "as the part's" }), el('option', { value: 'full', textContent: 'at home' }), el('option', { value: 'half', textContent: 'open' }))
+      endingSelect.value = instance.ending ?? ''
+      endingSelect.dataset.field = 'ending'
+      endingSelect.addEventListener('change', () => {
+        setOrDrop(instance, 'ending', endingSelect.value)
+        check()
+      })
       li.append(
         el('span', { className: 'n', textContent: i + 1 }),
         el('label', {}, 'Name ', name),
         said,
         el('label', {}, 'Part ', partSelect),
+        el('label', {}, 'Seconds ', secondsInput),
+        el('label', {}, 'Ends ', endingSelect),
         up,
         down,
         remove,
@@ -453,7 +476,206 @@ function showRows() {
       return li
     }),
   )
+  showTimeline()
 }
+
+// ---- the timeline in the editor: tempo, turns, tracks and Blocks
+
+/** The Tracks there are, as the Composer lists them. */
+let tracksThere = []
+
+/** A field that is given or left out: an empty one is not written. */
+function setOrDrop(object, key, value) {
+  if (value === '' || value === undefined || Number.isNaN(value)) delete object[key]
+  else object[key] = value
+}
+
+/** The list a draft keeps for a timeline field, dropped when it is empty (a file with an empty list is refused). */
+function tidy(field) {
+  if (draft[field] && !draft[field].length) delete draft[field]
+}
+
+const names = () => [...new Set(draft.instances.map(({ name }) => name))]
+
+/** A select of the regions' names, with a first choice for none, and the value shown even if it names a region that is gone. */
+function regionSelect(value, none) {
+  const options = names()
+  if (value !== undefined && !options.includes(value)) options.push(value)
+  const select = el('select', {}, el('option', { value: '', textContent: none }), ...options.map((name) => el('option', { value: name, textContent: name })))
+  select.value = value ?? ''
+  return select
+}
+
+const numberInput = (value, props = {}) => el('input', { type: 'number', step: 'any', value: value ?? '', ...props })
+
+/** An anchor's controls: the region (or the whole Song), which hearing of it, its start or end, and so many seconds beyond. */
+function anchorControls(anchor, kind, none, change) {
+  const region = regionSelect(anchor.region, none)
+  region.dataset.field = `${kind}-region`
+  const hearing = numberInput(anchor.hearing, { min: 1, step: 1, placeholder: 'once', className: 'short' })
+  hearing.dataset.field = `${kind}-hearing`
+  const edge = el('select', {}, el('option', { value: 'start', textContent: 'start' }), el('option', { value: 'end', textContent: 'end' }))
+  edge.value = anchor.edge ?? 'start'
+  edge.dataset.field = `${kind}-edge`
+  const plus = numberInput(anchor.plus, { placeholder: '0', className: 'short' })
+  plus.dataset.field = `${kind}-plus`
+  const settle = () => {
+    setOrDrop(anchor, 'region', region.value)
+    setOrDrop(anchor, 'hearing', hearing.value === '' ? '' : Number(hearing.value))
+    anchor.edge = edge.value
+    setOrDrop(anchor, 'plus', plus.value === '' || Number(plus.value) === 0 ? '' : Number(plus.value))
+    change()
+  }
+  for (const control of [region, hearing, edge, plus]) control.addEventListener('input', settle)
+  return el('span', { className: 'anchor' }, region, el('label', {}, ' heard ', hearing), ' ', edge, el('label', {}, ' plus ', plus, ' s'))
+}
+
+const rowButtons = (list, i, redraw) => {
+  const move = (by) => {
+    const to = i + by
+    if (to < 0 || to >= list.length) return
+    ;[list[i], list[to]] = [list[to], list[i]]
+    redraw()
+    check()
+  }
+  const up = el('button', { type: 'button', className: 'up', textContent: '↑', title: 'earlier', disabled: i === 0 })
+  const down = el('button', { type: 'button', className: 'down', textContent: '↓', title: 'later', disabled: i === list.length - 1 })
+  const remove = el('button', { type: 'button', className: 'remove', textContent: 'Remove' })
+  up.addEventListener('click', () => move(-1))
+  down.addEventListener('click', () => move(1))
+  remove.addEventListener('click', () => {
+    list.splice(i, 1)
+    redraw()
+    check()
+  })
+  return [up, down, remove]
+}
+
+function showTempo() {
+  const points = draft.tempo ?? []
+  $('tempo-points').replaceChildren(
+    ...points.map((point, i) => {
+      const where = regionSelect(point.region, 'the start of the Song')
+      where.dataset.field = 'region'
+      const hearing = numberInput(point.hearing, { min: 1, step: 1, placeholder: 'once', className: 'short' })
+      hearing.dataset.field = 'hearing'
+      const mode = el('select', {}, el('option', { value: 'mood', textContent: "the Mood's" }), el('option', { value: 'number', textContent: 'a number' }), el('option', { value: 'free', textContent: 'free time' }))
+      mode.dataset.field = 'mode'
+      const bpm = numberInput(typeof point.bpm === 'number' ? point.bpm : '', { min: 20, max: 300, className: 'short' })
+      bpm.dataset.field = 'bpm'
+      mode.value = point.bpm === 'mood' ? 'mood' : point.bpm === null ? 'free' : 'number'
+      bpm.hidden = mode.value !== 'number'
+      const settle = () => {
+        setOrDrop(point, 'region', where.value)
+        setOrDrop(point, 'hearing', hearing.value === '' ? '' : Number(hearing.value))
+        point.bpm = mode.value === 'mood' ? 'mood' : mode.value === 'free' ? null : Number(bpm.value)
+        bpm.hidden = mode.value !== 'number'
+        check()
+      }
+      for (const control of [where, hearing, mode, bpm]) control.addEventListener('input', settle)
+      return el('li', { className: 'row tempo-row' }, el('span', { className: 'n', textContent: i + 1 }), el('label', {}, 'From ', where), el('label', {}, ' heard ', hearing), el('label', {}, ' at ', mode), bpm, ...rowButtons(draft.tempo, i, () => { tidy('tempo'); showTempo() }))
+    }),
+  )
+}
+
+function showTurns() {
+  const turns = draft.turns ?? []
+  $('turn-points').replaceChildren(
+    ...turns.map((turn, i) => el('li', { className: 'row turn-row' }, el('span', { className: 'n', textContent: i + 1 }), el('span', { textContent: 'The words turn over at the ' }), anchorControls(turn, 'turn', 'Song', check), ...rowButtons(draft.turns, i, () => { tidy('turns'); showTurns() }))),
+  )
+}
+
+function showTracks() {
+  const listed = draft.tracks ?? []
+  $('track-list').replaceChildren(
+    ...tracksThere.map((track) => {
+      const box = el('input', { type: 'checkbox', checked: listed.includes(track.id) })
+      box.dataset.track = track.id
+      box.addEventListener('change', () => {
+        const kept = tracksThere.filter((other) => (other.id === track.id ? box.checked : (draft.tracks ?? []).includes(other.id))).map((other) => other.id)
+        if (kept.length) draft.tracks = kept
+        else delete draft.tracks
+        showBlocks()
+        check()
+      })
+      return el('label', { title: track.makes ? `${track.makes.by}, from ${track.makes.from}` : 'nothing makes it yet' }, box, ` ${track.title || track.id}`)
+    }),
+  )
+}
+
+function showBlocks() {
+  const blocks = draft.blocks ?? []
+  const lanes = draft.tracks?.length ? draft.tracks : tracksThere.map((track) => track.id)
+  $('blocks').replaceChildren(
+    ...blocks.map((block, i) => {
+      const track = el('select', {}, ...[...new Set([...lanes, block.track])].filter(Boolean).map((id) => el('option', { value: id, textContent: id })))
+      track.value = block.track ?? ''
+      track.dataset.field = 'track'
+      const key = el('input', { type: 'text', value: block.key ?? '', className: 'iname', autocomplete: 'off', spellcheck: false })
+      key.dataset.field = 'key'
+      const source = el('input', { type: 'text', value: (block.source ?? []).join(', '), className: 'iname', autocomplete: 'off', spellcheck: false, placeholder: 'regions' })
+      source.dataset.field = 'source'
+      const gives = tracksThere.find((one) => one.id === block.track)?.parameters ?? ['gain', 'fadeIn', 'fadeOut']
+      const given = gives.map((name) => {
+        const input = numberInput(block[name], { className: 'short' })
+        input.dataset.field = name
+        input.addEventListener('input', () => {
+          setOrDrop(block, name, input.value === '' ? '' : Number(input.value))
+          check()
+        })
+        return el('label', {}, ` ${name} `, input)
+      })
+      track.addEventListener('change', () => {
+        block.track = track.value
+        showBlocks()
+        check()
+      })
+      key.addEventListener('input', () => {
+        block.key = key.value
+        check()
+      })
+      source.addEventListener('input', () => {
+        const regions = source.value.split(',').map((name) => name.trim()).filter(Boolean)
+        if (regions.length) block.source = regions
+        else delete block.source
+        check()
+      })
+      return el(
+        'li',
+        { className: 'row block-row' },
+        el('span', { className: 'n', textContent: i + 1 }),
+        el('label', {}, 'On ', track),
+        el('label', {}, ' key ', key),
+        el('div', { className: 'params' }, el('span', {}, 'from ', anchorControls(block.from, 'from', 'the Song', check)), el('span', {}, 'to ', anchorControls(block.to, 'to', 'the Song', check)), el('label', {}, 'made from ', source), ...given),
+        ...rowButtons(draft.blocks, i, () => { tidy('blocks'); showBlocks() }),
+      )
+    }),
+  )
+}
+
+function showTimeline() {
+  showTempo()
+  showTurns()
+  showTracks()
+  showBlocks()
+}
+
+$('add-tempo').addEventListener('click', () => {
+  draft.tempo = [...(draft.tempo ?? []), { bpm: 'mood' }]
+  showTempo()
+  check()
+})
+$('add-turn').addEventListener('click', () => {
+  draft.turns = [...(draft.turns ?? []), { edge: 'start' }]
+  showTurns()
+  check()
+})
+$('add-block').addEventListener('click', () => {
+  const lanes = draft.tracks?.length ? draft.tracks : tracksThere.map((track) => track.id)
+  draft.blocks = [...(draft.blocks ?? []), { track: lanes[0] ?? '', key: '', from: { edge: 'start' }, to: { edge: 'end' } }]
+  showBlocks()
+  check()
+})
 
 function edit(next) {
   draft = next
@@ -505,9 +727,16 @@ $('add').addEventListener('click', () => {
   showRows()
   check()
 })
-$('save').addEventListener('click', () => {
+$('save').addEventListener('click', async () => {
   if ($('save').disabled) return
-  const link = el('a', { href: URL.createObjectURL(new Blob([serialize(draft)], { type: 'application/json' })), download: `${draft.id}.json` })
+  // the file's text is the server's: one place makes it, so that a file made here and one written by hand are the same text
+  const said = await fetch('/format', { method: 'POST', body: JSON.stringify(draft) }).then((r) => r.json())
+  if (!said.text) {
+    $('verdict').className = 'verdict refused'
+    $('verdict').textContent = said.refusal
+    return
+  }
+  const link = el('a', { href: URL.createObjectURL(new Blob([said.text], { type: 'application/json' })), download: `${draft.id}.json` })
   document.body.append(link)
   link.click()
   link.remove()
@@ -517,8 +746,9 @@ $('save').addEventListener('click', () => {
 // ---- loading
 
 async function load() {
-  const [partsJson, arrangementsJson] = await Promise.all([fetch('/parts.json').then((r) => r.json()), fetch(`/arrangements.json?tempo=${tempo()}`).then((r) => r.json())])
+  const [partsJson, arrangementsJson, tracksJson] = await Promise.all([fetch('/parts.json').then((r) => r.json()), fetch(`/arrangements.json?tempo=${tempo()}`).then((r) => r.json()), fetch('/tracks.json').then((r) => r.json())])
   parts = partsJson
+  tracksThere = tracksJson
   arrangements = arrangementsJson
   for (const select of [$('which'), $('start')]) {
     const before = select.value

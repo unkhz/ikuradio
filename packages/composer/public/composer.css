@@ -201,3 +201,11 @@ table.turns td:first-child { width: 45%; }
 .guide { width: 100%; max-width: 640px; height: auto; display: block; margin: 8px 0; }
 .songline { position: relative; height: 56px; background: #0f1119; border: 1px solid var(--line); border-radius: 6px; margin: 10px 0 16px; overflow: hidden; }
 .songpart { position: absolute; top: 4px; bottom: 4px; border-radius: 4px; color: #101015; font-size: 0.7rem; padding: 3px 4px; overflow: hidden; white-space: nowrap; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25); }
+
+/* the timeline in the editor */
+.rows { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 8px; }
+input.short { width: 5em; }
+.anchor { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+#editor h3 { margin: 1.4rem 0 0.25rem; font-size: 1rem; color: var(--dim); }
+.row .params > span, .row .params > label { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
+.block-row input.iname { width: 18em; }

@@ -10,6 +10,7 @@ import { arrangementsHome, readParts, readTracks, refuseArrangement, tracksHome,
 import { arrangementsAnswer, partsAnswer } from './answers.js'
 import { conceptsHome, readConcepts } from './concepts.js'
 import { mapOf } from './map.js'
+import { formatArrangement } from './format.js'
 import { layoutOf } from './layout.js'
 import { timelineOf } from './timeline.js'
 
@@ -58,6 +59,26 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
 
     // the Arrangements, as the editor asks for them
     if (url.pathname === '/arrangements.json') return json(await arrangementsAnswer(records, arrangementsDir, tempoOf(url), await readTracks(tracksDir)))
+
+    // the Tracks there are, with what makes them: the editor offers them and names none
+    if (url.pathname === '/tracks.json') {
+      return json((await readTracks(tracksDir)).filter(({ state }) => state === 'active').map(({ track, title }) => ({ id: track.id, title, heard: track.heard, makes: track.makes ?? null, parameters: Object.keys((track.parameters as { properties?: object }).properties ?? {}) })))
+    }
+
+    // a draft as the file it would be saved as, if it is accepted: the one place a file's text is made
+    if (url.pathname === '/format') {
+      if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
+      const text = await request.text()
+      if (text.length > 1_000_000) return json({ refusal: 'an Arrangement is a small thing; this one is not' })
+      let draft: unknown
+      try {
+        draft = JSON.parse(text)
+      } catch (error) {
+        return json({ refusal: `that is not JSON: ${(error as Error).message}` })
+      }
+      const refusal = refuseArrangement(draft, records, await readTracks(tracksDir))
+      return refusal ? json({ refusal }) : json({ text: formatArrangement(draft as Record<string, unknown>) })
+    }
 
     // the only thing that is asked of a draft, and the only place its rules are kept
     if (url.pathname === '/check') {

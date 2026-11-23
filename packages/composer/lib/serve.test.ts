@@ -93,6 +93,26 @@ describe('no closed union, and no part named', () => {
   })
 })
 
+describe('POST /format and /tracks.json', () => {
+  const answer = composer()
+  it('gives an accepted Arrangement as the text of its file, and a refused one its refusal', async () => {
+    const declared = readFileSync(fileURLToPath(new URL('../../parts/arrangements/tempo-turns/arrangement.json', import.meta.url)), 'utf8')
+    const said = (await (await answer(new Request('http://composer.test/format', { method: 'POST', body: declared }))).json()) as { text?: string; refusal?: string }
+    expect(said.text).toBe(declared)
+    const broken = JSON.parse(declared)
+    broken.turns = [{ region: 'verse-1', edge: 'start' }]
+    expect(((await (await answer(new Request('http://composer.test/format', { method: 'POST', body: JSON.stringify(broken) }))).json()) as { refusal: string }).refusal).toContain('turn 1: it is at the very start')
+    expect((await get(answer, '/format')).status).toBe(405)
+  })
+
+  it('lists the Tracks, with what makes them and the parameters a Block of each may be given', async () => {
+    const tracks = (await (await get(answer, '/tracks.json')).json()) as { id: string; heard: boolean; makes: unknown; parameters: string[] }[]
+    expect(tracks.map(({ id }) => id)).toEqual(['bed', 'guide', 'voice'])
+    expect(tracks.find(({ heard }) => !heard)!.parameters).toEqual([])
+    expect(tracks.find(({ id }) => id === 'bed')!.parameters.sort()).toEqual(['fadeIn', 'fadeOut', 'gain'])
+  })
+})
+
 describe('POST /check', () => {
   const answer = composer()
   const check = async (body: unknown, query = '') => (await answer(new Request(`http://composer.test/check${query}`, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) }))).json() as Promise<{ refusal?: string; layout?: { tempo: number; beats: number; instances: { name: string }[] } }>
