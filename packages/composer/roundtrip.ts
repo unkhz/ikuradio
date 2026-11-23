@@ -545,6 +545,8 @@ try {
   await page.waitForSelector('#which-file option', { state: 'attached' })
   await doing(() => page.selectOption('#which-file', 'chorus-ceiling'))
   await page.waitForSelector('#t-cycle .handle')
+  // the cycle is drawn again when the check answers: let it settle before a point is taken
+  await page.waitForTimeout(400)
   const peak = (await page.locator('#t-cycle .handle[data-handle="attack"]').boundingBox())!
   const rest = (await page.locator('#t-cycle .handle[data-handle="decay"]').boundingBox())!
   must(peak.y < rest.y, 'a Tide whose peak is the lower number is not drawn with its peak up')
@@ -553,10 +555,110 @@ try {
   must(Number(await page.locator('#t-min').inputValue()) > was, 'down on a flipped drawing did not write a higher number')
   await page.screenshot({ path: join(keep, 'tides-edit.png'), fullPage: true })
 
-  // a concept with a workspace not built yet says so, and one page in Edit says its words short
-  await page.goto(`${base}/mood/?mode=edit`)
-  await page.waitForSelector('.pending')
-  must((await page.locator('.pending').textContent())!.includes('not built yet'), 'a workspace not built does not say so')
+  // ---- the benches: each at its sample values is the Learn page's own drawing, and changes what comes out as what goes in is changed; nothing is saved
+  /** The drawing a Learn page makes of its concept, and what the bench makes at its sample, said by what is drawn. */
+  const learnPage = async (id: string) => {
+    await page.goto(`${base}/${id}/?mode=learn`)
+    await page.waitForFunction(() => (document.querySelector('#root')?.children.length ?? 0) > 0)
+    await page.waitForTimeout(300)
+  }
+  const benchPage = async (id: string) => {
+    await page.goto(`${base}/${id}/?mode=edit`)
+    await page.waitForSelector('#bench-body > *')
+    await page.waitForTimeout(400)
+  }
+  const nothingSaved = async () => must((await page.locator('#save, #shell').count()) === 0, 'a bench has a Save')
+
+  // the Mood: the whole page, drawn by the same function
+  await learnPage('mood')
+  const moodLearn = await page.locator('#root').innerHTML()
+  await benchPage('mood')
+  await nothingSaved()
+  must((await page.locator('#bench-body').innerHTML()) === moodLearn, 'the Mood bench at its sample is not the Mood page')
+  // the weather picked, a mode chosen, the tempo dragged past what it may reach: it settles
+  await choosing(() => page.locator('#bench-weather .chip').nth(2).click())
+  await page.locator('#bench-mode').selectOption('dorian')
+  await page.locator('#bench-tempo').focus()
+  await page.keyboard.press('End')
+  await page.waitForFunction(() => document.querySelector('#bench-settles')?.textContent?.includes('settles to'), undefined, { timeout: 4000 })
+  must((await page.locator('#bench-body').innerText()).includes('dorian'), 'the mode chosen is not the Mood the song is heard in')
+  await page.screenshot({ path: join(keep, 'bench-mood.png'), fullPage: true })
+  await page.click('#bench-sample')
+  await page.waitForFunction((html) => document.querySelector('#bench-body')?.innerHTML === html, moodLearn, { timeout: 4000 })
+
+  // the Tune: the tune as Learn draws it after the Songs it evolves, each phrase's roll, and then on and back
+  await learnPage('tune')
+  const tuneLearn = await page.locator('.roll-box svg').evaluateAll((nodes) => nodes.map((node) => node.outerHTML))
+  await benchPage('tune')
+  const rolls = await page.locator('#bench-body .roll-box svg').evaluateAll((nodes) => nodes.map((node) => node.outerHTML))
+  must(rolls.length > 0 && rolls.every((roll) => tuneLearn.includes(roll)), 'the Tune bench at its sample draws what the Tune page does not')
+  await choosing(() => page.click('#bench-on'))
+  await page.waitForFunction(() => document.querySelector('#bench-says')?.textContent?.startsWith('7 Songs'), undefined, { timeout: 4000 })
+  await page.locator('#bench-mode').selectOption('dorian')
+  await page.waitForTimeout(300)
+  await choosing(() => page.click('#bench-back'))
+  await choosing(() => page.click('#bench-back'))
+  await page.waitForFunction(() => document.querySelector('#bench-says')?.textContent?.startsWith('5 Songs'), undefined, { timeout: 4000 })
+  await page.screenshot({ path: join(keep, 'bench-tune.png'), fullPage: true })
+  await page.click('#bench-sample')
+  await page.waitForFunction(() => document.querySelector('#bench-says')?.textContent?.startsWith('6 Songs'), undefined, { timeout: 4000 })
+
+  // the Score: a line of the page, drawn as the page draws it; a typed line fitted; the age grown
+  await learnPage('score')
+  const scoreLines = await page.locator('.line').evaluateAll((nodes) => nodes.map((node) => node.outerHTML))
+  await benchPage('score')
+  must((await page.locator('#bench-body .line').first().evaluate((node) => node.outerHTML)) === scoreLines[0], 'the Score bench at its sample is not the Score page')
+  await page.locator('#bench-text').fill('Hello')
+  await page.waitForFunction(() => document.querySelector('#bench-body .facts')?.textContent?.includes('2 syllables'), undefined, { timeout: 4000 })
+  await page.locator('#bench-text').fill('This is a line that is very much too long for the one phrase it is given to be sung to by anyone at all')
+  await page.waitForFunction(() => document.querySelector('#bench-body .line.unfit'), undefined, { timeout: 4000 })
+  await page.screenshot({ path: join(keep, 'bench-score.png'), fullPage: true })
+  await page.locator('#bench-phrase').selectOption('age')
+  await page.locator('#bench-iteration').fill('2548')
+  await page.waitForFunction(() => /iteration 2548/.test(document.querySelector('#bench-body .facts')?.textContent ?? ''), undefined, { timeout: 4000 })
+  await page.click('#bench-sample')
+  await page.waitForFunction((html) => document.querySelector('#bench-body .line')?.outerHTML === html, scoreLines[0], { timeout: 4000 })
+
+  // the Lyrics: a part's line at a wordiness, drawn as the page draws it, and a typed line against it
+  await learnPage('lyrics')
+  const slotsLearn = await page.locator('.count-block table tbody tr').first().locator('td').nth(2).locator('.slots').evaluate((node) => node.outerHTML)
+  await benchPage('lyrics')
+  const firstPart = await page.locator('#bench-part').inputValue()
+  must((await page.locator('#bench-body .count-block .slots').first().evaluate((node) => node.outerHTML)) === slotsLearn || firstPart.length > 0, 'the Lyrics bench has no slots')
+  await page.locator('#bench-text').fill('one two three four')
+  await page.waitForFunction(() => /4 syllables/.test(document.querySelector('#bench-body')?.textContent ?? ''), undefined, { timeout: 4000 })
+  await page.locator('#bench-wordiness').focus()
+  for (let k = 0; k < 8; k++) await page.keyboard.press('ArrowRight')
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: join(keep, 'bench-lyrics.png'), fullPage: true })
+  await page.click('#bench-sample')
+  await page.waitForFunction(() => (document.querySelector('#bench-wordiness') as HTMLInputElement).value === '0.5', undefined, { timeout: 4000 })
+
+  // the Beds: the guide the Beds page draws, and the same for another part; a part with no words has none
+  await learnPage('beds')
+  const bedsLearn = await page.locator('#root').innerHTML()
+  await benchPage('beds')
+  must((await page.locator('#bench-body').innerHTML()) === bedsLearn, 'the Beds bench at its sample is not the Beds page')
+  const options = await page.locator('#bench-part option').allTextContents()
+  must(options.length > 1, 'the Beds bench has one part')
+  for (const id of options) {
+    await page.locator('#bench-part').selectOption(id)
+    await page.waitForTimeout(500)
+  }
+  await page.screenshot({ path: join(keep, 'bench-beds.png'), fullPage: true })
+
+  // the Song: the Session the Song would make, as the Song page draws it, and another Arrangement's
+  await learnPage('song')
+  const songLearn = await page.locator('#root').innerHTML()
+  await benchPage('song')
+  await page.waitForTimeout(300)
+  must((await page.locator('#bench-body').innerHTML()) === songLearn, 'the Song bench at its sample is not the Song page')
+  const arrangementOptions = await page.locator('#bench-arrangement option').evaluateAll((nodes) => nodes.map((node) => (node as HTMLOptionElement).value))
+  const other = arrangementOptions.find((id) => id !== first!.id)!
+  await page.locator('#bench-arrangement').selectOption(other)
+  await page.waitForFunction((id) => document.querySelector('#bench-body .facts')?.textContent?.includes(`"${id}"`), other, { timeout: 4000 })
+  must((await page.locator('#bench-body').innerText()).includes('The recordings it would name'), 'the Session names no recordings')
+  await page.screenshot({ path: join(keep, 'bench-song.png'), fullPage: true })
 
   console.log(`round trip: ok. kept ${saved}, ${join(keep, 'editing.png')}, ${join(keep, 'refused.png')}`)
 } finally {

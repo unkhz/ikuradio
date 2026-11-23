@@ -14,6 +14,7 @@ import { formatArrangement } from './format.js'
 import { layoutOf } from './layout.js'
 import { blockParametersOf, timelineOf } from './timeline.js'
 import { perspectiveChecked, perspectiveText, tideChecked, tideTexts } from './files.js'
+import { benches } from './benches.js'
 import { measureOf } from './measure.js'
 import { whereOf } from './where.js'
 
@@ -77,6 +78,17 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
     // the Tracks there are, with what makes them: the editor offers them and names none
     if (url.pathname === '/tracks.json') {
       return json((await readTracks(tracksDir)).filter(({ state }) => state === 'active').map(({ track, title }) => ({ id: track.id, title, heard: track.heard, makes: track.makes ?? null, parameters: blockParametersOf(track) })))
+    }
+
+    // a bench: the Learn page's own answer for other inputs; nothing is saved, nothing is asked of the mind or the band
+    const bench = /^\/bench\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(url.pathname)
+    if (bench) {
+      const run = benches[bench[1]!]
+      if (!run) return new Response(null, { status: 404 })
+      if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
+      const asked = await postedJson(request)
+      if ('refusal' in asked) return json(asked)
+      return json(await run((asked.value ?? {}) as Record<string, unknown>, { records, arrangementsDir, tempo: tempoOf(url) }))
     }
 
     // what a part counts of its lines, for the parameters an instance gives it

@@ -238,7 +238,7 @@ describe('the Beds', () => {
   })
 
   it("makes a guide from a section's words: chords that begin at the start and reach the end, a bass and an upper voice", () => {
-    const { guide } = beds
+    const guide = beds.guide!
     expect(guide.syllables).toBeGreaterThan(30)
     expect(guide.chords[0]!.at).toBe(0)
     let at = 0
@@ -268,8 +268,9 @@ describe('the Song', () => {
   it("lays the Arrangement out as a Session's parts would be: in order, with kinds, words and timing", () => {
     expect(answer.parts.map(({ instance }) => instance)).toEqual(theSong.instances.map(({ name }) => name))
     expect(answer.parts.map(({ words }) => words as string | undefined)).toEqual([...sung, ...sung].map(({ content }) => content || undefined))
-    expect(answer.parts.map(({ start }) => start)).toEqual(layout.instances.map(({ startSeconds }) => startSeconds))
-    expect(answer.seconds).toBe(layout.seconds)
+    // where the timeline puts them: the same as the tune's beats at one tempo, to the last digit a sum of seconds keeps
+    answer.parts.forEach(({ start }, i) => expect(start).toBeCloseTo(layout.instances[i]!.startSeconds, 9))
+    expect(answer.seconds).toBeCloseTo(layout.seconds, 9)
     expect(answer.parts.map(({ kind }) => kind)).toEqual(beds.kinds.map(({ kind }) => kind))
   })
 

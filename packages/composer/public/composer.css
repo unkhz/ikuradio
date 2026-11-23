@@ -318,3 +318,9 @@ body[data-mode="edit"] .stretch { padding-left: 56px; }
 .line-measure.axis { margin-top: 2px; }
 .line-measure .ticks { position: relative; display: block; height: 16px; border-top: 1px solid var(--line); }
 .line-measure .ticks .tick { position: absolute; top: 1px; transform: translateX(-50%); font-size: 0.68rem; color: var(--dim); height: auto; border: none; padding: 0; }
+
+/* the benches */
+.slots i.over { background: #e8806f; border-color: #e8806f; }
+.note-names { font-size: 0.85rem; color: var(--dim); }
+button.chip { color: inherit; font: inherit; cursor: pointer; }
+button.chip.lit { border-color: var(--shapes); color: var(--shapes); }

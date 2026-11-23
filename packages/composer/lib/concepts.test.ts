@@ -187,8 +187,9 @@ describe('Learn and Edit', () => {
     // what a concept shares is said in its record's answer, for the page to load before its view or its edit
     const found = (await (await get(answer, '/concepts.json')).json()) as { id: string; scripts: string[] }[]
     expect(found.find(({ id }) => id === 'arrangement')!.scripts).toEqual(['anchors.js', 'shared.js'])
-    expect(found.find(({ id }) => id === 'mood')!.scripts).toEqual([])
-    expect((await get(answer, '/mood/edit.js')).status).toBe(404)
+    expect(found.find(({ id }) => id === 'mood')!.scripts).toEqual(['shared.js'])
+    // a concept whose workspace is not built has no edit.js to serve
+    expect((await get(answer, '/echoes/edit.js')).status).toBe(404)
     expect((await get(answer, '/arrangement/concept.md')).status).toBe(404)
     expect((await get(answer, '/arrangement/..%2Fdata.js')).status).toBe(404)
   })

@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { firstCharacter, modes } from 'melody'
-import { fastest, firstMood, slowest, stride, weather } from 'mood'
+import { fastest, firstMood, settle, slowest, stride, weather } from 'mood'
 import { clash, defaults, readPerspectives, resolve, type Settings } from 'perspectives'
 import { parseRecord } from 'parts'
 import { movable, positionOf, readTides, validRange, valueAt, type TideRecord } from 'tides'
@@ -15,9 +15,11 @@ import { perspectiveDrafts, tideDrafts } from './files.js'
 // ---- the Mood
 
 /** What a Mood holds, the Mood the song was born in, the weather it draws from, the modes and the range of tempo. */
-export function moodAnswer() {
+export function moodAnswer({ descriptions, mode, tempo }: { descriptions?: readonly string[]; mode?: string; tempo?: number } = {}) {
+  // a Mood chosen by hand: the weather picked, and the mode and tempo it is heard as. The tempo may not leap: it settles from where the song began
+  const heard = { ...firstCharacter, ...(mode !== undefined && mode in modes ? { mode: mode as keyof typeof modes } : {}), ...(tempo !== undefined && Number.isFinite(tempo) ? { tempo: settle(tempo, firstCharacter.tempo) } : {}) }
   return {
-    first: { descriptions: firstMood.descriptions, character: firstMood.character },
+    first: { descriptions: descriptions ? [...descriptions] : firstMood.descriptions, character: descriptions || mode !== undefined || tempo !== undefined ? { ...firstMood.character, ...heard } : firstMood.character },
     // what a Mood is made of, and what each part of its character is
     holds: [
       { name: 'descriptions', says: 'a few words, blended, the oldest first: the weather the words are written in' },
@@ -29,7 +31,7 @@ export function moodAnswer() {
     ],
     weather: [...weather],
     modes: Object.entries(modes).map(([name, degrees]) => ({ name, degrees: [...degrees] })),
-    born: firstCharacter,
+    born: heard,
     tempo: { slowest, fastest, stride },
   }
 }

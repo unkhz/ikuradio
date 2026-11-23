@@ -5,8 +5,9 @@
 
 import { bridgeBeats, chorusHook, composeGuide, evolve, firstTune, fitToCount, growOnReciting, modes, roaming, spacing, timedLine, variations, wrongness, type Phrase, type Tune } from 'melody'
 import { arrange, chorusOpening, firstLyrics, stresses, type Lyrics } from 'song'
-import { readArrangements, type Part, type PartRecord } from 'parts'
+import { readArrangements, readTracks, type Part, type PartRecord } from 'parts'
 import { layoutOf } from './layout.js'
+import { timelineOf } from './timeline.js'
 
 type Syllables = { stresses: number[]; comma?: boolean }
 /** A word of a line: its syllables' stress, and whether the dictionary knew it (else they were counted by a rough rule). */
@@ -68,10 +69,10 @@ const changed = (a: Phrase, b: Phrase) => a.notes.map(([degree, beats], i) => de
  * The tune, by its own names: each of its keys (`Object.keys(firstTune)`) with its phrases as drawn, the reciting note ringed;
  * which of them evolve from Song to Song and which stay; the evolving ones a step at a time; and a Song's Variations.
  */
-export function tuneAnswer() {
+export function tuneAnswer({ songs = evolved }: { songs?: number } = {}) {
   const names = Object.keys(firstTune) as (keyof Tune)[]
   const steps: Tune[] = [firstTune]
-  for (let i = 1; i <= evolved; i++) steps.push(evolve(steps[i - 1]!, `composer:${i}`))
+  for (let i = 1; i <= songs; i++) steps.push(evolve(steps[i - 1]!, `composer:${i}`))
   const made = variations(firstTune, 4, 'composer', { ornaments: 1, steps: 1 })
   const moves = (tunes: readonly Tune[], key: keyof Tune) => tunes.some((tune) => JSON.stringify(tune[key]) !== JSON.stringify(firstTune[key]))
   // the reciting note is the melody's, kept by the hook the tune was born with
@@ -96,8 +97,8 @@ export function tuneAnswer() {
 export const songsArrangement = 'the-song'
 
 /** That Arrangement, if it is there and active. */
-async function theSong(records: readonly PartRecord[], arrangementsDir: string) {
-  return (await readArrangements(records, arrangementsDir)).find(({ arrangement, state }) => arrangement.id === songsArrangement && state === 'active')
+async function theSong(records: readonly PartRecord[], arrangementsDir: string, id: string = songsArrangement) {
+  return (await readArrangements(records, arrangementsDir)).find(({ arrangement, state }) => arrangement.id === id && state === 'active')
 }
 
 /**
@@ -221,23 +222,24 @@ export async function scoreAnswer(records: readonly PartRecord[], tempo: number,
     // a syllable no sooner than k sixteenths after the one before
     lines: await Promise.all(sampleVerse.map((line, i) => fittedLine(firstTune.verse[i]!, line, tempo, rate))),
     // the first line of the refrain, as the Song's age, which grows when the words outgrow the phrase
-    age: await Promise.all(
-      [1, 12, 2548].map(async (iteration) => {
-        const opening = chorusOpening(BigInt(iteration))
-        const words = await wordsOf(opening)
-        const phrase = { ...firstTune.chorus[0]!, reciting: chorusHook[0]!.reciting }
-        const grown = growOnReciting(phrase, forFit(words), k)
-        return {
-          iteration,
-          text: opening,
-          words,
-          phrase: drawn(phrase, chorusHook[0]!.reciting),
-          fitted: grown ? drawn(grown) : undefined,
-          captions: grown ? captionsOf(words, grown.notes) : [],
-          grownBars: grown ? Math.round((lengthOf(grown) - lengthOf(firstTune.chorus[0]!)) / 4) : undefined,
-        }
-      }),
-    ),
+    age: await Promise.all([1, 12, 2548].map((iteration) => ageLine(iteration, k))),
+  }
+}
+
+/** The Song's age as the first line of its refrain, fitted to its phrase on the reciting note: where it is set, and how many bars it grows. */
+export async function ageLine(iteration: number, k: number) {
+  const opening = chorusOpening(BigInt(iteration))
+  const words = await wordsOf(opening)
+  const phrase = { ...firstTune.chorus[0]!, reciting: chorusHook[0]!.reciting }
+  const grown = growOnReciting(phrase, forFit(words), k)
+  return {
+    iteration,
+    text: opening,
+    words,
+    phrase: drawn(phrase, chorusHook[0]!.reciting),
+    fitted: grown ? drawn(grown) : undefined,
+    captions: grown ? captionsOf(words, grown.notes) : [],
+    grownBars: grown ? Math.round((lengthOf(grown) - lengthOf(firstTune.chorus[0]!)) / 4) : undefined,
   }
 }
 
@@ -247,37 +249,46 @@ export async function scoreAnswer(records: readonly PartRecord[], tempo: number,
 export const kindOf = (part: Part, before?: string, after?: string) => (part.words === 'none' ? `${part.id}:${before ?? 'start'}>${after ?? 'end'}` : part.id)
 
 /** The kinds of bed an Arrangement asks for, and the guide the first section's lines make. */
-export async function bedsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
+export async function bedsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number, partId?: string) {
   const parts = new Map(records.map(({ part }) => [part.id, part]))
   const first = await theSong(records, arrangementsDir)
   const layout = first ? layoutOf(first.arrangement, parts, firstTune, tempo) : undefined
   const kinds = layout?.instances.map((instance) => ({ instance: instance.name, part: instance.part, kind: kindOf(parts.get(instance.part)!, instance.before, instance.after), beats: instance.beats, seconds: instance.seconds })) ?? []
   // the guide of a verse: its four sample lines, as timed syllables, and the chords that change where the words lean
+  // the phrases of the part asked for (the verse's, unless one is named), with the sample words set to them
+  const asked = partId === undefined ? undefined : records.find(({ part }) => part.id === partId)?.part
+  const phrases: readonly Phrase[] = asked ? asked.phrases(firstTune, { iteration: 1n, last: false }) : firstTune.verse
   let at = 0
   const syllables: ReturnType<typeof timedLine> = []
   for (const [i, line] of sampleVerse.entries()) {
-    const fitted = await fittedLine(firstTune.verse[i]!, line, tempo, 6)
-    const notes = fitted.fitted?.notes ?? firstTune.verse[i]!.notes
+    const phrase = phrases[i]
+    if (!phrase) break
+    const fitted = await fittedLine(phrase, line, tempo, 6)
+    const notes = fitted.fitted?.notes ?? phrase.notes
     syllables.push(...timedLine(fitted.words.map(({ stresses, comma }) => ({ stresses, comma })), notes, at))
-    at += lengthOf(firstTune.verse[i]!) + (fitted.grown ? 4 * fitted.grown : 0)
+    at += lengthOf(phrase) + (fitted.grown ? 4 * fitted.grown : 0)
   }
-  const guide = composeGuide({ syllables, beats: at, bpm: tempo, mode: modes.aeolian, ending: 'half', random: wrongness('composer:guide'), progression: roaming })
+  // a part with no words is hummed from the parts either side of it, and no guide is composed from words here
+  const guide = syllables.length ? composeGuide({ syllables, beats: at, bpm: tempo, mode: modes.aeolian, ending: 'half', random: wrongness('composer:guide'), progression: roaming }) : undefined
   return {
     tempo,
     kinds,
     bridgeBeats,
-    guide: { beats: guide.beats, chords: guide.chords, furthest: guide.furthest, lower: guide.lower, upper: guide.upper, syllables: syllables.length },
+    guide: guide ? { beats: guide.beats, chords: guide.chords, furthest: guide.furthest, lower: guide.lower, upper: guide.upper, syllables: syllables.length } : undefined,
   }
 }
 
 // ---- the Song
 
 /** What a Song is made of once it is a Session, and where each part of it comes from: the parts in order, with their kinds, their words, their timing. */
-export async function songAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number) {
+export async function songAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number, arrangementId: string = songsArrangement) {
   const parts = new Map(records.map(({ part }) => [part.id, part]))
-  const first = await theSong(records, arrangementsDir)
+  const first = await theSong(records, arrangementsDir, arrangementId)
   const fieldOf = first ? fieldsOf(first.arrangement.instances) : []
   const layout = first ? layoutOf(first.arrangement, parts, firstTune, tempo) : undefined
+  // where the timeline puts each part, which is where the tempo map and free time say, and not only the tune's beats at one tempo
+  const timeline = first && layout ? timelineOf(first.arrangement, layout, await readTracks(), tempo) : undefined
+  const resolved = timeline && !('refusal' in timeline) ? timeline : undefined
   return {
     arrangement: first?.arrangement.id,
     tempo,
@@ -287,14 +298,27 @@ export async function songAnswer(records: readonly PartRecord[], arrangementsDir
       part: instance.part,
       kind: kindOf(parts.get(instance.part)!, instance.before, instance.after),
       words: fieldOf[i],
-      start: instance.startSeconds,
-      seconds: instance.seconds,
+      start: resolved?.regions[i]?.startSeconds ?? instance.startSeconds,
+      seconds: resolved?.regions[i]?.seconds ?? instance.seconds,
       ending: instance.ending,
     })),
-    seconds: layout?.seconds ?? 0,
+    seconds: resolved?.seconds ?? layout?.seconds ?? 0,
+    // the sounds the Session would name: one recording to a key of the timeline, and the Track it is on
+    recordings: resolved ? recordingsOf(resolved) : [],
     // the fields of a Session, said once here so that a page can show them; a test holds them against the Archive's own type
     session: sessionFields,
   }
+}
+
+/** The recordings a Session would name for an Arrangement: one to a key of its timeline, on its Track, made once and placed as many times as the Blocks of that key are. */
+function recordingsOf(timeline: Exclude<ReturnType<typeof timelineOf>, { refusal: string }>) {
+  const found = new Map<string, { track: string; key: string; from: number; seconds: number; placed: number }>()
+  for (const block of timeline.blocks) {
+    const had = found.get(`${block.track}\u0000${block.key}`)
+    if (had) had.placed++
+    else found.set(`${block.track}\u0000${block.key}`, { track: block.track, key: block.key, from: block.startSeconds, seconds: block.seconds, placed: 1 })
+  }
+  return [...found.values()]
 }
 
 /** What a Session records, a field at a time: the Archive's own type is the truth, and a test holds this to it. */
