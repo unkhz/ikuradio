@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { refuseArrangement, type Arrangement } from './arrangement.js'
 import { parseRecord, type RecordState } from './record.js'
 import type { PartRecord } from './registry.js'
+import type { TrackRecord } from './tracks.js'
 
 /** An Arrangement as its declaration and its record say it is. */
 export type ArrangementRecord = { arrangement: Arrangement; slug: string; title: string; text: string; state: RecordState; dir: string }
@@ -16,7 +17,7 @@ export type ArrangementRecord = { arrangement: Arrangement; slug: string; title:
 export const arrangementsHome = fileURLToPath(new URL('../arrangements/', import.meta.url))
 
 /** Every Arrangement there is, in the order of their ids; one whose declaration is refused stops the reading. */
-export function readArrangements(records: readonly PartRecord[], home = arrangementsHome): ArrangementRecord[] {
+export function readArrangements(records: readonly PartRecord[], home = arrangementsHome, tracks: readonly TrackRecord[] = []): ArrangementRecord[] {
   const found: ArrangementRecord[] = []
   if (!existsSync(home)) return found
   for (const entry of readdirSync(home, { withFileTypes: true })) {
@@ -24,7 +25,7 @@ export function readArrangements(records: readonly PartRecord[], home = arrangem
     if (!entry.isDirectory() || !existsSync(join(dir, 'arrangement.json')) || !existsSync(join(dir, 'arrangement.md'))) continue
     const record = parseRecord(readFileSync(join(dir, 'arrangement.md'), 'utf8'), dir, "an Arrangement's")
     const declared: unknown = JSON.parse(readFileSync(join(dir, 'arrangement.json'), 'utf8'))
-    const refused = refuseArrangement(declared, records)
+    const refused = refuseArrangement(declared, records, tracks)
     if (refused) throw new Error(`${dir}: ${refused}`)
     const arrangement = declared as Arrangement
     if (arrangement.id !== entry.name || record.slug !== entry.name) throw new Error(`${dir}: an Arrangement's id is its folder's, in its record and its declaration alike`)

@@ -8,3 +8,6 @@ export { partsById, partsHome, readParts, type PartRecord } from './lib/registry
 export { arrangementSchema, ending, isArrangement, placesOf, refuseArrangement, type Arrangement, type Instance } from './lib/arrangement.js'
 export { arrangementsHome, readArrangements, type ArrangementRecord } from './lib/arrangements.js'
 export { idSchema, idsOf, parameterSchemas, parametersSchema, refusal, schemas } from './lib/schema.js'
+export { Track, type Making } from './lib/track.js'
+export { readTracks, tracksHome, type TrackRecord } from './lib/tracks.js'
+export { boundaryOf, refuseTimeline, regionIndex, resolve, tempoOf, timelineShape, type Anchor, type Block, type Lengths, type Region, type Resolved, type ResolvedBlock, type ResolvedRegion, type TempoPoint, type Timeline } from './lib/timeline.js'

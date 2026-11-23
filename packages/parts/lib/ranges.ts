@@ -12,3 +12,10 @@ export const melody = () => ({
   span: Type.Number({ minimum: 0, maximum: 10, default: 0, description: 'How far the melody is narrowed' }),
   travel: Type.Number({ minimum: 0, maximum: 10, default: 0, description: 'How far the melody is stilled' }),
 })
+
+/** What a Block may be given: a gain, and a fade in and a fade out in seconds, each within the most the Track allows. */
+export const blockParameters = ({ gain = 2, fade = 10 }: { gain?: number; fade?: number } = {}) => ({
+  gain: Type.Number({ minimum: 0, maximum: gain, default: 1, description: 'How loud the Block is: 1 as it is made' }),
+  fadeIn: Type.Number({ minimum: 0, maximum: fade, default: 0, description: 'Seconds it takes to rise from nothing' }),
+  fadeOut: Type.Number({ minimum: 0, maximum: fade, default: 0, description: 'Seconds it takes to fall to nothing, at its end' }),
+})

@@ -13,10 +13,15 @@ export function idSchema(records: readonly PartRecord[]): TSchema {
   return Type.Union(idsOf(records).map((id) => Type.Literal(id)), { description: 'The id of a part' })
 }
 
+/** The schema of a set of parameters as they may be set: any of them, each within its range, and no others. */
+export function partialParameters(parameters: TSchema): TSchema {
+  const { properties = {} } = parameters as TObject
+  return Type.Partial(Type.Object(properties), { additionalProperties: false })
+}
+
 /** The schema of a part's parameters as its instance may set them: any of them, each within its range. */
 export function parametersSchema({ part }: PartRecord): TSchema {
-  const { properties = {} } = part.parameters as TObject
-  return Type.Partial(Type.Object(properties), { additionalProperties: false })
+  return partialParameters(part.parameters)
 }
 
 /** The schemas of every part's parameters, by id. */

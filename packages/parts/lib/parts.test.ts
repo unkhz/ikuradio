@@ -107,7 +107,12 @@ describe('no closed union', () => {
     }
     walk(partsHome)
     expect(sources.length).toBeGreaterThan(5)
-    for (const path of sources) expect(readFileSync(path, 'utf8')).not.toMatch(/'verse'\s*\|\s*'chorus'|'chorus'\s*\|\s*'verse'|'bridge'\s*\|/)
+    for (const path of sources) {
+      const text = readFileSync(path, 'utf8')
+      expect(text).not.toMatch(/'verse'\s*\|\s*'chorus'|'chorus'\s*\|\s*'verse'|'bridge'\s*\|/)
+      // nor a closed union of the Tracks: their ids are folders, found, never listed
+      expect(text).not.toMatch(/'voice'\s*\|\s*'bed'|'bed'\s*\|\s*'voice'|'guide'\s*\|/)
+    }
   })
 })
 

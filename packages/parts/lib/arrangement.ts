@@ -9,29 +9,31 @@ import { Value } from 'typebox/value'
 import { Part, type Place } from './part.js'
 import type { PartRecord } from './registry.js'
 import { idSchema, parametersSchema, refusal } from './schema.js'
+import { refuseTimeline, timelineShape, type Timeline } from './timeline.js'
+import type { TrackRecord } from './tracks.js'
 
 /** A name: lowercase words and digits joined by hyphens, as slugs are. */
 const named = (description: string) => Type.String({ pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', description })
 
-/** One part in an Arrangement: its name, its identity within it; the part it is; the parameters it sets, if any. */
-export type Instance = { name: string; part: string; parameters?: Record<string, number> }
+/** One part in an Arrangement, a region of its timeline: its name, its identity within it; the part it is; the parameters it sets, if any; its seconds, if it is in free time. */
+export type Instance = { name: string; part: string; parameters?: Record<string, number>; seconds?: number }
 
-/** What an Arrangement says. */
-export type Arrangement = { id: string; title: string; instances: Instance[] }
+/** What an Arrangement says: its regions, and, by addition, its tempo map, its tracks and the blocks on them. */
+export type Arrangement = { id: string; title: string; instances: Instance[] } & Timeline
 
 /** The schema of an Arrangement, made from the parts there are: an instance is of one of them, and sets only its parameters, each in its range. */
-export function arrangementSchema(records: readonly PartRecord[]): TSchema {
+export function arrangementSchema(records: readonly PartRecord[], tracks: readonly TrackRecord[] = []): TSchema {
   const active = records.filter(({ state }) => state === 'active')
   const instance = Type.Union(
     active.map((record) =>
       Type.Object(
-        { name: named('The instance'), part: Type.Literal(record.part.id), parameters: Type.Optional(parametersSchema(record)) },
+        { name: named('The instance'), part: Type.Literal(record.part.id), parameters: Type.Optional(parametersSchema(record)), seconds: Type.Optional(Type.Number({ exclusiveMinimum: 0 })) },
         { additionalProperties: false },
       ),
     ),
   )
   return Type.Object(
-    { id: named('The Arrangement'), title: Type.String({ minLength: 1 }), instances: Type.Array(instance, { minItems: 1 }) },
+    { id: named('The Arrangement'), title: Type.String({ minLength: 1 }), instances: Type.Array(instance, { minItems: 1 }), ...timelineShape(tracks.filter(({ state }) => state === 'active').map(({ track }) => track.id)) },
     { additionalProperties: false },
   )
 }
@@ -43,15 +45,16 @@ const shape = (records: readonly PartRecord[]) =>
       id: named('The Arrangement'),
       title: Type.String({ minLength: 1 }),
       instances: Type.Array(
-        Type.Object({ name: named('The instance'), part: idSchema(records), parameters: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }, { additionalProperties: false }),
+        Type.Object({ name: named('The instance'), part: idSchema(records), parameters: Type.Optional(Type.Record(Type.String(), Type.Unknown())), seconds: Type.Optional(Type.Number({ exclusiveMinimum: 0 })) }, { additionalProperties: false }),
         { minItems: 1 },
       ),
+      ...timelineShape(),
     },
     { additionalProperties: false },
   )
 
 /** The first thing wrong with a declaration, said plainly, or nothing if it is an Arrangement. */
-export function refuseArrangement(value: unknown, records: readonly PartRecord[]): string | undefined {
+export function refuseArrangement(value: unknown, records: readonly PartRecord[], tracks: readonly TrackRecord[] = []): string | undefined {
   const wrong = refusal(shape(records), value)
   if (wrong) return wrong
   const { instances } = value as Arrangement
@@ -66,11 +69,12 @@ export function refuseArrangement(value: unknown, records: readonly PartRecord[]
     if (before !== undefined && before !== part) return `${where}: the name "${name}" is already a ${before}; one name, one part`
     seen.set(name, part)
   }
-  return undefined
+  // and the timeline, if it has one: its tempo, its free time, its blocks
+  return refuseTimeline(value as Arrangement, new Map([...byId].map(([id, record]) => [id, record.part])), tracks)
 }
 
 /** Whether `value` is an Arrangement of these parts, by the whole schema: what `refuseArrangement` says, said by the schema. */
-export const isArrangement = (value: unknown, records: readonly PartRecord[]): value is Arrangement => Value.Check(arrangementSchema(records), value)
+export const isArrangement = (value: unknown, records: readonly PartRecord[], tracks: readonly TrackRecord[] = []): value is Arrangement => Value.Check(arrangementSchema(records, tracks), value)
 
 /** The Static type of an Arrangement's schema, for those who want it. */
 export type ArrangementOf = Static<ReturnType<typeof arrangementSchema>>

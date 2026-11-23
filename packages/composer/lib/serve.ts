@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { firstTune } from 'melody'
-import { arrangementsHome, readParts, refuseArrangement, type Arrangement } from 'parts'
+import { arrangementsHome, readParts, readTracks, refuseArrangement, type Arrangement } from 'parts'
 import { arrangementsAnswer, partsAnswer } from './answers.js'
 import { conceptsHome, readConcepts } from './concepts.js'
 import { mapOf } from './map.js'
@@ -69,7 +69,7 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
       } catch (error) {
         return json({ refusal: `that is not JSON: ${(error as Error).message}` })
       }
-      const refusal = refuseArrangement(draft, records)
+      const refusal = refuseArrangement(draft, records, await readTracks())
       if (refusal) return json({ refusal })
       const parts = new Map(records.map(({ part }) => [part.id, part]))
       return json({ layout: layoutOf(draft as Arrangement, parts, firstTune, tempoOf(url)) })
