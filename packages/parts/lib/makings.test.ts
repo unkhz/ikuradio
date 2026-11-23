@@ -85,19 +85,17 @@ describe('what a timeline asks to be made', () => {
   const names = theSong.instances.map(({ name }) => name)
   const pass = (making: (typeof asked)[number]) => (making.placings[0]!.at < unmeasured.regions[10]!.startSeconds ? 0 : 1)
 
-  it("is, for the Song as it always was, per pass: one voice for each name with words, one bed and one guide for each kind of section, as the Studio makes them", () => {
-    const kinds = (offset: number) => [...new Set(parts.map((_, i) => kindOf(parts, i)))].map((kind) => `${offset}:${kind}`)
+  it("is, for the Song as it always was, per pass: a voice, a bed and a guide for each name (the chorus's two sections one), as the Studio makes them", () => {
     for (const p of [0, 1]) {
-      const voices = ofTrack('voice').filter((making) => pass(making) === p)
-      // the names that have words: arrange() gives each of them its field, the chorus once for both its places
-      const withWords = [...new Set(sung.flatMap((part, i) => (part.content ? [names[i]!] : [])))]
-      expect(voices.map(({ source }) => source[0]).sort()).toEqual([...withWords].sort())
-      expect(ofTrack('bed').filter((making) => pass(making) === p)).toHaveLength(kinds(p).length)
-      expect(ofTrack('guide').filter((making) => pass(making) === p)).toHaveLength(kinds(p).length)
+      // every name is sung, bedded and guided: the names that have words by their field, the chorus once for both its places, and each bridge a sound of its own
+      const sungNames = [...new Set(names.slice(0, 10))]
+      for (const track of ['voice', 'bed', 'guide']) {
+        expect(ofTrack(track).filter((making) => pass(making) === p).map(({ source }) => source[0]).sort()).toEqual([...sungNames].sort())
+      }
     }
-    expect(ofTrack('voice')).toHaveLength(10)
-    expect(ofTrack('bed')).toHaveLength(8)
-    expect(ofTrack('guide')).toHaveLength(8)
+    expect(ofTrack('voice')).toHaveLength(18)
+    expect(ofTrack('bed')).toHaveLength(18)
+    expect(ofTrack('guide')).toHaveLength(18)
   })
 
   it('lists each key once, from one source, with every place it is played, longest first in the length it is made', () => {
@@ -106,10 +104,11 @@ describe('what a timeline asks to be made', () => {
     expect(chorus.placings).toHaveLength(2)
     expect(chorus.source).toEqual(['chorus'])
     expect(chorus.seconds).toBeCloseTo(Math.max(...chorus.placings.map(({ seconds }) => seconds)), 9)
-    // the verses share a bed, as the Studio shares it: one key, as many places as verses, made from the first
-    const verses = ofTrack('bed').find(({ key }) => key === 'bed:verse:1')!
-    expect(verses.placings.length).toBeGreaterThan(2)
-    expect(verses.source).toEqual(['verse-1'])
+    // the chorus's two sections share a bed, as the Studio shares it (one guide, one bed): one key, two places
+    const refrain = ofTrack('bed').find(({ key }) => key === 'bed:chorus')!
+    expect(refrain.placings).toHaveLength(2)
+    expect(refrain.source).toEqual(['chorus'])
+    expect(ofTrack('bed').find(({ key }) => key === 'bed:verse-1')!.placings).toHaveLength(1)
     // a bed reaches past its section by its tail, and fades over it: that is in its Block
     for (const bed of ofTrack('bed')) for (const placing of bed.placings) expect(placing.fadeOut).toBe(3)
     expect(ofTrack('guide').every(({ heard }) => !heard)).toBe(true)
@@ -126,9 +125,9 @@ describe('what a timeline asks to be made', () => {
 
   it('refuses a key placed from two sources, and a Block on a Track that is not there', () => {
     const blocks = unmeasured.blocks.map((block) => ({ ...block }))
-    const verses = blocks.filter((block) => block.key === 'bed:verse:1')
-    verses[1]!.source = ['verse-2']
-    expect(() => makingsOf({ blocks }, tracks)).toThrow('bed:verse:1 is placed from verse-1 and from verse-2: one key, one source')
+    const refrain = blocks.filter((block) => block.key === 'bed:chorus')
+    refrain[1]!.source = ['verse-2']
+    expect(() => makingsOf({ blocks }, tracks)).toThrow('bed:chorus is placed from chorus and from verse-2: one key, one source')
     expect(() => makingsOf(unmeasured, tracks.filter(({ track }) => track.id !== 'guide'))).toThrow('which is not among the tracks: bed, voice')
     // a Track that is there and not heard keeps a guide off the air
     expect(makingsOf(unmeasured, tracks).filter(({ track }) => track === 'guide').every(({ heard }) => !heard)).toBe(true)

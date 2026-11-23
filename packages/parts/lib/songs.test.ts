@@ -89,12 +89,13 @@ describe('the Song as a timeline is what the Studio lays out today, for a Song o
     })
   })
 
-  it('shares the beds as the Music does: one to a kind of part in an iteration, and nothing shared between two', () => {
+  it("has a bed for each section, as the Studio grows one for each guide: its own where its words are its own, and one for the chorus's two sections, which sing the same words", () => {
     const beds = resolved.blocks.filter(({ track }) => track === 'bed')
+    const voices = resolved.blocks.filter(({ track }) => track === 'voice')
     const partition = (keys: readonly string[]) => keys.map((key) => keys.indexOf(key))
-    // what today's rule says of each region's bed: its pass, and its kind
-    const today = [0, 1].flatMap((pass) => parts.map((_, i) => `${pass}:${kindOf(parts, i)}`))
-    expect(partition(beds.map(({ key }) => key))).toEqual(partition(today))
+    // the sections that share words share a guide, and a bed is grown from a guide: the beds are shared as the voices are
+    expect(partition(beds.map(({ key }) => key))).toEqual(partition(voices.map(({ key }) => key)))
+    expect(new Set(beds.map(({ key }) => key)).size).toBe(18)
     // and a bed of the second pass is nobody's of the first
     const keysOf = (blocks: typeof beds, pass: number) => new Set(blocks.slice(pass * 10, pass * 10 + 10).map(({ key }) => key))
     for (const key of keysOf(beds, 1)) expect(keysOf(beds, 0).has(key)).toBe(false)
@@ -113,35 +114,26 @@ describe('the Song as a timeline is what the Studio lays out today, for a Song o
     expect(tracks.find(({ track }) => track.id === 'guide')!.track.heard).toBe(false)
   })
 
-  it('sings each region that has words by a voice, the chorus heard twice in a pass being one sound, and the second pass all new', () => {
+  it('has a voice under every region: the words sung by their field, a bridge hummed aloud or not as it is made, the chorus heard twice in a pass being one sound, and the second pass all new', () => {
     const voices = resolved.blocks.filter(({ track }) => track === 'voice')
-    // the regions with words: what arrange() gives content to, twice
-    const withWords = [...sung, ...sung].flatMap((part, i) => (part.content ? [i] : []))
-    expect(voices).toHaveLength(withWords.length)
+    // every region has one: a region with words sings them, and a bridge may be hummed aloud, which the Studio decides when it is made
+    expect(voices).toHaveLength(20)
     voices.forEach((voice, k) => {
-      const region = resolved.regions[withWords[k]!]!
+      const region = resolved.regions[k]!
       expect(voice.startSeconds).toBeCloseTo(region.startSeconds, 9)
       expect(voice.endSeconds).toBeCloseTo(region.startSeconds + region.seconds, 9)
       expect(voice.fadeOut).toBe(0)
     })
-    // sharing: today a field's words are one set of takes: the same field is the same sound, in an iteration
-    const field = withWords.map((i) => `${i < 10 ? 0 : 1}:${sung[i % 10]!.content}`)
+    // sharing: today a field's words are one set of takes: the same field is the same sound, in an iteration; each bridge is a sound of its own
+    const field = [...sung, ...sung].map((part, i) => `${i < 10 ? 0 : 1}:${part.content || `bridge:${i}`}`)
     const partition = (keys: readonly string[]) => keys.map((key) => keys.indexOf(key))
     expect(partition(voices.map(({ key }) => key))).toEqual(partition(field))
-    expect(new Set(voices.map(({ key }) => key)).size).toBe(10)
+    expect(new Set(voices.map(({ key }) => key)).size).toBe(18)
   })
 
-  it('says what a bed grows from: the first region of its kind in its pass', () => {
-    for (const pass of passes) {
-      const regions = regionsOf(pass)
-      const names = theSong.instances.slice(pass * 10, pass * 10 + 10).map(({ name }) => name)
-      const beds = resolved.blocks.filter(({ track }) => track === 'bed').slice(pass * 10, pass * 10 + 10)
-      beds.forEach((bed, i) => {
-        const first = parts.findIndex((_, k) => kindOf(parts, k) === kindOf(parts, i))
-        expect(bed.source).toEqual([names[first]!])
-        expect(regions[i]!.name).toBe(names[i]!)
-      })
-    }
+  it('says what a bed grows from: the section it lies under', () => {
+    const beds = resolved.blocks.filter(({ track }) => track === 'bed')
+    beds.forEach((bed, i) => expect(bed.source).toEqual([theSong.instances[i]!.name]))
   })
 })
 

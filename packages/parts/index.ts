@@ -11,3 +11,4 @@ export { idSchema, idsOf, parameterSchemas, parametersSchema, refusal, schemas }
 export { Track, type Making } from './lib/track.js'
 export { readTracks, tracksHome, type TrackRecord } from './lib/tracks.js'
 export { boundaryOf, iterationsOf, makingsOf, refuseTimeline, regionIndex, resolve, tempoOf, timelineShape, type Anchor, type Block, type Lengths, type Placing, type Region, type Resolved, type ResolvedBlock, type ResolvedRegion, type TempoPoint, type Timeline, type ToMake } from './lib/timeline.js'
+export { fieldsOf } from './lib/words.js'

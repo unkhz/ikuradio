@@ -5,7 +5,7 @@
 
 import { bridgeBeats, chorusHook, composeGuide, evolve, firstTune, fitToCount, growOnReciting, modes, roaming, spacing, timedLine, variations, wrongness, type Phrase, type Tune } from 'melody'
 import { arrange, chorusOpening, firstLyrics, stresses, type Lyrics } from 'song'
-import { readArrangements, readTracks, type Part, type PartRecord } from 'parts'
+import { fieldsOf, readArrangements, readTracks, type Part, type PartRecord } from 'parts'
 import { layoutOf } from './layout.js'
 import { timelineOf } from './timeline.js'
 
@@ -101,26 +101,8 @@ async function theSong(records: readonly PartRecord[], arrangementsDir: string, 
   return (await readArrangements(records, arrangementsDir)).find(({ arrangement, state }) => arrangement.id === id && state === 'active')
 }
 
-/**
- * The Lyrics field each instance sings. A name's words are the field `arrange()` places where the Song as it always was (the `reference`) first hears the
- * name, and every hearing of the name sings it: after a turn too, where the name goes on with its own words. An instance that continues another name sings
- * the field that one does. So an Arrangement that lists other names, or the same in another order, still gives each name its own words, by name and not by place.
- * A name the reference does not have has no field of its own here.
- */
-export function fieldsOf(instances: readonly { name: string; continues?: string }[], reference: readonly { name: string }[] = instances): (keyof Lyrics | undefined)[] {
-  const named = Object.fromEntries((Object.keys(firstLyrics) as (keyof Lyrics)[]).map((field) => [field, field])) as Lyrics
-  const sung = arrange(named)
-  const byName = new Map(instances.map((instance) => [instance.name, instance]))
-  const rootOf = (name: string, seen = new Set<string>()): string => {
-    const next = byName.get(name)?.continues
-    return next !== undefined && !seen.has(name) ? rootOf(next, seen.add(name)) : name
-  }
-  const fieldOfName = (name: string): keyof Lyrics | undefined => {
-    const first = reference.findIndex((instance) => instance.name === name)
-    return first >= 0 && sung[first]?.content ? (sung[first]!.content as keyof Lyrics) : undefined
-  }
-  return instances.map(({ name }) => fieldOfName(rootOf(name)))
-}
+/** The Lyrics field each instance sings, by name: the parts package's, which the Studio asks too. */
+export { fieldsOf }
 
 const sampleWordiness = [0.2, 0.5, 0.9]
 const written = (part: Part) => part.words === 'written'
