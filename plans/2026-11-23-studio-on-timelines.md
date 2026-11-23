@@ -46,7 +46,7 @@ This plan makes the Studio read the Arrangement and make what its timeline says.
    - `makingsOf(resolved, tracks)`: what a timeline asks to be made, and where it goes. Each distinct key on each Track is made once: its source region or regions, its length (the longest of its placings), and every place it is played (at, seconds, gain, fades).
    - Proof:
      - unit tests on `the-song` and `tempo-turns`, measured and unmeasured;
-     - `the-song` asks for, per pass, one voice key per name, one bed key per section kind, and one guide per section, as the Studio makes them today.
+     - `the-song` asks for, per pass, one voice key per name, one bed key per section kind, and one guide per kind of section (the first section of each kind hums it, as `humGuides` does today), as the Studio makes them today.
 2. **The Session from the timeline, in the shadow** (`packages/studio`).
    - `sessionOf(arrangement, made, ...)` writes a Session from the timeline: the regions measured from the sung lines, the Blocks resolved, and each recording placed where its Block says.
    - The Studio keeps publishing `toSession`'s Session. It also makes `sessionOf`'s, compares the two, and logs every difference with its path ("recordings[14].at: 43.3 ≠ 43.4"). It never publishes the shadow.
@@ -83,7 +83,8 @@ This plan makes the Studio read the Arrangement and make what its timeline says.
      - free time (`tempo: null`) for a part, where the Receiver shows no beat;
      - a Block's fade in (`fadeIn`), played by the Receiver;
      - the Studio singing, humming and growing a part at its own tempo: the Score's bpm, MusicGen's prompt, the guide's bpm.
-   - The Receiver gets them as its page updates itself (the plan "The Receiver updates itself"). A Receiver that doesn't know them yet plays the Session as before, at the Song's tempo, with only its fades out.
+   - A key is one recording, so it is made at one tempo. In `tempo-turns`, the chorus heard at 96 bpm can't share its key with the chorus at 72. Its Blocks get keys of their own (e.g. `voice:chorus:96`), and the Studio refuses a key whose placings lie under different tempi.
+- The Receiver gets them as its page updates itself (the plan "The Receiver updates itself"). A Receiver that doesn't know them yet plays the Session as before, at the Song's tempo, with only its fades out.
    - The Studio refuses an Arrangement whose needs aren't met yet (step 3), so `ARRANGEMENT=tempo-turns` can't be set before this step is done.
    - Proof:
      - a rehearsal on xitra of one `tempo-turns` Song (never while the Heart is live: they share the mind's port);
