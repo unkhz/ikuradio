@@ -40,8 +40,19 @@ try {
   page.on('pageerror', (error) => {
     throw new Error(`round trip: the page: ${error.message}`)
   })
-  await page.goto(`${base}/arrangement/`)
+  // Learn has no editor, and says where it is; Edit is the same page with ?mode=edit, and the toggle takes one to the other
+  await page.goto(`${base}/arrangement/?mode=learn`)
   await page.waitForSelector('#diagram .region')
+  must((await page.locator('#editor, #save, #open, #undo').count()) === 0, 'Learn has an editor in it')
+  must((await page.locator('.mode-toggle a[aria-current]').textContent()) === 'Learn', 'the toggle does not say Learn')
+  await page.screenshot({ path: join(keep, 'learn.png'), fullPage: true })
+  await page.click('.mode-toggle a[data-mode="edit"]')
+  await page.waitForSelector('#which-file option', { state: 'attached' })
+  must(page.url().includes('mode=edit'), 'the mode is not in the URL')
+  await page.reload()
+  await page.waitForSelector('#which-file option', { state: 'attached' })
+  must((await page.locator('.mode-toggle a[aria-current]').textContent()) === 'Edit', 'a reload did not keep the mode')
+  must(!(await page.locator('#unsaved').isVisible()), 'nothing is open, and something is unsaved')
 
   // open its regions as a file, and give them a name of their own
   const opened = join(keep, 'opened.json')
@@ -105,8 +116,9 @@ try {
   // ---- then the Song becomes tempo-turns, in the editor
   const target = readFileSync(join(arrangementsHome, 'tempo-turns', 'arrangement.json'), 'utf8')
   const want = JSON.parse(target) as { id: string; title: string; instances: { name: string; seconds?: number; ending?: string }[]; tempo: { region?: string; hearing?: number; bpm: number | 'mood' | null }[]; blocks: any[]; tracks: string[] }
-  await page.selectOption('#start', 'the-song')
-  await page.click('#copy')
+  await page.selectOption('#which-file', 'the-song')
+  await page.click('#open-file')
+  must(!(await page.locator('#unsaved').isVisible()), 'the Song is open as it is, and is said to be unsaved')
   await page.waitForFunction(() => document.querySelectorAll('#instances .row').length === 20)
   await page.fill('#draft-id', want.id)
   await page.fill('#draft-title', want.title)
@@ -179,6 +191,32 @@ try {
   const madeAt = join(keep, 'tempo-turns.json')
   await made.saveAs(madeAt)
   must(readFileSync(madeAt, 'utf8') === target, 'the file made in the editor is not the file in the repository')
+  must(!(await page.locator('#unsaved').isVisible()), 'it is saved, and is said to be unsaved')
+
+  // undo every step: the Song comes back, as the file it was
+  await page.fill('#draft-title', 'Something else')
+  await page.locator('#unsaved').waitFor({ state: 'visible', timeout: 5000 }).catch(() => must(false, 'a change is not said to be unsaved'))
+  for (let steps = 0; !(await page.locator('#undo').isDisabled()); steps++) {
+    must(steps < 500, 'undo does not come to an end')
+    await page.click('#undo')
+  }
+  await page.waitForFunction(() => document.querySelector('#verdict')?.classList.contains('accepted'))
+  must((await page.inputValue('#draft-id')) === first!.id, 'undo did not bring back the Song')
+  const [back] = await Promise.all([page.waitForEvent('download'), page.click('#save')])
+  const backAt = join(keep, `${first!.id}.json`)
+  await back.saveAs(backAt)
+  must(readFileSync(backAt, 'utf8') === readFileSync(join(arrangementsHome, first!.id, 'arrangement.json'), 'utf8'), 'undoing every step did not give back the Song as its file')
+  // and redo takes it forward again, to the last thing done
+  await page.click('#redo')
+  must(!(await page.locator('#redo').isDisabled()) || (await page.inputValue('#draft-id')) !== '', 'redo does nothing')
+  await page.keyboard.press('Control+Shift+Z')
+  await page.keyboard.press('Control+Z')
+  await page.screenshot({ path: join(keep, 'edit.png'), fullPage: true })
+
+  // a concept with a workspace not built yet says so, and one page in Edit says its words short
+  await page.goto(`${base}/mood/?mode=edit`)
+  await page.waitForSelector('.pending')
+  must((await page.locator('.pending').textContent())!.includes('not built yet'), 'a workspace not built does not say so')
 
   console.log(`round trip: ok. kept ${saved}, ${join(keep, 'editing.png')}, ${join(keep, 'refused.png')}`)
 } finally {

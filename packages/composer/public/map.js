@@ -4,6 +4,10 @@
 
 const unitPx = 16
 
+/** What a concept's page in Edit is, in a few words, by the workspace it says it has. */
+const kinds = { files: 'files', parameters: 'parameters', bench: 'a bench', nothing: 'nothing to edit' }
+const kindTitles = { files: 'Edit the files you keep', parameters: 'Edit the parameters kept in another file', bench: 'A bench: change what goes in and see what comes out; nothing is saved', nothing: 'There is nothing to edit here' }
+
 const make = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props)
   node.append(...children)
@@ -35,6 +39,7 @@ function rounded(points, radius = 9) {
 }
 
 async function load() {
+  drawToggle(document.getElementById('mode'))
   const [concepts, layout] = await Promise.all([fetch('/concepts.json').then((r) => r.json()), fetch('/map.json').then((r) => r.json())])
   const said = new Map(concepts.map((concept) => [concept.id, concept]))
   const px = (value) => value * unitPx
@@ -62,7 +67,7 @@ async function load() {
   })
   const boxes = layout.boxes.map((cell) => {
     const concept = said.get(cell.id)
-    const box = make('a', { className: `box ${cell.band}`, href: `/${cell.id}/` }, make('strong', { textContent: concept.title }), make('span', { textContent: concept.line }))
+    const box = make('a', { className: `box ${cell.band}`, href: inMode(`/${cell.id}/`) }, make('strong', { textContent: concept.title }), make('span', { textContent: concept.line }), ...(mode === 'edit' ? [make('em', { className: `kind ${concept.edits}`, textContent: kinds[concept.edits] ?? concept.edits, title: kindTitles[concept.edits] ?? '' })] : []))
     box.dataset.id = cell.id
     Object.assign(box.style, { left: `${px(cell.x)}px`, top: `${px(cell.y)}px`, width: `${px(cell.width)}px`, height: `${px(cell.height)}px` })
     return box

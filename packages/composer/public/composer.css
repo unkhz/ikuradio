@@ -209,3 +209,23 @@ input.short { width: 5em; }
 #editor h3 { margin: 1.4rem 0 0.25rem; font-size: 1rem; color: var(--dim); }
 .row .params > span, .row .params > label { display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; }
 .block-row input.iname { width: 18em; }
+
+/* the two modes */
+header { position: relative; }
+.mode-toggle { position: absolute; top: 14px; right: 16px; display: inline-flex; border: 1px solid var(--line); border-radius: 99px; overflow: hidden; z-index: 5; }
+.mode-toggle a { padding: 3px 14px; color: var(--dim); text-decoration: none; font-size: 0.9rem; }
+.mode-toggle a[aria-current] { background: var(--edits); color: #101015; font-weight: 700; }
+.box .kind { font-style: normal; font-size: 0.75rem; color: var(--edits); margin-top: auto; }
+
+/* Edit: a drawing, and beside it the inspector of fields */
+.workspace { display: grid; grid-template-columns: minmax(0, 3fr) minmax(340px, 2fr); gap: 24px; align-items: start; }
+.inspector { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; padding-right: 4px; }
+.drawing .scroll { padding-top: 8px; }
+@media (max-width: 1000px) { .workspace { grid-template-columns: minmax(0, 1fr); } .inspector { position: static; max-height: none; } }
+.shell { margin-bottom: 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.shell .open-name { color: var(--words); }
+.unsaved { color: #e8c06f; font-size: 0.85rem; }
+.refused { outline: 2px solid #8a3a30; outline-offset: 1px; border-radius: 4px; }
+input.refused, select.refused { background: #2a1714; }
+.why { flex-basis: 100%; width: 100%; color: #ffb4a8; font-size: 0.8rem; margin-top: 4px; }
+body[data-mode="edit"] main, body[data-mode="edit"] header { max-width: 1700px; }

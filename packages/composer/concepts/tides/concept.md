@@ -3,6 +3,7 @@ state: active
 id: 3
 kind: concept
 slug: tides
+edits: files
 band: shapes
 leads: parts
 ---

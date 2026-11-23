@@ -13,6 +13,7 @@ import { mapOf } from './map.js'
 import { formatArrangement } from './format.js'
 import { layoutOf } from './layout.js'
 import { timelineOf } from './timeline.js'
+import { whereOf } from './where.js'
 
 const publicHome = fileURLToPath(new URL('../public/', import.meta.url))
 
@@ -51,7 +52,7 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
     const records = await readParts(partsHome)
 
     if (url.pathname === '/concepts.json') {
-      return json((await readConcepts(conceptsDir)).map(({ id, title, band, leads, line, more, state }) => ({ id, title, band, leads, line, more, state })))
+      return json((await readConcepts(conceptsDir)).map(({ id, title, band, edits, leads, line, more, state }) => ({ id, title, band, edits, leads, line, more, state })))
     }
 
     // where the boxes stand and the arrows run, worked out here and only drawn by the page
@@ -93,20 +94,21 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
       }
       const tracks = await readTracks(tracksDir)
       const refusal = refuseArrangement(draft, records, tracks)
-      if (refusal) return json({ refusal })
+      if (refusal) return json({ refusal, where: whereOf(refusal) ?? null })
       const parts = new Map(records.map(({ part }) => [part.id, part]))
       const layout = layoutOf(draft as Arrangement, parts, firstTune, tempoOf(url))
       return json({ layout, timeline: timelineOf(draft as Arrangement, layout, tracks, tempoOf(url)) })
     }
 
     // a concept: its page, its script, and its data
-    const concept = /^\/([a-z0-9]+(?:-[a-z0-9]+)*)(\.json|\/|\/view\.js)$/.exec(url.pathname)
+    const concept = /^\/([a-z0-9]+(?:-[a-z0-9]+)*)(\.json|\/|\/[a-z0-9-]+\.js)$/.exec(url.pathname)
     if (concept) {
       const [, id, rest] = concept
       const found = (await readConcepts(conceptsDir)).find((candidate) => candidate.id === id)
       if (found) {
         if (rest === '/') return file(join(publicHome, 'concept.html'))
-        if (rest === '/view.js') return file(join(found.dir, 'view.js'))
+        // the scripts of a concept's own folder: its view (Learn), its edit (Edit), and what they share
+        if (rest.endsWith('.js')) return file(join(found.dir, rest.slice(1)))
         return json(await found.data({ records, arrangementsDir, tempo: tempoOf(url), query: url.searchParams }))
       }
     }

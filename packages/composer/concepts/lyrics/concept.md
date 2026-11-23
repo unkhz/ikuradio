@@ -3,6 +3,7 @@ state: active
 id: 7
 kind: concept
 slug: lyrics
+edits: bench
 band: made
 leads: score, song
 ---

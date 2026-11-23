@@ -3,6 +3,7 @@ state: active
 id: 4
 kind: concept
 slug: arrangement
+edits: files
 band: edits
 leads: parts
 ---

@@ -3,6 +3,7 @@ state: active
 id: 5
 kind: concept
 slug: parts
+edits: parameters
 band: edits
 leads: tune, lyrics
 ---

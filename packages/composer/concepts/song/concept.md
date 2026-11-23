@@ -3,6 +3,7 @@ state: active
 id: 10
 kind: concept
 slug: song
+edits: bench
 band: made
 ---
 # Song

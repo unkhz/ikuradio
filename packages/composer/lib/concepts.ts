@@ -16,6 +16,19 @@ export const bands = [
 ] as const
 export type Band = (typeof bands)[number]['id']
 
+/**
+ * What a concept's page in Edit is (plan "Evolution of Song", "Learn and Edit"): a workspace for **files** the scientist keeps, for the
+ * **parameters** an Arrangement gives its instances, a **bench** where what goes in is changed and what comes out is seen (nothing on it is
+ * saved), or **nothing** to edit, which a page says and does not hide.
+ */
+export const workspaces = [
+  { id: 'files', says: 'Edits its files' },
+  { id: 'parameters', says: "Edits an Arrangement's parameters" },
+  { id: 'bench', says: 'A bench: nothing is saved' },
+  { id: 'nothing', says: 'Nothing to edit' },
+] as const
+export type Workspace = (typeof workspaces)[number]['id']
+
 /** What a data.ts is given: the parts and where the Arrangements are, and a tempo. */
 export type Context = { records: readonly PartRecord[]; arrangementsDir: string; tempo: number; query: URLSearchParams }
 
@@ -23,6 +36,8 @@ export type Concept = {
   id: string
   title: string
   band: Band
+  /** What its page in Edit is. */
+  edits: Workspace
   leads: string[]
   /** The first paragraph of its record: the short line a box shows. */
   line: string
@@ -54,6 +69,8 @@ export async function readConcepts(home = conceptsHome): Promise<Concept[]> {
     if (reserved.has(entry.name) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.name)) throw new Error(`${dir}: "${entry.name}" cannot be a concept's id`)
     const band = record.fields.band as Band
     if (!bands.some(({ id }) => id === band)) throw new Error(`${dir}: its band is "${record.fields.band}", and the bands are ${bands.map(({ id }) => id).join(', ')}`)
+    const edits = (record.fields.edits ?? 'nothing') as Workspace
+    if (!workspaces.some(({ id }) => id === edits)) throw new Error(`${dir}: what it edits is "${record.fields.edits}", and the workspaces are ${workspaces.map(({ id }) => id).join(', ')}`)
     const [line = '', ...more] = record.text.split(/\n\s*\n/).map((paragraph) => paragraph.replace(/\s+/g, ' ').trim()).filter(Boolean)
     const data = (await import(join(dir, 'data.ts'))).default
     if (typeof data !== 'function') throw new Error(`${dir}: a concept's data.ts exports a function`)
@@ -61,6 +78,7 @@ export async function readConcepts(home = conceptsHome): Promise<Concept[]> {
       id: entry.name,
       title: record.title,
       band,
+      edits,
       leads: (record.fields.leads ?? '').split(',').map((lead) => lead.trim()).filter(Boolean),
       line,
       more,

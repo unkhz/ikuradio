@@ -3,6 +3,7 @@ state: active
 id: 2
 kind: concept
 slug: perspectives
+edits: files
 band: shapes
 leads: parts
 ---

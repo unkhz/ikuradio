@@ -19,16 +19,44 @@ const seconds = (value) => `${value.toFixed(1)} s`
 const beatsOf = (value) => `${Number.isInteger(value) ? value : value.toFixed(1)} beats`
 const growsWords = "grows with the Song's age"
 
+/** Loads a script of the concept's own folder: whether there was one. */
+const loadScript = (src) =>
+  new Promise((done) => {
+    const script = Object.assign(document.createElement('script'), { src, onload: () => done(true), onerror: () => done(false) })
+    document.head.append(script)
+  })
+
 addEventListener('load', async () => {
   const id = location.pathname.split('/').filter(Boolean)[0]
   const [records, data] = await Promise.all([fetch('/concepts.json').then((r) => r.json()), fetch(`/${id}.json`).then((r) => r.json())])
   const record = records.find((concept) => concept.id === id)
   document.title = `${record.title} · Composer`
+  drawToggle($('mode'))
+  $('to-the-map').href = inMode('/')
   $('title').textContent = record.title
   $('line').textContent = record.line
-  $('more').replaceChildren(...record.more.map((paragraph) => el('p', { textContent: paragraph })))
-  drawConcept($('root'), data, record)
+  // Learn explains, with words and diagrams; Edit is for working, and its words are the short line: the explaining stays in Learn
+  $('more').replaceChildren(...(mode === 'learn' ? record.more.map((paragraph) => el('p', { textContent: paragraph })) : []))
+  document.body.dataset.mode = mode
+  // what the page's two modes share, then the one it is in
+  await loadScript(`/${id}/shared.js`)
+  if (mode === 'learn') {
+    await loadScript(`/${id}/view.js`)
+    drawConcept($('root'), data, record)
+    return
+  }
+  const kind = editKinds[record.edits] ?? record.edits
+  if (record.edits === 'nothing') {
+    $('root').replaceChildren(el('p', { className: 'pending', textContent: 'There is nothing to edit here. It is explained in Learn.' }))
+  } else if (await loadScript(`/${id}/edit.js`)) {
+    drawEdit($('root'), data, record)
+  } else {
+    $('root').replaceChildren(el('p', { className: 'pending', textContent: `This is ${kind}, and its workspace is not built yet. It is explained in Learn.` }))
+  }
 })
+
+/** What a concept's page in Edit is, in a few words, as the record says it. */
+const editKinds = { files: 'a workspace for files you keep', parameters: 'a workspace for the parameters of parts, kept in another file', bench: 'a bench, where nothing is saved' }
 
 const svgElement = (tag, attributes = {}, ...children) => {
   const node = document.createElementNS('http://www.w3.org/2000/svg', tag)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { conceptsHome, readConcepts } from './concepts.js'
@@ -7,8 +7,8 @@ import { composer } from './serve.js'
 
 const get = (answer: (request: Request) => Promise<Response>, path: string) => answer(new Request(`http://composer.test${path}`))
 
-const record = (slug: string, { band = 'made', leads = '', id = 20 }: { band?: string; leads?: string; id?: number } = {}) =>
-  `---\nstate: active\nid: ${id}\nkind: concept\nslug: ${slug}\nband: ${band}\nleads: ${leads}\n---\n# ${slug}\n\nA short line about ${slug}.\n\nAnd more.\n`
+const record = (slug: string, { band = 'made', leads = '', id = 20, edits }: { band?: string; leads?: string; id?: number; edits?: string } = {}) =>
+  `---\nstate: active\nid: ${id}\nkind: concept\nslug: ${slug}\n${edits ? `edits: ${edits}\n` : ''}band: ${band}\nleads: ${leads}\n---\n# ${slug}\n\nA short line about ${slug}.\n\nAnd more.\n`
 
 /** A folder of concepts with one whole concept in it, made as a person would make one. */
 function folderWith(slug: string, options: Parameters<typeof record>[1] = {}) {
@@ -148,9 +148,52 @@ describe('the map, and the pages', () => {
 
   it('names no concept in the map or the page that draws it', async () => {
     const answer = composer()
-    for (const path of ['/map.js', '/concept.js', '/', '/concept.html']) {
+    for (const path of ['/map.js', '/concept.js', '/mode.js', '/shell.js', '/', '/concept.html']) {
       const text = await (await get(answer, path)).text()
       expect(text).not.toMatch(/\b(mood|perspectives|tides|arrangement|lyrics|beds)\b/i)
+    }
+  })
+})
+
+describe('Learn and Edit', () => {
+  it('says of every concept what its page in Edit is: files, parameters, a bench or nothing', async () => {
+    const found = await readConcepts()
+    expect(Object.fromEntries(found.map(({ id, edits }) => [id, edits]))).toEqual({
+      mood: 'bench',
+      tune: 'bench',
+      lyrics: 'bench',
+      score: 'bench',
+      beds: 'bench',
+      song: 'bench',
+      arrangement: 'files',
+      perspectives: 'files',
+      tides: 'files',
+      parts: 'parameters',
+    })
+    const answered = (await (await get(composer(), '/concepts.json')).json()) as { id: string; edits: string }[]
+    expect(answered.find(({ id }) => id === 'arrangement')!.edits).toBe('files')
+  })
+
+  it('says a concept that says nothing edits nothing, and refuses one that says what is not a workspace', async () => {
+    const { home } = folderWith('quiet', { id: 10 })
+    expect((await readConcepts(home))[0]!.edits).toBe('nothing')
+    const { home: other } = folderWith('odd', { id: 10, edits: 'everything' })
+    await expect(readConcepts(other)).rejects.toThrow(/what it edits is "everything"/)
+  })
+
+  it("serves the scripts of a concept's own folder, its view, its edit and what they share, and no others", async () => {
+    const answer = composer()
+    for (const path of ['/arrangement/view.js', '/arrangement/edit.js', '/arrangement/shared.js', '/mode.js', '/shell.js']) expect((await get(answer, path)).status).toBe(200)
+    expect((await get(answer, '/mood/edit.js')).status).toBe(404)
+    expect((await get(answer, '/arrangement/concept.md')).status).toBe(404)
+    expect((await get(answer, '/arrangement/..%2Fdata.js')).status).toBe(404)
+  })
+
+  it('has no editor in any Learn page: no check, no format, no file to open, no draft kept', async () => {
+    const found = await readConcepts()
+    for (const { dir } of found) {
+      const view = readFileSync(join(dir, 'view.js'), 'utf8')
+      expect(view).not.toMatch(/\/check|\/format|editShell|type="file"|type: 'file'|localStorage|\.changed\(/)
     }
   })
 })

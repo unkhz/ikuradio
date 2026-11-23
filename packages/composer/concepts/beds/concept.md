@@ -3,6 +3,7 @@ state: active
 id: 9
 kind: concept
 slug: beds
+edits: bench
 band: made
 leads: song
 ---
