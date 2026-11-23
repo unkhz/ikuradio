@@ -39,12 +39,28 @@ describe('the Song laid out at 72 bpm', () => {
     for (const placed of layout.instances) expect(placed.seconds).toBeCloseTo((placed.beats * 60) / 72, 9)
   })
 
-  it('has each name point at its other hearing, the two choruses of an iteration at the other two', () => {
-    for (const name of new Set(layout.instances.map((instance) => instance.name))) {
-      const heard = layout.instances.filter((instance) => instance.name === name)
-      for (const instance of heard) expect(instance.heardAgain).toEqual(heard.filter((other) => other !== instance).map((other) => other.index))
-      expect(heard).toHaveLength(name === 'chorus' ? 4 : 2)
-    }
+  it('shares words by name within an iteration only: the choruses 3 and 7, and 13 and 17, but not 3 and 13', () => {
+    const at = (n: number) => layout.instances[n - 1]!
+    expect(at(3).heardAgain).toEqual([at(7).index])
+    expect(at(7).heardAgain).toEqual([at(3).index])
+    expect(at(13).heardAgain).toEqual([at(17).index])
+    expect(at(17).heardAgain).toEqual([at(13).index])
+    // a name heard once in an iteration shares with nothing
+    expect(layout.instances.filter(({ name }) => name !== 'chorus').every(({ heardAgain }) => heardAgain.length === 0)).toBe(true)
+    expect(layout.instances.map(({ iteration }) => iteration)).toEqual([...Array(10).fill(0), ...Array(10).fill(1)])
+  })
+
+  it('has what is heard again after the turn continue the same name before it, not share its words', () => {
+    const at = (n: number) => layout.instances[n - 1]!
+    expect(at(1).continues).toBeUndefined()
+    expect(at(11).continues).toBe(0)
+    expect(at(1).heardAgain).toEqual([])
+    expect(at(11).heardAgain).toEqual([])
+    // the second chorus of the second iteration follows the nearest one before the turn: the latter
+    expect(at(13).continues).toBe(6)
+    expect(at(17).continues).toBe(6)
+    expect(layout.instances.slice(0, 10).every(({ continues }) => continues === undefined)).toBe(true)
+    expect(layout.instances.slice(10).every(({ continues }) => continues !== undefined)).toBe(true)
   })
 
   it('has the endings and neighbours step 2 proved', () => {
@@ -65,5 +81,14 @@ describe('the Song laid out at 72 bpm', () => {
 
   it('says plainly when an instance names a part that is not there', () => {
     expect(() => layoutOf({ id: 'x', title: 'X', instances: [{ name: 'a', part: 'refrain' }] }, parts, firstTune, 72)).toThrow('there is no part "refrain"')
+  })
+})
+
+describe('continuing another name', () => {
+  it('points at the nearest instance of the name it says, before it, and follows nothing by its own name', () => {
+    const named = { id: 'x', title: 'X', instances: [{ name: 'a', part: 'verse' }, { name: 'b', part: 'chorus' }, { name: 'c', part: 'verse', continues: 'a' }] } as never
+    const placed = layoutOf(named, parts, firstTune, 72).instances
+    expect(placed.map(({ continues }) => continues)).toEqual([undefined, undefined, 0])
+    expect(placed.map(({ iteration }) => iteration)).toEqual([0, 0, 0])
   })
 })

@@ -64,6 +64,12 @@ const lettersFor = (names) => {
   return letters
 }
 
+/** A letter for each region that has words, by index: regions of one name in one iteration share one, and a name after a turn has a letter of its own. */
+function wordsLetters(layout) {
+  const named = lettersFor(layout.instances.filter((instance) => instance.words === 'written').map((instance) => `${instance.iteration}:${instance.name}`))
+  return new Map(layout.instances.filter((instance) => instance.words === 'written').map((instance) => [instance.index, named.get(`${instance.iteration}:${instance.name}`)]))
+}
+
 /** A clock's m:ss for a ruler's tick. */
 const clock = (value) => `${Math.floor(value / 60)}:${String(Math.round(value % 60)).padStart(2, '0')}`
 
@@ -118,7 +124,7 @@ function drawSession(layout, timeline, diagram, scroll) {
   for (let t = 0; t <= timeline.seconds + 1e-9; t += step) ruler.canvas.append(Object.assign(el('span', { className: 'tick', textContent: clock(t) }), { style: `left:${x(t)}px` }))
 
   // the regions, coloured by part, the words that are sung more than once marked alike by a letter
-  const letters = lettersFor(layout.instances.filter((instance) => instance.words === 'written').map((instance) => instance.name))
+  const letters = wordsLetters(layout)
   const regions = lane('regions', [el('span', { textContent: 'regions' })])
   for (const region of timeline.regions) {
     const instance = layout.instances[region.index]
@@ -127,7 +133,10 @@ function drawSession(layout, timeline, diagram, scroll) {
     box.style.background = colour(region.part)
     box.title = `${region.name}: a ${region.part}, from ${seconds(region.startSeconds)} for ${seconds(region.seconds)}${region.tempo === null ? ', in free time' : `, at ${region.tempo} beats a minute`}${instance?.grows ? `; ${growsWords}` : ''}`
     box.append(el('div', { className: 'name', textContent: region.name }), el('div', { className: 'what', textContent: `${region.part} · ${seconds(region.seconds)}` }))
-    if (instance && instance.words === 'written') box.append(el('div', { className: 'words', textContent: letters.get(instance.name), title: 'The same letter: the same words' }))
+    if (instance && instance.words === 'written') {
+      const followed = instance.continues !== undefined ? layout.instances[instance.continues] : undefined
+      box.append(el('div', { className: 'words', textContent: `${followed ? '↩ ' : ''}${letters.get(instance.index)}`, title: followed ? `Goes on with the words of region ${followed.index + 1}, which were sung before the turn` : 'The same letter, in the same iteration: the same words' }))
+    }
     if (instance) box.append(el('span', { className: `end ${instance.ending}`, title: instance.ending === 'full' ? 'ends at home' : 'ends open, on the fifth' }))
     box.addEventListener('mouseenter', () => diagram.querySelectorAll('.region').forEach((other) => other.dataset.name === region.name && other.classList.add('lit')))
     box.addEventListener('mouseleave', () => diagram.querySelectorAll('.region').forEach((other) => other.classList.remove('lit')))
@@ -200,7 +209,7 @@ function draw(layout, timeline, views) {
   total.textContent = `${layout.instances.length} parts · ${seconds(length)}${iterations}`
   drawSession(layout, timeline, diagram, scroll)
   // the words that are sung more than once are marked alike, by a letter, in the order they first appear
-  const letters = lettersFor(layout.instances.filter((instance) => instance.words === 'written').map((instance) => instance.name))
+  const letters = wordsLetters(layout)
 
   // the key: each part in its colour, and what the marks say
   const used = [...new Set(layout.instances.map((i) => i.part))]
@@ -208,7 +217,8 @@ function draw(layout, timeline, views) {
     ...used.map((id) => el('li', {}, Object.assign(el('span', { className: 'swatch' }), { style: `background:${colour(id)}` }), id)),
     el('li', {}, el('span', { className: 'end full' }), 'ends at home'),
     el('li', {}, el('span', { className: 'end' }), 'ends open'),
-    el('li', {}, 'on a region, the same letter: the same words'),
+    el('li', {}, 'on a region, the same letter: the same words, within an iteration'),
+    el('li', {}, '↩ on a region: it goes on with the words of the one it follows, across a turn'),
     el('li', {}, 'on a Block, the same letter: the same sound, made once'),
     el('li', {}, 'a ramp: a fade'),
     el('li', {}, 'a turn: the words turn over, and the Song is a number older'),
@@ -232,7 +242,7 @@ function draw(layout, timeline, views) {
           i.ending === 'full' ? 'at home' : 'open',
           i.words === 'none'
             ? `hums from ${i.before ?? 'the start'} to ${i.after ?? 'the end'}`
-            : `${letters.get(i.name)}${i.heardAgain.length ? `, again at ${i.heardAgain.map((n) => n + 1).join(', ')}` : ', once'}${i.grows ? `; ${growsWords}` : ''}`,
+            : `${letters.get(i.index)}${i.heardAgain.length ? `, again at ${i.heardAgain.map((n) => n + 1).join(', ')}` : ', once'}${i.continues !== undefined ? `; goes on from ${i.continues + 1}` : ''}${i.grows ? `; ${growsWords}` : ''}`,
         ]),
       ),
     ),

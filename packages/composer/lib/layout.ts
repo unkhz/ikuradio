@@ -3,7 +3,7 @@
 // lasts that long, and one with phrases lasts as long as its phrases are, at the tune it is laid out at.
 
 import { phraseBeats, type Tune } from 'melody'
-import { ending, placesOf, type Arrangement, type Part } from 'parts'
+import { ending, iterationsOf, placesOf, type Arrangement, type Part } from 'parts'
 
 /** One instance, as drawn. */
 export type Placed = {
@@ -26,8 +26,12 @@ export type Placed = {
   /** The ids of the parts either side of it. */
   before?: string
   after?: string
-  /** The other places where these words are heard: the indices of the instances of the same name. */
+  /** The iteration it is sung in, from 0: the words turn over at each turn. */
+  iteration: number
+  /** The other places where these very words are heard: the instances of the same name within its iteration. */
   heardAgain: number[]
+  /** Where its words are taken up from, if it follows words sung before: the instance its `continues` names, or the same name in the iteration before a turn. */
+  continues?: number
 }
 
 export type Layout = { tempo: number; beats: number; seconds: number; instances: Placed[] }
@@ -41,7 +45,15 @@ const growsOf = (part: Part, lines: number, tune: Tune, tempo: number): boolean 
 /** The Arrangement laid out along its beats at a tempo, with the parts it names and the tune it is sung to. */
 export function layoutOf(arrangement: Arrangement, parts: ReadonlyMap<string, Part>, tune: Tune, tempo: number): Layout {
   const places = placesOf(arrangement, 1n)
+  const iterations = iterationsOf(arrangement.instances, arrangement.turns)
+  /** The nearest instance before `index` of a name, in an earlier iteration. */
+  const before = (index: number, name: string) => arrangement.instances.findLastIndex((other, i) => i < index && other.name === name && iterations[i]! < iterations[index]!)
   let start = 0
+  const continuation = (index: number, name: string): { continues?: number } => {
+    const said = arrangement.instances[index]!.continues
+    const from = said !== undefined ? arrangement.instances.findLastIndex((other, i) => i < index && other.name === said) : before(index, name)
+    return from >= 0 ? { continues: from } : {}
+  }
   const instances = arrangement.instances.map(({ name, part: id }, index): Placed => {
     const part = parts.get(id)
     if (!part) throw new Error(`instance ${index + 1} ("${name}"): there is no part "${id}"`)
@@ -60,7 +72,9 @@ export function layoutOf(arrangement: Arrangement, parts: ReadonlyMap<string, Pa
       ending: ending(part, place),
       ...(place.before !== undefined ? { before: place.before } : {}),
       ...(place.after !== undefined ? { after: place.after } : {}),
-      heardAgain: arrangement.instances.flatMap((other, i) => (i !== index && other.name === name ? [i] : [])),
+      iteration: iterations[index]!,
+      heardAgain: arrangement.instances.flatMap((other, i) => (i !== index && other.name === name && iterations[i] === iterations[index] ? [i] : [])),
+      ...continuation(index, name),
     }
     start += beats
     return placed
