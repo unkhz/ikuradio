@@ -5,6 +5,7 @@
 
 const tidesMarkup = `
 <div id="shell"></div>
+<p id="t-puts" class="hint"></p>
 <div id="editor" class="two" hidden>
   <section class="form">
     <h3>The Tide</h3>
@@ -91,6 +92,7 @@ function drawEdit(root, data) {
     $('t-noise-out').textContent = `${Math.round((draft.noise ?? 0) * 100)}%`
     $('t-grain').value = draft.grain ?? 1
     $('t-body').value = draft.body
+    $('t-puts').textContent = `Save puts two files: ${draft.slug}.tide.md → tides/${draft.slug}/tide.md, ${draft.slug}.actions.ts → tides/${draft.slug}/actions.ts`
   }
 
   const set = (change) => {
@@ -126,15 +128,18 @@ function drawEdit(root, data) {
   $('t-song').value = song
 
   // ---- one cycle, with points to take hold of
-  const [width, height, left, right, top, bottom] = [520, 200, 48, 20, 16, 28]
+  const [width, height, left, right, top, bottom] = [520, 210, 48, 20, 30, 28]
   /** What the editing mouse is doing to the cycle drawn. */
   let held = null
+  /** Whether the axis is drawn upside down, so that the peak is up, as Learn draws it: a Tide whose peak is a lower number than its rest (a ceiling that falls as the melody climbs). Held while a point is taken, so that it does not turn over under the hand. */
+  const flippedNow = () => (held ? held.flipped : shell.draft.max < shell.draft.min)
 
   function cycleSvg() {
     const draft = shell.draft
     const [lo, hi] = range
     const x = (share) => left + share * (width - left - right)
-    const y = (value) => top + (1 - (value - lo) / (hi - lo || 1)) * (height - top - bottom)
+    const flipped = flippedNow()
+    const y = (value) => top + (flipped ? (value - lo) / (hi - lo || 1) : 1 - (value - lo) / (hi - lo || 1)) * (height - top - bottom)
     const a = draft.attack
     const h = draft.hold
     const d = draft.decay
@@ -145,10 +150,12 @@ function drawEdit(root, data) {
     for (const [value, label] of [[lo, String(lo)], [hi, String(hi)]]) svg.append(shape('text', { x: left - 6, y: y(value) + 4, fill: 'var(--dim)', 'font-size': 11, 'text-anchor': 'end' }, label))
     svg.append(shape('text', { x: left, y: height - 8, fill: 'var(--dim)', 'font-size': 11 }, 'a cycle begins'), shape('text', { x: width - right, y: height - 8, fill: 'var(--dim)', 'font-size': 11, 'text-anchor': 'end' }, 'and begins again'))
     /** A point to take hold of: which of the envelope's numbers it moves along, and which up and down. */
+    const says = { attack: ['rises', 'where it reaches its peak: along for how long it rises, up and down for how high'], hold: ['holds', 'where it stops holding the peak: along for how long it holds'], decay: ['falls', 'where it is back at rest: along for how long it falls, up and down for where it rests'] }
     const handle = (name, share, value, moves) => {
-      const dot = shape('circle', { cx: x(share), cy: y(value), r: 7, class: 'handle', 'data-handle': name, fill: 'var(--shapes)', stroke: 'var(--words)', 'stroke-width': 1.5, cursor: moves === 'both' ? 'move' : 'ew-resize' })
+      const dot = shape('circle', { cx: x(share), cy: y(value), r: 7, class: 'handle', 'data-handle': name, fill: 'var(--shapes)', stroke: 'var(--words)', 'stroke-width': 1.5, cursor: moves === 'both' ? 'move' : 'ew-resize' }, shape('title', {}, `${says[name][0]}: ${says[name][1]}`))
+      svg.append(shape('text', { x: x(share), y: y(value) + (name === 'decay' ? 20 : -12), fill: 'var(--shapes)', 'font-size': 11, 'text-anchor': 'middle', 'pointer-events': 'none' }, says[name][0]))
       dot.addEventListener('pointerdown', (event) => {
-        held = { name, moved: false }
+        held = { name, moved: false, flipped: shell.draft.max < shell.draft.min }
         event.preventDefault()
       })
       return dot
@@ -167,7 +174,9 @@ function drawEdit(root, data) {
     const box = svg.getBoundingClientRect()
     const scale = width / box.width
     const share = Math.min(1, Math.max(0, ((event.clientX - box.left) * scale - left) / (width - left - right)))
-    const value = lo + (1 - Math.min(1, Math.max(0, ((event.clientY - box.top) * scale - top) / (height - top - bottom)))) * (hi - lo)
+    const across = Math.min(1, Math.max(0, ((event.clientY - box.top) * scale - top) / (height - top - bottom)))
+    // up is toward the peak as drawn: the number is the Setting's own, from the axis as it is drawn
+    const value = lo + (held.flipped ? across : 1 - across) * (hi - lo)
     const next = shell.draft
     const step = hi - lo <= 1 ? 0.05 : 0.5
     if (held.name === 'attack') {
@@ -196,7 +205,8 @@ function drawEdit(root, data) {
     const [from, to] = answer.window
     const [lo, hi] = answer.range
     const x = (position) => l + ((position - from) / (to - from)) * (w - l - r)
-    const y = (value) => t + (1 - (value - lo) / (hi - lo || 1)) * (h - t - b)
+    const flipped = flippedNow()
+    const y = (value) => t + (flipped ? (value - lo) / (hi - lo || 1) : 1 - (value - lo) / (hi - lo || 1)) * (h - t - b)
     const svg = shape('svg', { viewBox: `0 0 ${w} ${h}`, class: 'curve', role: 'img', 'aria-label': 'The Tide over the Songs around the one chosen' })
     svg.append(shape('rect', { x: l, y: t, width: w - l - r, height: h - t - b, fill: 'none', stroke: 'var(--line)' }))
     for (const cycle of answer.cycles) if (cycle.begins > from && cycle.begins < to) svg.append(shape('line', { x1: x(cycle.begins), x2: x(cycle.begins), y1: t, y2: h - b, stroke: 'var(--line)', 'stroke-dasharray': '2 3' }))

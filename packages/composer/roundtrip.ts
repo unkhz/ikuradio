@@ -540,6 +540,17 @@ try {
   const attackHandle = (await page.locator('#t-cycle .handle[data-handle="attack"]').boundingBox())!
   await doing(() => dragging({ x: attackHandle.x + attackHandle.width / 2, y: attackHandle.y + attackHandle.height / 2 }, { x: attackHandle.x + attackHandle.width / 2, y: svgBox.y - 60 }))
   must((await page.locator('#t-max').inputValue()) === '1', `the peak went past what the setting can be: ${await page.locator('#t-max').inputValue()}`)
+  // a Tide whose peak is a lower number than its rest is drawn with its peak up, as Learn draws it; down on the drawing is further from the peak, and is written as the Setting's own, higher, number
+  await page.goto(`${base}/tides/?mode=edit`)
+  await page.waitForSelector('#which-file option', { state: 'attached' })
+  await doing(() => page.selectOption('#which-file', 'chorus-ceiling'))
+  await page.waitForSelector('#t-cycle .handle')
+  const peak = (await page.locator('#t-cycle .handle[data-handle="attack"]').boundingBox())!
+  const rest = (await page.locator('#t-cycle .handle[data-handle="decay"]').boundingBox())!
+  must(peak.y < rest.y, 'a Tide whose peak is the lower number is not drawn with its peak up')
+  const was = Number(await page.locator('#t-min').inputValue())
+  await doing(() => dragging({ x: rest.x + rest.width / 2, y: rest.y + rest.height / 2 }, { x: rest.x + rest.width / 2, y: rest.y + rest.height / 2 + 12 }))
+  must(Number(await page.locator('#t-min').inputValue()) > was, 'down on a flipped drawing did not write a higher number')
   await page.screenshot({ path: join(keep, 'tides-edit.png'), fullPage: true })
 
   // a concept with a workspace not built yet says so, and one page in Edit says its words short

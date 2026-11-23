@@ -5,6 +5,7 @@
 
 const partsMarkup = `
 <div id="shell"></div>
+<p id="a-puts" class="hint"></p>
 <div class="controls">
   <label>Tempo <input id="tempo" type="number" min="20" max="300" step="1" value="72" /> bpm</label>
   <span class="hint">Choose an instance, then move its sliders. What each line counts is asked of the part.</span>
@@ -25,6 +26,10 @@ function drawEdit(root, data) {
   let arrangements = []
   let chosen = null
   let measuring = 0
+  /** The last timeline the Composer drew for the draft: where its words turn over. */
+  let timeline = null
+  /** The longest line seen for a part, so that its bars keep one scale as a slider moves. */
+  const scaleOf = new Map()
   const tempo = () => Number($('tempo').value) || 72
 
   const shell = editShell({
@@ -39,7 +44,10 @@ function drawEdit(root, data) {
     restore: (kept) => {
       chosen = Number.isInteger(kept) ? kept : null
     },
-    render: () => showAll(),
+    render: () => {
+      $('a-puts').textContent = `Save puts one file: ${shell.draft.id || '<id>'}.json → packages/parts/arrangements/${shell.draft.id || '<id>'}/arrangement.json`
+      showAll()
+    },
     checked: (answer) => showChecked(answer),
   })
   $('shell').append(shell.bar)
@@ -53,8 +61,9 @@ function drawEdit(root, data) {
 
   function showStrip() {
     const instances = shell.draft?.instances ?? []
+    const iteration = (i) => timeline?.regions?.[i]?.iteration ?? 0
     $('strip').replaceChildren(
-      ...instances.map((instance, i) => {
+      ...instances.flatMap((instance, i) => {
         const chip = el('li', { className: `chip-instance${chosen === i ? ' chosen' : ''}`, textContent: '' }, el('strong', { textContent: instance.name }), el('small', { textContent: instance.part }))
         chip.style.background = colour(instance.part)
         chip.dataset.index = i
@@ -66,7 +75,12 @@ function drawEdit(root, data) {
         }
         chip.addEventListener('click', choose)
         chip.addEventListener('keydown', (event) => event.key === 'Enter' && choose())
-        return chip
+        // where the words turn over, as the timeline marks it: a line between the two, and the number the Song is then
+        if (i > 0 && timeline && iteration(i) !== iteration(i - 1)) {
+          const turn = el('li', { className: 'turn-between', title: 'The words turn over here' }, el('span', { textContent: `turn → ${iteration(i) + 1}` }))
+          return [turn, chip]
+        }
+        return [chip]
       }),
     )
   }
@@ -81,7 +95,7 @@ function drawEdit(root, data) {
     const exact = el('input', { type: 'number', min: minimum, max: maximum, step: 'any', value: set ?? '', placeholder: usual ?? '', className: 'short' })
     exact.dataset.exact = name
     const reset = el('button', { type: 'button', textContent: 'reset', hidden: set === undefined })
-    const mark = el('span', { className: 'usual', title: `The part's own: ${usual}` })
+    const mark = el('span', { className: 'usual', title: `The part's own: ${usual}, marked on the track` })
     mark.style.left = `${(((usual ?? minimum) - minimum) / (maximum - minimum || 1)) * 100}%`
     const settle = (value) => {
       if (value === '' || value === undefined) {
@@ -133,7 +147,11 @@ function drawEdit(root, data) {
       const box = $('measure')
       if (answer.refusal) return box.replaceChildren(el('p', { className: 'about', textContent: answer.refusal }))
       if (!answer.lines.length) return box.replaceChildren(el('p', { className: 'about', textContent: 'This part has no words to count: it is hummed.' }))
-      const most = Math.max(1, ...answer.lines.map((line) => line.most))
+      // one scale for a part, as wide as the longest line seen, in fours: so that a change reads as a size
+      const wanted = Math.max(24, Math.ceil(Math.max(...answer.lines.map((line) => line.most)) / 4) * 4)
+      const most = Math.max(scaleOf.get(instance.part) ?? 0, wanted)
+      scaleOf.set(instance.part, most)
+      const axis = el('div', { className: 'line-measure axis' }, el('span'), el('span', { className: 'ticks' }, ...[0, 0.25, 0.5, 0.75, 1].map((share) => Object.assign(el('span', { className: 'tick', textContent: String(Math.round(most * share)) }), { style: `left:${share * 100}%` }))), el('span', { className: 'says', textContent: 'syllables' }))
       box.replaceChildren(
         ...answer.lines.map((line) => {
           const bar = el('span', { className: 'fill-track' }, el('span', { className: 'fill most' }), el('span', { className: 'fill target' }))
@@ -143,12 +161,17 @@ function drawEdit(root, data) {
           row.dataset.line = line.line
           return row
         }),
+        axis,
       )
       box.dataset.measured = String(measuring)
     }, 90)
   }
 
   function showChecked(answer) {
+    if (!answer.refusal && answer.timeline && !answer.timeline.refusal) {
+      timeline = answer.timeline
+      showStrip()
+    }
     for (const old of document.querySelectorAll('.chip-instance.refused')) old.classList.remove('refused')
     for (const old of document.querySelectorAll('#panel .why')) old.remove()
     if (!answer.refusal) return

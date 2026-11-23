@@ -5,6 +5,7 @@
 
 const perspectivesMarkup = `
 <div id="shell"></div>
+<p id="p-puts" class="hint"></p>
 <div id="editor" class="two" hidden>
   <section class="form">
     <h3>The record</h3>
@@ -53,6 +54,7 @@ function drawEdit(root, data) {
       $('p-weight-out').textContent = draft.weight
       $('p-state').value = draft.state
       $('p-body').value = draft.body
+      $('p-puts').textContent = `Save puts one file: ${draft.slug}.perspective.md → perspectives/${draft.slug}/perspective.md`
     },
     checked: (answer) => showChecked(answer),
   })
