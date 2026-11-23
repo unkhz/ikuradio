@@ -39,13 +39,12 @@ describe('the Song laid out at 72 bpm', () => {
     for (const placed of layout.instances) expect(placed.seconds).toBeCloseTo((placed.beats * 60) / 72, 9)
   })
 
-  it('has the two choruses of each pass point at each other, and the passes share nothing', () => {
-    for (const name of ['chorus', 'chorus-again']) {
-      const [one, other] = layout.instances.filter((instance) => instance.name === name)
-      expect(one!.heardAgain).toEqual([other!.index])
-      expect(other!.heardAgain).toEqual([one!.index])
+  it('has each name point at its other hearing, the two choruses of an iteration at the other two', () => {
+    for (const name of new Set(layout.instances.map((instance) => instance.name))) {
+      const heard = layout.instances.filter((instance) => instance.name === name)
+      for (const instance of heard) expect(instance.heardAgain).toEqual(heard.filter((other) => other !== instance).map((other) => other.index))
+      expect(heard).toHaveLength(name === 'chorus' ? 4 : 2)
     }
-    expect(layout.instances.filter(({ name }) => !name.startsWith('chorus')).every(({ heardAgain }) => heardAgain.length === 0)).toBe(true)
   })
 
   it('has the endings and neighbours step 2 proved', () => {

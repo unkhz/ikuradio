@@ -36,27 +36,25 @@ describe('the first Arrangement is the Song as it always was', () => {
   /** What arrange() sings in a pass, and a second pass of it: the Song walks the whole order twice. */
   const twice = [...sung, ...sung]
 
-  it('is found by its folder, and is the Song: its regions twice, a pass at a time, the second pass named by itself', () => {
+  it('is found by its folder, and is the Song: its ten names twice, the words turning over at the second verse-1', () => {
     expect(first!.arrangement.id).toBe('the-song')
     expect(first!.state).toBe('active')
-    expect(theSong.instances.map(({ name }) => name)).toEqual([...pass, ...pass.map((name) => `${name}-again`)])
+    expect(theSong.instances.map(({ name }) => name)).toEqual([...pass, ...pass])
+    expect(theSong.turns).toEqual([{ region: 'verse-1', hearing: 2, edge: 'start' }])
   })
 
   it('has the parts arrange() gives, part for part and pass for pass, and the same words in the same places', () => {
     expect(theSong.instances.map(({ part }) => part)).toEqual(twice.map(({ type }) => type))
     for (const [i, { name }] of theSong.instances.entries()) {
       const part = twice[i]!
-      const original = name.replace(/-again$/, '')
+      const original = name
       if (part.type === 'bridge') expect(part.content).toBe('')
       else expect(part.content).toBe(lyrics[fieldOf[original]!])
     }
   })
 
-  it('has the second pass continue the first: each region that has words follows the words of its place before, and no bridge does', () => {
-    theSong.instances.forEach(({ name, part, continues }, i) => {
-      if (i < 10 || part === 'bridge') expect(continues).toBeUndefined()
-      else expect(continues).toBe(theSong.instances[i - 10]!.name)
-    })
+  it('follows no other name: it sings each name\'s own words again after the turn, and so continues nothing', () => {
+    expect(theSong.instances.every(({ continues }) => continues === undefined)).toBe(true)
   })
 
   it('is one tempo, the Mood\'s, given as the Mood\'s and not a number', () => {
@@ -69,14 +67,19 @@ describe('the first Arrangement is the Song as it always was', () => {
     expect(placesOf(without, 1n).map(({ before, after }) => [before, after])).toEqual([[undefined, 'chorus'], ['verse', undefined]])
   })
 
-  it("ends as perform's rule ends it, applied to the Arrangement as a whole: a chorus, or the very last, at home", () => {
-    // the rule perform.ts keeps, written out here: part === 'chorus' || last ? 'full' : 'half'. The Studio makes the last part of each
-    // iteration come home; an Arrangement that walks two passes knows only its own last
-    const today = (part: string, last: boolean) => (part === 'chorus' || last ? 'full' : 'half')
+  it("ends as its instance says, else as the part says, and the very last at home: only the final chorus says", () => {
     const places = placesOf(theSong, 2548n)
-    for (const [i, { part }] of theSong.instances.entries()) {
-      expect(ending(byId.get(part)!, places[i]!)).toBe(today(part, i === places.length - 1))
+    for (const [i, { part, ending: said }] of theSong.instances.entries()) {
+      expect(ending(byId.get(part)!, places[i]!)).toBe(said ?? (i === places.length - 1 ? 'full' : byId.get(part)!.ending))
     }
+  })
+
+  it('lets an instance say its own ending, over the part\'s and over the last\'s', () => {
+    const arrangement: Arrangement = { id: 'ends', title: 'Ends', instances: [{ name: 'a', part: 'chorus', ending: 'half' }, { name: 'b', part: 'verse', ending: 'full' }, { name: 'c', part: 'verse', ending: 'half' }] }
+    expect(refuseArrangement(arrangement, records, tracks)).toBeUndefined()
+    const places = placesOf(arrangement, 1n)
+    expect(arrangement.instances.map(({ part }, i) => ending(byId.get(part)!, places[i]!))).toEqual(['half', 'full', 'half'])
+    expect(refuseArrangement({ ...arrangement, instances: [{ name: 'a', part: 'verse', ending: 'quarter' }] }, records, tracks)).toBeDefined()
   })
 
   it('has its bridges run from and to the parts arrange() puts on either side, in each pass', () => {

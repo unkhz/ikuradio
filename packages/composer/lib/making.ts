@@ -101,20 +101,23 @@ async function theSong(records: readonly PartRecord[], arrangementsDir: string) 
 }
 
 /**
- * The Lyrics field each instance sings. The instances that continue nothing take the fields `arrange()` places, in order; one that
- * continues another sings the field that one does, as an iteration's verse follows the one before it.
+ * The Lyrics field each instance sings. A name's words are the field `arrange()` places at the name's first hearing, and every
+ * hearing of the name sings it: after a turn too, where the name goes on with its own words. An instance that continues another
+ * name sings the field that one does.
  */
 export function fieldsOf(instances: readonly { name: string; continues?: string }[]): (keyof Lyrics | undefined)[] {
   const named = Object.fromEntries((Object.keys(firstLyrics) as (keyof Lyrics)[]).map((field) => [field, field])) as Lyrics
   const sung = arrange(named)
-  const own = new Map<string, keyof Lyrics | undefined>()
-  instances.filter(({ continues }) => continues === undefined).forEach(({ name }, k) => own.set(name, sung[k]?.content ? (sung[k]!.content as keyof Lyrics) : undefined))
   const byName = new Map(instances.map((instance) => [instance.name, instance]))
   const rootOf = (name: string, seen = new Set<string>()): string => {
     const next = byName.get(name)?.continues
     return next !== undefined && !seen.has(name) ? rootOf(next, seen.add(name)) : name
   }
-  return instances.map(({ name }) => own.get(rootOf(name)))
+  const fieldOfName = (name: string): keyof Lyrics | undefined => {
+    const first = instances.findIndex((instance) => instance.name === name)
+    return sung[first]?.content ? (sung[first]!.content as keyof Lyrics) : undefined
+  }
+  return instances.map(({ name }) => fieldOfName(rootOf(name)))
 }
 
 const sampleWordiness = [0.2, 0.5, 0.9]

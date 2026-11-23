@@ -22,6 +22,8 @@ export type Place = {
   before?: string
   /** The id of the part after it, if any: and ends where that part begins. */
   after?: string
+  /** How its instance says it ends, if it does: that takes the place of the part's own ending. */
+  ending?: 'full' | 'half'
 }
 
 /** What a part is asked to count a line by: which line, the tune, the tempo and rate, and the part's own parameters. */

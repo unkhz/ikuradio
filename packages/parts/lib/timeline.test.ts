@@ -242,3 +242,36 @@ describe('the Tracks there are', () => {
     expect(by.bed!.makes).toEqual({ by: 'MusicGen', from: 'a hummed guide' })
   })
 })
+
+describe('turns: where the words turn over', () => {
+  it('is one iteration without a turn, and the iteration moves at each turn, on a boundary between regions', () => {
+    expect(resolve(made(), { beats, mood: 60 })).toMatchObject({ iterations: 1 })
+    expect(resolve(made(), { beats, mood: 60 }).regions.map(({ iteration }) => iteration)).toEqual([0, 0, 0, 0, 0])
+    const turned = resolve(made({ turns: [{ region: 'verse-2', edge: 'start' }] }), { beats, mood: 60 })
+    expect(turned.iterations).toBe(2)
+    expect(turned.regions.map(({ iteration }) => iteration)).toEqual([0, 0, 0, 1, 1])
+    // the end of a region is the start of the next: one boundary, said either way, and a heard-again region by its hearing
+    const said = resolve(made({ turns: [{ region: 'chorus', hearing: 1, edge: 'end' }, { region: 'chorus', hearing: 2, edge: 'start' }] }), { beats, mood: 60 })
+    expect(said.regions.map(({ iteration }) => iteration)).toEqual([0, 0, 0, 1, 2])
+    expect(said.iterations).toBe(3)
+  })
+
+  it('moves no tempo, no key and no Block by itself', () => {
+    const plain = resolve(made({ blocks: [block({ to: { region: 'chorus', hearing: 1, edge: 'end' } })] }), { beats, mood: 60 })
+    const turned = resolve(made({ turns: [{ region: 'verse-2', edge: 'start' }], blocks: [block({ to: { region: 'chorus', hearing: 1, edge: 'end' } })] }), { beats, mood: 60 })
+    expect(turned.blocks).toEqual(plain.blocks)
+    expect(turned.regions.map(({ startSeconds, segment }) => [startSeconds, segment])).toEqual(plain.regions.map(({ startSeconds, segment }) => [startSeconds, segment]))
+  })
+
+  it('refuses a turn at the very start, at the very end, two at one moment, and inside a region', () => {
+    expect(refused({ turns: [{ region: 'verse-1', edge: 'start' }] })).toContain('turn 1: it is at the very start of the Song')
+    expect(refused({ turns: [{ edge: 'start' }] })).toContain('names none')
+    expect(refused({ turns: [{ region: 'chorus', hearing: 2, edge: 'end' }] })).toContain('turn 1: it is at the very end of the Song')
+    expect(refused({ turns: [{ region: 'verse-2', edge: 'start' }, { region: 'chorus', hearing: 1, edge: 'end' }] })).toContain('turn 2: the words already turn over at this moment')
+    expect(refused({ turns: [{ region: 'verse-2', edge: 'start', plus: 5 }] })).toContain('turn 1: it is 5 seconds after a boundary, inside a region')
+    expect(refused({ turns: [{ region: 'verse-2', edge: 'end', plus: -2 }] })).toContain('inside a region')
+    expect(refused({ turns: [{ region: 'coda', edge: 'start' }] })).toContain('turn 1: the Arrangement has no region "coda"')
+    expect(refused({ turns: [{ region: 'verse-2', hearing: 2, edge: 'start' }] })).toContain('is heard 1 time, not 2')
+    expect(refused({ turns: [{ region: 'verse-2', edge: 'start' }] })).toBeUndefined()
+  })
+})

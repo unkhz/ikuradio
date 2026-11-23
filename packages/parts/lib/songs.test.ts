@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import { bridgeBeats, firstTune, phraseBeats } from 'melody'
 import { arrange, firstLyrics, type Lyrics } from 'song'
-import { refuseArrangement } from './arrangement.js'
+import { ending, placesOf, refuseArrangement } from './arrangement.js'
 import { readArrangements } from './arrangements.js'
 import { readParts } from './registry.js'
 import { resolve } from './timeline.js'
@@ -37,6 +37,27 @@ describe('the Song as a timeline is what the Studio lays out today, for a Song o
   it('checks, with the Tracks there are', () => {
     expect(refuseArrangement(theSong, records, tracks)).toBeUndefined()
     expect(theSong.tracks).toEqual(['voice', 'bed', 'guide'])
+  })
+
+  it('lists its ten names twice, and turns once: at the second hearing of the first verse', () => {
+    const names = theSong.instances.slice(0, 10).map(({ name }) => name)
+    expect(theSong.instances.slice(10).map(({ name }) => name)).toEqual(names)
+    expect(theSong.turns).toEqual([{ region: 'verse-1', hearing: 2, edge: 'start' }])
+    expect(theSong.instances.some(({ name, continues }) => name.endsWith('-again') || continues !== undefined)).toBe(false)
+    expect(resolved.iterations).toBe(2)
+    expect(resolved.regions.map(({ iteration }) => iteration)).toEqual([...Array(10).fill(0), ...Array(10).fill(1)])
+  })
+
+  it("comes home as the Studio does, in both iterations: a chorus, or the last of an iteration, ends full, else half", () => {
+    // the rule perform.ts keeps, written out: part === 'chorus' || last of the iteration ? 'full' : 'half'
+    const today = (type: string, i: number) => (type === 'chorus' || i % 10 === 9 ? 'full' : 'half')
+    const places = placesOf(theSong, 2548n)
+    const byId = new Map(records.map(({ part }) => [part.id, part]))
+    for (const [i, { part }] of theSong.instances.entries()) {
+      // the part arrange() gives here: the final chorus is a verse by kind, and comes home by what its instance says
+      expect(ending(byId.get(part)!, places[i]!)).toBe(today(sung[i % 10]!.type, i))
+    }
+    expect(theSong.instances.filter(({ ending: e }) => e !== undefined).map(({ name, ending: e }) => `${name}:${e}`)).toEqual(['final-chorus:full', 'final-chorus:full'])
   })
 
   it('has the same regions in the same order and timing: the parts arrange() gives, and the second pass beginning where the first ends', () => {

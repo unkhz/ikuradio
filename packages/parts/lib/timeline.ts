@@ -28,7 +28,13 @@ export type Block = {
 export type TempoPoint = { region?: string; hearing?: number; bpm: number | 'mood' | null }
 
 /** What the timeline adds to an Arrangement, by addition. */
-export type Timeline = { tempo?: TempoPoint[]; tracks?: string[]; blocks?: Block[] }
+export type Timeline = {
+  tempo?: TempoPoint[]
+  /** Where the words turn over and a new iteration begins, as the tempo map says where the tempo changes: a boundary between two regions. None is one iteration. */
+  turns?: Anchor[]
+  tracks?: string[]
+  blocks?: Block[]
+}
 
 /** A region as an Arrangement's instance says it, as far as the timeline needs it. */
 export type Region = { name: string; part: string; seconds?: number; continues?: string }
@@ -51,7 +57,7 @@ const trackId = (ids?: readonly string[]): TSchema => (ids?.length ? Type.Union(
 
 const bpm = () => Type.Union([Type.Number({ minimum: 20, maximum: 300 }), Type.Literal('mood'), Type.Null()])
 
-/** The shape of the timeline's three fields: what the schema alone can say. Which Tracks and regions there are is checked beside it. */
+/** The shape of the timeline's four fields: what the schema alone can say. Which Tracks and regions there are is checked beside it. */
 export const timelineShape = (trackIds?: readonly string[]) => ({
   tempo: Type.Optional(
     Type.Array(
@@ -59,6 +65,7 @@ export const timelineShape = (trackIds?: readonly string[]) => ({
       { minItems: 1 },
     ),
   ),
+  turns: Type.Optional(Type.Array(anchor())),
   tracks: Type.Optional(Type.Array(trackId(trackIds))),
   blocks: Type.Optional(
     Type.Array(
@@ -133,6 +140,16 @@ function segmentsOf(regions: readonly Region[], tempo: readonly TempoPoint[] | u
   })
 }
 
+/** The iteration each region is sung in, from 0: it moves at each turn, and without one the Song is a single iteration. */
+export function iterationsOf(regions: readonly Region[], turns: readonly Anchor[] | undefined): number[] {
+  const at = new Set((turns ?? []).map((turn) => boundaryOf(regions, turn)?.boundary).filter((boundary): boundary is number => boundary !== undefined))
+  let iteration = 0
+  return regions.map((_, r) => {
+    if (at.has(r) && r > 0) iteration++
+    return iteration
+  })
+}
+
 // ---- resolve
 
 export type ResolvedRegion = {
@@ -143,6 +160,8 @@ export type ResolvedRegion = {
   tempo: number | null
   /** The tempo segment it is in: it begins at every change of the tempo map. */
   segment: number
+  /** The iteration it is sung in, from 0: it moves at each turn. */
+  iteration: number
   startSeconds: number
   seconds: number
   /** Where it begins, in beats from the start of its segment, and how long it is in beats: none in free time. */
@@ -166,7 +185,8 @@ export type ResolvedBlock = {
   beats?: number
 }
 
-export type Resolved = { seconds: number; regions: ResolvedRegion[]; blocks: ResolvedBlock[] }
+/** `iterations` is how many the Song has, the turns and one: its age moves that many numbers. */
+export type Resolved = { seconds: number; iterations: number; regions: ResolvedRegion[]; blocks: ResolvedBlock[] }
 
 /** What `resolve` is given: how many beats each region lasts (where it has a tempo), and the Mood's tempo, for a region that is under it. */
 export type Lengths = { beats: readonly (number | undefined)[]; mood?: number }
@@ -180,6 +200,7 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
   const regions = arrangement.instances
   const under = tempoOf(regions, arrangement.tempo)
   const segments = segmentsOf(regions, arrangement.tempo)
+  const iterations = iterationsOf(regions, arrangement.turns)
   let at = 0
   const placed: ResolvedRegion[] = regions.map((region, index) => {
     const t = under[index]!
@@ -195,7 +216,7 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
       if (length === undefined) throw new Error(`region ${index + 1} ("${region.name}"): its length in beats is not known`)
       seconds = (length * 60) / bpm
     }
-    const placedRegion: ResolvedRegion = { index, name: region.name, part: region.part, tempo: bpm ?? null, segment: segments[index]!, startSeconds: at, seconds }
+    const placedRegion: ResolvedRegion = { index, name: region.name, part: region.part, tempo: bpm ?? null, segment: segments[index]!, iteration: iterations[index]!, startSeconds: at, seconds }
     at += seconds
     return placedRegion
   })
@@ -240,7 +261,7 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
     }
     return resolved
   })
-  return { seconds: at, regions: placed, blocks }
+  return { seconds: at, iterations: (iterations.at(-1) ?? 0) + 1, regions: placed, blocks }
 }
 
 // ---- refusals
@@ -281,6 +302,21 @@ export function refuseTimeline(
     if (at <= last && i > 0) return `tempo change ${i + 1}: it is at or before the change before it: the tempo map goes forward, one change to a region`
     if (i === 0 && point.region !== undefined && at !== 0) return `tempo change 1: the first change is for the start, since the Song has a tempo from its first moment`
     last = at
+  }
+
+  // the turns: each on a boundary between two regions, the Song's start and end are none, and one boundary turns once
+  const turned = new Set<number>()
+  for (const [i, turn] of (arrangement.turns ?? []).entries()) {
+    const label = `turn ${i + 1}`
+    const lost = missing(regions, turn)
+    if (lost) return `${label}: ${lost}`
+    if (turn.region === undefined) return `${label}: a turn is a boundary between two regions, and it names none`
+    if (turn.plus) return `${label}: it is ${Math.abs(turn.plus)} seconds ${turn.plus > 0 ? 'after' : 'before'} a boundary, inside a region: the words turn over between regions, not within one`
+    const { boundary } = boundaryOf(regions, turn)!
+    if (boundary === 0) return `${label}: it is at the very start of the Song: the Song begins in its first iteration, and a turn needs one before it`
+    if (boundary === regions.length) return `${label}: it is at the very end of the Song: a turn begins an iteration, and nothing is sung after it`
+    if (turned.has(boundary)) return `${label}: the words already turn over at this moment: two turns at one moment make one`
+    turned.add(boundary)
   }
 
   // free time has seconds and no written words; a tempo has no seconds
