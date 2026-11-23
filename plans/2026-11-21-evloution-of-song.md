@@ -98,6 +98,8 @@ The chorus is the part with the most logic of its own. The counting is the choru
 
 ### Arrangements
 
+(The timeline below, written 2026-11-23, grows this: the instances become the regions of a timeline, and the Arrangement also places Tracks and Blocks on it.)
+
 An **Arrangement** chooses parts, places them, and gives them their parameters. It is a JSON declaration, checked by a TypeBox schema that is made from the parts found in `packages/parts`, so a declaration naming a part that does not exist, or a parameter outside its part's range, is refused before anything is made.
 
 - It lists every **instance**, in order, bridges included. Today's Song is the first Arrangement, written out: ten instances, `v1 b c b v2 b c b v3 v4`. Nothing is inserted by a rule; an Arrangement without bridges simply has none, and its parts meet.
@@ -137,7 +139,11 @@ The Archive is forever, and its schema can still grow: addition is backwards com
 5. **composer, the map**: a front page that draws the Song's concepts and how they lead into one another, each a link to a page of its own. The parts and Arrangement pages built so far move behind it.
 6. **composer, the pages of what shapes a Song**: the Mood, the Perspectives and their Facets, and the Tides, each illustrated: its variables, their ranges, and how it moves. Nothing is editable yet.
 7. **composer, the pages of what a Song makes**: the Tune, the Lyrics, the Score, the Beds and the Song itself, each illustrated from the first tune and sample values, with no mind and no music.
-8. **Later, each a plan of its own**: opening the readers to new ids; the Studio made with parts and the first Arrangement, Song for Song identical to what it makes now; the Intro; and playing a test version of a Song in the composer, which needs the mind and the band and so the Heart's slack.
+8. **The timeline**: Tracks, Blocks, anchors and the tempo map in `packages/parts`, the Arrangement grown to hold them, and the resolving of a timeline into beats and seconds.
+9. **The Song as a timeline**: `the-song` written out as one, two passes, giving what the Studio lays out today; and a second Arrangement that changes tempo and has a bridge in free time.
+10. **composer, the timeline to look at**: the Arrangement drawn as a DAW draws a session: the regions on the ruler, the tempo, the Tracks as rows, the Blocks coloured by what they are, overlapping and fading.
+11. **composer, the timeline to change**: placing, stretching, keying and fading Blocks, and the tempo map, checked as Arrangements are.
+12. **Later, each a plan of its own**: opening the readers to new ids; the Studio made with parts and the Arrangements' timelines, making each distinct Block once and mixing the timeline, Song for Song identical to what it makes now for `the-song`; the Studio made with parts and the first Arrangement, Song for Song identical to what it makes now; the Intro; and playing a test version of a Song in the composer, which needs the mind and the band and so the Heart's slack.
 
 ### Step 1 in detail: the parts package
 
@@ -352,7 +358,111 @@ Built and reviewed: step 5 as 6160a0e, the map's routing made provable (`mapOf`,
 - The pages write no part id themselves: names come from the data (the Tune's own keys, the part that holds the Song's age). The code under `lib/` may use `melody`'s and `song`'s own names.
 - The Score's and the Beds' sample words are Song 1192's first verse, written into `lib/making.ts`. The Beds' guide is a fixed-seed sample, not any real Song's.
 
+## The Arrangement as a timeline (robot, with the scientist, 2026-11-23)
+
+The scientist, on the iteration count: what an iteration does to a Song (the whole order walked twice, new words each time, a verse continuing the verse in the same place, the chorus heard twice with one number) is `the-song`'s logic, and another Arrangement must be able to break it. The Arrangement is a DAW's timeline, not a fixed order of parts. The Beds are one instrument among others, not the only source of the band. A drum track may run under the whole Song. Today's bed tails, a bed grown past its section and faded under the next, are already this idea: blocks on different tracks overlapping on the timeline.
+
+### What the timeline holds
+
+- **Regions** are the instances of parts, in order, as they are now. They are the musical structure: the phrases, the words, where each part comes home. On the timeline they are what a DAW's markers are: they say what the music is at each moment, not what sounds.
+- **Tracks** are lanes, one for each kind of thing that sounds. A Track is a module in a folder (`packages/parts/tracks/<id>/`, with a `track.md` and a `track.ts`), a subclass of one interchangeable superclass, **Track**, as the parts are. It declares what its blocks are made from and by what. Today's are:
+  - `voice`, the lead and the choir, sung by the throat from a Score;
+  - `bed`, an instrument grown by MusicGen from a hummed guide;
+  - `guide`, made and never heard: what a bed grows from.
+
+  A Track that nothing makes yet (drums, before an instrument that can play a whole Song exists) may be declared and drawn, and is said to make nothing.
+- **Blocks** are the clips on a Track. A Block has its Track, a **key**, where it begins and ends (by anchors, below), a fade in and a fade out, a gain, and its source: what it is made from, e.g. the region whose words it sings, or the regions whose guide it grows from.
+  - **The key is its content.** Blocks with one key are one sound, made once and placed again. A new key is made anew. Repetition is keys reused: in `the-song` the chorus's blocks share a key within a pass, and the second pass has new keys for everything, which is all an iteration is. An Arrangement whose keys are all different repeats nothing.
+  - **Blocks overlap freely**, on different Tracks and across regions. A bed reaching past its region and fading out is today's tail, written as data. A drum block from the first region to the last is the same, longer.
+
+### Anchors, not coordinates
+
+A region's length is not known until its words are fitted. The chorus's first line grows with the Song's age, lines take grace, and a bridge is a fixed length. So a Block is placed by **anchors**:
+- "where region `chorus` (its 2nd hearing) begins";
+- "3 seconds after region `verse-2` ends";
+- "the start of the first region" … "the end of the last".
+
+`resolve(arrangement, lengths)` turns anchors into beats and seconds once the regions' lengths are known. The composer resolves with the first tune's lengths, as `layoutOf` does now. The Studio, later, will resolve with the fitted ones. So making is two passes: make every distinct key, then lay out and mix.
+
+### Tempo
+
+- An Arrangement has a **tempo map**: a tempo for each region, given where it changes and held until the next change. A tempo may be **null**: free time, no beat, no grid.
+- `the-song` has one tempo for the whole Song, the Mood's, as now. Another Arrangement may change tempo where a part changes, have a bridge in free time, and return to the first tempo after it.
+- A region in free time has its length in seconds, given in the Arrangement, since there are no beats to count. Blocks in it are placed and faded in seconds.
+- A part with words cannot yet be sung in free time. Fitting words to a phrase needs the sixteenth grid, so the schema refuses a part with written words in a region with a null tempo, saying why, until a free-time fitting exists. A part with no words may: a hummed bridge in free time is the first use.
+- Changes are jumps for now. A ramp (accelerando, ritardando) is still open.
+
+### The Song's age
+
+Which number a part that sings the age sings is decided by its key: each distinct key of such a part sings the next number. The one rule no Arrangement can break, as `verse`, `chorus` and `bridge` can never be removed: **the Song's age only goes forward**, across every Arrangement, in one count. An Arrangement may move it by any amount, including none.
+
+### What the Archive already has
+
+A Session's `recordings` are already a timeline: every audible thing is a clip with its `kind` (`voice`, `bed`), its `at`, `seconds`, `fade` and `gain`, named by the hash of what it is, so one sound placed twice has one name. The Receiver already plays a flat list of clips at their moments. What the timeline adds there later, as an addition and never by raising `version`: which Track each recording is on, and the tempo map.
+
+### Step 8 in detail: the timeline
+
+What to build, and nothing more, in `packages/parts`:
+- `lib/track.ts`: the abstract `Track` class (`id`; `makes`: what it is made from, or nothing yet; `heard`: whether it sounds; its block parameters as a TypeBox schema, such as gain and fade ranges). Add a registry by folder as the parts have, and `tracks/voice/`, `tracks/bed/`, `tracks/guide/`, each with its record and module, declaring today's behaviour.
+- `lib/timeline.ts`:
+  - the Block, Anchor and tempo map types and schemas;
+  - `resolve(arrangement, lengths)`, giving every region and Block its start and length in beats (where there is a tempo) and seconds (always).
+- The Arrangement schema grows, by addition, to `tempo` (the map), `tracks` (the ids it uses) and `blocks`. An Arrangement without them is read as it always was, so `the-song` as it stands still checks.
+- `refuseArrangement` refuses, plainly:
+  - a Block on a Track that does not exist;
+  - an anchor naming a region that does not exist;
+  - a Block that ends before it begins;
+  - one key on two Tracks, or with two different sources;
+  - a null-tempo region without its seconds;
+  - a part with written words in a null-tempo region.
+
+The proof, as tests:
+- `resolve` on made-up Arrangements:
+  - a Block across three regions;
+  - a Block ending 3 seconds after its region, fading;
+  - a tempo change at a region, where the beats restart from the new tempo and the seconds run on;
+  - a null-tempo region in the middle, whose seconds are its own and whose beats are none.
+- Every refusal above, said plainly.
+- A made-up Track in a temporary folder is usable with no code changed.
+- No closed union of Track ids or part ids in the package.
+
+### Step 9 in detail: the Song as a timeline
+
+- `arrangements/the-song/` becomes a timeline:
+  - the ten regions twice, one set per pass;
+  - one tempo, the Mood's, given as "the Mood's" and not a number;
+  - a `voice` Block on each sung region;
+  - a `bed` and a `guide` Block on every region, the bed reaching `tail` seconds past its region's end (3, `music/lib/bed.ts`) and fading as `studio/lib/session.ts` and the Receiver fade it now.
+  - The chorus's Blocks share a key within a pass; everything is new in the second pass.
+- **Proof of equivalence**: resolved at the first tune and 72 bpm, it gives what the Studio lays out today for a Song of two iterations: the same regions in the same order and timing, the same bed for each part with the same tail and fade, and the same sharing. Write today's rules out in the test from the Studio's code (as step 2 did with `perform.ts`'s cadence rule); don't import the Studio.
+- **A second Arrangement**, `tempo-turns`, to prove what `the-song` can't:
+  - one pass;
+  - its second bridge in free time (null tempo, its own seconds), hummed;
+  - the chorus after it at a different tempo;
+  - the first tempo back for the last verse;
+  - one bed Block running under two regions.
+- `ITERATION_COUNT` stays in the env for the Studio until the Studio moves (step 12). The composer reads the passes from the Arrangement.
+
+### Steps 10 and 11 in detail: the timeline in the composer
+
+- **Step 10, to look.** The Arrangement page draws the timeline as a DAW draws a session:
+  - the regions along the ruler, coloured by part as now;
+  - a tempo lane above, with free time drawn plainly as free (no grid);
+  - the Tracks as rows below;
+  - the Blocks on them, coloured by key so a sound placed again is seen as the same (the shared letter, as now), with overlaps shown and fades drawn as ramps.
+
+  The ruler is in seconds, since free time has no beats, with the bars drawn where there is a tempo. A Track that makes nothing yet is drawn, empty, and says so. Proof: `resolve` tests at the server's `/arrangements.json`; no part or Track id in the page; captures of `the-song` and `tempo-turns`.
+- **Step 11, to change.** In the editor:
+  - add, move, stretch, re-key and fade Blocks;
+  - set the tempo map, including free time with its seconds;
+  - every change is checked by `/check` as now, and saved as a file.
+
+  Proof: `roundtrip.ts` grows to make `tempo-turns` from `the-song` in the editor and save it, and the saved file equals the one in the repo.
+
 ### Still open
 
 - **The Intro as a part.** It could be a part whose making waits for its Song to have aired, played or not by what triggers it. It is decided when the other parts are written out and it can be seen whether anything in the intro cannot be a parameter.
+- **Tempo ramps.** Changes are jumps; an accelerando or a ritardando between two tempi is decided later.
+- **Words in free time.** Fitting words without a grid, so a part with written words can be sung where the tempo is null.
+- **A Track that plays the whole Song.** A maker for a drum Track, or any instrument longer than a bed: the wasm instruments idea.
 - **Facets in an Arrangement.** How an Arrangement's ranges for Facets meet the Perspectives and the Tides.
