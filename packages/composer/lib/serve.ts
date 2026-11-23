@@ -13,6 +13,8 @@ import { mapOf } from './map.js'
 import { formatArrangement } from './format.js'
 import { layoutOf } from './layout.js'
 import { blockParametersOf, timelineOf } from './timeline.js'
+import { perspectiveChecked, perspectiveText, tideChecked, tideTexts } from './files.js'
+import { measureOf } from './measure.js'
 import { whereOf } from './where.js'
 
 const publicHome = fileURLToPath(new URL('../public/', import.meta.url))
@@ -35,6 +37,17 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
       return new Response(readFileSync(path), { headers: { 'content-type': typeOf(path)!, 'cache-control': 'no-cache' } })
     } catch {
       return new Response(null, { status: 404 })
+    }
+  }
+
+  /** A body that is JSON and not large: its value, or the refusal to say. */
+  async function postedJson(request: Request): Promise<{ value: unknown } | { refusal: string }> {
+    const text = await request.text()
+    if (text.length > 1_000_000) return { refusal: 'a file is a small thing; this one is not' }
+    try {
+      return { value: JSON.parse(text) }
+    } catch (error) {
+      return { refusal: `that is not JSON: ${(error as Error).message}` }
     }
   }
 
@@ -64,6 +77,27 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
     // the Tracks there are, with what makes them: the editor offers them and names none
     if (url.pathname === '/tracks.json') {
       return json((await readTracks(tracksDir)).filter(({ state }) => state === 'active').map(({ track, title }) => ({ id: track.id, title, heard: track.heard, makes: track.makes ?? null, parameters: blockParametersOf(track) })))
+    }
+
+    // what a part counts of its lines, for the parameters an instance gives it
+    if (url.pathname === '/measure') {
+      if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
+      const asked = await postedJson(request)
+      if ('refusal' in asked) return json(asked)
+      const { part, parameters } = asked.value as { part?: unknown; parameters?: unknown }
+      return json(measureOf(records, part, parameters, tempoOf(url)))
+    }
+
+    // the files of Perspectives and Tides: checked by their own packages, written as they are written, and what an edit would do
+    const filesRoute = /^\/(perspective|tide)\/(check|format)$/.exec(url.pathname)
+    if (filesRoute) {
+      if (request.method !== 'POST') return new Response(null, { status: 405, headers: { allow: 'POST' } })
+      const asked = await postedJson(request)
+      if ('refusal' in asked) return json(asked)
+      const [, kind, what] = filesRoute
+      if (kind === 'perspective') return json(what === 'check' ? await perspectiveChecked(asked.value as never) : await perspectiveText(asked.value as never))
+      const song = Math.max(1, Math.floor(Number(url.searchParams.get('song') ?? 1)) || 1)
+      return json(what === 'check' ? await tideChecked(asked.value as never, song) : await tideTexts(asked.value as never))
     }
 
     // a draft as the file it would be saved as, if it is accepted: the one place a file's text is made

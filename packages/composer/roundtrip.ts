@@ -446,6 +446,102 @@ try {
   must(readFileSync(againAt, 'utf8') === readFileSync(join(arrangementsHome, first!.id, 'arrangement.json'), 'utf8'), 'undoing every step of the mouse did not give back the Song as its file')
   void unsavedMark
 
+  // ---- the Parts, the Perspectives and the Tides: each opens a file, changes one thing, and saves a file that differs from the repository's in that thing only
+  const repo = (...path: string[]) => join(arrangementsHome, '..', '..', ...path)
+  const replaced = (text: string, from: string, to: string) => {
+    must(text.includes(from), `no "${from}" in the file`)
+    return text.replace(from, to)
+  }
+  const downloads: import('playwright-core').Download[] = []
+  page.on('download', (one) => downloads.push(one))
+  const saveFiles = async (count: number) => {
+    downloads.length = 0
+    await page.click('#save')
+    for (let waited = 0; downloads.length < count; waited += 50) {
+      must(waited < 8000, `Save gave ${downloads.length} files, not ${count}`)
+      await page.waitForTimeout(50)
+    }
+    const found: Record<string, string> = {}
+    for (const one of downloads) {
+      const at = join(keep, `step14-${one.suggestedFilename()}`)
+      await one.saveAs(at)
+      found[one.suggestedFilename()] = readFileSync(at, 'utf8')
+    }
+    return found
+  }
+
+  // the Parts: an instance of the Song is chosen, a slider moved, and the lines it counts are asked of the part again
+  await page.goto(`${base}/parts/?mode=edit`)
+  await page.waitForSelector('#which-file option', { state: 'attached' })
+  await doing(() => page.selectOption('#which-file', first!.id))
+  await choosing(() => page.locator('#strip .chip-instance').first().click())
+  await page.waitForSelector('#measure .line-measure')
+  const counted = () => page.locator('#measure').innerText()
+  const countedBefore = await counted()
+  // a slider is taken by the mouse, and what the lines count changes with it
+  const slider = (await page.locator('#sliders input[data-param="wordiness"]').boundingBox())!
+  await doing(() => page.mouse.click(slider.x + slider.width * 0.95, slider.y + slider.height / 2))
+  await page.waitForFunction((was) => document.querySelector('#measure')?.textContent !== was, countedBefore, { timeout: 4000 })
+  await undo()
+  must((await page.locator('#sliders [data-exact="wordiness"]').inputValue()) === '', 'undo did not put the slider back')
+  // an exact value is typed, and saved: the file is the Song's, with that one parameter given to its first instance
+  await doing(() => page.locator('#sliders [data-exact="wordiness"]').fill('0.9'))
+  await page.waitForFunction((was) => document.querySelector('#measure')?.textContent !== was, countedBefore, { timeout: 4000 }).catch(() => must(false, 'the lines did not count again'))
+  const songFile = readFileSync(join(arrangementsHome, first!.id, 'arrangement.json'), 'utf8')
+  const savedSong = await saveFiles(1)
+  // the first instance's line, as the file has it, and with its one parameter given
+  const instance = JSON.parse(songFile).instances[0] as { name: string; part: string }
+  const instanceLine = `{ "name": ${JSON.stringify(instance.name)}, "part": ${JSON.stringify(instance.part)} }`
+  must(savedSong[`${first!.id}.json`] === replaced(songFile, instanceLine, `${instanceLine.slice(0, -2)}, "parameters": { "wordiness": 0.9 } }`), 'the Song saved from the Parts is not the Song with one parameter given')
+  await page.screenshot({ path: join(keep, 'parts-edit.png'), fullPage: true })
+  // a parameter out of its range is refused on its instance
+  await doing(() => page.locator('#sliders [data-exact="wordiness"]').fill('3'))
+  must((await page.locator('#verdict').getAttribute('class'))!.includes('refused'), 'a parameter out of its range was accepted')
+  must((await page.locator('#strip .chip-instance.refused').count()) === 1, 'the refusal is not on the instance')
+  must(await page.locator('#save').isDisabled(), 'Save is not disabled while refused')
+
+  // the Perspectives: a weight is moved with the keys, and the file differs in that line only
+  await page.goto(`${base}/perspectives/?mode=edit`)
+  await page.waitForSelector('#which-file option', { state: 'attached' })
+  await doing(() => page.selectOption('#which-file', 'choir-lone'))
+  const oddsBefore = await page.locator('#p-odds').innerText()
+  await page.locator('#p-weight').focus()
+  await doing(async () => {
+    for (let k = 0; k < 3; k++) await page.keyboard.press('ArrowRight')
+  })
+  must((await page.locator('#p-odds').innerText()) !== oddsBefore, 'the odds did not change with the weight')
+  const lone = readFileSync(repo('perspectives', 'choir-lone', 'perspective.md'), 'utf8')
+  const savedLone = await saveFiles(1)
+  must(savedLone['choir-lone.perspective.md'] === replaced(lone, 'weight: 4', 'weight: 7'), 'the Perspective saved is not the record with its weight changed')
+  // what it clashes with is said, and a Facet its Turn does not turn is refused on the field
+  must((await page.locator('#p-clashes').innerText()).includes('A full choir'), 'its clashes are not said')
+  await doing(() => page.selectOption('#p-facet', 'harmony'))
+  must((await page.locator('#editor [data-field="facet"].refused').count()) === 1, 'a Facet its Turn does not turn is not refused on the field')
+  await page.screenshot({ path: join(keep, 'perspectives-edit.png'), fullPage: true })
+
+  // the Tides: a point of the cycle is dragged, and the two files differ from the repository's in the one number
+  await page.goto(`${base}/tides/?mode=edit`)
+  await page.waitForSelector('#which-file option', { state: 'attached' })
+  await doing(() => page.selectOption('#which-file', 'verse-wordiness'))
+  await page.waitForSelector('#t-cycle .handle')
+  const holdHandle = (await page.locator('#t-cycle .handle[data-handle="hold"]').boundingBox())!
+  const svgBox = (await page.locator('#t-cycle svg').boundingBox())!
+  const along = 0.05 * (520 - 48 - 20) * (svgBox.width / 520)
+  await doing(() => dragging({ x: holdHandle.x + holdHandle.width / 2, y: holdHandle.y + holdHandle.height / 2 }, { x: holdHandle.x + holdHandle.width / 2 + along, y: holdHandle.y + holdHandle.height / 2 }))
+  must((await page.locator('#t-hold-out').innerText()).startsWith('25%'), `the hold is ${await page.locator('#t-hold-out').innerText()}`)
+  // the Song moved along the curve, and the value at it said
+  await doing(() => page.locator('#t-song').fill('40'))
+  must((await page.locator('#t-now').innerText()).startsWith('At Song 40'), 'the Song marked did not move')
+  const verseDir = repo('tides', 'verse-wordiness')
+  const savedTide = await saveFiles(2)
+  must(savedTide['verse-wordiness.tide.md'] === readFileSync(join(verseDir, 'tide.md'), 'utf8'), 'the record of the Tide changed, and nothing in it was changed')
+  must(savedTide['verse-wordiness.actions.ts'] === replaced(readFileSync(join(verseDir, 'actions.ts'), 'utf8'), '  hold: 0.2,', '  hold: 0.25,'), 'the envelope saved is not the envelope with its hold changed')
+  // the peak is taken up and down within what the Setting can be: dragged past it, it stops at it
+  const attackHandle = (await page.locator('#t-cycle .handle[data-handle="attack"]').boundingBox())!
+  await doing(() => dragging({ x: attackHandle.x + attackHandle.width / 2, y: attackHandle.y + attackHandle.height / 2 }, { x: attackHandle.x + attackHandle.width / 2, y: svgBox.y - 60 }))
+  must((await page.locator('#t-max').inputValue()) === '1', `the peak went past what the setting can be: ${await page.locator('#t-max').inputValue()}`)
+  await page.screenshot({ path: join(keep, 'tides-edit.png'), fullPage: true })
+
   // a concept with a workspace not built yet says so, and one page in Edit says its words short
   await page.goto(`${base}/mood/?mode=edit`)
   await page.waitForSelector('.pending')

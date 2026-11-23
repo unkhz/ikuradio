@@ -72,7 +72,7 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
   function changed() {
     const now = performance.now()
     const target = document.activeElement
-    const typing = target && target === state.lastTarget && target.matches?.('input[type="text"], input[type="number"]') && now - state.lastPush < 700
+    const typing = target && target === state.lastTarget && target.matches?.('input[type="text"], input[type="number"], input[type="range"], textarea') && now - state.lastPush < 700
     const next = snapshot()
     if (next === state.history[state.at]) return run()
     if (typing && state.at > 0) state.history[state.at] = next
@@ -152,16 +152,20 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
     if (save.disabled) return
     // the file's text is the server's: one place makes it, so that a file made here and one written by hand are the same text
     const said = await format(state.draft)
-    if (!said.text) {
+    // a file, or the several a thing is kept in (a Tide is a record and an envelope)
+    const files = said.files ?? (said.text ? [{ name: `${idOf(state.draft)}.json`, text: said.text }] : undefined)
+    if (!files) {
       verdict.className = 'verdict refused'
       verdict.textContent = said.refusal
       return
     }
-    const link = el('a', { href: URL.createObjectURL(new Blob([said.text], { type: 'application/json' })), download: `${idOf(state.draft)}.json` })
-    document.body.append(link)
-    link.click()
-    link.remove()
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+    for (const file of files) {
+      const link = el('a', { href: URL.createObjectURL(new Blob([file.text], { type: 'text/plain' })), download: file.name })
+      document.body.append(link)
+      link.click()
+      link.remove()
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000)
+    }
     state.saved = snapshot()
     showState()
   })

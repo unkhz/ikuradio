@@ -8,7 +8,9 @@ import { firstCharacter, modes } from 'melody'
 import { fastest, firstMood, slowest, stride, weather } from 'mood'
 import { clash, defaults, readPerspectives, resolve, type Settings } from 'perspectives'
 import { parseRecord } from 'parts'
-import { positionOf, readTides, validRange, valueAt, type TideRecord } from 'tides'
+import { movable, positionOf, readTides, validRange, valueAt, type TideRecord } from 'tides'
+import { facets as allFacets, partFacets, parts as allParts, states } from 'perspectives'
+import { perspectiveDrafts, tideDrafts } from './files.js'
 
 // ---- the Mood
 
@@ -87,7 +89,11 @@ export async function perspectivesAnswer() {
     tides: tides.filter((t) => t.moves.facet === path[0] && t.moves.part === path[1] && t.moves.setting === path[2]).map((t) => t.slug),
   })
   const active = records.filter((r) => r.state === 'active')
+  const drafts = perspectiveDrafts()
   return {
+    // what an edit of one is made of: the Facets there are, which keep a Setting for each part, and the states a record may be in
+    kinds: { facets: [...allFacets], partFacets: [...partFacets], parts: [...allParts], states: [...states] },
+    drafts,
     perspectives,
     weight: active.reduce((sum, r) => sum + r.weight, 0),
     // how many can be heard together is a matter of the Facets: two on one cannot, but on different parts
@@ -106,11 +112,14 @@ const perSong = 4
 /** Every Tide with its record, what it moves, its range, its envelope, and its curve over the Songs around `song`. */
 export async function tidesAnswer(song: number) {
   const records = await readTides()
+  const drafts = await tideDrafts()
   const from = Math.max(0, song - reach)
   const to = song + reach
   return {
     song,
     window: [from, to],
+    movable,
+    drafts,
     tides: records.map((record: TideRecord) => {
       const body = parseRecord(readFileSync(join(record.dir, 'tide.md'), 'utf8'), record.dir, "a Tide's")
       const at = (position: number) => valueAt(record, position)

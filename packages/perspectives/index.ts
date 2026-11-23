@@ -36,3 +36,4 @@ export {
   type Chosen,
   type PerspectiveRecord,
 } from './lib/choose.js'
+export { fileOf, formatPerspective, partFacets, refusePerspective, states, type PerspectiveFile } from './lib/record.js'

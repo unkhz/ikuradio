@@ -4,3 +4,4 @@
 
 export { checkEnvelope, checkNoise, validRange, valueAt, readTides, applyTides, positionOf, tide, tidesHome, type Moves, type Tide, type TideReading, type TideRecord } from './lib/tides.js'
 export { cycleAt, readAt, wanderAt, type Envelope, type Phase, type Reading } from './lib/envelope.js'
+export { fileOf, formatTideActions, formatTideRecord, movable, refuseTide, type TideFile } from './lib/record.js'
