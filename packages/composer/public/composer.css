@@ -248,7 +248,8 @@ body[data-mode="edit"] main, body[data-mode="edit"] header { max-width: 1700px; 
 .drawing input[type="range"] { width: 8em; padding: 0; }
 .chosen-extras { margin: 8px 0; }
 .region, .clip, .point, .turn-handle { cursor: grab; user-select: none; touch-action: none; }
-.region.selected, .clip.selected { outline: 2px solid var(--words); outline-offset: 1px; z-index: 4; }
+.region.selected, .clip.selected { outline: 2px solid #fff; outline-offset: 1px; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.25), 0 0 14px 4px rgba(255, 255, 255, 0.45); z-index: 4; }
+/* a chosen thing keeps its own colour: the choice is the outline and the glow alone */
 .region.refused, .clip.refused, .point.refused, .turn-handle.refused { outline: 2px solid #e8806f; outline-offset: 1px; }
 .lane.track .canvas, .lane.pace .canvas { cursor: crosshair; }
 .point { position: absolute; top: 2px; bottom: 2px; padding: 0 6px 0 7px; border-left: 3px solid var(--edits); background: rgba(169, 139, 224, 0.22); border-radius: 0 4px 4px 0; font-size: 0.7rem; color: var(--words); display: flex; align-items: center; z-index: 3; white-space: nowrap; }

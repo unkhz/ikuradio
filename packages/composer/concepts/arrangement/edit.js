@@ -313,7 +313,7 @@ const numberInput = (value, props = {}) => el('input', { type: 'number', step: '
 function anchorControls(anchor, kind, none, change) {
   const region = regionSelect(anchor.region, none)
   region.dataset.field = `${kind}-region`
-  const hearing = numberInput(anchor.hearing, { min: 1, step: 1, placeholder: 'once', className: 'short' })
+  const hearing = numberInput(anchor.hearing, { min: 1, step: 1, placeholder: 'first', title: 'Which time it is heard; empty is the first hearing', className: 'short' })
   hearing.dataset.field = `${kind}-hearing`
   const edge = el('select', {}, el('option', { value: 'start', textContent: 'start' }), el('option', { value: 'end', textContent: 'end' }))
   edge.value = anchor.edge ?? 'start'
@@ -369,7 +369,7 @@ function showTempo() {
       points.map((point, i) => {
         const where = regionSelect(point.region, 'the start of the Song')
         where.dataset.field = 'region'
-        const hearing = numberInput(point.hearing, { min: 1, step: 1, placeholder: 'once', className: 'short' })
+        const hearing = numberInput(point.hearing, { min: 1, step: 1, placeholder: 'first', title: 'Which time it is heard; empty is the first hearing', className: 'short' })
         hearing.dataset.field = 'hearing'
         const mode = el('select', {}, el('option', { value: 'mood', textContent: "the Mood's" }), el('option', { value: 'number', textContent: 'a number' }), el('option', { value: 'free', textContent: 'free time' }))
         mode.dataset.field = 'mode'
@@ -470,14 +470,14 @@ function showBlocks() {
         })
         const gives = tracksThere.find((one) => one.id === block.track)?.parameters ?? []
         const given = gives.map(({ name, minimum, maximum }) => {
-          const input = numberInput(block[name], { className: 'short', min: minimum, max: maximum })
+          const input = numberInput(block[name], { className: 'short', min: minimum, max: maximum, title: humanParameter(name, maximum).title })
           input.dataset.field = name
           input.addEventListener('input', () => {
             setOrDrop(block, name, input.value === '' ? '' : Number(input.value))
             redrawSession()
             shell.changed()
           })
-          return el('label', {}, ` ${name} `, input)
+          return el('label', {}, ` ${humanParameter(name, maximum).label} `, input)
         })
         track.addEventListener('change', () => {
           block.track = track.value
@@ -518,6 +518,14 @@ function showBlocks() {
       }),
     ),
   )
+}
+
+/** What a Block's parameter is called to a person, with its unit; the file's own name stays what it is. */
+function humanParameter(name, maximum) {
+  if (name === 'fadeIn') return { label: 'fade in (s)', title: 'Seconds the sound takes to come in' }
+  if (name === 'fadeOut') return { label: 'fade out (s)', title: 'Seconds the sound takes to go out' }
+  if (name === 'gain') return { label: `gain (0 to ${maximum ?? 2})`, title: 'How loud it is laid: 1 is as made' }
+  return { label: name, title: name }
 }
 
 /** A key like this one that no other Block has. */
@@ -663,8 +671,10 @@ function showLabel(text, event) {
     document.body.append(labelBox)
   }
   labelBox.textContent = text
-  labelBox.style.left = `${event.clientX + 14}px`
-  labelBox.style.top = `${event.clientY - 30}px`
+  // kept inside the window: on the other side of the pointer near the right edge, and below it near the top
+  const room = labelBox.offsetWidth + 20
+  labelBox.style.left = `${event.clientX + room > window.innerWidth ? Math.max(4, event.clientX - room + 6) : event.clientX + 14}px`
+  labelBox.style.top = `${event.clientY < 40 ? event.clientY + 18 : event.clientY - 30}px`
 }
 function hideLabel() {
   labelBox?.remove()

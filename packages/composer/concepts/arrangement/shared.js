@@ -123,7 +123,9 @@ function drawSession(layout, timeline, diagram, scroll, edit) {
   for (const segment of timeline.segments) {
     const stretch = place(el('div', { className: segment.tempo === null ? 'stretch free' : 'stretch' }), segment.from, segment.to)
     const roomy = x(segment.to - segment.from) >= 120
-    stretch.textContent = segment.tempo === null ? (roomy ? `free time · ${seconds(segment.to - segment.from)}` : 'free') : `${segment.tempo} bpm`
+    // in Edit a change of tempo has its flag, which says its value: the stretch says it only where there is none, and free time is the hatching and a single word
+    const flagged = (edit?.tempoPoints ?? []).some((point) => timeline.regions[point.at] && Math.abs(timeline.regions[point.at].startSeconds - segment.from) < 1e-6)
+    stretch.textContent = flagged ? '' : segment.tempo === null ? (roomy ? `free time · ${seconds(segment.to - segment.from)}` : 'free') : `${segment.tempo} bpm`
     stretch.title = segment.tempo === null ? 'No beat and no grid: this stretch lasts as long as it is given' : `${seconds(segment.to - segment.from)} under one tempo, its bars drawn`
     tempoLane.canvas.append(stretch)
     if (segment.tempo !== null) {
@@ -136,7 +138,7 @@ function drawSession(layout, timeline, diagram, scroll, edit) {
   for (const point of edit?.tempoPoints ?? []) {
     const region = timeline.regions[point.at]
     if (!region) continue
-    const flag = el('div', { className: `point${selected('tempo', point.index) ? ' selected' : ''}${refused('tempo', point.index) ? ' refused' : ''}`, title: 'A change of tempo: click to choose it, drag it to another region' }, el('span', { textContent: point.bpm === null ? 'free' : point.bpm === 'mood' ? "Mood's" : String(point.bpm) }))
+    const flag = el('div', { className: `point${selected('tempo', point.index) ? ' selected' : ''}${refused('tempo', point.index) ? ' refused' : ''}`, title: 'A change of tempo: click to choose it, drag it to another region' }, el('span', { textContent: point.bpm === null ? 'free' : point.bpm === 'mood' ? `${region.tempo ?? ''} bpm` : `${point.bpm} bpm` }))
     flag.dataset.point = point.index
     flag.style.left = `${x(region.startSeconds)}px`
     tempoLane.canvas.append(flag)
