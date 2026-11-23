@@ -183,8 +183,11 @@ export function setLine({
 /** A line whose words do not fit its bars, even with a bar of grace: it was not written to its count, and is not sung. */
 export class NoRoom extends Error {}
 
+/** How many beats a bar has. */
+export const beatsPerBar = 4
+
 /** How many beats a bridge lasts: four bars. */
-export const bridgeBeats = 16
+export const bridgeBeats = 4 * beatsPerBar
 
 /**
  * The hum of a bridge, for one voice, from part `from` to part `to`: a

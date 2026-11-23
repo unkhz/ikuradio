@@ -2,11 +2,9 @@
 // and the Blocks on its Tracks, resolved to seconds by the parts package's `resolve` and given to the page as plain numbers, so the
 // page draws and works nothing out. A refused Arrangement never reaches here; one that cannot be resolved is said, not drawn.
 
+import { beatsPerBar } from 'melody'
 import { resolve, type Arrangement, type Resolved, type TrackRecord } from 'parts'
 import type { Layout } from './layout.js'
-
-/** How many beats a bar has, for the bars drawn where there is a tempo. */
-export const beatsPerBar = 4
 
 /** A Track as the page needs it: what it is called, whether it is heard, and what makes its Blocks, or nothing yet. */
 export type TrackAnswer = { id: string; title: string; heard: boolean; makes: { by: string; from: string } | null }

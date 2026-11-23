@@ -85,7 +85,7 @@ input { width: 5em; }
 .turn { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--words); z-index: 2; pointer-events: none; }
 .turn span { position: absolute; top: 2px; left: 4px; font-size: 0.72rem; white-space: nowrap; color: var(--words); background: var(--night); padding: 0 4px; border-radius: 3px; }
 .order { margin-top: 1.25rem; }
-.order td:nth-child(n+4):nth-child(-n+6) { text-align: right; padding-right: 14px; }
+.order td:nth-child(n+4):nth-child(-n+7) { text-align: right; padding-right: 14px; }
 .key { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 0; margin: 12px 0 0; color: var(--dim); font-size: 0.85rem; }
 .key .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .key .end { display: inline-block; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--dim); margin-right: 6px; vertical-align: -1px; }

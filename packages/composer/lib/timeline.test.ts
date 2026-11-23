@@ -3,11 +3,11 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { firstTune } from 'melody'
+import { beatsPerBar, bridgeBeats, firstTune } from 'melody'
 import { readArrangements, readParts, readTracks, resolve } from 'parts'
 import { layoutOf } from './layout.js'
 import { composer } from './serve.js'
-import { beatsPerBar, timelineOf, type TimelineAnswer } from './timeline.js'
+import { timelineOf, type TimelineAnswer } from './timeline.js'
 
 const records = await readParts()
 const tracks = await readTracks()
@@ -82,6 +82,13 @@ describe('the timeline /arrangements.json answers', () => {
     const layout = layoutOf(song, parts, firstTune, 72)
     const broken = { ...song, tempo: [{ bpm: null }] }
     expect(timelineOf(broken, layout, tracks, 72)).toEqual({ refusal: expect.stringContaining('free time, and so needs its seconds') })
+  })
+})
+
+describe('the bar', () => {
+  it('is melody\'s: a bridge is four of them, and the answer carries it', async () => {
+    expect(bridgeBeats).toBe(4 * beatsPerBar)
+    expect((await asked(72))[0]!.timeline.beatsPerBar).toBe(beatsPerBar)
   })
 })
 

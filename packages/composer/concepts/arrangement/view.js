@@ -70,6 +70,25 @@ function wordsLetters(layout) {
   return new Map(layout.instances.filter((instance) => instance.words === 'written').map((instance) => [instance.index, named.get(`${instance.iteration}:${instance.name}`)]))
 }
 
+/**
+ * A mark for each Block's key, numbered within its Track and led by the shortest start of the Track's name that no other Track's shares: the first
+ * sound of one Track is its 1, the second its 2. They can't be read as a region's letter, which says the words.
+ */
+function marksFor(timeline) {
+  const ids = timeline.tracks.map((track) => track.id)
+  const lead = (id) => {
+    for (let n = 1; n <= id.length; n++) if (ids.filter((other) => other.startsWith(id.slice(0, n))).length === 1) return id.slice(0, n)
+    return id
+  }
+  const marks = new Map()
+  for (const track of timeline.tracks) {
+    const keys = []
+    for (const block of timeline.blocks) if (block.track === track.id && !keys.includes(block.key)) keys.push(block.key)
+    keys.forEach((key, i) => marks.set(key, `${lead(track.id)}${i + 1}`))
+  }
+  return marks
+}
+
 /** A clock's m:ss for a ruler's tick. */
 const clock = (value) => `${Math.floor(value / 60)}:${String(Math.round(value % 60)).padStart(2, '0')}`
 
@@ -158,7 +177,7 @@ function drawSession(layout, timeline, diagram, scroll) {
   }
 
   // the Tracks, a lane each, and on them the Blocks
-  const keys = lettersFor(timeline.blocks.map((block) => block.key))
+  const keys = marksFor(timeline)
   const lanes = [ruler, regions, tempoLane]
   for (const track of timeline.tracks) {
     const mine = timeline.blocks.filter((block) => block.track === track.id)
@@ -202,6 +221,7 @@ function drawSession(layout, timeline, diagram, scroll) {
 const drawn = new Map()
 
 function draw(layout, timeline, views) {
+  const resolved = timeline && !timeline.refusal ? timeline.regions : undefined
   drawn.set(views, [layout, timeline])
   const { scroll, diagram, key, order, total } = views
   const length = timeline && !timeline.refusal ? timeline.seconds : layout.seconds
@@ -219,7 +239,7 @@ function draw(layout, timeline, views) {
     el('li', {}, el('span', { className: 'end' }), 'ends open'),
     el('li', {}, 'on a region, the same letter: the same words, within an iteration'),
     el('li', {}, '↩ on a region: it goes on with the words of the one it follows, across a turn'),
-    el('li', {}, 'on a Block, the same letter: the same sound, made once'),
+    el('li', {}, 'on a Block, the same mark (a Track\'s initial and a number): the same sound, made once'),
     el('li', {}, 'a ramp: a fade'),
     el('li', {}, 'a turn: the words turn over, and the Song is a number older'),
   )
@@ -227,7 +247,7 @@ function draw(layout, timeline, views) {
   // and in order, in words, for what the blocks are too narrow to say
   const row = (cells, tag = 'td') => el('tr', {}, ...cells.map((cell) => el(tag, { textContent: cell })))
   order.replaceChildren(
-    el('thead', {}, row(['#', 'name', 'part', 'from', 'lasts', 'beats', 'ends', 'words / journey'], 'th')),
+    el('thead', {}, row(['#', 'name', 'part', 'from', 'lasts', 'beats', 'tempo', 'ends', 'words / journey'], 'th')),
     el(
       'tbody',
       {},
@@ -236,9 +256,10 @@ function draw(layout, timeline, views) {
           i.index + 1,
           i.name,
           i.part,
-          seconds(i.startSeconds),
-          seconds(i.seconds),
-          i.beats,
+          seconds(resolved ? resolved[i.index].startSeconds : i.startSeconds),
+          seconds(resolved ? resolved[i.index].seconds : i.seconds),
+          resolved && resolved[i.index].tempo === null ? 'free' : (resolved ? resolved[i.index].beats : i.beats),
+          resolved ? (resolved[i.index].tempo === null ? 'free' : `${resolved[i.index].tempo} bpm`) : `${layout.tempo} bpm`,
           i.ending === 'full' ? 'at home' : 'open',
           i.words === 'none'
             ? `hums from ${i.before ?? 'the start'} to ${i.after ?? 'the end'}`
