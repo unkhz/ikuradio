@@ -38,8 +38,8 @@ addEventListener('load', async () => {
   // Learn explains, with words and diagrams; Edit is for working, and its words are the short line: the explaining stays in Learn
   $('more').replaceChildren(...(mode === 'learn' ? record.more.map((paragraph) => el('p', { textContent: paragraph })) : []))
   document.body.dataset.mode = mode
-  // what the page's two modes share, then the one it is in
-  await loadScript(`/${id}/shared.js`)
+  // what the page's two modes share (the other scripts of the concept's folder), then the one it is in
+  for (const script of record.scripts) await loadScript(`/${id}/${script}`)
   if (mode === 'learn') {
     await loadScript(`/${id}/view.js`)
     drawConcept($('root'), data, record)

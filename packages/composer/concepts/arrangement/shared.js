@@ -60,14 +60,19 @@ const rowHeight = 30
  * tempo with free time drawn as free, a lane for each Track with its Blocks coloured by key (the same letter is the same sound, made once),
  * overlaps stacked and fades drawn as ramps. Everything it draws, the server worked out: `layout` for what a region is, `timeline` for where.
  */
-function drawSession(layout, timeline, diagram, scroll) {
+function drawSession(layout, timeline, diagram, scroll, edit) {
   if (!timeline || timeline.refusal) {
     diagram.replaceChildren(el('p', { className: 'about', textContent: timeline?.refusal ?? 'There is no timeline to draw.' }))
     return
   }
   // as wide as the page can read it, and no narrower than a second can be seen
   const room = scroll.clientWidth - labelWidth - 24
-  const pps = Math.max(2.2, room / Math.max(1, timeline.seconds))
+  const pps = Math.max(2.2, (room / Math.max(1, timeline.seconds)) * (edit?.zoom ?? 1))
+  // what a mouse needs to turn a place on the drawing back into seconds
+  diagram.dataset.pps = pps
+  diagram.dataset.label = labelWidth
+  const selected = (kind, index) => edit?.selection?.kind === kind && edit.selection.index === index
+  const refused = (kind, index) => edit?.refused?.thing === kind && edit.refused.index === index
   const width = timeline.seconds * pps + 36
   const x = (value) => value * pps
   diagram.style.setProperty('--session', `${width}px`)
@@ -96,6 +101,9 @@ function drawSession(layout, timeline, diagram, scroll) {
     const instance = layout.instances[region.index]
     const box = place(el('div', { className: 'region' }), region.startSeconds, region.startSeconds + region.seconds)
     box.dataset.name = region.name
+    box.dataset.index = region.index
+    if (selected('region', region.index)) box.classList.add('selected')
+    if (refused('instance', region.index)) box.classList.add('refused')
     box.style.background = colour(region.part)
     box.title = `${region.name}: a ${region.part}, from ${seconds(region.startSeconds)} for ${seconds(region.seconds)}${region.tempo === null ? ', in free time' : `, at ${region.tempo} beats a minute`}${instance?.grows ? `; ${growsWords}` : ''}`
     box.append(el('div', { className: 'name', textContent: region.name }), el('div', { className: 'what', textContent: `${region.part} · ${seconds(region.seconds)}` }))
@@ -104,6 +112,7 @@ function drawSession(layout, timeline, diagram, scroll) {
       box.append(el('div', { className: 'words', textContent: `${followed ? '↩ ' : ''}${letters.get(instance.index)}`, title: followed ? `Goes on with the words of region ${followed.index + 1}, which were sung before the turn` : 'The same letter, in the same iteration: the same words' }))
     }
     if (instance) box.append(el('span', { className: `end ${instance.ending}`, title: instance.ending === 'full' ? 'ends at home' : 'ends open, on the fifth' }))
+    if (edit && region.tempo === null) box.append(Object.assign(el('span', { className: 'seconds-grip', title: 'Drag the right edge to set its seconds' }), { style: 'position:absolute;top:0;bottom:0;right:0;width:8px;background:rgba(0,0,0,0.25);cursor:ew-resize' }))
     box.addEventListener('mouseenter', () => diagram.querySelectorAll('.region').forEach((other) => other.dataset.name === region.name && other.classList.add('lit')))
     box.addEventListener('mouseleave', () => diagram.querySelectorAll('.region').forEach((other) => other.classList.remove('lit')))
     regions.canvas.append(box)
@@ -123,6 +132,16 @@ function drawSession(layout, timeline, diagram, scroll) {
     }
   }
 
+  // in Edit, a flag for each change of tempo, where it is, to be picked up
+  for (const point of edit?.tempoPoints ?? []) {
+    const region = timeline.regions[point.at]
+    if (!region) continue
+    const flag = el('div', { className: `point${selected('tempo', point.index) ? ' selected' : ''}${refused('tempo', point.index) ? ' refused' : ''}`, title: 'A change of tempo: click to choose it, drag it to another region' }, el('span', { textContent: point.bpm === null ? 'free' : point.bpm === 'mood' ? "Mood's" : String(point.bpm) }))
+    flag.dataset.point = point.index
+    flag.style.left = `${x(region.startSeconds)}px`
+    tempoLane.canvas.append(flag)
+  }
+
   // the Tracks, a lane each, and on them the Blocks
   const keys = marksFor(timeline)
   const lanes = [ruler, regions, tempoLane]
@@ -140,6 +159,9 @@ function drawSession(layout, timeline, diagram, scroll) {
       box.style.top = `${3 + rows.get(block) * rowHeight}px`
       box.style.background = colour(block.key)
       box.dataset.key = block.key
+      box.dataset.block = block.index
+      if (selected('block', block.index)) box.classList.add('selected')
+      if (refused('block', block.index)) box.classList.add('refused')
       box.title = `${block.key}: from ${seconds(block.startSeconds)} to ${seconds(block.endSeconds)}${block.gain !== 1 ? `, at gain ${block.gain}` : ''}${block.fadeIn ? `, fading in over ${seconds(block.fadeIn)}` : ''}${block.fadeOut ? `, fading out over ${seconds(block.fadeOut)}` : ''}${block.source.length ? `, made from ${block.source.join(', ')}` : ''}`
       box.append(el('span', { className: 'letter', textContent: keys.get(block.key) }), el('span', { className: 'source', textContent: block.source[0] ?? '' }))
       for (const [side, fade] of [['in', block.fadeIn], ['out', block.fadeOut]]) {
@@ -147,6 +169,29 @@ function drawSession(layout, timeline, diagram, scroll) {
         const ramp = el('span', { className: `ramp ${side}` })
         ramp.style.width = `${Math.min(x(block.seconds), x(fade))}px`
         box.append(ramp)
+      }
+      if (edit) {
+        // the hands of a Block: its ends to stretch it, the corners of its fades, the line of its gain
+        for (const side of ['left', 'right']) {
+          const grip = el('span', { className: `grip ${side}`, title: 'Drag to stretch' })
+          grip.dataset.grip = side
+          box.append(grip)
+        }
+        const allows = (name) => track.parameters?.some((parameter) => parameter.name === name)
+        for (const [side, name, fade] of [['in', 'fadeIn', block.fadeIn], ['out', 'fadeOut', block.fadeOut]]) {
+          if (!allows(name)) continue
+          const handle = el('span', { className: `fade-handle ${side}`, title: `Drag for the fade ${side}` })
+          handle.dataset.fade = name
+          handle.style[side === 'in' ? 'left' : 'right'] = `${Math.min(x(block.seconds), x(fade ?? 0))}px`
+          box.append(handle)
+        }
+        if (allows('gain')) {
+          const gain = track.parameters.find((parameter) => parameter.name === 'gain')
+          const line = el('span', { className: 'gain-line', title: `Drag for the gain: ${block.gain}` })
+          line.dataset.gain = 'gain'
+          line.style.top = `${Math.round((1 - block.gain / (gain.maximum ?? 2)) * 22)}px`
+          box.append(line)
+        }
       }
       box.addEventListener('mouseenter', () => diagram.querySelectorAll('.clip').forEach((other) => other.dataset.key === block.key && other.classList.add('lit')))
       box.addEventListener('mouseleave', () => diagram.querySelectorAll('.clip').forEach((other) => other.classList.remove('lit')))
@@ -161,7 +206,18 @@ function drawSession(layout, timeline, diagram, scroll) {
     line.style.left = `${labelWidth + x(at)}px`
     return line
   })
+  // in Edit the turns have handles on the ruler, to be dragged from region to region
+  for (const turn of edit?.turnBoundaries ?? []) {
+    const at = turn.boundary < timeline.regions.length ? timeline.regions[turn.boundary].startSeconds : timeline.seconds
+    const handle = el('div', { className: `turn-handle${selected('turn', turn.index) ? ' selected' : ''}${refused('turn', turn.index) ? ' refused' : ''}`, title: 'The words turn over here: click to choose it, drag it to another boundary' }, el('span', { textContent: '↻' }))
+    handle.dataset.turn = turn.index
+    handle.style.left = `${x(at)}px`
+    ruler.canvas.append(handle)
+  }
   diagram.replaceChildren(...lanes.map(({ row }) => row), ...turns)
+  // a lane's canvas is told which kind it is, for a mouse that draws on it
+  for (const { row, canvas } of lanes) canvas.dataset.lane = [...row.classList].find((name) => ['ruler', 'regions', 'pace', 'track'].includes(name)) ?? ''
+  for (const { row, canvas } of lanes) if (row.dataset.track) canvas.dataset.track = row.dataset.track
 }
 
 /** Draws a layout into a view: its timeline, its key and its table, and says how long it is. */
@@ -174,7 +230,7 @@ function draw(layout, timeline, views) {
   const length = timeline && !timeline.refusal ? timeline.seconds : layout.seconds
   const iterations = timeline && !timeline.refusal && timeline.iterations > 1 ? ` · ${timeline.iterations} iterations` : ''
   total.textContent = `${layout.instances.length} parts · ${seconds(length)}${iterations}`
-  drawSession(layout, timeline, diagram, scroll)
+  drawSession(layout, timeline, diagram, scroll, views.edit?.())
   // the words that are sung more than once are marked alike, by a letter, in the order they first appear
   const letters = wordsLetters(layout)
 
@@ -222,5 +278,5 @@ let widthWas = window.innerWidth
 window.addEventListener('resize', () => {
   if (window.innerWidth === widthWas) return
   widthWas = window.innerWidth
-  for (const [views, [layout, timeline]] of drawn) drawSession(layout, timeline, views.diagram, views.scroll)
+  for (const [views, [layout, timeline]] of drawn) drawSession(layout, timeline, views.diagram, views.scroll, views.edit?.())
 })

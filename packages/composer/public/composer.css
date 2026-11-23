@@ -218,10 +218,7 @@ header { position: relative; }
 .box .kind { font-style: normal; font-size: 0.75rem; color: var(--edits); margin-top: auto; }
 
 /* Edit: a drawing, and beside it the inspector of fields */
-.workspace { display: grid; grid-template-columns: minmax(0, 3fr) minmax(340px, 2fr); gap: 24px; align-items: start; }
-.inspector { position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow-y: auto; padding-right: 4px; }
 .drawing .scroll { padding-top: 8px; }
-@media (max-width: 1000px) { .workspace { grid-template-columns: minmax(0, 1fr); } .inspector { position: static; max-height: none; } }
 .shell { margin-bottom: 8px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
 .shell .open-name { color: var(--words); }
 .unsaved { color: #e8c06f; font-size: 0.85rem; }
@@ -239,3 +236,39 @@ body[data-mode="edit"] main, body[data-mode="edit"] header { max-width: 1700px; 
 .row .params { display: grid; grid-template-columns: minmax(0, 1fr); padding-left: 0; }
 .details { margin-top: 12px; }
 .details summary { cursor: pointer; color: var(--dim); }
+
+/* Edit: the drawing has the whole width, and under it the inspector: what is chosen, and the Arrangement itself */
+.inspector { display: grid; grid-template-columns: minmax(0, 3fr) minmax(260px, 1fr); gap: 24px; align-items: start; max-height: 38vh; overflow-y: auto; border-top: 1px solid var(--line); padding: 8px 0; margin-top: 12px; position: sticky; bottom: 0; background: var(--night); z-index: 20; }
+@media (max-width: 900px) { .inspector { grid-template-columns: minmax(0, 1fr); max-height: none; } }
+.inspector h3 { margin: 0.6rem 0 0.4rem; font-size: 0.95rem; color: var(--dim); display: flex; gap: 12px; align-items: center; }
+.quiet { font-size: 0.75rem; padding: 1px 10px; }
+.quiet[aria-pressed="true"] { border-color: var(--edits); color: var(--edits); }
+.hint { color: var(--dim); font-size: 0.8rem; }
+.drawing .controls { align-items: center; }
+.drawing input[type="range"] { width: 8em; padding: 0; }
+.chosen-extras { margin: 8px 0; }
+.region, .clip, .point, .turn-handle { cursor: grab; user-select: none; touch-action: none; }
+.region.selected, .clip.selected { outline: 2px solid var(--words); outline-offset: 1px; z-index: 4; }
+.region.refused, .clip.refused, .point.refused, .turn-handle.refused { outline: 2px solid #e8806f; outline-offset: 1px; }
+.lane.track .canvas, .lane.pace .canvas { cursor: crosshair; }
+.point { position: absolute; top: 2px; bottom: 2px; padding: 0 6px 0 7px; border-left: 3px solid var(--edits); background: rgba(169, 139, 224, 0.22); border-radius: 0 4px 4px 0; font-size: 0.7rem; color: var(--words); display: flex; align-items: center; z-index: 3; white-space: nowrap; }
+.point.selected { background: var(--edits); color: #101015; }
+.turn-handle { position: absolute; top: 0; height: 22px; margin-left: -9px; width: 18px; display: flex; align-items: center; justify-content: center; border-radius: 99px; background: var(--panel); border: 1px solid var(--words); color: var(--words); font-size: 0.8rem; z-index: 6; }
+.turn-handle.selected { background: var(--words); color: #101015; }
+.grip { position: absolute; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 3; }
+.grip.left { left: 0; }
+.grip.right { right: 0; }
+.clip:hover .grip, .clip.selected .grip { background: rgba(0, 0, 0, 0.3); }
+.fade-handle { position: absolute; top: 0; width: 9px; height: 9px; margin: -1px; background: var(--words); border-radius: 50%; cursor: ew-resize; z-index: 4; opacity: 0; }
+.fade-handle.in { transform: translateX(0); }
+.fade-handle.out { transform: translateX(0); }
+.clip:hover .fade-handle, .clip.selected .fade-handle { opacity: 0.9; }
+.gain-line { position: absolute; left: 10px; right: 10px; height: 0; border-top: 2px dashed rgba(0, 0, 0, 0.55); cursor: ns-resize; z-index: 3; padding: 3px 0; background-clip: content-box; }
+.clip:not(:hover):not(.selected) .gain-line { opacity: 0; }
+/* a Block's body is for moving it: the gain line can be taken only once the Block is chosen */
+.clip:not(.selected) .gain-line { pointer-events: none; }
+.ghost { position: absolute; top: 3px; height: 24px; border: 1px dashed var(--words); border-radius: 4px; background: rgba(230, 227, 218, 0.12); pointer-events: none; }
+.drop-marker { position: absolute; top: 0; bottom: 0; width: 0; border-left: 3px solid var(--edits); z-index: 7; pointer-events: none; }
+.drag-label { position: fixed; z-index: 100; background: var(--panel); border: 1px solid var(--words); color: var(--words); font-size: 0.8rem; padding: 2px 8px; border-radius: 4px; pointer-events: none; white-space: nowrap; }
+.region .seconds-grip { cursor: ew-resize; }
+body[data-mode="edit"] .stretch { padding-left: 56px; }

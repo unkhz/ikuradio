@@ -7,10 +7,10 @@
 /**
  * `noun`: what a file is called. `list()`: the files that are there, `[{ id, title }]`; `fetch(id)`: one of them, as a draft. `blank()`: a draft from nothing.
  * `check(draft)`: the server's answer, `{ refusal?, where? }` and whatever else the workspace draws from. `format(draft)`: `{ text }` or `{ refusal }`.
- * `idOf(draft)`: the file's name. `render(draft)`: draws the workspace anew from a draft. `checked(answer)`: draws the check's answer, on its thing.
+ * `extra()`: what else a step remembers beside the draft (the selection), and `restore(extra)` puts it back when undo or redo comes to the step. `idOf(draft)`: the file's name. `render(draft)`: draws the workspace anew from a draft. `checked(answer)`: draws the check's answer, on its thing.
  */
-function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, render, checked }) {
-  const state = { draft: undefined, history: [], at: -1, saved: undefined, checking: 0, lastPush: 0, lastTarget: null, answer: undefined }
+function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, render, checked, extra, restore }) {
+  const state = { draft: undefined, history: [], extras: [], at: -1, saved: undefined, checking: 0, lastPush: 0, lastTarget: null, answer: undefined }
   const memory = `composer:draft:${noun}`
   const snapshot = () => JSON.stringify(state.draft)
   const dirty = () => state.draft !== undefined && snapshot() !== state.saved
@@ -64,6 +64,8 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
     verdict.textContent = answer.refusal ?? `This ${noun} is accepted.`
     checked(answer)
     showState()
+    // for whoever drives the page: how many checks have been answered
+    verdict.dataset.checks = String(Number(verdict.dataset.checks ?? 0) + 1)
   }
 
   /** A workspace has changed the draft. Typing in one field is one step, not one for every key. */
@@ -76,9 +78,11 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
     if (typing && state.at > 0) state.history[state.at] = next
     else {
       state.history.length = state.at + 1
+      state.extras.length = state.at + 1
       state.history.push(next)
       state.at = state.history.length - 1
     }
+    state.extras[state.at] = extra?.()
     state.lastPush = now
     state.lastTarget = target
     showState()
@@ -88,7 +92,9 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
   /** What is open is now this draft, with nothing before it to undo; `saved` if it is a file that is there as it is. */
   function begin(draft, { saved }) {
     state.draft = draft
+    restore?.(undefined)
     state.history = [snapshot()]
+    state.extras = [extra?.()]
     state.at = 0
     state.saved = saved ? snapshot() : undefined
     state.answer = undefined
@@ -101,6 +107,7 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
     state.at = to
     state.draft = JSON.parse(state.history[to])
     state.lastTarget = null
+    restore?.(state.extras[to])
     render(state.draft)
     showState()
     return run()
@@ -166,6 +173,10 @@ function editShell({ noun, list, fetch: fetchOne, blank, check, format, idOf, re
     },
     changed,
     begin,
+    /** The selection has changed without the draft changing: the step it is at remembers it, so that undo and redo bring it back. */
+    remember() {
+      if (state.at >= 0) state.extras[state.at] = extra?.()
+    },
     undo: () => go(state.at - 1),
     redo: () => go(state.at + 1),
     /** Fills the picker with the files there are, and opens the one a reload would have lost, if there was one. */

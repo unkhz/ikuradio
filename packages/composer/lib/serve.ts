@@ -12,7 +12,7 @@ import { conceptsHome, readConcepts } from './concepts.js'
 import { mapOf } from './map.js'
 import { formatArrangement } from './format.js'
 import { layoutOf } from './layout.js'
-import { timelineOf } from './timeline.js'
+import { blockParametersOf, timelineOf } from './timeline.js'
 import { whereOf } from './where.js'
 
 const publicHome = fileURLToPath(new URL('../public/', import.meta.url))
@@ -52,7 +52,7 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
     const records = await readParts(partsHome)
 
     if (url.pathname === '/concepts.json') {
-      return json((await readConcepts(conceptsDir)).map(({ id, title, band, edits, leads, line, more, state }) => ({ id, title, band, edits, leads, line, more, state })))
+      return json((await readConcepts(conceptsDir)).map(({ id, title, band, edits, leads, line, more, scripts, state }) => ({ id, title, band, edits, leads, line, more, scripts, state })))
     }
 
     // where the boxes stand and the arrows run, worked out here and only drawn by the page
@@ -63,7 +63,7 @@ export function composer({ partsHome, arrangementsDir = arrangementsHome, concep
 
     // the Tracks there are, with what makes them: the editor offers them and names none
     if (url.pathname === '/tracks.json') {
-      return json((await readTracks(tracksDir)).filter(({ state }) => state === 'active').map(({ track, title }) => ({ id: track.id, title, heard: track.heard, makes: track.makes ?? null, parameters: Object.keys((track.parameters as { properties?: object }).properties ?? {}) })))
+      return json((await readTracks(tracksDir)).filter(({ state }) => state === 'active').map(({ track, title }) => ({ id: track.id, title, heard: track.heard, makes: track.makes ?? null, parameters: blockParametersOf(track) })))
     }
 
     // a draft as the file it would be saved as, if it is accepted: the one place a file's text is made

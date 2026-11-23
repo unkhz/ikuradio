@@ -183,7 +183,11 @@ describe('Learn and Edit', () => {
 
   it("serves the scripts of a concept's own folder, its view, its edit and what they share, and no others", async () => {
     const answer = composer()
-    for (const path of ['/arrangement/view.js', '/arrangement/edit.js', '/arrangement/shared.js', '/mode.js', '/shell.js']) expect((await get(answer, path)).status).toBe(200)
+    for (const path of ['/arrangement/view.js', '/arrangement/edit.js', '/arrangement/shared.js', '/arrangement/anchors.js', '/mode.js', '/shell.js']) expect((await get(answer, path)).status).toBe(200)
+    // what a concept shares is said in its record's answer, for the page to load before its view or its edit
+    const found = (await (await get(answer, '/concepts.json')).json()) as { id: string; scripts: string[] }[]
+    expect(found.find(({ id }) => id === 'arrangement')!.scripts).toEqual(['anchors.js', 'shared.js'])
+    expect(found.find(({ id }) => id === 'mood')!.scripts).toEqual([])
     expect((await get(answer, '/mood/edit.js')).status).toBe(404)
     expect((await get(answer, '/arrangement/concept.md')).status).toBe(404)
     expect((await get(answer, '/arrangement/..%2Fdata.js')).status).toBe(404)

@@ -43,6 +43,8 @@ export type Concept = {
   line: string
   /** The paragraphs after it. */
   more: string[]
+  /** The scripts of its folder that its two pages share (every one but view.js and edit.js), loaded before either. */
+  scripts: string[]
   state: 'draft' | 'active' | 'retired'
   /** Its number, from its record: the order they are drawn in within a band. */
   number: number
@@ -82,6 +84,7 @@ export async function readConcepts(home = conceptsHome): Promise<Concept[]> {
       leads: (record.fields.leads ?? '').split(',').map((lead) => lead.trim()).filter(Boolean),
       line,
       more,
+      scripts: readdirSync(dir).filter((file) => /^[a-z0-9-]+\.js$/.test(file) && file !== 'view.js' && file !== 'edit.js').sort(),
       state: record.state,
       number: /^\d+$/.test(record.fields.id ?? '') ? Number(record.fields.id) : Number.MAX_SAFE_INTEGER,
       dir,

@@ -58,6 +58,9 @@ try {
   const opened = join(keep, 'opened.json')
   writeFileSync(opened, JSON.stringify({ id: first!.id, title: first!.title, instances: first!.declaration.instances }))
   await page.setInputFiles('#open', opened)
+  // the inspector shows what is chosen; the list shows every row
+  await page.waitForSelector('#list-toggle')
+  await page.click('#list-toggle')
   await page.waitForSelector('#instances .row')
   await page.fill('#draft-id', 'no-bridges')
   await page.fill('#draft-title', 'No bridges')
@@ -146,11 +149,6 @@ try {
     order.splice(place, 0, ...order.splice(at, 1))
   }
   must(JSON.stringify(await regionNames()) === JSON.stringify(want.instances.map(({ name }) => name)), `the regions are ${JSON.stringify(await regionNames())}`)
-  for (const [i, { seconds, ending }] of want.instances.entries()) {
-    if (seconds !== undefined) await page.locator('#instances .row').nth(i).locator('[data-field="seconds"]').fill(String(seconds))
-    if (ending !== undefined) await page.locator('#instances .row').nth(i).locator('[data-field="ending"]').selectOption(ending)
-  }
-
   // the tempo map: the Song's one change goes, and the other's are made, one by one
   while ((await page.locator('#tempo-points .tempo-row').count()) > 0) await page.locator('#tempo-points .tempo-row').first().locator('.remove').click()
   for (const [i, point] of want.tempo.entries()) {
@@ -161,6 +159,12 @@ try {
     await row.locator('[data-field="mode"]').selectOption(point.bpm === 'mood' ? 'mood' : point.bpm === null ? 'free' : 'number')
     if (typeof point.bpm === 'number') await row.locator('[data-field="bpm"]').fill(String(point.bpm))
   }
+  // the seconds of a region in free time, and an ending a region says for itself
+  for (const [i, { seconds, ending }] of want.instances.entries()) {
+    if (seconds !== undefined) await page.locator('#instances .row').nth(i).locator('[data-field="seconds"]').fill(String(seconds))
+    if (ending !== undefined) await page.locator('#instances .row').nth(i).locator('[data-field="ending"]').selectOption(ending)
+  }
+
   // no turn, and the tracks the other lists
   while ((await page.locator('#turn-points .turn-row').count()) > 0) await page.locator('#turn-points .turn-row').first().locator('.remove').click()
   for (const box of await page.locator('#track-list input').all()) must((await box.isChecked()) === want.tracks.includes((await box.getAttribute('data-track'))!), 'the Tracks the Song lists are not the ones the other lists')
@@ -213,6 +217,234 @@ try {
   await page.keyboard.press('Control+Shift+Z')
   await page.keyboard.press('Control+Z')
   await page.screenshot({ path: join(keep, 'edit.png'), fullPage: true })
+
+  // ---- and again, with the mouse: the Song becomes tempo-turns by choosing, dragging and drawing on the drawing
+  // (typing is for what is typed: the file's name, and the numbers a Block, a tempo and a fade are given)
+  await page.reload()
+  await page.waitForSelector('#which-file option', { state: 'attached' })
+  await page.evaluate(() => localStorage.clear())
+  await page.reload()
+  await page.waitForSelector('#which-file option', { state: 'attached' })
+  const checks = () => page.locator('#verdict').getAttribute('data-checks').then((n) => Number(n ?? 0))
+  /** Something is done, and the Composer has answered it. */
+  const doing = async (act: () => Promise<unknown>) => {
+    const before = await checks()
+    await act()
+    await page.waitForFunction((n) => Number(document.querySelector('#verdict')?.getAttribute('data-checks') ?? 0) > n, before, { timeout: 8000 }).catch(async () => {
+      await page.screenshot({ path: join(keep, 'stuck.png'), fullPage: true })
+      throw new Error(`round trip: nothing was asked of the Composer after ${act.toString().replace(/\s+/g, ' ').slice(0, 140)}; the verdict says: ${await page.locator('#verdict').textContent()}`)
+    })
+  }
+  /** Something is chosen: nothing is changed, and nothing is asked of the Composer. */
+  const choosing = async (act: () => Promise<unknown>) => {
+    await act()
+    await page.waitForTimeout(120)
+  }
+  const need = async () => must((await page.locator('#verdict').getAttribute('class'))?.includes('accepted'), `refused: ${await page.locator('#verdict').textContent()}`)
+  await doing(() => page.selectOption('#which-file', first!.id))
+  must(!(await page.locator('#unsaved').isVisible()), 'the Song is open as it is, and is said to be unsaved')
+  await page.fill('#draft-id', want.id)
+  await page.fill('#draft-title', want.title)
+
+  const centre = async (selector: string) => {
+    const at = (await page.locator(selector).first().boundingBox())!
+    return { ...at, x: at.x + at.width / 2, y: at.y + at.height / 2 }
+  }
+  /** A drag with the mouse, as a person makes it: down, a few moves, up. */
+  const dragging = async (from: { x: number; y: number }, to: { x: number; y: number }, keys: string[] = []) => {
+    await page.mouse.move(from.x, from.y)
+    for (const key of keys) await page.keyboard.down(key)
+    await page.mouse.down()
+    await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 3 })
+    await page.mouse.move(to.x, to.y, { steps: 4 })
+    await page.mouse.up()
+    for (const key of keys) await page.keyboard.up(key)
+  }
+  const region = (index: number) => `#edit-diagram .region[data-index="${index}"]`
+  const lane = (track: string) => `#edit-diagram .canvas[data-track="${track}"]`
+  const pps = () => page.locator('#edit-diagram').getAttribute('data-pps').then(Number)
+
+  // the turn goes: click its handle, then Remove
+  await choosing(() => page.click('#edit-diagram .turn-handle'))
+  await doing(() => page.click('#turn-points .remove'))
+  // and every Block of the Song: click one, then Remove
+  while ((await page.locator('#edit-diagram .clip').count()) > 0) {
+    await choosing(() => page.locator('#edit-diagram .clip').first().click())
+    await doing(() => page.locator('#blocks .remove').first().click())
+  }
+  // the regions the other does not have go: click one, then Remove, from the last to the first
+  const total = want.instances.length
+  for (let i = song.length - 1; i >= total; i--) {
+    await choosing(() => page.locator(region(i)).click())
+    await doing(() => page.locator('#instances .remove').first().click())
+  }
+  // and the rest are put in its order: a region is dragged to where it belongs, an earlier place at a time
+  const wantNames = want.instances.map(({ name }) => name)
+  const have = () => page.locator('#edit-diagram .region .name').allTextContents()
+  const nth = (names: string[], i: number) => names.slice(0, i + 1).filter((name) => name === names[i]).length
+  for (let place = 0; place < total; place++) {
+    const names = await have()
+    const at = names.findIndex((name, i) => i >= place && name === wantNames[place] && nth(names, i) === nth(wantNames, place))
+    must(at >= 0, `no region for place ${place + 1} in ${JSON.stringify(names)}`)
+    if (at === place) continue
+    const from = await centre(region(at))
+    const target = (await page.locator(region(place)).boundingBox())!
+    await doing(() => dragging(from, { x: target.x, y: from.y }))
+  }
+  must(JSON.stringify(await have()) === JSON.stringify(wantNames), `the regions are ${JSON.stringify(await have())}`)
+
+  // the tempo: click the lane at a region for a change, and make it free, or a number; in free time the right edge of the region sets its seconds
+  const atOf = (point: { region?: string; hearing?: number }) => wantNames.findIndex((name, i) => name === point.region && nth(wantNames, i) === (point.hearing ?? 1))
+  for (const point of want.tempo.slice(1)) {
+    const box = (await page.locator(region(atOf(point))).boundingBox())!
+    const pace = (await page.locator('#edit-diagram .canvas[data-lane="pace"]').boundingBox())!
+    await doing(() => page.mouse.click(box.x + box.width / 2, pace.y + pace.height / 2))
+    if (typeof point.bpm === 'number') {
+      await doing(() => page.locator('#tempo-points [data-field="mode"]').selectOption('number'))
+      await doing(() => page.locator('#tempo-points [data-field="bpm"]').fill(String(point.bpm)))
+    }
+  }
+  // then the one in free time: its flag is chosen, and made free, and the right edge of its region is dragged to its seconds
+  for (const [index, point] of want.tempo.entries()) {
+    if (point.bpm !== null) continue
+    await choosing(() => page.locator(`#edit-diagram .point[data-point="${index}"]`).click())
+    await doing(() => page.locator('#tempo-points [data-field="mode"]').selectOption('free'))
+    const at = atOf(point)
+    const edge = (await page.locator(region(at)).boundingBox())!
+    const per = await pps()
+    await doing(() => dragging({ x: edge.x + edge.width - 3, y: edge.y + 20 }, { x: edge.x + edge.width - 3 + (want.instances[at]!.seconds! - edge.width / per) * per, y: edge.y + 20 }))
+  }
+  await need()
+
+  // the Blocks, in the order the file has them: drawn on their Track by dragging over the regions, or copied with Alt held, and given their numbers
+  const spanOf = async (from: { region: string; hearing?: number }) => (await page.locator(region(wantNames.findIndex((name, i) => name === from.region && nth(wantNames, i) === (from.hearing ?? 1)))).boundingBox())!
+  const kept: { key: string; at: number }[] = []
+  for (const block of want.blocks) {
+    const first = await spanOf(block.from)
+    const last = await spanOf(block.to)
+    const trackLane = (await page.locator(lane(block.track)).boundingBox())!
+    const y = trackLane.y + 15
+    const sameBefore = kept.find((one) => one.key === block.key)
+    if (sameBefore) {
+      // a sound heard again: the first one, with Alt, dragged to where this one is
+      const was = want.blocks[sameBefore.at]
+      const origin = await spanOf(was.from)
+      // taken high on its body: the gain line runs through the middle of a Block, and is for the gain
+      // taken by its body, high up (the gain line runs through the middle) and clear of what overlaps it, and moved as far as its region is from the one it was made on
+      const body = (await page.locator(`#edit-diagram .clip[data-block="${sameBefore.at}"]`).boundingBox())!
+      const by = first.x - origin.x
+      const grab = { x: body.x + Math.min(60, body.width / 2), y: body.y + 4 }
+      await doing(() => dragging(grab, { x: grab.x + by, y: grab.y }, ['Alt']))
+    } else {
+      // drawn from the far end, so that it does not begin on another Block's tail
+      await doing(() => dragging({ x: last.x + last.width - 2, y }, { x: first.x + 2, y }))
+    }
+    kept.push({ key: block.key, at: want.blocks.indexOf(block) })
+    for (const side of ['from', 'to'] as const) if (block[side].plus !== undefined && !sameBefore) await doing(() => page.locator(`#blocks [data-field="${side}-plus"]`).fill(String(block[side].plus)))
+    for (const name of ['fadeIn', 'fadeOut', 'gain']) if (block[name] !== undefined && !sameBefore) await doing(() => page.locator(`#blocks [data-field="${name}"]`).fill(String(block[name])))
+  }
+  await need()
+  await page.screenshot({ path: join(keep, 'mouse-made.png'), fullPage: true })
+  const [mouseMade] = await Promise.all([page.waitForEvent('download'), page.click('#save')])
+  const mouseAt = join(keep, 'tempo-turns-by-mouse.json')
+  await mouseMade.saveAs(mouseAt)
+  must(readFileSync(mouseAt, 'utf8') === target, 'the file made with the mouse is not the file in the repository')
+
+  // ---- the other hands: stretch, fades and gain, one step to a drag, what is chosen coming back with undo, and the keys
+  const clipAt = (index: number) => page.locator(`#edit-diagram .clip[data-block="${index}"]`)
+  const value = (field: string) =>
+    page.locator(`#blocks [data-field="${field}"]`).first().inputValue({ timeout: 4000 }).catch(async () => {
+      await page.screenshot({ path: join(keep, 'stuck.png'), fullPage: true })
+      throw new Error(`round trip: no field ${field} among ${await page.locator('#blocks li').count()} rows chosen; the verdict says: ${await page.locator('#verdict').textContent()}`)
+    })
+  const undo = () => doing(() => page.click('#undo'))
+  const redo = () => doing(() => page.click('#redo'))
+  const unsavedMark = () => page.locator('#unsaved').isVisible()
+  await choosing(() => clipAt(5).click())
+  await choosing(() => clipAt(8).click())
+  must((await value('key')) === 'bed:verse-2', 'the chosen Block is not the one clicked last')
+  // stretch: the right end of a Block, dragged with Shift (no snapping): its seconds beyond the edge grow
+  const grip = (await clipAt(8).locator('.grip.right').boundingBox())!
+  await doing(() => dragging({ x: grip.x + 3, y: grip.y + 10 }, { x: grip.x + 33, y: grip.y + 10 }, ['Shift']))
+  must(Number(await value('to-plus')) > 3, `stretching did not lengthen the Block: ${await value('to-plus')}`)
+  // undo brings back what was done, and what was chosen
+  await choosing(() => page.keyboard.press('Escape'))
+  await undo()
+  must((await value('to-plus')) === '3', 'undo did not undo the stretch')
+  must((await value('key')) === 'bed:verse-2', 'undo did not bring back what was chosen')
+  // redo comes back to where it was left: with nothing chosen, since Esc let go of it there
+  await redo()
+  must((await page.locator('#blocks li').count()) === 0, 'redo chose what had been let go of')
+  await choosing(() => clipAt(8).click())
+  must(Number(await value('to-plus')) > 3, 'redo did not do the stretch again')
+  await undo()
+  // one drag, one step: a Block is moved a long way in many small moves, and one undo puts it back
+  const before = (await clipAt(3).boundingBox())!
+  await doing(() => dragging({ x: before.x + 20, y: before.y + 4 }, { x: before.x + 20 + 90, y: before.y + 4 }, ['Shift']))
+  must(Math.abs((await clipAt(3).boundingBox())!.x - before.x) > 40, 'the Block was not moved')
+  await undo()
+  must(Math.abs((await clipAt(3).boundingBox())!.x - before.x) < 1, 'one undo did not put back a whole drag')
+  // the fade and the gain of a chosen Block are dragged by their handles
+  await choosing(() => clipAt(8).click())
+  const fade = (await clipAt(8).locator('.fade-handle.out').boundingBox())!
+  await doing(() => dragging({ x: fade.x + 4, y: fade.y + 4 }, { x: fade.x + 4 - 24, y: fade.y + 4 }))
+  must(Number(await value('fadeOut')) > 3, `the fade handle did nothing: ${await value('fadeOut')}`)
+  await undo()
+  const line = (await clipAt(8).locator('.gain-line').boundingBox())!
+  await doing(() => dragging({ x: line.x + 30, y: line.y + 3 }, { x: line.x + 30, y: line.y + 3 + 6 }))
+  must(Number(await value('gain')) < 0.45, `the gain line did nothing: ${await value('gain')}`)
+  await undo()
+  // a sound of its own, and a key already on the Track
+  await choosing(() => clipAt(2).click())
+  await doing(() => page.locator('#blocks .unique').click())
+  must((await value('key')) !== 'voice:chorus', 'the Block was not given a key of its own')
+  await undo()
+  await doing(() => page.locator('#blocks [data-field="key-pick"]').selectOption('voice:verse-2'))
+  must((await value('key')) === 'voice:verse-2', 'a key on the Track was not picked')
+  await undo()
+  // what a Block is made from is chosen by clicking regions
+  await choosing(() => clipAt(0).click())
+  await choosing(() => page.locator('#blocks .pick-source').click())
+  await doing(() => page.locator(region(1)).click())
+  must((await value('source')).includes(wantNames[1]!), 'a region clicked while choosing did not become a source')
+  await choosing(() => page.keyboard.press('Escape'))
+  await undo()
+  // a region is added after the chosen one, and a Block removed with the key
+  await choosing(() => page.locator(region(0)).click())
+  const count = await page.locator('#edit-diagram .region').count()
+  await doing(() => page.click('#add-after'))
+  must((await page.locator('#edit-diagram .region').count()) === count + 1, 'no region was added after the chosen one')
+  await undo()
+  await choosing(() => clipAt(9).click())
+  await doing(() => page.keyboard.press('Delete'))
+  must((await page.locator('#edit-diagram .clip').count()) === want.blocks.length - 1, 'Delete did not remove the chosen Block')
+  await undo()
+  await choosing(() => clipAt(3).click())
+  await doing(() => page.keyboard.press('ArrowRight'))
+  must((await value('from-plus')) === '0.1', 'an arrow did not nudge the Block')
+  await undo()
+  // Esc lets go
+  await choosing(() => page.keyboard.press('Escape'))
+  must((await page.locator('#blocks li').count()) === 0 && (await page.locator('#nothing-chosen').textContent())!.length > 0, 'Esc did not let go of what was chosen')
+  // zoom and fit
+  const fitted = await pps()
+  await choosing(() => page.locator('#zoom').fill('3'))
+  must((await pps()) > fitted * 2.5, 'zooming did not widen the drawing')
+  await choosing(() => page.click('#fit'))
+  must(Math.abs((await pps()) - fitted) < 0.01, 'Fit did not bring the Song back to the window')
+  await page.screenshot({ path: join(keep, 'hands.png'), fullPage: true })
+
+  // undo every step, and the Song comes back
+  for (let steps = 0; !(await page.locator('#undo').isDisabled()); steps++) {
+    must(steps < 1000, 'undo does not come to an end')
+    await page.click('#undo')
+  }
+  await page.waitForFunction(() => document.querySelector('#verdict')?.classList.contains('accepted'))
+  const [again] = await Promise.all([page.waitForEvent('download'), page.click('#save')])
+  const againAt = join(keep, `${first!.id}-after-the-mouse.json`)
+  await again.saveAs(againAt)
+  must(readFileSync(againAt, 'utf8') === readFileSync(join(arrangementsHome, first!.id, 'arrangement.json'), 'utf8'), 'undoing every step of the mouse did not give back the Song as its file')
+  void unsavedMark
 
   // a concept with a workspace not built yet says so, and one page in Edit says its words short
   await page.goto(`${base}/mood/?mode=edit`)

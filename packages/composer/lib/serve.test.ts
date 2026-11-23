@@ -106,10 +106,11 @@ describe('POST /format and /tracks.json', () => {
   })
 
   it('lists the Tracks, with what makes them and the parameters a Block of each may be given', async () => {
-    const tracks = (await (await get(answer, '/tracks.json')).json()) as { id: string; heard: boolean; makes: unknown; parameters: string[] }[]
+    const tracks = (await (await get(answer, '/tracks.json')).json()) as { id: string; heard: boolean; makes: unknown; parameters: { name: string; minimum?: number; maximum?: number }[] }[]
     expect(tracks.map(({ id }) => id)).toEqual(['bed', 'guide', 'voice'])
     expect(tracks.find(({ heard }) => !heard)!.parameters).toEqual([])
-    expect(tracks.find(({ id }) => id === 'bed')!.parameters.sort()).toEqual(['fadeIn', 'fadeOut', 'gain'])
+    expect(tracks.find(({ id }) => id === 'bed')!.parameters.map(({ name }) => name).sort()).toEqual(['fadeIn', 'fadeOut', 'gain'])
+    expect(tracks.find(({ id }) => id === 'bed')!.parameters.find(({ name }) => name === 'gain')).toMatchObject({ minimum: 0, maximum: 2 })
   })
 })
 

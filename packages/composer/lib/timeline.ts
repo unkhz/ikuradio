@@ -6,8 +6,17 @@ import { beatsPerBar } from 'melody'
 import { resolve, type Arrangement, type Resolved, type TrackRecord } from 'parts'
 import type { Layout } from './layout.js'
 
-/** A Track as the page needs it: what it is called, whether it is heard, and what makes its Blocks, or nothing yet. */
-export type TrackAnswer = { id: string; title: string; heard: boolean; makes: { by: string; from: string } | null }
+/** What a Block on a Track may be given, with its range: the gain and the fades. */
+export type BlockParameter = { name: string; minimum?: number; maximum?: number; default?: number }
+
+/** A Track as the page needs it: what it is called, whether it is heard, what makes its Blocks (or nothing yet) and what a Block on it may be given. */
+export type TrackAnswer = { id: string; title: string; heard: boolean; makes: { by: string; from: string } | null; parameters: BlockParameter[] }
+
+/** A Track's Block parameters, with their ranges, read from its schema. */
+export function blockParametersOf(track: TrackRecord['track']): BlockParameter[] {
+  const { properties = {} } = track.parameters as { properties?: Record<string, Omit<BlockParameter, 'name'>> }
+  return Object.entries(properties).map(([name, { minimum, maximum, default: given }]) => ({ name, ...(minimum !== undefined ? { minimum } : {}), ...(maximum !== undefined ? { maximum } : {}), ...(given !== undefined ? { default: given } : {}) }))
+}
 
 /** A stretch under one tempo, or in free time (`tempo` null), from and to seconds. */
 export type Segment = { tempo: number | null; from: number; to: number }
@@ -35,7 +44,7 @@ export function timelineOf(arrangement: Arrangement, layout: Layout, tracks: rea
   const byId = new Map(tracks.filter(({ state }) => state === 'active').map((record) => [record.track.id, record]))
   const listed = (arrangement.tracks ?? []).flatMap((id) => {
     const record = byId.get(id)
-    return record ? [{ id, title: record.title, heard: record.track.heard, makes: record.track.makes ?? null }] : []
+    return record ? [{ id, title: record.title, heard: record.track.heard, makes: record.track.makes ?? null, parameters: blockParametersOf(record.track) }] : []
   })
   return { ...resolved, beatsPerBar, segments, turns, tracks: listed }
 }
