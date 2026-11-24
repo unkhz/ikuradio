@@ -250,9 +250,11 @@ setInterval(keepCache, 60_000)
 
 /** What a search asks for, if it asks for something that could be there. */
 const searchOf = (url: URL) => {
+  const q = (url.searchParams.get('q') ?? '').trim().slice(0, 160)
   const mode = url.searchParams.get('mode') ?? ''
   const heard = url.searchParams.get('heard') ?? ''
   return {
+    ...(q ? { q } : {}),
     ...(/^[a-z]{1,40}$/.test(mode) ? { mode } : {}),
     ...(/^[a-z0-9-]{1,100}$/.test(heard) ? { heard } : {}),
   }

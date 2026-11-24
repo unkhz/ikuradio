@@ -1484,15 +1484,19 @@ const rowPx = 52
 const received = { total: undefined, rows: [], asked: new Set(), at: 0 }
 let firstShown = 0 // the first row in the window
 
-/** What is searched for, from the address: a mode, and how a Song was heard, `plainly` or a Perspective's slug. */
+/** What is searched for, from the address: free-text metadata query `q`, a mode, and how a Song was heard (`plainly` or a Perspective's slug). */
 const asking = new URLSearchParams(location.search)
-const search = { mode: asking.get('mode') || '', heard: asking.get('heard') || '' }
+const search = { q: (asking.get('q') || '').trim(), mode: asking.get('mode') || '', heard: asking.get('heard') || '' }
 /** The filters' options, as the Radio last counted them; undefined while it offers no search. */
 let searching
+const searchInput = document.getElementById('search-text')
+const searchFilters = document.getElementById('search-filters')
+if (searchInput) searchInput.value = search.q
+if (searchFilters && (search.mode || search.heard)) searchFilters.open = true
 
-/** The search as the Radio is asked it, `&mode=…&heard=…`, empty without its cache. */
+/** The search as the Radio is asked it, `&q=…&mode=…&heard=…`, empty without its cache. */
 const searchQuery = () =>
-  searching ? ['mode', 'heard'].filter((k) => search[k]).map((k) => `&${k}=${encodeURIComponent(search[k])}`).join('') : ''
+  searching ? ['q', 'mode', 'heard'].filter((k) => search[k]).map((k) => `&${k}=${encodeURIComponent(search[k])}`).join('') : ''
 
 /** The height the search takes above the list, when it is shown. */
 const searchPx = () =>
@@ -1504,12 +1508,20 @@ const searchPx = () =>
 /** How many rows fit in the window, from the dialog's height and what the search takes of it. */
 const pageRows = () => Math.max(3, Math.floor((Math.min(640, innerHeight - 64) - 72 - searchPx()) / rowPx))
 
-/** Asks the Radio for both filters' options, counted given the other, and shows them; hides them if it offers none. */
+/** Asks the Radio for both filters' options, counted given `q` and the other filter, and shows them; hides them if it offers none. */
 async function loadOptions() {
+  const params = new URLSearchParams()
+  for (const key of ['q', 'mode', 'heard']) if (search[key]) params.set(key, search[key])
+  const stamp = params.toString()
   try {
-    const response = await fetch(`${radio}/songs/options?${new URLSearchParams(search)}`)
+    const response = await fetch(`${radio}/songs/options?${stamp}`)
     if (!response.ok) throw new Error(`${response.status}`)
-    searching = await response.json()
+    const data = await response.json()
+    // an older options response arriving after the search moved on is ignored
+    const current = new URLSearchParams()
+    for (const key of ['q', 'mode', 'heard']) if (search[key]) current.set(key, search[key])
+    if (current.toString() !== stamp) return
+    searching = data
   } catch {
     searching = undefined
   }
@@ -1534,7 +1546,7 @@ function fillFilter(select, options, any, chosen) {
   )
 }
 
-/** Shows the filters and the line that says what they find, or hides them both. */
+/** Shows the search bar, filters, and the line that says what they find, or hides them both. */
 function drawSearch() {
   const form = document.getElementById('song-search')
   const found = document.getElementById('song-found')
@@ -1543,10 +1555,12 @@ function drawSearch() {
     found.hidden = true
     return drawSongs()
   }
+  if (searchInput && document.activeElement !== searchInput && searchInput.value !== search.q) searchInput.value = search.q
   fillFilter(document.getElementById('search-mode'), searching.modes, { label: 'any mode', count: searching.any.mode }, search.mode)
   fillFilter(document.getElementById('search-heard'), searching.heard, { label: 'any way', count: searching.any.heard }, search.heard)
   const named = (options, value) => options.find((o) => o.value === value)?.label ?? unknownWay
   const parts = [
+    search.q && { key: 'q', label: `"${search.q}"` },
     search.mode && { key: 'mode', label: named(searching.modes, search.mode) },
     search.heard && { key: 'heard', label: named(searching.heard, search.heard) },
   ].filter(Boolean)
@@ -1560,27 +1574,45 @@ function drawSearch() {
       pieces.push(document.createTextNode(label), out(key, label))
     }
     const count = received.total
-    pieces.push(document.createTextNode(count === undefined ? ': …' : `: ${count.toLocaleString('en')} Song${count === 1 ? '' : 's'}`))
-    const clear = Object.assign(document.createElement('button'), { type: 'button', className: 'clear', textContent: 'clear', onclick: () => choose({ mode: '', heard: '' }) })
+    const ranked = search.q ? ', by relevance' : ''
+    pieces.push(document.createTextNode(count === undefined ? ': …' : `: ${count.toLocaleString('en')} Song${count === 1 ? '' : 's'}${ranked}`))
+    const clear = Object.assign(document.createElement('button'), { type: 'button', className: 'clear', textContent: 'clear', onclick: () => choose({ q: '', mode: '', heard: '' }) })
     found.replaceChildren(...pieces, clear)
   }
   drawSongs()
 }
 
-/** Chooses in the search: the address remembers it, the list starts again from its newest, and both filters are counted again. */
+/** Chooses in the search: the address remembers it, the list starts again from the top, and filters are counted again. */
 function choose(changes) {
+  if ('q' in changes) changes = { ...changes, q: String(changes.q ?? '').trim() }
   Object.assign(search, changes)
+  if (searchInput && 'q' in changes && document.activeElement !== searchInput) searchInput.value = search.q
+  if (searchFilters && (search.mode || search.heard)) searchFilters.open = true
   const address = new URLSearchParams(location.search)
-  for (const key of ['mode', 'heard']) search[key] ? address.set(key, search[key]) : address.delete(key)
+  for (const key of ['q', 'mode', 'heard']) search[key] ? address.set(key, search[key]) : address.delete(key)
   const query = address.toString()
   history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}`)
   Object.assign(received, { total: undefined, rows: [], asked: new Set(), at: Date.now() })
   firstShown = 0
   loadOptions()
 }
+let typingSearch
+searchInput?.addEventListener('input', () => {
+  clearTimeout(typingSearch)
+  const next = searchInput.value.trim()
+  typingSearch = setTimeout(() => {
+    if (next !== search.q) choose({ q: next })
+  }, 180)
+})
+searchFilters?.addEventListener('toggle', () => drawSongs())
 document.getElementById('search-mode').addEventListener('change', (event) => choose({ mode: event.target.value }))
 document.getElementById('search-heard').addEventListener('change', (event) => choose({ heard: event.target.value }))
-document.getElementById('song-search').addEventListener('submit', (event) => event.preventDefault())
+document.getElementById('song-search').addEventListener('submit', (event) => {
+  event.preventDefault()
+  clearTimeout(typingSearch)
+  const next = (searchInput?.value ?? '').trim()
+  if (next !== search.q) choose({ q: next })
+})
 
 async function loadPage(page) {
   const size = pageRows()
@@ -1619,8 +1651,8 @@ function songRow(song, index) {
   // the Song on now is not looked back on: it is where the receiver tunes in live.
   // Only the Radio knows which is on; when the song holds its breath, none is,
   // and the newest is a Song like any other, to be played from its beginning
-  const latest = index === 0 && song.on === true
-  const about = song.mood ? `${song.mood.join(' + ')} · ${Math.round(song.seconds / 60)} min` : '…'
+  const latest = index === 0 && song.on === true && !search.q
+  const about = song.mood ? `${song.mood.join(' + ')} · ${Math.round(song.seconds / 60)} min${song.on && search.q ? ' · live' : ''}` : '…'
   // a Song is linked by the name it was given; a Song with no name is not linked
   const link = Object.assign(document.createElement('a'), latest ? { href: '/' } : song.slug && { href: `/s/${song.song}/${song.slug}` })
   link.append(document.createTextNode(latest ? 'tune to live' : song.name ?? `Song ${number(song.song)}`))
@@ -1639,7 +1671,7 @@ function drawSongs() {
   document.getElementById('song-window').style.height = `${size * rowPx}px`
   firstShown = Math.max(0, Math.min(firstShown, Math.max(0, total - size)))
   if (received.total === 0) {
-    const nothing = searchQuery() ? 'no Song received was heard that way' : 'nothing received yet'
+    const nothing = search.q ? 'no Song received matches that' : searchQuery() ? 'no Song received was heard that way' : 'nothing received yet'
     list.replaceChildren(Object.assign(document.createElement('li'), { className: 'unknown', textContent: nothing }))
   } else {
     const shown = Math.min(size, received.total === undefined ? size : total - firstShown)
@@ -1690,6 +1722,7 @@ songWindow.addEventListener('touchend', () => (touched = undefined))
 document.getElementById('page-up').addEventListener('click', () => moveSongs(-pageRows()))
 document.getElementById('page-down').addEventListener('click', () => moveSongs(pageRows()))
 document.getElementById('songs').addEventListener('keydown', (event) => {
+  if (event.target?.matches?.('input, select, textarea')) return
   const moves = {
     ArrowDown: 1,
     ArrowUp: -1,

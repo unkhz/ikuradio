@@ -2,7 +2,7 @@
 // for every test.
 import { beforeEach, describe, expect, it } from 'bun:test'
 import type { Session } from 'archive'
-import { cachedFrom, modeName, schemaVersion, SongCache } from './cache.js'
+import { cachedFrom, ftsQueryOf, modeName, schemaVersion, SongCache } from './cache.js'
 
 const minute = 60_000
 const t0 = Date.parse('2026-11-14T00:00:00Z')
@@ -41,8 +41,11 @@ describe('cachedFrom', () => {
       mode: 'dorian',
       tempo: 80,
       mood: ['rain', 'gears'],
+      arrangement: 'the-song',
+      arrangementTitle: 'The Song as it always was',
       sound: 'oud',
       choir: 'a woman, with a child',
+      meta: '80 bpm',
       perspectives: [{ ...home, variant: 'x' }],
     })
   })
@@ -180,5 +183,92 @@ describe('the cache', () => {
     expect((await again.held()).size).toBe(6)
     await again.close()
     for (const end of ['', '-wal', '-shm']) await Bun.file(`${file}${end}`).delete().catch(() => {})
+  })
+})
+
+describe('free-text weighted metadata search (FTS5)', () => {
+  let db: SongCache
+
+  beforeEach(async () => {
+    db = new SongCache()
+    await db.prepare()
+  })
+
+  it('parses queries safely: prefixes, quoted phrases, formatted Song numbers, and malformed punctuation', () => {
+    expect(ftsQueryOf('whisp winter')).toEqual({ match: '"whisp"* "winter"*' })
+    expect(ftsQueryOf('"long breath" dorian')).toEqual({ match: '"long breath" "dorian"*' })
+    expect(ftsQueryOf('2,014')).toEqual({ match: '"2014"*', exactSong: '2014' })
+    expect(ftsQueryOf('oud & darbuka!!!')).toEqual({ match: '"oud"* "darbuka"*' })
+    expect(ftsQueryOf('  "" --- ???  ')).toBeUndefined()
+  })
+
+  it('weights title > weather > band > arrangement > thought and ranks exact Song number first, without indexing lyrics', async () => {
+    const rich = (overrides: Partial<Session> & { song: string; begins: number }) =>
+      cachedFrom(
+        {
+          mode: 'dorian',
+          tempo: 80,
+          mood: ['foggy harbor'],
+          choir: 'a woman',
+          sound: 'piano',
+          perspectives: [],
+          ...overrides,
+        } as unknown as Session,
+        { song: overrides.song, begins: overrides.begins, seconds: 240 },
+      )
+
+    // 4 Songs all containing the word "storm" in different metadata fields (ordered oldest to newest so recency cannot accidentally win!)
+    await db.add(rich({ song: '101', begins: t0 + 1 * minute, name: 'Storm Over Glass', mood: ['calm sea'], sound: 'cello', thought: 'quiet horizon' }))
+    await db.add(rich({ song: '102', begins: t0 + 2 * minute, name: 'Quiet Harbor', mood: ['gathering storm', 'wet stone'], sound: 'cello', thought: 'quiet horizon' }))
+    await db.add(rich({ song: '103', begins: t0 + 3 * minute, name: 'Quiet Harbor Two', mood: ['calm sea'], sound: 'storm drums and oud', thought: 'quiet horizon' }))
+    await db.add(rich({ song: '104', begins: t0 + 4 * minute, name: 'Quiet Harbor Three', mood: ['calm sea'], sound: 'cello', thought: 'I wondered about the storm in my circuits.' }))
+    // Song with "storm" ONLY in lyrics — must NOT match!
+    await db.add(
+      rich({
+        song: '105',
+        begins: t0 + 5 * minute,
+        name: 'Sunny Meadow',
+        mood: ['warm grass'],
+        sound: 'harp',
+        thought: 'a peaceful afternoon',
+        iterations: [{ iteration: '1', at: 0, seconds: 60, variation: 0, of: { at: 1, of: 1 }, parts: [{ type: 'verse', at: 0, seconds: 60, lines: [{ text: 'The storm broke over every roof', at: 0, typing: [0] }] }] }],
+      }),
+    )
+    // Song with The Long Breath, free time, drone, and number 2014 vs 20140
+    await db.add(
+      rich({
+        song: '2014',
+        begins: t0 + 6 * minute,
+        arrangement: 'the-long-breath',
+        arrangementTitle: 'The Long Breath',
+        name: "Echoes of the Sea, Krautrock's Embrace",
+        mood: ['salt spray'],
+        sound: 'krautrock motorik synth',
+        tracks: ['drone'],
+        iterations: [{ iteration: '1', at: 0, seconds: 218, variation: 0, of: { at: 1, of: 1 }, parts: [{ type: 'bridge', at: 0, seconds: 12, tempo: null, lines: [] }] }],
+      }),
+    )
+    await db.add(rich({ song: '20140', begins: t0 + 7 * minute, name: 'Later Signal', mood: ['salt spray'], sound: 'organ' }))
+
+    const end = t0 + 20 * minute
+
+    // Relevance order: title (101) > weather (102) > band (103) > thought (104), and lyrics-only (105) excluded!
+    const byStorm = await db.page({ q: 'storm' }, 0, 10, end)
+    expect(byStorm.total).toBe(4)
+    expect(byStorm.songs.map((s) => s.song)).toEqual(['101', '102', '103', '104'])
+
+    // Exact Song number ranks 2014 above 20140 even though 20140 is newer
+    const byNum = await db.page({ q: '2,014' }, 0, 10, end)
+    expect(byNum.songs.map((s) => s.song)).toEqual(['2014', '20140'])
+
+    // Multi-field AND + prefix + porter stemming + arrangement + free time + tracks
+    expect((await db.page({ q: '"long breath" kraut' }, 0, 10, end)).songs.map((s) => s.song)).toEqual(['2014'])
+    expect((await db.page({ q: 'free time drone' }, 0, 10, end)).songs.map((s) => s.song)).toEqual(['2014'])
+    expect((await db.page({ q: 'echo sea' }, 0, 10, end)).songs.map((s) => s.song)).toEqual(['2014'])
+
+    // Filter option counts adapt dynamically to `q`
+    const opts = await db.options({ q: 'storm' }, end)
+    expect(opts.any.mode).toBe(4)
+    expect(opts.modes).toEqual([{ value: 'dorian', label: 'Dorian', count: 4 }])
   })
 })

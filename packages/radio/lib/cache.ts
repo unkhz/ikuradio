@@ -9,10 +9,11 @@
 
 import { Database } from 'bun:sqlite'
 import { slugOf, type Session } from 'archive'
+import { arrangementName } from './speaks.js'
 import { endOf, type Airing } from './tactus.js'
 
 /** The shape of the tables; when it changes, they are dropped and filled again. */
-export const schemaVersion = 2
+export const schemaVersion = 3
 
 /** A Song as the list shows it and the search finds it. */
 export type CachedSong = {
@@ -24,17 +25,79 @@ export type CachedSong = {
   mode: string
   tempo: number
   mood: string[]
+  /** The Arrangement slug (`the-song` for older Songs before Arrangements were recorded). */
+  arrangement: string
+  /** The Arrangement's human title (`The Song as it always was`, `The Long Breath`, …). */
+  arrangementTitle: string
   /** The name the mind gave it, punctuation and all. */
   name?: string
   /** The slug its name makes: the words of the Song's only link. */
   slug?: string
   sound?: string
   choir?: string
+  /** What the mind thought of the Song, if kept. */
+  thought?: string
+  /** Non-default Tracks active in the Song (`drone`, `pulse`, …), if any. */
+  tracks?: string[]
+  /** Distinct part types and tempo cues (`free time`, extra tempi), for metadata search. */
+  meta?: string
   perspectives: { slug: string; title: string; variant?: string }[]
 }
 
-/** What the search asks for: a mode, and how it was heard, `plainly` for from no Perspective, or a Perspective's slug. */
-export type Search = { mode?: string; heard?: string }
+/** What the search asks for: free-text metadata query `q`, a mode, and how it was heard (`plainly` or a Perspective's slug). */
+export type Search = { q?: string; mode?: string; heard?: string }
+
+/**
+ * Column relevance weights for SQLite FTS5 `bm25(songs_fts, ...)` across Song metadata
+ * (ordered to match `songs_fts` columns: song, name, mood, sound, arrangement, mode,
+ * perspectives, choir, meta, thought). Lyrics are deliberately excluded.
+ */
+export const ftsWeights = [20, 12, 8, 7, 6, 5, 4.5, 3.5, 3, 2] as const
+
+/**
+ * Turns a listener's free-text query into a safe SQLite FTS5 `MATCH` expression.
+ * Supports quoted phrases (`"long breath"`), prefix matching on plain words (`kraut` → `"kraut"*`),
+ * formatted Song numbers (`2,014` → `"2014"*`), and multi-word AND semantics.
+ * Never throws on punctuation or malformed quotes; returns undefined if nothing searchable remains.
+ */
+export function ftsQueryOf(raw?: string): { match: string; exactSong?: string } | undefined {
+  if (!raw) return undefined
+  const trimmed = raw.trim().slice(0, 160)
+  if (!trimmed) return undefined
+  const terms: string[] = []
+  const tokenPattern = /"([^"]*)"|(\S+)/g
+  for (const hit of trimmed.matchAll(tokenPattern)) {
+    if (terms.length >= 12) break
+    const quoted = hit[1]
+    if (quoted !== undefined) {
+      const cleaned = quoted
+        .replace(/[^\p{L}\p{N}\s'-]+/gu, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      if (cleaned) terms.push(`"${cleaned}"`)
+      continue
+    }
+    const bare = hit[2]!
+    // formatted Song numbers like "2,014" → "2014"
+    if (/^\d[\d,]*$/.test(bare)) {
+      const digits = bare.replace(/,/g, '')
+      if (digits) terms.push(`"${digits}"*`)
+      continue
+    }
+    const parts = bare
+      .split(/[^\p{L}\p{N}'-]+/u)
+      .map((part) => part.replace(/^['-]+|['-]+$/g, ''))
+      .filter(Boolean)
+    for (const part of parts) {
+      if (terms.length >= 12) break
+      terms.push(part.length >= 2 ? `"${part}"*` : `"${part}"`)
+    }
+  }
+  if (terms.length === 0) return undefined
+  const digitsOnly = trimmed.replace(/,/g, '')
+  const exactSong = /^\d{1,400}$/.test(digitsOnly) ? digitsOnly : undefined
+  return { match: terms.join(' '), ...(exactSong ? { exactSong } : {}) }
+}
 
 /** One option of a filter, counted given the other filter. */
 export type Option = { value: string; label: string; count: number }
@@ -54,8 +117,31 @@ const modeNames: Record<string, string> = {
 /** A mode's name as music says it; one the song learns later is named as it is written, capitalized. */
 export const modeName = (mode: string) => modeNames[mode] ?? mode.charAt(0).toUpperCase() + mode.slice(1)
 
+/** Summarizes a Session's tempo variations, active tracks, and part kinds into searchable metadata words. */
+function metaOf(session: Session): string {
+  const tokens = new Set<string>()
+  const baseTempo = Math.round(session.tempo)
+  if (Number.isFinite(baseTempo) && baseTempo > 0) tokens.add(`${baseTempo} bpm`)
+  for (const track of session.tracks ?? []) tokens.add(track)
+  for (const it of session.iterations ?? []) {
+    for (const part of it.parts ?? []) {
+      tokens.add(part.type)
+      if (part.tempo === null) tokens.add('free time')
+      else if (typeof part.tempo === 'number' && Number.isFinite(part.tempo)) tokens.add(`${Math.round(part.tempo)} bpm`)
+      if (part.mode) {
+        tokens.add(part.mode)
+        tokens.add(modeName(part.mode))
+      }
+    }
+  }
+  return [...tokens].join(' ')
+}
+
 /** A Song as the cache keeps it, from its Session and its airing. */
 export function cachedFrom(session: Session, airing: Airing): CachedSong {
+  const arrangement = session.arrangement ?? 'the-song'
+  const arrangementTitle = arrangementName(session.arrangement, session.arrangementTitle)
+  const meta = metaOf(session)
   return {
     song: airing.song,
     begins: airing.begins,
@@ -63,9 +149,14 @@ export function cachedFrom(session: Session, airing: Airing): CachedSong {
     mode: session.mode,
     tempo: Math.round(session.tempo),
     mood: session.mood ?? [],
+    arrangement,
+    arrangementTitle,
     ...(session.name ? { name: session.name, slug: slugOf(session.name) } : {}),
     ...(session.sound ? { sound: session.sound } : {}),
     ...(session.choir ? { choir: session.choir } : {}),
+    ...(session.thought ? { thought: session.thought } : {}),
+    ...(session.tracks?.length ? { tracks: session.tracks } : {}),
+    ...(meta ? { meta } : {}),
     perspectives: (session.perspectives ?? []).map(({ slug, title, variant }) => ({ slug, title, ...(variant ? { variant } : {}) })),
   }
 }
@@ -88,6 +179,7 @@ export class SongCache {
     if (kept === schemaVersion) return
     this.db.transaction(() => {
       this.db.exec(`
+        drop table if exists songs_fts;
         drop table if exists song_perspectives;
         drop table if exists songs;
         create table songs (
@@ -98,10 +190,15 @@ export class SongCache {
           mode text not null,
           tempo integer not null,
           mood text not null,
+          arrangement text not null,
+          arrangement_title text not null,
           name text,
           slug text,
           sound text,
-          choir text
+          choir text,
+          thought text,
+          tracks text,
+          meta text
         );
         create index songs_mode on songs (mode);
         create index songs_begins on songs (begins desc);
@@ -113,6 +210,19 @@ export class SongCache {
           primary key (song, slug)
         );
         create index song_perspectives_slug on song_perspectives (slug);
+        create virtual table songs_fts using fts5(
+          song,
+          name,
+          mood,
+          sound,
+          arrangement,
+          mode,
+          perspectives,
+          choir,
+          meta,
+          thought,
+          tokenize='porter unicode61 remove_diacritics 2'
+        );
         pragma user_version = ${schemaVersion};
       `)
     })()
@@ -126,9 +236,16 @@ export class SongCache {
   /** Keeps a Song, or keeps it again as it is now. */
   async add(song: CachedSong) {
     this.db.transaction(() => {
-      this.db.query('delete from songs where song = ?').run(song.song)
-      this.db
-        .query('insert into songs (song, sortable, begins, seconds, mode, tempo, mood, name, slug, sound, choir) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      const existing = this.db.query('select rowid from songs where song = ?').get(song.song) as { rowid: number } | null
+      if (existing) {
+        this.db.query('delete from songs_fts where rowid = ?').run(existing.rowid)
+        this.db.query('delete from songs where song = ?').run(song.song)
+      }
+      const inserted = this.db
+        .query(
+          `insert into songs (song, sortable, begins, seconds, mode, tempo, mood, arrangement, arrangement_title, name, slug, sound, choir, thought, tracks, meta)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
         .run(
           song.song,
           sortable(song.song),
@@ -137,16 +254,44 @@ export class SongCache {
           song.mode,
           song.tempo,
           JSON.stringify(song.mood),
+          song.arrangement,
+          song.arrangementTitle,
           song.name ?? null,
           song.slug ?? null,
           song.sound ?? null,
           song.choir ?? null,
+          song.thought ?? null,
+          song.tracks?.length ? JSON.stringify(song.tracks) : null,
+          song.meta ?? null,
         )
       for (const p of song.perspectives) {
         this.db
           .query('insert or ignore into song_perspectives (song, slug, title, variant) values (?, ?, ?, ?)')
           .run(song.song, p.slug, p.title, p.variant ?? null)
       }
+      const perspectiveText = song.perspectives.length
+        ? song.perspectives.map(({ title, variant, slug }) => [title, variant, slug].filter(Boolean).join(' ')).join(' ')
+        : 'plainly'
+      const modeText = song.mode ? `${song.mode} ${modeName(song.mode)}` : ''
+      const arrangementText = `${song.arrangementTitle} ${song.arrangement}`
+      this.db
+        .query(
+          `insert into songs_fts (rowid, song, name, mood, sound, arrangement, mode, perspectives, choir, meta, thought)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          inserted.lastInsertRowid,
+          song.song,
+          song.name ?? '',
+          song.mood.join(' '),
+          song.sound ?? '',
+          arrangementText,
+          modeText,
+          perspectiveText,
+          song.choir ?? '',
+          song.meta ?? `${song.tempo} bpm`,
+          song.thought ?? '',
+        )
     })()
   }
 
@@ -205,32 +350,48 @@ export class SongCache {
     return named
   }
 
-  /** The search, as a condition on `songs s` and its values: received by `now`, in the mode, heard that way. */
-  private where({ mode, heard }: Search, now: number): [string, (string | number)[]] {
+  /** The search, as a FROM+WHERE clause on `songs s` and its values: received by `now`, matching `q` (if any), in the mode, heard that way. */
+  private filter({ q, mode, heard }: Search, now: number): { from: string; where: string; values: (string | number)[]; fts?: { match: string; exactSong?: string } } {
+    const fts = ftsQueryOf(q)
+    const from = fts ? 'songs s join songs_fts on songs_fts.rowid = s.rowid' : 'songs s'
     const parts = ['s.begins <= ?']
     const values: (string | number)[] = [now]
+    if (fts) parts.push('songs_fts match ?'), values.push(fts.match)
     if (mode) parts.push('s.mode = ?'), values.push(mode)
     if (heard === 'plainly') parts.push('not exists (select 1 from song_perspectives p where p.song = s.song)')
     else if (heard) parts.push('exists (select 1 from song_perspectives p where p.song = s.song and p.slug = ?)'), values.push(heard)
-    return [parts.join(' and '), values]
+    return { from, where: parts.join(' and '), values, ...(fts ? { fts } : {}) }
   }
 
   private count(search: Search, now: number) {
-    const [where, values] = this.where(search, now)
-    return (this.db.query(`select count(*) as n from songs s where ${where}`).get(...values) as { n: number }).n
+    const { from, where, values } = this.filter(search, now)
+    return (this.db.query(`select count(*) as n from ${from} where ${where}`).get(...values) as { n: number }).n
   }
 
-  /** A page of the Songs received, newest first, that the search finds, and how many it finds in all. */
+  /**
+   * A page of the Songs received that the search finds, and how many it finds in all.
+   * When a free-text query `q` is active, Songs are ranked by weighted BM25 relevance across
+   * Song metadata (exact Song number first, then title, weather, band, arrangement, mode,
+   * perspectives, choir, tempo/tracks/parts, thought), breaking ties newest-first.
+   * Without `q`, Songs are ordered chronologically newest-first.
+   */
   async page(
     search: Search,
     offset: number,
     count: number,
     now = Date.now(),
   ): Promise<{ total: number; offset: number; songs: { song: string; begins: number; seconds: number; on: boolean; mood: string[]; name?: string; slug?: string }[] }> {
-    const [where, values] = this.where(search, now)
+    const { from, where, values, fts } = this.filter(search, now)
+    const weightArgs = ftsWeights.join(', ')
+    const order = fts
+      ? fts.exactSong
+        ? `case when s.song = ? then 0 else 1 end asc, bm25(songs_fts, ${weightArgs}) asc, s.begins desc, s.sortable desc`
+        : `bm25(songs_fts, ${weightArgs}) asc, s.begins desc, s.sortable desc`
+      : 's.begins desc, s.sortable desc'
+    const orderValues = fts?.exactSong ? [fts.exactSong] : []
     const rows = this.db
-      .query(`select song, begins, seconds, mood, name, slug from songs s where ${where} order by s.begins desc, s.sortable desc limit ? offset ?`)
-      .all(...values, count, offset) as { song: string; begins: number; seconds: number; mood: string; name: string | null; slug: string | null }[]
+      .query(`select s.song, s.begins, s.seconds, s.mood, s.name, s.slug from ${from} where ${where} order by ${order} limit ? offset ?`)
+      .all(...values, ...orderValues, count, offset) as { song: string; begins: number; seconds: number; mood: string; name: string | null; slug: string | null }[]
     return {
       total: this.count(search, now),
       offset,
@@ -247,17 +408,15 @@ export class SongCache {
   }
 
   /**
-   * Both filters' options, each counted given the other: the modes the Songs
-   * received were sung in, and the ways they were heard, plainly first and
-   * then each Perspective by its newest title. An option that finds nothing
-   * given the other filter is still listed, with its 0. `any` is how many
-   * each filter finds left at "any".
+   * Both filters' options, each counted given the other and any free-text query `q`: the modes
+   * the Songs received were sung in, and the ways they were heard, plainly first and then each
+   * Perspective by its newest title. An option that finds nothing is still listed with its 0.
    */
-  async options({ mode, heard }: Search, now = Date.now()): Promise<{ modes: Option[]; heard: Option[]; any: { mode: number; heard: number } }> {
-    const [byHeard, heardValues] = this.where({ heard }, now)
-    const [byMode, modeValues] = this.where({ mode }, now)
+  async options({ q, mode, heard }: Search, now = Date.now()): Promise<{ modes: Option[]; heard: Option[]; any: { mode: number; heard: number } }> {
+    const byHeard = this.filter({ q, heard }, now)
+    const byMode = this.filter({ q, mode }, now)
     const modeCounts = new Map(
-      (this.db.query(`select s.mode as mode, count(*) as n from songs s where ${byHeard} group by s.mode`).all(...heardValues) as { mode: string; n: number }[]).map(
+      (this.db.query(`select s.mode as mode, count(*) as n from ${byHeard.from} where ${byHeard.where} group by s.mode`).all(...byHeard.values) as { mode: string; n: number }[]).map(
         ({ mode: m, n }) => [m, n],
       ),
     )
@@ -267,8 +426,8 @@ export class SongCache {
     const heardCounts = new Map(
       (
         this.db
-          .query(`select p.slug as slug, count(distinct s.song) as n from songs s join song_perspectives p on p.song = s.song where ${byMode} group by p.slug`)
-          .all(...modeValues) as { slug: string; n: number }[]
+          .query(`select p.slug as slug, count(distinct s.song) as n from ${byMode.from} join song_perspectives p on p.song = s.song where ${byMode.where} group by p.slug`)
+          .all(...byMode.values) as { slug: string; n: number }[]
       ).map(({ slug, n }) => [slug, n]),
     )
     // each Perspective by the title it had when it was last heard
@@ -283,8 +442,8 @@ export class SongCache {
       .sort((a, b) => a.label.localeCompare(b.label))
     return {
       modes,
-      heard: [{ value: 'plainly', label: 'plainly', count: this.count({ mode, heard: 'plainly' }, now) }, ...ways],
-      any: { mode: this.count({ heard }, now), heard: this.count({ mode }, now) },
+      heard: [{ value: 'plainly', label: 'plainly', count: this.count({ q, mode, heard: 'plainly' }, now) }, ...ways],
+      any: { mode: this.count({ q, heard }, now), heard: this.count({ q, mode }, now) },
     }
   }
 
