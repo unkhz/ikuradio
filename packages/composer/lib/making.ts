@@ -286,6 +286,7 @@ export async function songAnswer(records: readonly PartRecord[], arrangementsDir
       sings: parts.get(instance.part)!.words,
       start: resolved?.regions[i]?.startSeconds ?? instance.startSeconds,
       seconds: resolved?.regions[i]?.seconds ?? instance.seconds,
+      tempo: resolved?.regions[i] ? resolved.regions[i]!.tempo : tempo,
       ending: instance.ending,
     })),
     seconds: resolved?.seconds ?? layout?.seconds ?? 0,
@@ -311,6 +312,7 @@ function recordingsOf(timeline: Exclude<ReturnType<typeof timelineOf>, { refusal
 export const sessionFields = [
   { name: 'version', says: 'the Session\'s shape; the Radio plays only its own version' },
   { name: 'song', says: "the Song's number" },
+  { name: 'arrangement', says: 'the Arrangement it was made as' },
   { name: 'name', says: "the name the mind gave it, whose slug is its address" },
   { name: 'mood', says: "the weather it is sung in" },
   { name: 'mode', says: 'the mode of its tune' },

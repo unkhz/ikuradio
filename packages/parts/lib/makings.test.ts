@@ -115,11 +115,12 @@ describe('what a timeline asks to be made', () => {
     expect(ofTrack('voice').concat(ofTrack('bed')).every(({ heard }) => heard)).toBe(true)
   })
 
-  it('says the tempo each placing lies under: 72 throughout for the Song as it always was, and two for a chorus at two tempi, none in free time', () => {
+  it('says the tempo each placing lies under: 72 throughout for the Song as it always was, 72 and 96 for tempo-turns, none in free time', () => {
     expect(asked.every((making) => making.placings.every(({ bpm }) => bpm === tempo))).toBe(true)
     const turns = arrangementOf('tempo-turns')
     const made = makingsOf(resolve(turns, { beats: turns.instances.map(({ part }) => beatsOfPart(part)), mood: tempo }), tracks)
-    expect(made.find(({ key }) => key === 'voice:chorus')!.placings.map(({ bpm }) => bpm)).toEqual([72, 96])
+    expect(made.find(({ key }) => key === 'voice:chorus')!.placings.map(({ bpm }) => bpm)).toEqual([72])
+    expect(made.find(({ key }) => key === 'voice:chorus:96')!.placings.map(({ bpm }) => bpm)).toEqual([96])
     expect(made.find(({ key }) => key === 'guide:bridge-2')!.placings.map(({ bpm }) => bpm)).toEqual([null])
   })
 
@@ -141,13 +142,12 @@ describe('what a timeline asks to be made', () => {
     expect(asked[0]!.key).toBe('voice:verse-1')
   })
 
-  it('is, for tempo-turns, a sound placed twice at two tempi made once at the longest, and a bed under two regions', () => {
+  it('is, for tempo-turns, one key per tempo for the choruses, and a bed under two regions', () => {
     const turns = arrangementOf('tempo-turns')
     const lengths = turns.instances.map(({ part }) => beatsOfPart(part))
     const made = makingsOf(resolve(turns, { beats: lengths, mood: tempo }), tracks)
-    const chorus = made.find(({ key }) => key === 'voice:chorus')!
-    expect(chorus.placings.map(({ seconds }) => Math.round(seconds * 10) / 10)).toEqual([30, 22.5])
-    expect(chorus.seconds).toBeCloseTo(30, 9)
+    expect(made.find(({ key }) => key === 'voice:chorus')!.seconds).toBeCloseTo(30, 9)
+    expect(made.find(({ key }) => key === 'voice:chorus:96')!.seconds).toBeCloseTo(22.5, 9)
     const bed = made.find(({ key }) => key === 'bed:verse-1:and:bridge-1')!
     expect(bed.source).toEqual(['verse-1'])
     expect(bed.seconds).toBeGreaterThan(30 + 13)

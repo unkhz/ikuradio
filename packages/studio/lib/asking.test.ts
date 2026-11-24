@@ -16,7 +16,12 @@ describe('what the timeline asks the Studio to make', () => {
   const asking = askedOf(theSong, tracks)
 
   it('has the regions of each iteration, with the words each sings: the parts arrange() gives, in the same order', () => {
-    for (const pass of asking.passes) expect(partsOf(pass.regions, firstLyrics)).toEqual(arrange(firstLyrics).map(({ type, content, index }) => ({ type, content, index })))
+    for (const pass of asking.passes) {
+      expect(partsOf(pass.regions, firstLyrics).map(({ type, content, index }) => ({ type, content, index }))).toEqual(
+        arrange(firstLyrics).map(({ type, content, index }) => ({ type, content, index })),
+      )
+      expect(partsOf(pass.regions, firstLyrics).at(-1)!.ending).toBe('full')
+    }
   })
 
   it('asks for one voice, one guide and one bed for each name an iteration has: the chorus, heard twice, is made once', () => {
@@ -86,5 +91,37 @@ describe('what the timeline asks the Studio to make', () => {
     const lay = laid(asked, 0, made[0]!.guides!, new Map(made[0]!.beds.map((bed) => [bed.key!, bed.file])))
     const sections = made[0]!.beds.map(({ at, seconds }) => ({ at: at + 5, seconds: seconds! }))
     expect(againstSections(lay, sections).length).toBeGreaterThan(0)
+  })
+
+  it('assigns words by name for a bridgeless or reordered Arrangement, not by position', () => {
+    const bridgeless = {
+      id: 'bridgeless',
+      title: 'Bridgeless',
+      instances: [
+        { name: 'chorus', part: 'chorus' },
+        { name: 'verse-1', part: 'verse' },
+        { name: 'verse-2', part: 'verse' },
+        { name: 'final-chorus', part: 'verse' },
+      ],
+      tracks: ['voice', 'bed', 'guide'],
+      blocks: [],
+    }
+    const asked = askedOf(bridgeless, tracks)
+    expect(asked.passes[0]!.regions.map(({ name, field }) => [name, field])).toEqual([
+      ['chorus', 'chorus'],
+      ['verse-1', 'firstVerse'],
+      ['verse-2', 'secondVerse'],
+      ['final-chorus', 'finalChorus'],
+    ])
+  })
+
+  it('resolves sourceOf by tempo when a name is heard at two tempi (tempo-turns)', async () => {
+    const turns = (await readArrangements(records, undefined, tracks)).find(({ arrangement }) => arrangement.id === 'tempo-turns')!.arrangement
+    const asked = askedOf(turns, tracks, undefined, 72)
+    const [pass] = asked.passes
+    const slow = pass!.beds.find(({ key }) => key === 'bed:chorus')!
+    const fast = pass!.beds.find(({ key }) => key === 'bed:chorus:96')!
+    expect(sourceOf(pass!, slow)).toMatchObject({ name: 'chorus', index: 2, tempo: 72 })
+    expect(sourceOf(pass!, fast)).toMatchObject({ name: 'chorus', index: 4, tempo: 96 })
   })
 })

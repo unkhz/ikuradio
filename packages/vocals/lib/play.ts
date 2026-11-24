@@ -13,15 +13,19 @@ export async function play(
     gain = 1,
     pan,
     fade,
+    fadeIn,
   }: {
     from?: number
     gain?: number
     pan?: number
     /** Fades out from `at` seconds into the recording, over `seconds`, and stops there. */
     fade?: { at: number; seconds: number }
+    /** Seconds the recording takes to rise from silence at its start. */
+    fadeIn?: number
   } = {},
 ) {
   // after a seek the recording's time begins again at nought
+  const rising = fadeIn && fadeIn > from ? [`afade=t=in:st=0:d=${(fadeIn - from).toFixed(3)}`] : []
   const fading = fade && fade.at + fade.seconds > from
     ? [
         `afade=t=out:st=${Math.max(0, fade.at - from).toFixed(3)}:d=${fade.seconds.toFixed(3)}`,
@@ -30,6 +34,7 @@ export async function play(
     : []
   const filters = [
     ...(gain !== 1 ? [`volume=${gain}`] : []),
+    ...rising,
     ...fading,
     ...(pan !== undefined ? [panning(pan)] : []),
   ]

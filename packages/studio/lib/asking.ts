@@ -19,6 +19,14 @@ export type Region = {
   name: string
   part: 'verse' | 'chorus' | 'bridge'
   field?: keyof Lyrics
+  /** Explicit per-instance parameters from the Arrangement, if any (layered over Tides and Perspectives). */
+  parameters?: Readonly<Record<string, number>>
+  /** Explicit cadence from the Arrangement, if any (`full` or `half`). */
+  ending?: 'full' | 'half'
+  /** The resolved tempo this region is under: beats a minute, or null for free time. */
+  tempo?: number | null
+  /** Fixed duration in seconds, for a free-time region. */
+  seconds?: number
 }
 
 /** What is asked of one iteration: its regions, and every voice, guide and bed key under them. */
@@ -41,16 +49,33 @@ export function askedOf(arrangement: Arrangement, tracks: readonly TrackRecord[]
   const passOf = iterationsOf(instances, arrangement.turns)
   const passes = Math.max(0, ...passOf) + 1
   const fields = fieldsOf(instances)
-  const resolved = resolve(arrangement, { seconds: measured ?? instances.map(() => 1), mood })
+  const resolved = resolve(arrangement, { seconds: measured ?? instances.map((one) => one.seconds ?? 1), mood })
   const asked = makingsOf(resolved, tracks)
   const same = 1e-6
-  const regionAt = (at: number) => resolved.regions.findIndex((region) => Math.abs(region.startSeconds - at) < same)
+  const regionAt = (at: number) => {
+    const exact = resolved.regions.findIndex((region) => Math.abs(region.startSeconds - at) < same)
+    if (exact >= 0) return exact
+    const inside = resolved.regions.findIndex((region) => at >= region.startSeconds - same && at < region.startSeconds + region.seconds - same)
+    if (inside >= 0) return inside
+    return at < 0 ? 0 : resolved.regions.length - 1
+  }
   const inPass: Asked[] = []
   for (let pass = 0; pass < passes; pass++) {
     const regions: Region[] = []
     for (const [global, instance] of instances.entries()) {
       if (passOf[global] !== pass) continue
-      regions.push({ global, index: regions.length, name: instance.name, part: instance.part as Region['part'], ...(fields[global] ? { field: fields[global] } : {}) })
+      const regionTempo = resolved.regions[global]!.tempo
+      regions.push({
+        global,
+        index: regions.length,
+        name: instance.name,
+        part: instance.part as Region['part'],
+        ...(fields[global] ? { field: fields[global] } : {}),
+        ...(instance.parameters && Object.keys(instance.parameters).length ? { parameters: instance.parameters } : {}),
+        ...(instance.ending ? { ending: instance.ending } : {}),
+        tempo: regionTempo,
+        ...(instance.seconds !== undefined ? { seconds: instance.seconds } : {}),
+      })
     }
     const here = (making: ToMake) => making.placings.length > 0 && passOf[regionAt(making.placings[0]!.at)] === pass
     inPass.push({
@@ -63,12 +88,21 @@ export function askedOf(arrangement: Arrangement, tracks: readonly TrackRecord[]
   return { passes: inPass, resolved, passOf }
 }
 
-/** The region of an iteration a key is made from: the first that bears the name its source gives. A key placed under several regions of one name is one sound. */
+/**
+ * The region of an iteration a key is made from: matches the source name at the key's first placing (or tempo), falling back to the first region with that name.
+ * That way a 96-bpm chorus key resolves to the 96-bpm chorus region rather than an earlier 72-bpm hearing of the same name.
+ */
 export function sourceOf(asked: Asked, making: ToMake): Region {
   const [name] = making.source
-  const region = asked.regions.find((one) => one.name === name)
-  if (!region) throw new Error(`${making.key} is made from "${name ?? 'nothing'}", which this iteration does not have`)
-  return region
+  const matches = asked.regions.filter((one) => one.name === name)
+  if (matches.length === 0) throw new Error(`${making.key} is made from "${name ?? 'nothing'}", which this iteration does not have`)
+  if (matches.length === 1) return matches[0]!
+  const placingBpm = making.placings[0]?.bpm
+  if (placingBpm !== undefined) {
+    const byTempo = matches.find((one) => one.tempo === placingBpm)
+    if (byTempo) return byTempo
+  }
+  return matches[0]!
 }
 
 /** What kind of bed lies under a region: its part, or for a bridge the part it leaves and the part it leads to, as the Music knows it. */
@@ -82,7 +116,15 @@ export function kindOf(regions: readonly Region[], index: number): Kind {
 
 /** The parts of an iteration as `perform` walks them: each region, with the words its field has in the Lyrics. A bridge has none. */
 export const partsOf = (regions: readonly Region[], lyrics: Lyrics) =>
-  regions.map(({ part, field, index }) => ({ type: part, content: field ? (lyrics[field] as string) : '', index }))
+  regions.map(({ part, field, index, parameters, ending, tempo, seconds }) => ({
+    type: part,
+    content: field ? (lyrics[field] as string) : '',
+    index,
+    ...(parameters ? { parameters } : {}),
+    ...(ending ? { ending } : {}),
+    ...(tempo !== undefined ? { tempo } : {}),
+    ...(seconds !== undefined ? { seconds } : {}),
+  }))
 
 /** A bed as placed in an iteration: the recording, where the timeline places it, and the key it was grown for. */
 export type KeyedBed = Placed & { key: string }
@@ -123,7 +165,9 @@ export function laid(asking: Asking, pass: number, guides: readonly Guide[], bed
     beds: ordered(asked.beds).flatMap(({ making, placing }) => {
       const file = beds.get(making.key)
       // a bed's place is its Block less its tail: what it holds beyond fades under what follows
-      return file ? [{ key: making.key, file, at: placing.at - offset, gain: placing.gain, seconds: placing.seconds - placing.fadeOut, ...(placing.fadeOut ? { fade: placing.fadeOut } : {}) }] : []
+      return file
+        ? [{ key: making.key, file, at: placing.at - offset, gain: placing.gain, seconds: placing.seconds - placing.fadeOut, ...(placing.fadeIn ? { fadeIn: placing.fadeIn } : {}), ...(placing.fadeOut ? { fade: placing.fadeOut } : {}) }]
+        : []
     }),
   }
 }

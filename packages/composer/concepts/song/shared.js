@@ -23,8 +23,8 @@ function drawBody(root, data, { fold = false } = {}) {
   const parts = el(
     'table',
     {},
-    el('thead', {}, el('tr', {}, ...['#', 'instance', 'kind', 'words', 'from', 'lasts', 'ends'].map((name) => el('th', { textContent: name })))),
-    el('tbody', {}, ...data.parts.map((part) => el('tr', {}, el('td', { textContent: part.index + 1 }), el('td', { textContent: part.instance }), el('td', { textContent: part.kind }), el('td', { textContent: wordsSaid(part) }), el('td', { textContent: `${part.start.toFixed(1)} s` }), el('td', { textContent: `${part.seconds.toFixed(1)} s` }), el('td', { textContent: part.ending === 'full' ? 'at home' : 'open' })))),
+    el('thead', {}, el('tr', {}, ...['#', 'instance', 'kind', 'words', 'tempo', 'from', 'lasts', 'ends'].map((name) => el('th', { textContent: name })))),
+    el('tbody', {}, ...data.parts.map((part) => el('tr', {}, el('td', { textContent: part.index + 1 }), el('td', { textContent: part.instance }), el('td', { textContent: part.kind }), el('td', { textContent: wordsSaid(part) }), el('td', { textContent: part.tempo === null ? 'free' : `${part.tempo ?? data.tempo} bpm` }), el('td', { textContent: `${part.start.toFixed(1)} s` }), el('td', { textContent: `${part.seconds.toFixed(1)} s` }), el('td', { textContent: part.ending === 'full' ? 'at home' : 'open' })))),
   )
   const session = el('table', {}, el('thead', {}, el('tr', {}, ...['a Session records', ''].map((name) => el('th', { textContent: name })))), el('tbody', {}, ...data.session.map((field) => el('tr', {}, el('td', { textContent: field.name }), el('td', { className: 'desc', textContent: field.says })))))
   const shown = [

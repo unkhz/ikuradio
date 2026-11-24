@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 import { wrongness } from 'melody'
-import { hum, scat } from './perform.js'
+import { endingFor, hum, melodyFor, scat } from './perform.js'
 
 describe('hum', () => {
   it('gives every note of the tune its own ooh', () => {
@@ -20,5 +20,21 @@ describe('scat', () => {
 
   it('sings one syllable over and over, if it has only one', () => {
     expect(scat(['doo'], wrongness('one'))(3)).toBe('doo doo doo')
+  })
+})
+
+describe('melodyFor and endingFor', () => {
+  it('layers only explicit melody parameters from an instance over Tides and Perspectives', () => {
+    const base = { ceiling: 4, span: 1, travel: 2 }
+    expect(melodyFor(base)).toEqual(base)
+    expect(melodyFor(base, { wordiness: 0.9 })).toEqual(base)
+    expect(melodyFor(base, { ceiling: 0, travel: 5 })).toEqual({ ceiling: 0, span: 1, travel: 5 })
+  })
+
+  it('respects an instance explicit ending over the default rule', () => {
+    expect(endingFor('verse', 0, 5)).toBe('half')
+    expect(endingFor('verse', 0, 5, 'full')).toBe('full')
+    expect(endingFor('chorus', 2, 5, 'half')).toBe('half')
+    expect(endingFor('verse', 4, 5)).toBe('full')
   })
 })

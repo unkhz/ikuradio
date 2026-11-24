@@ -24,7 +24,7 @@ import { describePerspectives } from 'perspectives'
 import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { perform, type SungLine } from './lib/perform.js'
-import { chosen, takeOf } from './lib/arrangement.js'
+import { chooser } from './lib/arrangement.js'
 import { songAsItAlwaysWas } from './lib/compose.js'
 import { type Made } from './lib/session.js'
 import { sessionOf } from './lib/timeline.js'
@@ -107,12 +107,12 @@ const wakesAt = await diary.lastPage().then((page) => (page ? BigInt(page.iterat
 const endsSong = ({ iteration, song }: Iteration) =>
   iteration - BigInt(song.began) + 1n >= BigInt(song.lasts)
 
-// the Arrangement the Song is made as, before the mind is woken: the one a Song that begins now takes, and the one the Song in the middle was begun as, each read, checked and
-// found makeable, or refused here, plainly (plan "The Studio on timelines", step 3)
-const take = takeOf(await chosen(ARRANGEMENT))
+// the Arrangement the Song is made as, before the mind is woken: pinned by `ARRANGEMENT`, or drawn by weight across active makeable Arrangements, and the one a Song
+// in the middle was begun as — each read, checked and found makeable, or refused here, plainly
+const pick = await chooser(ARRANGEMENT)
 const middle = await diary.lastPage().then((page) => page?.song)
-if (middle && middle.arrangement !== undefined && middle.arrangement !== take.id) await chosen(middle.arrangement)
-console.log(`a Song that begins is made as the Arrangement "${take.id}", ${take.iterations} iteration${take.iterations > 1 ? 's' : ''} long`)
+if (middle && middle.arrangement !== undefined && wakesAt - BigInt(middle.began) < BigInt(middle.lasts)) await pick.byId(middle.arrangement)
+console.log(`a Song that begins is made as ${pick.summary}`)
 
 // the words, all of them, while the mind is awake
 const mind = new Sleeper()
@@ -134,7 +134,8 @@ console.log(
     (memories.heard.length ? `, and hears ${memories.heard.length} of the robot's` : ''),
 )
 const { compose } = await composer(diary, {
-  take,
+  take: pick.take,
+  arrangementOf: (id) => pick.byId(id).then(({ arrangement }) => arrangement),
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
   variationCount: VARIATION_COUNT,
@@ -188,9 +189,9 @@ console.log(
 )
 
 // what the Arrangement's timeline asks to be made: the regions of each iteration, and every voice, guide and bed key under them
-const songArrangement = (await chosen(first.song.arrangement ?? songAsItAlwaysWas)).arrangement
+const songArrangement = (await pick.byId(first.song.arrangement ?? songAsItAlwaysWas)).arrangement
 const tracks = await readTracks()
-const asking = askedOf(songArrangement, tracks)
+const asking = askedOf(songArrangement, tracks, undefined, first.mood.character.tempo)
 const passOf = (one: Iteration) => Number(one.iteration - BigInt(one.song.began))
 
 // the voices
@@ -214,7 +215,7 @@ for (const [i, one] of composed.entries()) {
   const heard = sections(sung[i])
   // a guide is hummed for a section by its place: a Song with sections that are not its regions would be made wrongly, and cannot be taken back
   if (heard.length !== here.regions.length) throw new Error(`the iteration was sung in ${heard.length} sections and its timeline has ${here.regions.length} regions: the Song is not made`)
-  guides.push(await humGuides(one, sung[i], guides[i - 1], here.guides.map((making) => ({ key: making.key, section: sourceOf(here, making).index }))))
+  guides.push(await humGuides(one, sung[i], guides[i - 1], here.guides.map((making) => ({ key: making.key, section: sourceOf(here, making).index, bpm: making.placings[0]?.bpm }))))
 }
 
 // the Music, with the GPU to itself: the band is woken once for all the Song's beds
@@ -234,13 +235,14 @@ for (const [i, one] of composed.entries()) {
   // each bed key is grown once, from the guide of the region it is made from
   const wanted: BedAsked[] = here.beds.map((making) => {
     const region = sourceOf(here, making)
-    const guide = here.guides.find((one) => one.source[0] === making.source[0])
+    const guide = here.guides.find((one) => sourceOf(here, one).index === region.index)
     const guided = guide ? files.get(guide.key) : undefined
     return {
       key: making.key,
       kind: kindOf(here.regions, region.index),
       part: region.part,
       seconds: making.seconds,
+      tempo: making.placings[0]?.bpm,
       ...(guided ? { guide: guided } : {}),
       ...(heard[region.index] ? { section: heard[region.index] } : {}),
     }

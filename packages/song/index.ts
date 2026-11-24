@@ -36,6 +36,13 @@ export { stressedWords, stresses, stressOf, type StressedWord } from './lib/stre
 /** How many syllables a line should have, and may have at most, to fit its bars at the Song's tempo and rate. */
 export type Count = { target: number; most: number }
 
+/** Per-field fitting override (when an Arrangement gives one region its own wordiness or tempo). */
+export type FieldFitting = {
+  counts: readonly Count[]
+  say?: string
+  check?: (line: number, text: string) => Promise<'fits' | 'grace' | 'refused'>
+}
+
 /**
  * What the song's lines are written to: each line's count, the verse's
  * four and the chorus's four (its first, the number, is not written by the
@@ -51,6 +58,8 @@ export type Fitting = {
   measure?: (text: string) => Promise<number>
   /** What the mind is told of how wordy each part's lines should be, beyond their counts (plan "Tides"). */
   say?: Partial<Record<'verse' | 'chorus', string>>
+  /** Per-field overrides, when an Arrangement gives a region its own wordiness or tempo. */
+  fields?: Partial<Record<keyof Lyrics, FieldFitting>>
 }
 
 /** How few syllables a sparse line has, at least, beside the phrase's own count: three in five, and never fewer than three. */
@@ -384,13 +393,26 @@ export async function writeLyrics(
   // the words the last iteration leaned on most rest in this one
   // and the words worn deep, over a long while, rest too; each is rested once
   const resting = worn(versesOf(previous), mood).filter((word) => !deep.includes(stemOf(word)))
+  const forField = (field: keyof Lyrics, part: 'verse' | 'chorus'): Fitting | undefined => {
+    const own = fitting?.fields?.[field]
+    if (!fitting || !own) return fitting
+    const say = { ...fitting.say }
+    if (own.say !== undefined) say[part] = own.say
+    else delete say[part]
+    return {
+      ...fitting,
+      [part]: own.counts,
+      say,
+      check: own.check ? (p, line, text) => (p === part ? own.check!(line, text) : fitting.check(p, line, text)) : fitting.check,
+    }
+  }
   const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus] =
     await Promise.all([
-      pickChorus(previous.chorus, iteration, fitting),
-      writeVerse(previous.firstVerse, mood, resting, memories, focusOf(0), deep, fitting),
-      writeVerse(previous.secondVerse, mood, resting, memories, focusOf(1), deep, fitting),
-      writeVerse(previous.thirdVerse, mood, resting, memories, focusOf(2), deep, fitting),
-      writeVerse(previous.finalChorus, mood, resting, memories, focusOf(3), deep, fitting),
+      pickChorus(previous.chorus, iteration, forField('chorus', 'chorus')),
+      writeVerse(previous.firstVerse, mood, resting, memories, focusOf(0), deep, forField('firstVerse', 'verse')),
+      writeVerse(previous.secondVerse, mood, resting, memories, focusOf(1), deep, forField('secondVerse', 'verse')),
+      writeVerse(previous.thirdVerse, mood, resting, memories, focusOf(2), deep, forField('thirdVerse', 'verse')),
+      writeVerse(previous.finalChorus, mood, resting, memories, focusOf(3), deep, forField('finalChorus', 'verse')),
     ])
   return { chorus, firstVerse, secondVerse, thirdVerse, finalChorus }
 }

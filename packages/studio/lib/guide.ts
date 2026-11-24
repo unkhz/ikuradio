@@ -104,8 +104,8 @@ export type Guide = {
   progression?: UsedProgression
 }
 
-/** A guide the timeline asks for: its key, and which section of the iteration, from 0, it is hummed for. */
-export type GuideAsked = { key: string; section: number }
+/** A guide the timeline asks for: its key, which section of the iteration it is hummed for, and its tempo (`null` for free time). */
+export type GuideAsked = { key: string; section: number; bpm?: number | null }
 
 /**
  * Hums the guides an iteration's timeline asks for: one for each key, the sections the Music grows its beds from. A guide the lead cannot hum
@@ -280,12 +280,14 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
   })
   const { row } = settings['bridge-beds']
   const guides = await Promise.all(
-    asked.map(async ({ key: asking, section: i }): Promise<Guide | undefined> => {
+    asked.map(async ({ key: asking, section: i, bpm: askedBpm }): Promise<Guide | undefined> => {
       const section = all[i]
       if (!section) {
         console.warn(`${asking} is hummed for section ${i + 1}, which this iteration was not sung with`)
         return undefined
       }
+      // a section under its own tempo hums its guide at that tempo; free time uses the Mood's bpm internally to express its seconds
+      const sectionBpm = typeof askedBpm === 'number' ? askedBpm : bpm
       const written = section.lines.flatMap((line) => (line.written ? [line.written] : []))
       const name = written[0]?.section ?? named[i]!
       const progression =
@@ -293,9 +295,9 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
         (await progressionOf(settings.progression[section.part], { part: section.part, place: Number(named[i]!.split(':')[1]), song: song.number }))
       // a section whose melody was written over its guide hums that guide; any other composes its own
       const composed = written[0]?.guide ?? composeGuide({
-        syllables: await syllablesOf(section, bpm),
-        beats: (section.seconds * bpm) / 60,
-        bpm,
+        syllables: await syllablesOf(section, sectionBpm),
+        beats: (section.seconds * sectionBpm) / 60,
+        bpm: sectionBpm,
         mode: key.mode,
         // a chorus comes home, and so does the iteration; everything else leaves it open, on the fifth
         ending: section.part === 'chorus' || i === all.length - 1 ? 'full' : 'half',
@@ -303,18 +305,18 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
         previous: previous.find((guide) => guide.name === name)?.composed,
         progression,
       })
-      const turns = inTurns(composed, bpm)
+      const turns = inTurns(composed, sectionBpm)
       const lowest = Math.min(...turns.lower.flatMap(([d]) => (d === null ? [] : [degreeToMidi(d, key)])))
       const low = lowerVoice(choir, lowest)
-      let upper: Score = { bpm, lyrics: '', notes: voiceOf(turns.upper, key, lead.body) }
-      let lower: Score = { bpm, lyrics: '', notes: voiceOf(turns.lower, key, low.body) }
+      let upper: Score = { bpm: sectionBpm, lyrics: '', notes: voiceOf(turns.upper, key, lead.body) }
+      let lower: Score = { bpm: sectionBpm, lyrics: '', notes: voiceOf(turns.lower, key, low.body) }
       // a bridge that has lost its key: the upper voice hums the row, the lower its inversion
       if (section.part === 'bridge' && row) {
         upper = within(atonal(upper, row), lead.body)
         lower = within(atonal(lower, inversion(row)), low.body)
       }
       const sung = (score: Score, throat?: Throat): Take => {
-        const held = holdLast(score, (tail * bpm) / 60)
+        const held = holdLast(score, (tail * sectionBpm) / 60)
         // steady, without a singer's wavering: it is a map, not a performance
         return { ...held, lyrics: hum(held.notes.filter(([m]) => m > 0).length), t0: 0.05, vibrato: 0, ...throat }
       }
@@ -333,7 +335,7 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
           at: section.at,
           seconds: section.seconds,
           file,
-          score: { bpm, notes: upperTake.notes },
+          score: { bpm: sectionBpm, notes: upperTake.notes },
           take: throatScore(upperTake),
           section: i,
           name,

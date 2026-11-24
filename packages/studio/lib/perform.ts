@@ -12,6 +12,7 @@
 import { getEnv } from 'tools'
 import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Score, type Syllables } from 'melody'
 import { blend, countSyllables, fullness, humanize, keepsPace, quickest, record, throatScore, type Take } from 'vocals'
+import type { Melody } from 'perspectives'
 import type { Iteration } from './compose.js'
 import { stressedLine } from './stressed.js'
 import { twoVoices } from './guide.js'
@@ -83,9 +84,48 @@ export function scat(syllables: readonly string[], random: () => number) {
   }
 }
 
+/** Layers explicit melody parameters from an Arrangement instance over the iteration's Settings (Tides + Perspectives). */
+export function melodyFor(base: Melody, parameters?: Readonly<Record<string, number>>): Melody {
+  if (!parameters) return base
+  return {
+    ceiling: parameters.ceiling ?? base.ceiling,
+    span: parameters.span ?? base.span,
+    travel: parameters.travel ?? base.travel,
+  }
+}
+
+/** How a section ends: the Arrangement's explicit ending if set, else full for a chorus or the last section, else half. */
+export const endingFor = (part: 'verse' | 'chorus' | 'bridge', index: number, total: number, explicit?: 'full' | 'half'): 'full' | 'half' =>
+  explicit ?? (part === 'chorus' || index === total - 1 ? 'full' : 'half')
+
+/** A compact suffix distinguishing a region whose melody parameters, tempo or cadence differ from the defaults, or empty when default. */
+function scopeOf(parameters?: Readonly<Record<string, number>>, tempo?: number | null, ending?: 'full' | 'half'): string {
+  const parts: string[] = []
+  if (tempo !== undefined) parts.push(`bpm=${tempo === null ? 'free' : tempo}`)
+  if (ending !== undefined) parts.push(`end=${ending}`)
+  if (parameters) {
+    for (const key of ['ceiling', 'span', 'travel'] as const) {
+      if (parameters[key] !== undefined) parts.push(`${key}=${parameters[key]}`)
+    }
+  }
+  return parts.length ? `@${parts.join(',')}` : ''
+}
+
 /** Where a line stands in the song and what it says. The same line in the same place is sung the same. */
-export const lineKey = (part: string, index: number, lyrics: string) =>
-  `${part}:${index}:${lyrics}`
+export const lineKey = (part: string, index: number, lyrics: string, scope = '') =>
+  `${part}${scope}:${index}:${lyrics}`
+
+export type PerformedPart = {
+  type: 'verse' | 'chorus' | 'bridge'
+  content: string
+  index: number
+  parameters?: Readonly<Record<string, number>>
+  ending?: 'full' | 'half'
+  /** The region's resolved tempo: beats a minute, or null for free time. */
+  tempo?: number | null
+  /** Fixed duration in seconds, for a free-time region. */
+  seconds?: number
+}
 
 /**
  * Every line of an iteration, sung. `before` is the iteration before it, as
@@ -96,7 +136,7 @@ export async function perform(
   { iteration, mood, choir, sung: tune, song, settings, rate }: Iteration,
   before: readonly SungLine[],
   /** The regions of the iteration, in order, with the words each sings: what the timeline asks (./asking.ts). */
-  parts: readonly { type: 'verse' | 'chorus' | 'bridge'; content: string; index: number }[],
+  parts: readonly PerformedPart[],
 ): Promise<SungLine[]> {
   // the Song's Perspectives, as its hooks here follow them
   const humanness = settings.humanness.scale
@@ -151,6 +191,8 @@ export async function perform(
     section: number,
     from: 'verse' | 'chorus',
     to: 'verse' | 'chorus',
+    regionTempo?: number | null,
+    regionSeconds?: number,
   ): Promise<Omit<SungLine, 'at'>> => {
     const [lead] = choir
     // the lead hums, or, in a Song heard that way, the whole choir in its harmonies
@@ -158,15 +200,24 @@ export async function perform(
     // the hum walks from where the last part ended to where the next begins
     // a hum, or, in a Song heard that way, scat: the same syllables for every voice, so they sing together
     const sound = scatSyllables?.length ? scat(scatSyllables, wrongness(`scat:${song.number}:${section}`)) : hum
-    const led = setBridge({
+    const bridgeBpm = typeof regionTempo === 'number' ? regionTempo : mood.character.tempo
+    let led = setBridge({
       from,
       to,
       lyrics: sound,
       singer: lead.body,
-      character: mood.character,
+      character: { ...mood.character, tempo: bridgeBpm },
       tune,
       song: song.number,
     })
+    // a bridge in free time lasts its own seconds: scale its notes to span them smoothly
+    if (regionTempo === null && regionSeconds !== undefined && regionSeconds > 0) {
+      const current = scoreSeconds(led)
+      if (current > 0) {
+        const scale = regionSeconds / current
+        led = { ...led, notes: led.notes.map(([pitch, beats]) => [pitch, beats * scale] as [number, number]) }
+      }
+    }
     const scores = choirOf(led, hummers, `bridge:${section}`)
     const hums = hummers.map((voice, v) => {
       const score = scores[v]!
@@ -226,7 +277,7 @@ export async function perform(
   const singersOf = (part: 'verse' | 'chorus') => (part === 'chorus' || settings.choir.verses ? choir : choir.slice(0, 1))
 
   /** A line fitted to its bars: the lead's score, to its tune, and the words' stresses. */
-  const fit = async (part: 'verse' | 'chorus', index: number, line: string): Promise<Fitted & { hummed: boolean }> => {
+  const fit = async (part: 'verse' | 'chorus', index: number, line: string, bpm = mood.character.tempo): Promise<Fitted & { hummed: boolean }> => {
     // a line with nothing a throat can sing is hummed: one "ooh" for every note of its tune
     let syllables = await countSyllables(line).catch(() => 0)
     let words = line
@@ -244,7 +295,7 @@ export async function perform(
       lyrics: words,
       syllables,
       singer: singersOf(part)[0]!.body,
-      character: mood.character,
+      character: { ...mood.character, tempo: bpm },
       tune,
       rate,
       words: stressed,
@@ -258,6 +309,8 @@ export async function perform(
     line: string,
     fitted: Promise<Fitted & { hummed: boolean }>,
     written?: Written,
+    bpm = mood.character.tempo,
+    key = lineKey(part, index, line),
   ): Promise<Omit<SungLine, 'at'>> => {
     const { score: tuned, hummed } = await fitted
     const voices = singersOf(part)
@@ -265,13 +318,13 @@ export async function perform(
     const led = written ? sungAs(tuned, written.degrees, keyFor(voices[0]!.body, mood.character.mode)) : tuned
     // written over its guide, the choir hears the guide's chords too, and leans on them
     const chords = written
-      ? chordsHeard(written.guide, modes[mood.character.mode], { offset: written.offset, bpm: mood.character.tempo, lineBpm: led.bpm })
+      ? chordsHeard(written.guide, modes[mood.character.mode], { offset: written.offset, bpm, lineBpm: led.bpm })
       : undefined
-    const scores = choirOf(led, voices, lineKey(part, index, line), chords)
+    const scores = choirOf(led, voices, key, chords)
     const takes = voices.map((voice, v) => {
       const score = scores[v]!
       const take = {
-        ...humanize(score, `${iteration}:${lineKey(part, index, line)}:${v}`, humanness, rate),
+        ...humanize(score, `${iteration}:${key}:${v}`, humanness, rate),
         // each singer breathes through a throat of their own
         ...voice.throat,
       }
@@ -338,12 +391,25 @@ export async function perform(
       .split('\n')
       .map((line, index) => ({ line, index }))
       .filter(({ line }) => line.trim())
-  for (const { type: part, content } of parts) {
+  const regionBpmOf = (tempo?: number | null) => (typeof tempo === 'number' ? tempo : mood.character.tempo)
+  const regionScope = (part: 'verse' | 'chorus', index: number, parameters?: Readonly<Record<string, number>>, tempo?: number | null, explicit?: 'full' | 'half') => {
+    const resolvedEnding = endingFor(part, index, parts.length, explicit)
+    const defaultEnding = endingFor(part, index, parts.length)
+    return scopeOf(
+      parameters,
+      tempo !== undefined && tempo !== mood.character.tempo ? tempo : undefined,
+      resolvedEnding !== defaultEnding ? resolvedEnding : undefined,
+    )
+  }
+
+  for (const [s, { type: part, content, parameters, tempo, ending }] of parts.entries()) {
     if (part === 'bridge') continue
+    const bpm = regionBpmOf(tempo)
+    const scope = regionScope(part, s, parameters, tempo, ending)
     for (const { line, index } of linesOf(content)) {
-      const key = lineKey(part, index, line)
+      const key = lineKey(part, index, line, scope)
       if (fits.has(key)) continue
-      const fitting = fit(part, index, line)
+      const fitting = fit(part, index, line, bpm)
       // a line that cannot be fitted fails the iteration when it is sung, not before
       fitting.catch(() => {})
       fits.set(key, fitting)
@@ -354,21 +420,24 @@ export async function perform(
   if (twoVoices) {
     const counted = new Map<string, number>()
     const unwritten: Unwritten[] = []
-    for (const [s, { type: part, content }] of parts.entries()) {
+    for (const [s, { type: part, content, parameters, ending, tempo }] of parts.entries()) {
       const n = counted.get(part) ?? 0
       counted.set(part, n + 1)
       if (part === 'bridge') continue
+      const bpm = regionBpmOf(tempo)
+      const scope = regionScope(part, s, parameters, tempo, ending)
       unwritten.push({
         name: `${part}:${n}`,
-        // a chorus comes home, and so does the iteration; everything else leaves it open, on the fifth
-        ending: part === 'chorus' || s === parts.length - 1 ? 'full' : 'half',
+        // a chorus comes home, and so does the iteration, unless the Arrangement says otherwise
+        ending: endingFor(part, s, parts.length, ending),
+        ...(bpm !== mood.character.tempo ? { bpm } : {}),
         // which chords: the part's progression, coming home to a favourite if a Perspective says so
         progression: await progressionOf(settings.progression[part], { part, place: n, song: song.number }),
-        // how high and how far the part's melody goes, as the Tides have moved it
-        melody: settings.melody[part],
+        // how high and how far the part's melody goes: Tides and Perspectives, with any explicit per-instance override layered on top
+        melody: melodyFor(settings.melody[part], parameters),
         lines: await Promise.all(
           linesOf(content).map(async ({ line, index }) => {
-            const key = lineKey(part, index, line)
+            const key = lineKey(part, index, line, scope)
             return { key, index, fitted: await fits.get(key)! }
           }),
         ),
@@ -388,18 +457,20 @@ export async function perform(
     })
   }
 
-  for (const { type: part, content, index: section } of parts) {
+  for (const [s, { type: part, content, index: section, parameters, tempo, seconds, ending }] of parts.entries()) {
     if (part === 'bridge') {
       const from = parts[section - 1]?.type === 'chorus' ? 'chorus' : 'verse'
       const to = parts[section + 1]?.type === 'chorus' ? 'chorus' : 'verse'
       const key = lineKey('bridge', section, '')
-      if (!takes.has(key)) takes.set(key, bridge(section, from, to))
+      if (!takes.has(key)) takes.set(key, bridge(section, from, to, tempo, seconds))
       order.push(takes.get(key)!)
       continue
     }
+    const bpm = regionBpmOf(tempo)
+    const scope = regionScope(part, s, parameters, tempo, ending)
     for (const { line, index } of linesOf(content)) {
-      const key = lineKey(part, index, line)
-      if (!takes.has(key)) takes.set(key, sing(part, index, line, fits.get(key)!, written.get(key)))
+      const key = lineKey(part, index, line, scope)
+      if (!takes.has(key)) takes.set(key, sing(part, index, line, fits.get(key)!, written.get(key), bpm, key))
       order.push(takes.get(key)!)
     }
   }

@@ -61,6 +61,15 @@ describe('words', () => {
       }),
     ).toBe('detuned shortwave synths and a slow brushed snare, 60 bpm, minor key')
   })
+
+  it('uses an explicit region tempo when given, and asks for free-time unrhythmic beds when tempo is null', () => {
+    const mood = {
+      descriptions: ['a lighthouse'],
+      character: { mode: 'dorian' as const, tempo: 72, sound: 'soft cello and rain' },
+    }
+    expect(words(mood, 96)).toBe('soft cello and rain, 96 bpm, minor key')
+    expect(words(mood, null)).toBe('soft cello and rain, ambient, no drums, no percussion, free time, minor key')
+  })
 })
 
 describe('the shelf', () => {

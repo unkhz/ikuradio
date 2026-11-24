@@ -44,11 +44,12 @@ const bright = new Set(['ionian', 'lydian', 'mixolydian'])
  * it, the pulse, and whether it is bright or dark. The mode itself is too fine a word for it;
  * the voice carries the mode, and the bed follows the voice.
  */
-export function words({ descriptions, character }: Mood): string {
+export function words({ descriptions, character }: Mood, tempo?: number | null): string {
   const key = bright.has(character.mode) ? 'major key' : 'minor key'
   // the band the mind heard in the Mood, or, if it heard none, the Mood itself
   const sound = character.sound ? [character.sound] : descriptions
-  return [...sound, `${character.tempo} bpm`, key].join(', ')
+  if (tempo === null) return [...sound, 'ambient, no drums, no percussion, free time', key].join(', ')
+  return [...sound, `${tempo ?? character.tempo} bpm`, key].join(', ')
 }
 
 /** One GPU: one bed at a time. */

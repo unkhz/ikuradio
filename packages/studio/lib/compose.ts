@@ -14,6 +14,7 @@
 // Settings are what the Studio's hooks follow for the whole Song.
 
 import { firstMood, nextMood, type Mood } from 'mood'
+import { fieldsOf, iterationsOf, tempoOf, type Arrangement } from 'parts'
 import { firstLyrics, forgotten, longWear, versesOf, wordinessWords, wordyCount, wornDeep, writeLyrics, type Fitting, type Lyrics, type Memories } from 'song'
 import { countSyllables, firstChoir, gather, type Choir } from 'vocals'
 import {
@@ -67,9 +68,14 @@ export type Take = { id: string; iterations: number }
 /** The Arrangement a Song is made as when its page does not say: the Song as it always was. */
 export const songAsItAlwaysWas = 'the-song'
 
+/** What a Song that begins takes: one fixed Take, or a chooser asked for the new Song's number. */
+export type TakeSource = Take | ((song: bigint) => Take)
+
 export type ComposerOptions = {
   /** What a Song that begins now is made as: the Arrangement it takes, and so how many iterations it lasts. */
-  take: Take
+  take: TakeSource
+  /** Looks up an Arrangement by id so per-region parameters and tempi can shape lyric fitting. */
+  arrangementOf?: (id: string) => Promise<Arrangement> | Arrangement
   /**
    * For a rehearsal: the Perspectives every Song is heard from, by name,
    * drafts too, instead of drawing them.
@@ -95,22 +101,62 @@ export type ComposerOptions = {
 export function placeOf(
   iteration: bigint,
   last: Page | undefined,
-  take: Take,
+  take: TakeSource,
 ): { beginsSong: boolean; number: bigint; began: bigint; lasts: number; arrangement: string } {
-  const begins = (number: bigint) => ({ beginsSong: true, number, began: iteration, lasts: Math.max(1, take.iterations), arrangement: take.id })
+  const resolveTake = (number: bigint) => (typeof take === 'function' ? take(number) : take)
+  const begins = (number: bigint) => {
+    const picked = resolveTake(number)
+    return { beginsSong: true, number, began: iteration, lasts: Math.max(1, picked.iterations), arrangement: picked.id }
+  }
   // the song counts from one: its first Song is Song 1
   if (!last) return begins(1n)
-  const length = BigInt(Math.max(1, take.iterations))
-  const before: SongPlace = last.song ?? {
-    number: `${BigInt(last.iteration) / length}`,
-    began: `${BigInt(last.iteration) - (BigInt(last.iteration) % length)}`,
-    lasts: Math.max(1, take.iterations),
-  }
+  const before: SongPlace =
+    last.song ??
+    (() => {
+      const length = BigInt(Math.max(1, resolveTake(1n).iterations))
+      return {
+        number: `${BigInt(last.iteration) / length}`,
+        began: `${BigInt(last.iteration) - (BigInt(last.iteration) % length)}`,
+        lasts: Number(length),
+      }
+    })()
   const began = BigInt(before.began)
   if (iteration - began < BigInt(before.lasts)) {
     return { beginsSong: false, number: BigInt(before.number), began, lasts: before.lasts, arrangement: before.arrangement ?? songAsItAlwaysWas }
   }
   return begins(BigInt(before.number) + 1n)
+}
+
+/** Per-field wordiness and tempo overrides read from an Arrangement's regions in one pass. */
+export type FieldOverride = { wordiness?: number; tempo?: number }
+
+/**
+ * Extracts per-field overrides from an Arrangement for a single pass: the first explicit `wordiness` on an instance mapping to that Lyrics field, and the fastest
+ * numeric tempo under which that field is sung (so fitted words fit every hearing of the field).
+ */
+export function fieldOverrides(arrangement: Arrangement, pass: number, moodTempo: number): Partial<Record<keyof Lyrics, FieldOverride>> {
+  const passOf = iterationsOf(arrangement.instances, arrangement.turns)
+  const fields = fieldsOf(arrangement.instances)
+  const tempi = tempoOf(arrangement.instances, arrangement.tempo)
+  const found: Partial<Record<keyof Lyrics, FieldOverride>> = {}
+  for (const [i, instance] of arrangement.instances.entries()) {
+    if (passOf[i] !== pass) continue
+    const field = fields[i]
+    if (!field) continue
+    const current = (found[field] ??= {})
+    const w = instance.parameters?.wordiness
+    if (w !== undefined && current.wordiness === undefined) current.wordiness = w
+    const raw = tempi[i]
+    const bpm = raw === 'mood' ? moodTempo : raw
+    if (typeof bpm === 'number' && (current.tempo === undefined || bpm > current.tempo)) current.tempo = bpm
+  }
+  // drop entries that neither override wordiness nor differ from moodTempo
+  for (const field of Object.keys(found) as (keyof Lyrics)[]) {
+    const entry = found[field]!
+    if (entry.tempo === moodTempo) delete entry.tempo
+    if (entry.wordiness === undefined && entry.tempo === undefined) delete found[field]
+  }
+  return found
 }
 
 /**
@@ -119,20 +165,17 @@ export function placeOf(
  * written line fits its bars, by its syllables and their stress as the
  * throat counts them.
  */
-export function fittingFor(sung: Tune, tempo: number, rate: number, lyrics: Settings['lyrics'] = defaults(1).lyrics): Fitting {
-  const k = spacing(tempo, rate)
+export function fittingFor(
+  sung: Tune,
+  tempo: number,
+  rate: number,
+  lyrics: Settings['lyrics'] = defaults(1).lyrics,
+  overrides?: Partial<Record<keyof Lyrics, FieldOverride>>,
+): Fitting {
   const phraseOf = (part: 'verse' | 'chorus', line: number) => (part === 'chorus' ? sung.chorus : sung.verse)[line % 4]!
-  const countOf = (phrase: Tune['verse'][number]) => ({ target: phrase.notes.length, most: mostSyllables(phrase, k) })
-  // how wordy each part's lines are told to be: the chorus's first line, the number, is never touched
-  const say = {
-    ...(wordinessWords(lyrics.verse.wordiness) ? { verse: wordinessWords(lyrics.verse.wordiness) } : {}),
-    ...(wordinessWords(lyrics.chorus.wordiness) ? { chorus: wordinessWords(lyrics.chorus.wordiness) } : {}),
-  }
-  return {
-    verse: sung.verse.map((phrase) => wordyCount(countOf(phrase), lyrics.verse.wordiness)),
-    chorus: sung.chorus.map((phrase, line) => (line === 0 ? countOf(phrase) : wordyCount(countOf(phrase), lyrics.chorus.wordiness))),
-    ...(Object.keys(say).length ? { say } : {}),
-    check: async (part, line, text) => {
+  const checkAt = (part: 'verse' | 'chorus', bpm: number) => {
+    const k = spacing(bpm, rate)
+    return async (line: number, text: string): Promise<'fits' | 'grace' | 'refused'> => {
       const syllables = await countSyllables(text).catch(() => 0)
       if (syllables < 1) return 'refused'
       const phrase = phraseOf(part, line)
@@ -141,7 +184,45 @@ export function fittingFor(sung: Tune, tempo: number, rate: number, lyrics: Sett
       if (!words) return syllables <= mostSyllables(phrase, k) ? 'fits' : 'refused'
       const fit = fitToCount(phrase, words, k)
       return !fit ? 'refused' : fit.grown ? 'grace' : 'fits'
-    },
+    }
+  }
+  const countsFor = (part: 'verse' | 'chorus', bpm: number, wordiness: number) => {
+    const k = spacing(bpm, rate)
+    const phrases = part === 'chorus' ? sung.chorus : sung.verse
+    return phrases.map((phrase, line) => {
+      const count = { target: phrase.notes.length, most: mostSyllables(phrase, k) }
+      // the chorus's first line, the number, is never touched by wordiness
+      return part === 'chorus' && line === 0 ? count : wordyCount(count, wordiness)
+    })
+  }
+  const checkVerse = checkAt('verse', tempo)
+  const checkChorus = checkAt('chorus', tempo)
+  // how wordy each part's lines are told to be: the chorus's first line, the number, is never touched
+  const say = {
+    ...(wordinessWords(lyrics.verse.wordiness) ? { verse: wordinessWords(lyrics.verse.wordiness) } : {}),
+    ...(wordinessWords(lyrics.chorus.wordiness) ? { chorus: wordinessWords(lyrics.chorus.wordiness) } : {}),
+  }
+  const fields: NonNullable<Fitting['fields']> = {}
+  if (overrides) {
+    for (const [field, override] of Object.entries(overrides) as [keyof Lyrics, FieldOverride | undefined][]) {
+      if (!override) continue
+      const part: 'verse' | 'chorus' = field === 'chorus' ? 'chorus' : 'verse'
+      const bpm = override.tempo ?? tempo
+      const wordiness = override.wordiness ?? lyrics[part].wordiness
+      const note = wordinessWords(wordiness)
+      fields[field] = {
+        counts: countsFor(part, bpm, wordiness),
+        ...(note ? { say: note } : {}),
+        ...(bpm !== tempo ? { check: checkAt(part, bpm) } : {}),
+      }
+    }
+  }
+  return {
+    verse: countsFor('verse', tempo, lyrics.verse.wordiness),
+    chorus: countsFor('chorus', tempo, lyrics.chorus.wordiness),
+    ...(Object.keys(say).length ? { say } : {}),
+    ...(Object.keys(fields).length ? { fields } : {}),
+    check: (part, line, text) => (part === 'chorus' ? checkChorus(line, text) : checkVerse(line, text)),
     measure: (text) => countSyllables(text),
   }
 }
@@ -150,6 +231,7 @@ export async function composer(
   diary: Diary,
   {
     take,
+    arrangementOf,
     moodCount,
     choirSize,
     variationCount,
@@ -243,7 +325,9 @@ export async function composer(
       )
       if (deep.length) console.log(`iteration ${iteration} lets rest the words worn deep: ${deep.join(', ')}`)
       // the words are written to the tune they will be sung to, each line to its count
-      const fitting = fittingFor(tuneSung(tune, choir, settings, mood, song, variation), mood.character.tempo, rate, settings.lyrics)
+      const arrangement = arrangementOf ? await arrangementOf(place.arrangement) : undefined
+      const overrides = arrangement ? fieldOverrides(arrangement, Number(iteration - place.began), mood.character.tempo) : undefined
+      const fitting = fittingFor(tuneSung(tune, choir, settings, mood, song, variation), mood.character.tempo, rate, settings.lyrics, overrides)
       lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories, { deep, fitting })
     }
     const where: SongPlace = { number: song, began: `${place.began}`, lasts: place.lasts, arrangement: place.arrangement }

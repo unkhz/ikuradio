@@ -35,10 +35,10 @@ import { growBeds, sections, Shelf, type BedAsked } from 'music'
 import { describePerspectives } from 'perspectives'
 import { getEnv, pieces, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
-import { chosen, takeOf } from './lib/arrangement.js'
+import { chooser } from './lib/arrangement.js'
 import { askedOf, kindOf, laid, measure, partsOf, sourceOf } from './lib/asking.js'
 import { readTracks } from 'parts'
-import { composer } from './lib/compose.js'
+import { composer, songAsItAlwaysWas } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 import { humGuides } from './lib/guide.js'
 
@@ -51,6 +51,9 @@ const heardFrom = given
   ?.slice('--perspectives='.length)
   .split(',')
   .filter(Boolean)
+const arrangementArg = given
+  .find((arg) => arg.startsWith('--arrangement='))
+  ?.slice('--arrangement='.length)
 const dir = 'audio/rehearsal'
 
 await mkdir(dir, { recursive: true })
@@ -82,8 +85,10 @@ if (mind) {
 }
 await rm(`${dir}/thoughts.txt`, { force: true })
 let songWords: string[] = []
+const pick = await chooser(arrangementArg || ARRANGEMENT)
 const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
-  take: takeOf(await chosen(ARRANGEMENT)),
+  take: pick.take,
+  arrangementOf: (id) => pick.byId(id).then(({ arrangement }) => arrangement),
   ...(heardFrom ? { heardFrom } : {}),
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
@@ -92,13 +97,12 @@ const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
   memories,
 })
 
-const arrangement = (await chosen(ARRANGEMENT)).arrangement
 const tracks = await readTracks()
-const asking = askedOf(arrangement, tracks)
 
 const sung: {
   take: string
   lines: Awaited<ReturnType<typeof perform>>
+  audible: Awaited<ReturnType<typeof perform>>
   mood: Awaited<ReturnType<typeof compose>>['mood']
   iteration: bigint
   guides: Awaited<ReturnType<typeof humGuides>>
@@ -112,21 +116,24 @@ for (let iteration = 1n; iteration <= last; iteration++) {
   const started = Date.now()
   const composed = await compose(iteration)
   const written = Date.now()
+  const arrangement = (await pick.byId(composed.song.arrangement ?? songAsItAlwaysWas)).arrangement
+  const asking = askedOf(arrangement, tracks, undefined, composed.mood.character.tempo)
   const pass = Number(composed.iteration - BigInt(composed.song.began))
   const lines = await perform(composed, sung.at(-1)?.lines ?? [], partsOf(asking.passes[pass]!.regions, composed.lyrics))
   if (composed.beginsSong) {
-    console.log(`\n~ ${describe(composed.mood)} ~ heard ${describePerspectives(composed.perspectives)}`)
+    console.log(`\n~ ${describe(composed.mood)} ~ [${arrangement.id}] heard ${describePerspectives(composed.perspectives)}`)
     console.log(`  sung by ${introduce(composed.choir)}`)
   }
   console.log(`\niteration ${iteration}, variation ${composed.variation}\n`)
   for (const { at, part, lyrics } of lines) {
     console.log(`${at.toFixed(1).padStart(6)}s  ${part.padEnd(6)} ${lyrics}`)
   }
+  const passRegions = asking.passes[pass]!.regions
+  const voicedRegions = new Set(asking.passes[pass]!.voices.map((making) => sourceOf(asking.passes[pass]!, making).index))
+  const measured = measure(passRegions, composed.lyrics, lines)
+  const audibleVoices = measured.lines.flatMap((group, idx) => (voicedRegions.has(idx) ? group.filter(({ file, unheard }) => file && !unheard) : []))
   const take = `${dir}/${iteration}`
-  await mixdown(
-    lines.filter(({ file, unheard }) => file && !unheard),
-    `${take}.m4a`,
-  )
+  await mixdown(audibleVoices, `${take}.m4a`)
   await writeFile(
     `${take}.txt`,
     words(composed.lyrics)
@@ -156,9 +163,10 @@ for (let iteration = 1n; iteration <= last; iteration++) {
   sung.push({
     take,
     lines,
+    audible: audibleVoices,
     mood: composed.mood,
     iteration,
-    guides: await humGuides(composed, lines, sung.at(-1)?.guides, here.guides.map((making) => ({ key: making.key, section: sourceOf(here, making).index }))),
+    guides: await humGuides(composed, lines, sung.at(-1)?.guides, here.guides.map((making) => ({ key: making.key, section: sourceOf(here, making).index, bpm: making.placings[0]?.bpm }))),
     asked,
     pass,
     one: composed,
@@ -172,7 +180,7 @@ await mind?.rest()
 if (!dry) {
   // the shelf the live song keeps: a part grows a new bed, or plays one again
   const shelf = new Shelf()
-  for (const { take, lines, mood, iteration, guides, asked, pass, bridgeBeds } of sung) {
+  for (const { take, lines, audible, mood, iteration, guides, asked, pass, bridgeBeds } of sung) {
     const started = Date.now()
     try {
       const here = asked.passes[pass]!
@@ -180,18 +188,15 @@ if (!dry) {
       const files = new Map(guides.map(({ key, file }) => [key, file]))
       const wanted: BedAsked[] = here.beds.map((making) => {
         const region = sourceOf(here, making)
-        const guide = here.guides.find((one) => one.source[0] === making.source[0])
+        const guide = here.guides.find((one) => sourceOf(here, one).index === region.index)
         const guided = guide ? files.get(guide.key) : undefined
-        return { key: making.key, kind: kindOf(here.regions, region.index), part: region.part, seconds: making.seconds, ...(guided ? { guide: guided } : {}), ...(heard[region.index] ? { section: heard[region.index] } : {}) }
+        return { key: making.key, kind: kindOf(here.regions, region.index), part: region.part, seconds: making.seconds, tempo: making.placings[0]?.bpm, ...(guided ? { guide: guided } : {}), ...(heard[region.index] ? { section: heard[region.index] } : {}) }
       })
       const grew = await growBeds(wanted, mood, { shelf, iteration, bridgeBeds })
       const { beds } = laid(asked, pass, guides, grew.beds)
       if (beds.length === 0) continue
       await mixdown(beds, `${take}.music.m4a`)
-      await mixdown(
-        [...lines.filter(({ file, unheard }) => file && !unheard), ...beds],
-        `${take}.together.m4a`,
-      )
+      await mixdown([...audible, ...beds], `${take}.together.m4a`)
       console.log(
         `${take}.together.m4a: ${new Set(beds.map(({ file }) => file)).size} beds` +
           ` under ${beds.length} sections, grown in ${seconds(Date.now() - started)}s`,

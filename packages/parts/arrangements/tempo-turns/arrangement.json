@@ -20,12 +20,12 @@
   "blocks": [
     { "track": "voice", "key": "voice:verse-1", "from": { "region": "verse-1", "edge": "start" }, "to": { "region": "verse-1", "edge": "end" }, "source": ["verse-1"] },
     { "track": "voice", "key": "voice:chorus", "from": { "region": "chorus", "hearing": 1, "edge": "start" }, "to": { "region": "chorus", "hearing": 1, "edge": "end" }, "source": ["chorus"] },
-    { "track": "voice", "key": "voice:chorus", "from": { "region": "chorus", "hearing": 2, "edge": "start" }, "to": { "region": "chorus", "hearing": 2, "edge": "end" }, "source": ["chorus"] },
+    { "track": "voice", "key": "voice:chorus:96", "from": { "region": "chorus", "hearing": 2, "edge": "start" }, "to": { "region": "chorus", "hearing": 2, "edge": "end" }, "source": ["chorus"] },
     { "track": "voice", "key": "voice:verse-2", "from": { "region": "verse-2", "edge": "start" }, "to": { "region": "verse-2", "edge": "end" }, "source": ["verse-2"] },
     { "track": "bed", "key": "bed:verse-1:and:bridge-1", "from": { "region": "verse-1", "edge": "start" }, "to": { "region": "bridge-1", "edge": "end", "plus": 3 }, "source": ["verse-1"], "fadeOut": 3, "gain": 0.45 },
     { "track": "bed", "key": "bed:chorus", "from": { "region": "chorus", "hearing": 1, "edge": "start" }, "to": { "region": "chorus", "hearing": 1, "edge": "end", "plus": 3 }, "source": ["chorus"], "fadeOut": 3, "gain": 0.45 },
     { "track": "bed", "key": "bed:bridge-2", "from": { "region": "bridge-2", "edge": "start" }, "to": { "region": "bridge-2", "edge": "end", "plus": 2 }, "source": ["bridge-2"], "fadeOut": 2, "gain": 0.45 },
-    { "track": "bed", "key": "bed:chorus", "from": { "region": "chorus", "hearing": 2, "edge": "start" }, "to": { "region": "chorus", "hearing": 2, "edge": "end", "plus": 3 }, "source": ["chorus"], "fadeOut": 3, "gain": 0.45 },
+    { "track": "bed", "key": "bed:chorus:96", "from": { "region": "chorus", "hearing": 2, "edge": "start" }, "to": { "region": "chorus", "hearing": 2, "edge": "end", "plus": 3 }, "source": ["chorus"], "fadeOut": 3, "gain": 0.45 },
     { "track": "bed", "key": "bed:verse-2", "from": { "region": "verse-2", "edge": "start" }, "to": { "region": "verse-2", "edge": "end", "plus": 3 }, "source": ["verse-2"], "fadeOut": 3, "gain": 0.45 },
     { "track": "guide", "key": "guide:bridge-2", "from": { "region": "bridge-2", "edge": "start" }, "to": { "region": "bridge-2", "edge": "end" }, "source": ["bridge-2"] }
   ]

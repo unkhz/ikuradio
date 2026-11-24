@@ -3,7 +3,8 @@ import { firstMood } from 'mood'
 import { firstLyrics } from 'song'
 import { firstTune } from 'melody'
 import { defaults } from 'perspectives'
-import { fittingFor, placeOf } from './compose.js'
+import { fieldOverrides, fittingFor, placeOf } from './compose.js'
+import type { Arrangement } from 'parts'
 import type { Page, SongPlace } from './diary.js'
 
 const page = (iteration: number, song?: SongPlace): Page => ({
@@ -83,5 +84,30 @@ describe('fittingFor, and how wordy the lines are', () => {
     sparse.chorus.slice(1).forEach((count, i) => expect(count.target).toBeGreaterThanOrEqual(usual.chorus[i + 1]!.target))
     expect(sparse.say?.verse).toContain('few words')
     expect(sparse.say?.chorus).toContain('as many words')
+  })
+
+  it('layers per-instance wordiness and tempo overrides by field without touching other fields or the chorus number line', async () => {
+    const arrangement: Arrangement = {
+      id: 'shaped',
+      title: 'Shaped',
+      instances: [
+        { name: 'verse-1', part: 'verse', parameters: { wordiness: 0.1 } },
+        { name: 'chorus', part: 'chorus', parameters: { wordiness: 0.95 } },
+        { name: 'verse-2', part: 'verse' },
+        { name: 'chorus', part: 'chorus' },
+      ],
+      tempo: [{ bpm: 'mood' }, { region: 'chorus', hearing: 2, bpm: 96 }],
+    }
+    const overrides = fieldOverrides(arrangement, 0, 72)
+    expect(overrides).toEqual({ firstVerse: { wordiness: 0.1 }, chorus: { wordiness: 0.95, tempo: 96 } })
+    const fit = fittingFor(await tune(), 72, 6, defaults(3).lyrics, overrides)
+    // verse-2 keeps the default verse counts; firstVerse gets sparse counts and a wordiness note
+    expect(fit.fields?.secondVerse).toBeUndefined()
+    expect(fit.fields?.firstVerse?.say).toContain('few words')
+    fit.fields!.firstVerse!.counts.forEach((count, i) => expect(count.target).toBeLessThan(fit.verse[i]!.target))
+    // chorus gets 96 bpm ceiling and wordiness 0.95 on lines 1..3, while line 0 (the age) stays untouched by wordiness
+    expect(fit.fields?.chorus?.check).toBeDefined()
+    expect(fit.fields?.chorus?.counts[0]!.target).toBe((await tune()).chorus[0]!.notes.length)
+    expect(fit.fields?.chorus?.counts[0]!.most).toBeLessThanOrEqual(fit.chorus[0]!.most)
   })
 })

@@ -39,10 +39,10 @@ const envSchema = z.object({
   /** How many Songs the Studio keeps ready ahead of the one the Radio plays. */
   SONGS_AHEAD: z.coerce.number().int().min(1).default(2),
   /**
-   * The Arrangement a Song that begins is made as, by its name, and so how long it lasts: its turns and one iterations, all in the same Mood. It is chosen when the
-   * Song begins and kept in the diary until it ends.
+   * Pins the Arrangement a Song that begins is made as, by its name. When unset, the Studio draws deterministically by weight across active makeable Arrangements.
+   * Chosen when a Song begins and kept in the diary until it ends.
    */
-  ARRANGEMENT: z.string().min(1).default('the-song'),
+  ARRANGEMENT: z.string().min(1).optional(),
   /** How many descriptions are blended into one Mood. */
   MOOD_COUNT: z.coerce.number().int().min(1).default(2),
   /** How many voices sing the chorus, the lead included. */

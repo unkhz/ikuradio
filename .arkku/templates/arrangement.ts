@@ -23,6 +23,12 @@ export default {
         default: "draft",
         description: "Only an active Arrangement may be used to make a Song. A retired one is still read: the Songs made with it are kept for ever.",
       },
+      weight: {
+        type: "integer",
+        minimum: 0,
+        maximum: 10,
+        description: "How likely it is to be drawn when no Arrangement is pinned, from 0 (never drawn automatically) to 10 (common). Omitted defaults to 1.",
+      },
     },
     required: ["state"],
     additionalProperties: false,

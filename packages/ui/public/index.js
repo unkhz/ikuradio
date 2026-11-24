@@ -673,21 +673,7 @@ function placeSounds(audioContext) {
         if (recording.kind === 'bed') {
           const level = audioContext.createGain()
           const gain = levelOf(recording)
-          level.gain.value = gain
-          // under a DJ's speech the intro's music lies lower, and comes back
-          // up over the last seconds of what is said
-          const speech = recording.intro ? song.intro?.speech : undefined
-          if (speech) {
-            const begins = when + (speech.at - recording.at)
-            // never past the end of the intro's own place, where its tail begins to fade
-            const ends = Math.min(begins + speech.seconds, when + recording.seconds)
-            const low = gain * (1 - ducked)
-            const rises = Math.max(begins, ends - risesOver)
-            level.gain.setValueAtTime(gain, Math.max(0, begins - 0.3))
-            level.gain.linearRampToValueAtTime(low, Math.max(0, begins))
-            level.gain.setValueAtTime(low, rises)
-            level.gain.linearRampToValueAtTime(gain, ends)
-          }
+          const now = audioContext.currentTime
           // a bed with a tail is held through its place, then fades out under
           // what follows, which has already begun; one without lets go softly at its end
           const fade = recording.fade && recording.seconds !== undefined ? recording.fade : letGoOf
@@ -695,16 +681,55 @@ function placeSounds(audioContext) {
             ? when + recording.seconds
             : when + buffer.duration - letGoOf
           const ends = Math.min(when + buffer.duration, fades + fade)
-          const now = audioContext.currentTime
-          if (fades > now) level.gain.setValueAtTime(gain, fades)
-          else level.gain.value = Math.max(0, gain * (1 - (now - fades) / fade))
+          const fadeIn = recording.fadeIn > 0 ? recording.fadeIn : 0
+          const risenAt = Math.min(when + fadeIn, fades)
+          const hasFadeIn = fadeIn > 0 && fades > now && risenAt > now
+          if (hasFadeIn) {
+            const startGain = when >= now ? 0 : gain * Math.min(1, Math.max(0, (now - when) / fadeIn))
+            level.gain.setValueAtTime(startGain, Math.max(now, when))
+            level.gain.linearRampToValueAtTime(gain, risenAt)
+          } else {
+            level.gain.value = gain
+          }
+          // under a DJ's speech the intro's music lies lower, and comes back
+          // up over the last seconds of what is said
+          const speech = recording.intro ? song.intro?.speech : undefined
+          if (speech) {
+            const begins = when + (speech.at - recording.at)
+            // never past the end of the intro's own place, where its tail begins to fade
+            const speechEnds = Math.min(begins + speech.seconds, when + recording.seconds, fades)
+            const floor = hasFadeIn ? risenAt : 0
+            if (speechEnds > Math.max(now, floor)) {
+              const low = gain * (1 - ducked)
+              const rises = Math.max(begins, speechEnds - risesOver)
+              level.gain.setValueAtTime(gain, Math.min(fades, Math.max(floor, begins - 0.3)))
+              level.gain.linearRampToValueAtTime(low, Math.min(fades, Math.max(floor, begins)))
+              level.gain.setValueAtTime(low, Math.min(fades, Math.max(floor, rises)))
+              level.gain.linearRampToValueAtTime(gain, speechEnds)
+            }
+          }
+          if (fades <= now) {
+            level.gain.setValueAtTime(Math.max(0, gain * (1 - (now - fades) / fade)), now)
+          } else if (!hasFadeIn || fades > risenAt) {
+            level.gain.setValueAtTime(gain, fades)
+          }
           level.gain.linearRampToValueAtTime(0, Math.max(now, ends))
           stopAt = Math.max(now, ends) + 0.05
           level.connect(music(audioContext))
           source.connect(level)
         } else {
           const level = audioContext.createGain()
-          level.gain.value = levelOf(recording)
+          const gain = levelOf(recording)
+          const now = audioContext.currentTime
+          const fadeIn = recording.fadeIn > 0 ? recording.fadeIn : 0
+          const risenAt = when + fadeIn
+          if (fadeIn > 0 && risenAt > now) {
+            const startGain = when >= now ? 0 : gain * Math.min(1, Math.max(0, (now - when) / fadeIn))
+            level.gain.setValueAtTime(startGain, Math.max(now, when))
+            level.gain.linearRampToValueAtTime(gain, risenAt)
+          } else {
+            level.gain.value = gain
+          }
           if (recording.said) {
             // a DJ speaks to the listener, in the middle, close, and without an echo
             source.connect(level).connect(dj(audioContext))
@@ -846,6 +871,12 @@ function writeUpTo(output, song, t) {
       if (t < part.at) return
       bridgeEnds()
       switchStoryElement(output, part.type, part.lines)
+      if (showing && showing.part !== part) {
+        const before = showing.part?.tempo !== undefined ? showing.part.tempo : showing.session.tempo
+        const after = part.tempo !== undefined ? part.tempo : showing.session.tempo
+        showing.part = part
+        if (before !== after) tellDetails()
+      }
       if (part.type === 'bridge' && t < part.at + part.seconds) bridgeBegins(el)
       cursor.c = 0
     }
@@ -1239,12 +1270,14 @@ function tellDetails() {
     tellThought(undefined)
     return
   }
-  const { session, iteration } = showing
+  const { session, iteration, part } = showing
+  const partTempo = part?.tempo !== undefined ? part.tempo : session.tempo
+  const pace = partTempo === null ? 'free time' : `${partTempo} bpm`
   details.replaceChildren(
     ...(session.name ? [row('name', session.name)] : []),
     row('song', `${number(session.song)}${replay ? ', from its beginning' : ', live'}`),
     row('weather', session.mood.join(' + ')),
-    row('key', `${session.mode}, ${session.tempo} bpm`),
+    row('key', `${session.mode}, ${pace}`),
     row('choir', session.choir),
     ...(session.sound ? [row('band', session.sound)] : []),
     // the ways this Song is heard differently from the usual, if any

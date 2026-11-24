@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { readArrangements, readParts, readTracks, type Arrangement } from 'parts'
-import { chosen, iterationsOfArrangement, takeOf, unmet } from './arrangement.js'
+import { chosen, chooser, drawFrom, iterationsOfArrangement, poolOf, takeOf, unmet, type Weighted } from './arrangement.js'
 
 const records = await readParts()
 const tracks = await readTracks()
@@ -40,13 +40,17 @@ describe('what the Studio cannot yet make', () => {
     expect(unmet(other, theSong)).toContain('the name "coda", which the-song does not have')
   })
 
-  it('refuses what a Session cannot say yet: another tempo, free time, a fade in, a part that is not a verse, a chorus or a bridge', () => {
+  it('accepts tempo changes, free time and fadeIn (step 6), and still refuses unknown part types or a key placed under two tempi', () => {
     const turns = arrangementOf('tempo-turns')
-    // it has names the Song has; what stops it is what it asks
-    expect(unmet(turns, theSong)).toContain('free time')
-    expect(unmet({ ...walked(2), tempo: [{ bpm: 96 }] }, theSong)).toContain('changes the tempo')
-    expect(unmet({ ...walked(2), tempo: [{ bpm: 'mood' }, { region: 'chorus', hearing: 2, bpm: 'mood' }] }, theSong)).toContain('changes the tempo')
-    expect(unmet({ ...walked(2), blocks: [{ track: 'bed', key: 'k', from: { edge: 'start' }, to: { edge: 'end' }, fadeIn: 2 }] }, theSong)).toContain('fades in')
+    expect(unmet(turns, theSong)).toBeUndefined()
+    expect(unmet({ ...walked(2), tempo: [{ bpm: 96 }] }, theSong)).toBeUndefined()
+    expect(unmet({ ...walked(2), blocks: [{ track: 'bed', key: 'k', from: { edge: 'start' }, to: { edge: 'end' }, fadeIn: 2 }] }, theSong)).toBeUndefined()
+    // one key placed under two different tempi (even mood vs a number) is refused
+    const mixedTempo = {
+      ...turns,
+      blocks: turns.blocks!.map((block) => (block.key === 'voice:chorus:96' ? { ...block, key: 'voice:chorus' } : block)),
+    }
+    expect(unmet(mixedTempo, theSong)).toContain('placed under two tempi')
     const odd = walked(2)
     odd.instances = odd.instances.map((one, i) => (i === 0 ? { ...one, part: 'refrain' } : one))
     expect(unmet(odd, theSong)).toContain('a Session can say only a verse, a chorus or a bridge')
@@ -76,8 +80,45 @@ describe('the Arrangement chosen, read as the Composer reads it', () => {
     expect(takeOf(song)).toEqual({ id: 'the-song', iterations: 2 })
   })
 
-  it('is refused, plainly, before anything is woken: not there, or one that cannot be made yet', async () => {
+  it('accepts tempo-turns (1 iteration) and refuses an unknown Arrangement plainly before anything is woken', async () => {
     await expect(chosen('nothing')).rejects.toThrow('the Arrangement "nothing" cannot be read')
-    await expect(chosen('tempo-turns')).rejects.toThrow('the Arrangement "tempo-turns" cannot be made yet: its region "bridge-2" is in free time')
+    const turns = await chosen('tempo-turns')
+    expect(turns.iterations).toBe(1)
+    expect(takeOf(turns)).toEqual({ id: 'tempo-turns', iterations: 1 })
+  })
+})
+
+describe('weighted deterministic Arrangement selection', () => {
+  it('draws deterministically from a weighted pool (~33% for 2:1 weights), ignoring weight 0', () => {
+    const alt = { ...walked(1), id: 'alt', title: 'Alt' }
+    const never = { ...walked(3), id: 'never', title: 'Never' }
+    const pool: Weighted[] = [
+      { arrangement: theSong, iterations: 2, weight: 2 },
+      { arrangement: alt, iterations: 1, weight: 1 },
+      { arrangement: never, iterations: 3, weight: 0 },
+    ]
+    let altCount = 0
+    for (let s = 1; s <= 300; s++) {
+      const a = drawFrom(pool, `${s}`)
+      const b = drawFrom(pool, `${s}`)
+      expect(a.arrangement.id).toBe(b.arrangement.id)
+      expect(a.arrangement.id).not.toBe('never')
+      if (a.arrangement.id === 'alt') altCount++
+    }
+    expect(altCount).toBeGreaterThan(75)
+    expect(altCount).toBeLessThan(125)
+  })
+
+  it('refuses an empty or zero-weight pool', () => {
+    expect(() => drawFrom([], '1')).toThrow('no active, makeable Arrangement')
+    expect(() => drawFrom([{ arrangement: theSong, iterations: 2, weight: 0 }], '1')).toThrow('no active, makeable Arrangement')
+  })
+
+  it('poolOf keeps only active, makeable, positive-weight Arrangements (the-song today, not tempo-turns at weight 0)', async () => {
+    const pool = await poolOf()
+    expect(pool.map(({ arrangement }) => arrangement.id)).toEqual(['the-song'])
+    const pick = await chooser()
+    expect(pick.take(1n)).toEqual({ id: 'the-song', iterations: 2 })
+    expect(pick.take(42n)).toEqual({ id: 'the-song', iterations: 2 })
   })
 })

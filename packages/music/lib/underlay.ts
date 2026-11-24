@@ -147,6 +147,8 @@ export type BedAsked = {
   /** The guide hum it grows from. A bed whose guide could not be hummed is grown from the sung voice of `section` instead. */
   guide?: string
   seconds: number
+  /** The tempo of the region it lies under, if it differs from the Mood's (`null` for free time). */
+  tempo?: number | null
   /** The section it lies under, as it was sung: only for a bed without a guide. */
   section?: Section
 }
@@ -163,15 +165,21 @@ export async function growBeds(
 ): Promise<{ beds: Map<string, string>; departed: string[]; grown: number }> {
   const song = songOf(mood)
   const beds = new Map<string, string>()
-  const byKind = new Map<Kind, string>()
+  const byKind = new Map<string, { file: string; seconds: number }>()
   const kinds = [...new Set(asked.map(({ kind }) => kind))]
   const departed: string[] = []
   let grown = 0
   for (const ask of asked) {
     const turned = ask.part === 'bridge' ? bridgeBeds : undefined
-    const told = turned?.instead ? `${turned.instead}, ${mood.character.tempo} bpm` : words(mood)
+    const atMood = ask.tempo === undefined || ask.tempo === mood.character.tempo
+    const told = turned?.instead
+      ? ask.tempo === null
+        ? `${turned.instead}, free time`
+        : `${turned.instead}, ${ask.tempo ?? mood.character.tempo} bpm`
+      : words(mood, ask.tempo)
+    const kindKey = atMood ? ask.kind : `${ask.kind}@${ask.tempo === null ? 'free' : ask.tempo}`
     if (ask.guide) {
-      const kept = shelf?.grownFrom(song, ask.guide)
+      const kept = atMood ? shelf?.grownFrom(song, ask.guide) : undefined
       if (kept) {
         beds.set(ask.key, kept)
         continue
@@ -179,28 +187,30 @@ export async function growBeds(
       const bed = await accompany({ vocals: ask.guide, mood: told, seconds: ask.seconds, melody: turned?.melody ?? true })
       beds.set(ask.key, bed)
       grown++
-      if (shelf) departed.push(...shelf.keepGuided(song, ask.kind, ask.guide, bed, Math.min(longest, ask.seconds)))
+      // never store non-mood or free-time guided beds in the Mood-tempo shelf, where an unguided section could pick them later
+      if (atMood && shelf) departed.push(...shelf.keepGuided(song, ask.kind, ask.guide, bed, Math.min(longest, ask.seconds)))
       continue
     }
-    // no guide: the kind's bed, as the shelf chooses it, grown from the sung voice
-    const had = byKind.get(ask.kind)
-    if (had) {
-      beds.set(ask.key, had)
+    // no guide: the kind's bed, as the shelf chooses it, grown from the sung voice (never reusing a bed from another tempo or shorter than needed)
+    const had = byKind.get(kindKey)
+    if (had && had.seconds >= Math.min(longest, ask.seconds)) {
+      beds.set(ask.key, had.file)
       continue
     }
     if (!ask.section?.lines.some(({ file }) => file)) continue
-    const choice = shelf?.choose(iteration, song, ask.kind, kinds, ask.seconds)
+    const choice = atMood ? shelf?.choose(iteration, song, ask.kind, kinds, ask.seconds) : undefined
     if (choice && !choice.grow) {
-      byKind.set(ask.kind, choice.bed)
+      byKind.set(kindKey, { file: choice.bed, seconds: Math.min(longest, ask.seconds) })
       beds.set(ask.key, choice.bed)
       continue
     }
     const vocals = await voiceOf(ask.section.lines, ask.section.at)
     const bed = await accompany({ vocals, mood: told, seconds: ask.seconds, melody: turned?.melody ?? true }).finally(() => rm(vocals, { force: true }))
-    byKind.set(ask.kind, bed)
+    const lasted = Math.min(longest, ask.seconds)
+    byKind.set(kindKey, { file: bed, seconds: lasted })
     beds.set(ask.key, bed)
     grown++
-    if (shelf) departed.push(...shelf.keep(song, ask.kind, bed, Math.min(longest, ask.seconds)))
+    if (atMood && shelf) departed.push(...shelf.keep(song, ask.kind, bed, lasted))
   }
   if (beds.size === 0) console.warn(`no bed grew under ${describe(mood)}: nothing was sung`)
   return { beds, departed, grown }

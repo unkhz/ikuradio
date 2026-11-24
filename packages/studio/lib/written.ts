@@ -109,6 +109,8 @@ export function standingOnChord(syllables: readonly TimedSyllable[], degrees: re
 export type Unwritten = {
   name: string
   ending: 'half' | 'full'
+  /** The section's own tempo in beats a minute, when it differs from the Song's. */
+  bpm?: number
   lines: { key: string; index: number; fitted: Fitted }[]
   /** Which chords its guide takes: roaming, unless its part's progression says otherwise. */
   progression?: UsedProgression
@@ -150,22 +152,23 @@ export function writeSections({
   const semitones = (a: number, b: number) => Math.abs(degreeToMidi(a, lead.key) - degreeToMidi(b, lead.key))
   const written = new Map<string, Written>()
   const shared = new Map<string, TwoVoiceGuide>()
-  for (const { name, ending, lines, progression, melody } of sections) {
+  for (const { name, ending, bpm: ownBpm, lines, progression, melody } of sections) {
+    const sectionBpm = ownBpm ?? bpm
     const timed: TimedSyllable[][] = []
     const offsets: number[] = []
     let beats = 0
     for (const { fitted } of lines) {
       offsets.push(beats)
-      timed.push(timedLine(fitted, beats, bpm))
-      beats += beatsOf(fitted, bpm)
+      timed.push(timedLine(fitted, beats, sectionBpm))
+      beats += beatsOf(fitted, sectionBpm)
     }
-    const same = `${ending}|${JSON.stringify(progression ?? null)}|${lines.map(({ key }) => key).join('|')}`
+    const same = `${sectionBpm}|${ending}|${JSON.stringify(progression ?? null)}|${lines.map(({ key }) => key).join('|')}`
     const guide =
       shared.get(same) ??
       composeGuide({
         syllables: timed.flat(),
         beats,
-        bpm,
+        bpm: sectionBpm,
         mode: modes[mode],
         ending,
         random: wrongness(`guide:${iteration}:${name}`),

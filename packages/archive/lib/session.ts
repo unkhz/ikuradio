@@ -21,6 +21,11 @@ export type Session = {
   /** Which Song this is, counted from 0. */
   song: string
   /**
+   * The Arrangement the Song was made as, by its folder id (e.g. `the-song`).
+   * Missing on Songs made before Arrangements were recorded.
+   */
+  arrangement?: string
+  /**
    * The name the mind gave it, punctuation and all: the title of its page,
    * and the words of its link, which is made from the name alone, by
    * `slugOf`. Missing on Songs from before Songs had names.
@@ -212,6 +217,8 @@ export type SessionPart = {
   type: 'verse' | 'chorus' | 'bridge'
   at: number
   seconds: number
+  /** The part's own tempo, when it differs from the Song's: beats a minute, or null for free time (no beat, no grid). */
+  tempo?: number | null
   /** The words, a line at a time. A bridge has none. */
   lines: SessionLine[]
 }
@@ -250,6 +257,8 @@ export type SessionRecording = {
   voice?: number
   /** How long its place in the Song lasts, if the Studio knows: a Receiver arriving later need not fetch it. */
   seconds?: number
+  /** Seconds the Recording takes to rise from silence at its start, if it fades in. */
+  fadeIn?: number
   /**
    * For a Recording that goes on past its place: how many seconds of tail
    * it has, to be faded out while what follows has already begun. Music

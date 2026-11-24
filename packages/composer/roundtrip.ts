@@ -396,8 +396,9 @@ try {
   await undo()
   // a sound of its own, and a key already on the Track
   await choosing(() => clipAt(2).click())
+  const originalKey = await value('key')
   await doing(() => page.locator('#blocks .unique').click())
-  must((await value('key')) !== 'voice:chorus', 'the Block was not given a key of its own')
+  must((await value('key')) !== originalKey, 'the Block was not given a key of its own')
   await undo()
   await doing(() => page.locator('#blocks [data-field="key-pick"]').selectOption('voice:verse-2'))
   must((await value('key')) === 'voice:verse-2', 'a key on the Track was not picked')

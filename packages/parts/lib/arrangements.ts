@@ -11,10 +11,19 @@ import type { PartRecord } from './registry.js'
 import { readTracks, type TrackRecord } from './tracks.js'
 
 /** An Arrangement as its declaration and its record say it is. */
-export type ArrangementRecord = { arrangement: Arrangement; slug: string; title: string; text: string; state: RecordState; dir: string }
+export type ArrangementRecord = { arrangement: Arrangement; slug: string; title: string; text: string; state: RecordState; weight: number; dir: string }
 
 /** Where the Arrangements live: a folder each. */
 export const arrangementsHome = fileURLToPath(new URL('../arrangements/', import.meta.url))
+
+/** How likely an Arrangement is to be drawn when none is pinned: integer 0..10, or 1 if not given. */
+function weightOf(raw: string | undefined, dir: string): number {
+  if (raw === undefined) return 1
+  if (raw.trim() === '') throw new Error(`${dir}: weight must be an integer from 0 to 10, got ""`)
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < 0 || n > 10) throw new Error(`${dir}: weight must be an integer from 0 to 10, got "${raw}"`)
+  return n
+}
 
 /** Every Arrangement there is, in the order of their ids; one whose declaration is refused stops the reading. */
 export async function readArrangements(records: readonly PartRecord[], home = arrangementsHome, tracks?: readonly TrackRecord[]): Promise<ArrangementRecord[]> {
@@ -31,7 +40,7 @@ export async function readArrangements(records: readonly PartRecord[], home = ar
     if (refused) throw new Error(`${dir}: ${refused}`)
     const arrangement = declared as Arrangement
     if (arrangement.id !== entry.name || record.slug !== entry.name) throw new Error(`${dir}: an Arrangement's id is its folder's, in its record and its declaration alike`)
-    found.push({ ...record, arrangement, dir })
+    found.push({ ...record, weight: weightOf(record.fields.weight, dir), arrangement, dir })
   }
   return found.sort((a, b) => a.arrangement.id.localeCompare(b.arrangement.id))
 }

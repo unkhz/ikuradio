@@ -37,8 +37,8 @@ export const partsAnswer = (records: readonly PartRecord[]) =>
 export async function arrangementsAnswer(records: readonly PartRecord[], arrangementsDir: string, tempo: number, tracks?: readonly TrackRecord[]) {
   const parts = new Map(records.map(({ part }) => [part.id, part]))
   const lanes = tracks ?? (await readTracks())
-  return (await readArrangements(records, arrangementsDir, lanes)).map(({ arrangement, title, text, state }) => {
+  return (await readArrangements(records, arrangementsDir, lanes)).map(({ arrangement, title, text, state, weight }) => {
     const layout = layoutOf(arrangement, parts, firstTune, tempo)
-    return { id: arrangement.id, title, text, state, declaration: arrangement, layout, timeline: timelineOf(arrangement, layout, lanes, tempo) }
+    return { id: arrangement.id, title, text, state, weight, declaration: arrangement, layout, timeline: timelineOf(arrangement, layout, lanes, tempo) }
   })
 }

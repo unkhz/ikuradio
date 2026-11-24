@@ -1,5 +1,6 @@
 ---
 state: active
+weight: 0
 id: 2
 kind: arrangement
 slug: tempo-turns

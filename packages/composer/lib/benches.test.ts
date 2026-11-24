@@ -106,10 +106,15 @@ describe('what a bench changes', () => {
   })
 
   it('names the recordings a Session would make: one to a key of the timeline, placed as many times as the key is', async () => {
-    const turns = await ask('/bench/song?tempo=72', { arrangement: 'tempo-turns' })
-    const chorus = turns.recordings.find((one: any) => one.key === 'voice:chorus')
+    const song = await ask('/bench/song?tempo=72', { arrangement: 'the-song' })
+    const chorus = song.recordings.find((one: any) => one.key === 'voice:chorus')
     expect(chorus.placed).toBe(2)
-    expect(new Set(turns.recordings.map((one: any) => `${one.track}:${one.key}`)).size).toBe(turns.recordings.length)
+    expect(new Set(song.recordings.map((one: any) => `${one.track}:${one.key}`)).size).toBe(song.recordings.length)
+    const turns = await ask('/bench/song?tempo=72', { arrangement: 'tempo-turns' })
+    expect(turns.recordings.find((one: any) => one.key === 'voice:chorus')?.placed).toBe(1)
+    expect(turns.recordings.find((one: any) => one.key === 'voice:chorus:96')?.placed).toBe(1)
+    expect(turns.parts[3].tempo).toBeNull()
+    expect(turns.parts[4].tempo).toBe(96)
   })
 
   it('answers only what is a bench, and only to a POST', async () => {

@@ -181,13 +181,15 @@ describe('tempo-turns proves what the Song cannot', () => {
     expect(bed.beats).toBeCloseTo(((30 + 40 / 3 + 3) * tempo) / 60, 9)
   })
 
-  it('shares a sound placed again: the chorus is one voice and one bed, at two tempi', () => {
-    const voices = resolved.blocks.filter(({ key }) => key === 'voice:chorus')
-    const beds = resolved.blocks.filter(({ key }) => key === 'bed:chorus')
-    expect(voices).toHaveLength(2)
-    expect(beds).toHaveLength(2)
-    expect(voices[0]!.seconds).not.toBeCloseTo(voices[1]!.seconds, 3)
-    expect(voices[0]!.source).toEqual(voices[1]!.source)
+  it('gives the chorus heard at 96 bpm its own keys: one key, one recording, one tempo', () => {
+    const firstVoice = resolved.blocks.find(({ key }) => key === 'voice:chorus')!
+    const fastVoice = resolved.blocks.find(({ key }) => key === 'voice:chorus:96')!
+    const firstBed = resolved.blocks.find(({ key }) => key === 'bed:chorus')!
+    const fastBed = resolved.blocks.find(({ key }) => key === 'bed:chorus:96')!
+    expect(firstVoice.seconds).not.toBeCloseTo(fastVoice.seconds, 3)
+    expect(firstVoice.source).toEqual(fastVoice.source)
+    expect(firstBed.seconds).not.toBeCloseTo(fastBed.seconds, 3)
+    expect(firstBed.source).toEqual(fastBed.source)
   })
 
   it("keeps the last bed's tail past the Song's end in the last region, under its tempo", () => {

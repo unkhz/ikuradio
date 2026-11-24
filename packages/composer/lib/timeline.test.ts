@@ -60,11 +60,15 @@ describe('the timeline /arrangements.json answers', () => {
     expect(bed.endSeconds).toBeGreaterThan(turns.regions[1]!.startSeconds + turns.regions[1]!.seconds)
   })
 
-  it('has the Blocks of the chorus, placed twice, as two Blocks of one key', async () => {
-    const turns = (await asked(72)).find(({ id }) => id === 'tempo-turns')!.timeline
-    const chorus = turns.blocks.filter(({ key }) => key === 'voice:chorus')
+  it('has the Blocks of the chorus, placed twice in the-song as two Blocks of one key, and split by tempo in tempo-turns', async () => {
+    const all = await asked(72)
+    const song = all.find(({ id }) => id === 'the-song')!.timeline
+    const chorus = song.blocks.filter(({ key }) => key === 'voice:chorus')
     expect(chorus).toHaveLength(2)
     expect(chorus[0]!.startSeconds).not.toBe(chorus[1]!.startSeconds)
+    const turns = all.find(({ id }) => id === 'tempo-turns')!.timeline
+    expect(turns.blocks.filter(({ key }) => key === 'voice:chorus')).toHaveLength(1)
+    expect(turns.blocks.filter(({ key }) => key === 'voice:chorus:96')).toHaveLength(1)
   })
 
   it('says what makes each Track, and which are not heard', async () => {

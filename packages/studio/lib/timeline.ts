@@ -63,16 +63,22 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
   const lastOf = (pass: number) => passOf.lastIndexOf(pass)
   const begins = (pass: number) => resolved.regions[firstOf(pass)]!.startSeconds
   const lasts = (pass: number) => resolved.regions[lastOf(pass)]!.startSeconds + resolved.regions[lastOf(pass)]!.seconds - begins(pass)
-  const regionAt = (at: number) => resolved.regions.findIndex((region) => Math.abs(region.startSeconds - at) < same)
+  const regionAt = (at: number) => {
+    const exact = resolved.regions.findIndex((region) => Math.abs(region.startSeconds - at) < same)
+    if (exact >= 0) return exact
+    const inside = resolved.regions.findIndex((region) => at >= region.startSeconds - same && at < region.startSeconds + region.seconds - same)
+    if (inside >= 0) return inside
+    return at < 0 ? 0 : resolved.regions.length - 1
+  }
 
-  // what a Track's placing at a moment is: the key placed there, and where it is first made
-  const placedAt = (track: string, region: number) => {
+  // what a Track's placing at a moment is, if any: the key placed there, and where it is first made
+  const findPlaced = (track: string, region: number) => {
     for (const making of asked) {
       if (making.track !== track) continue
       const placing = making.placings.find((one) => Math.abs(one.at - resolved.regions[region]!.startSeconds) < same)
       if (placing) return { making, placing, from: regionAt(making.placings[0]!.at) }
     }
-    throw new Error(`region ${region + 1} ("${instances[region]!.name}") has no ${track} Block starting where it does`)
+    return undefined
   }
 
   const iterations: SessionIteration[] = []
@@ -87,39 +93,44 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
     for (let r = firstOf(pass); r <= lastOf(pass); r++) {
       const region = resolved.regions[r]!
       const wordless = fields[r] === undefined
-      // what sings it is made once, by its key, and placed where its Block says: the lines of the first region the key lies under
-      const { making, placing, from } = placedAt('voice', r)
-      const sung = lines[from] ?? []
+      // what sings it is made once, by its key, and placed where its Block says; a silent region (e.g. a bridge with no voice Block) has none
+      const placed = findPlaced('voice', r)
+      const at = placed ? placed.placing.at : region.startSeconds
+      const sung = placed ? (lines[placed.from] ?? []) : []
       const start = sung[0]?.at ?? 0
       const partIndex = r - firstOf(pass)
       parts.push({
         type: region.part as 'verse' | 'chorus' | 'bridge',
-        at: seconds(placing.at),
+        at: seconds(at),
         seconds: seconds(region.seconds),
+        ...(region.tempo !== mood.character.tempo ? { tempo: region.tempo } : {}),
         lines: wordless
           ? []
           : sung.map((line, index) => ({
               text: line.lyrics,
-              at: seconds(placing.at + (line.at - start)),
+              at: seconds(at + (line.at - start)),
               typing: typingMoments(line.lyrics, line.voiced, `${composed.iteration}:${partIndex}:${index}`).map((moment) => Math.round(line.enters * 1000 + moment)),
               ...(line.grown ? { grown: line.grown } : {}),
               ...(line.quickest !== undefined && Number.isFinite(line.quickest) ? { quickest: line.quickest } : {}),
             })),
       })
       // every singer's own take, so that a Receiver can sing them and mix them as it likes
-      for (const line of sung) {
-        if (line.unheard) continue
-        for (const { file, voice, gain, take } of line.voices) {
-          voices.push({
-            id: name(file),
-            ...(take ? { take: takeOf(take) } : {}),
-            at: seconds(placing.at + (line.at - start)),
-            kind: 'voice',
-            voice,
-            ...(gain !== 1 ? { gain } : {}),
-            seconds: seconds(line.seconds),
-            ...heard(file),
-          })
+      if (placed) {
+        for (const [lineIndex, line] of sung.entries()) {
+          if (line.unheard) continue
+          for (const { file, voice, gain, take } of line.voices) {
+            voices.push({
+              id: name(file),
+              ...(take ? { take: takeOf(take) } : {}),
+              at: seconds(at + (line.at - start)),
+              kind: 'voice',
+              voice,
+              ...(gain !== 1 ? { gain } : {}),
+              seconds: seconds(line.seconds),
+              ...(lineIndex === 0 && placed.placing.fadeIn ? { fadeIn: placed.placing.fadeIn } : {}),
+              ...heard(file),
+            })
+          }
         }
       }
 
@@ -156,6 +167,7 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
         kind: 'bed',
         // a bed's place is its Block less its tail, and the tail is the fade the Session says: what the bed holds beyond its place fades under what follows
         seconds: seconds(placing.seconds - placing.fadeOut),
+        ...(placing.fadeIn ? { fadeIn: placing.fadeIn } : {}),
         ...(placing.fadeOut ? { fade: placing.fadeOut } : {}),
         ...heard(bed.file),
       })
@@ -195,6 +207,7 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
   return {
     version: sessionVersion,
     song: song.number,
+    arrangement: arrangement.id,
     ...(songName ? { name: songName } : {}),
     mood: mood.descriptions,
     mode: mood.character.mode,
