@@ -97,6 +97,8 @@ Built and reviewed: step 1 as b51f939, with its fixes in 48cad8d; `the-song` cor
 
 Step 3 is built as f402b32. Songs 1883 to 1885 began as "the-song", 2 iterations long, with the shadow clean, and their diary pages say so. `ITERATION_COUNT` is gone from the env, including xitra's `.env`. Until step 4, the Studio also refuses an Arrangement whose iterations aren't laid out as `the-song` lays one. Step 3 is done.
 
+Step 4 is built as aa8ad07. Songs 1888 to 1893 were made by the timeline's keys with the shadow clean and no `asking:` warning. Each had 9 beds asked per iteration, of which 0 to 1 were taken from the Shelf in the first iteration and 2 to 3 in the second, giving 15 to 16 distinct beds per Song (the baseline was 12 to 17). Each Session has 20 bed placings and 20 guides, every bed at a part's start with fade 3 and gain 0.45, and the two choruses of a pass sharing one bed. Step 4 is done.
+
 ## How the work is done
 
 As in "Evolution of Song":
