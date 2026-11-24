@@ -114,11 +114,29 @@ describe('weighted deterministic Arrangement selection', () => {
     expect(() => drawFrom([{ arrangement: theSong, iterations: 2, weight: 0 }], '1')).toThrow('no active, makeable Arrangement')
   })
 
-  it('poolOf keeps only active, makeable, positive-weight Arrangements (the-song today, not tempo-turns at weight 0)', async () => {
+  it('poolOf keeps active, makeable, positive-weight Arrangements (the-song at weight 2, the-long-breath at weight 1, not tempo-turns at weight 0)', async () => {
     const pool = await poolOf()
-    expect(pool.map(({ arrangement }) => arrangement.id)).toEqual(['the-song'])
+    expect(pool.map(({ arrangement, weight }) => [arrangement.id, weight])).toEqual([
+      ['the-long-breath', 1],
+      ['the-song', 2],
+    ])
     const pick = await chooser()
-    expect(pick.take(1n)).toEqual({ id: 'the-song', iterations: 2 })
-    expect(pick.take(42n)).toEqual({ id: 'the-song', iterations: 2 })
+    const drawn = new Set<string>()
+    let longBreath = 0
+    for (let s = 1n; s <= 300n; s++) {
+      const one = pick.take(s)
+      expect(pick.take(s)).toEqual(one)
+      drawn.add(one.id)
+      if (one.id === 'the-long-breath') {
+        expect(one.iterations).toBe(1)
+        longBreath++
+      } else {
+        expect(one).toEqual({ id: 'the-song', iterations: 2 })
+      }
+    }
+    expect([...drawn].sort()).toEqual(['the-long-breath', 'the-song'])
+    // weight 1 of 3 (~33%)
+    expect(longBreath).toBeGreaterThan(75)
+    expect(longBreath).toBeLessThan(125)
   })
 })

@@ -1,0 +1,47 @@
+{
+  "id": "the-long-breath",
+  "title": "The Long Breath",
+  "instances": [
+    { "name": "verse-1", "part": "verse", "parameters": { "wordiness": 0.2, "ceiling": 5, "travel": 2 } },
+    { "name": "verse-2", "part": "verse", "parameters": { "wordiness": 0.5, "ceiling": 3 } },
+    { "name": "bridge-1", "part": "bridge" },
+    { "name": "chorus", "part": "chorus", "ending": "half" },
+    { "name": "bridge-2", "part": "bridge", "seconds": 12 },
+    { "name": "verse-3", "part": "verse", "parameters": { "wordiness": 0.75, "ceiling": 1 } },
+    { "name": "chorus", "part": "chorus", "ending": "half" },
+    { "name": "final-chorus", "part": "verse", "parameters": { "wordiness": 0.25, "ceiling": 2 }, "ending": "full" }
+  ],
+  "tempo": [
+    { "bpm": "mood" },
+    { "region": "bridge-2", "bpm": null },
+    { "region": "verse-3", "bpm": 96 },
+    { "region": "final-chorus", "bpm": "mood" }
+  ],
+  "tracks": ["voice", "bed", "guide"],
+  "blocks": [
+    { "track": "voice", "key": "voice:verse-1", "from": { "region": "verse-1", "edge": "start" }, "to": { "region": "verse-1", "edge": "end" }, "source": ["verse-1"] },
+    { "track": "voice", "key": "voice:verse-2", "from": { "region": "verse-2", "edge": "start" }, "to": { "region": "verse-2", "edge": "end" }, "source": ["verse-2"] },
+    { "track": "voice", "key": "voice:bridge-1", "from": { "region": "bridge-1", "edge": "start" }, "to": { "region": "bridge-1", "edge": "end" }, "source": ["bridge-1"] },
+    { "track": "voice", "key": "voice:chorus", "from": { "region": "chorus", "hearing": 1, "edge": "start" }, "to": { "region": "chorus", "hearing": 1, "edge": "end" }, "source": ["chorus"] },
+    { "track": "voice", "key": "voice:bridge-2", "from": { "region": "bridge-2", "edge": "start" }, "to": { "region": "bridge-2", "edge": "end" }, "source": ["bridge-2"] },
+    { "track": "voice", "key": "voice:verse-3", "from": { "region": "verse-3", "edge": "start" }, "to": { "region": "verse-3", "edge": "end" }, "source": ["verse-3"] },
+    { "track": "voice", "key": "voice:chorus:96", "from": { "region": "chorus", "hearing": 2, "edge": "start" }, "to": { "region": "chorus", "hearing": 2, "edge": "end" }, "source": ["chorus"] },
+    { "track": "voice", "key": "voice:final-chorus", "from": { "region": "final-chorus", "edge": "start" }, "to": { "region": "final-chorus", "edge": "end" }, "source": ["final-chorus"] },
+    { "track": "bed", "key": "bed:verse-1", "from": { "region": "verse-1", "edge": "start" }, "to": { "region": "verse-1", "edge": "end", "plus": 5 }, "source": ["verse-1"], "fadeIn": 2.5, "fadeOut": 5, "gain": 0.45 },
+    { "track": "bed", "key": "bed:verse-2", "from": { "region": "verse-2", "edge": "start" }, "to": { "region": "verse-2", "edge": "end", "plus": 3 }, "source": ["verse-2"], "fadeIn": 2, "fadeOut": 3, "gain": 0.45 },
+    { "track": "bed", "key": "bed:bridge-1", "from": { "region": "bridge-1", "edge": "start" }, "to": { "region": "bridge-1", "edge": "end", "plus": 3 }, "source": ["bridge-1"], "fadeOut": 3, "gain": 0.45 },
+    { "track": "bed", "key": "bed:chorus", "from": { "region": "chorus", "hearing": 1, "edge": "start" }, "to": { "region": "chorus", "hearing": 1, "edge": "end", "plus": 3 }, "source": ["chorus"], "fadeOut": 3, "gain": 0.45 },
+    { "track": "bed", "key": "bed:bridge-2", "from": { "region": "bridge-2", "edge": "start" }, "to": { "region": "bridge-2", "edge": "end", "plus": 3 }, "source": ["bridge-2"], "fadeIn": 2, "fadeOut": 3, "gain": 0.45 },
+    { "track": "bed", "key": "bed:verse-3", "from": { "region": "verse-3", "edge": "start" }, "to": { "region": "verse-3", "edge": "end", "plus": 3 }, "source": ["verse-3"], "fadeOut": 3, "gain": 0.45 },
+    { "track": "bed", "key": "bed:chorus:96", "from": { "region": "chorus", "hearing": 2, "edge": "start" }, "to": { "region": "chorus", "hearing": 2, "edge": "end", "plus": 4 }, "source": ["chorus"], "fadeOut": 4, "gain": 0.45 },
+    { "track": "bed", "key": "bed:final-chorus", "from": { "region": "final-chorus", "edge": "start" }, "to": { "region": "final-chorus", "edge": "end", "plus": 5 }, "source": ["final-chorus"], "fadeIn": 1.5, "fadeOut": 5, "gain": 0.45 },
+    { "track": "guide", "key": "guide:verse-1", "from": { "region": "verse-1", "edge": "start" }, "to": { "region": "verse-1", "edge": "end" }, "source": ["verse-1"] },
+    { "track": "guide", "key": "guide:verse-2", "from": { "region": "verse-2", "edge": "start" }, "to": { "region": "verse-2", "edge": "end" }, "source": ["verse-2"] },
+    { "track": "guide", "key": "guide:bridge-1", "from": { "region": "bridge-1", "edge": "start" }, "to": { "region": "bridge-1", "edge": "end" }, "source": ["bridge-1"] },
+    { "track": "guide", "key": "guide:chorus", "from": { "region": "chorus", "hearing": 1, "edge": "start" }, "to": { "region": "chorus", "hearing": 1, "edge": "end" }, "source": ["chorus"] },
+    { "track": "guide", "key": "guide:bridge-2", "from": { "region": "bridge-2", "edge": "start" }, "to": { "region": "bridge-2", "edge": "end" }, "source": ["bridge-2"] },
+    { "track": "guide", "key": "guide:verse-3", "from": { "region": "verse-3", "edge": "start" }, "to": { "region": "verse-3", "edge": "end" }, "source": ["verse-3"] },
+    { "track": "guide", "key": "guide:chorus:96", "from": { "region": "chorus", "hearing": 2, "edge": "start" }, "to": { "region": "chorus", "hearing": 2, "edge": "end" }, "source": ["chorus"] },
+    { "track": "guide", "key": "guide:final-chorus", "from": { "region": "final-chorus", "edge": "start" }, "to": { "region": "final-chorus", "edge": "end" }, "source": ["final-chorus"] }
+  ]
+}

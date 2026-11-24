@@ -124,4 +124,21 @@ describe('what the timeline asks the Studio to make', () => {
     expect(sourceOf(pass!, slow)).toMatchObject({ name: 'chorus', index: 2, tempo: 72 })
     expect(sourceOf(pass!, fast)).toMatchObject({ name: 'chorus', index: 4, tempo: 96 })
   })
+
+  it('asks for a voice, guide and bed for every region of the-long-breath, with matching tempi and explicit parameters', async () => {
+    const breath = (await readArrangements(records, undefined, tracks)).find(({ arrangement }) => arrangement.id === 'the-long-breath')!.arrangement
+    const asked = askedOf(breath, tracks, undefined, 72)
+    expect(asked.passes).toHaveLength(1)
+    const [pass] = asked.passes
+    expect(pass!.regions).toHaveLength(8)
+    expect(pass!.voices).toHaveLength(8)
+    expect(pass!.guides).toHaveLength(8)
+    expect(pass!.beds).toHaveLength(8)
+    expect(pass!.regions.map(({ tempo }) => tempo)).toEqual([72, 72, 72, 72, null, 96, 96, 72])
+    expect(pass!.regions[0]!.parameters).toEqual({ wordiness: 0.2, ceiling: 5, travel: 2 })
+    expect(pass!.regions[3]!.ending).toBe('half')
+    expect(pass!.regions[7]!.ending).toBe('full')
+    expect(sourceOf(pass!, pass!.beds.find(({ key }) => key === 'bed:chorus:96')!)).toMatchObject({ name: 'chorus', index: 6, tempo: 96 })
+    expect(sourceOf(pass!, pass!.guides.find(({ key }) => key === 'guide:chorus:96')!)).toMatchObject({ name: 'chorus', index: 6, tempo: 96 })
+  })
 })
