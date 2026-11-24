@@ -54,12 +54,18 @@ describe('what the Studio cannot yet make', () => {
     expect(unmet({ ...walked(2), tempo: [{ bpm: 'mood' }] }, theSong)).toBeUndefined()
   })
 
-  it('refuses regions in another order than the Song as it always was lays one, until the Studio makes the Song from the timeline', () => {
+  it('makes regions in another order than the Song as it always was lays one: the Studio makes the Song from the timeline', () => {
     const other = walked(2)
     const [a, b] = [other.instances[0]!, other.instances[1]!]
     other.instances[0] = b
     other.instances[1] = a
-    expect(unmet(other, theSong)).toContain('iteration 1 is not laid as the-song lays one')
+    expect(unmet(other, theSong)).toBeUndefined()
+  })
+
+  it('refuses two bridges in a row, which would be sung as one section', () => {
+    const other = walked(1)
+    other.instances.splice(2, 0, { name: 'bridge-2', part: 'bridge' })
+    expect(unmet(other, theSong)).toContain('two bridges in a row')
   })
 })
 

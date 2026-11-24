@@ -17,7 +17,7 @@ export const iterationsOfArrangement = (arrangement: Pick<Arrangement, 'instance
 /**
  * The first thing an Arrangement asks that this Studio cannot yet make, said plainly, or nothing. `reference` is the Song as it always was: a name it does not have
  * has no words here. What the Session has no field for yet (a tempo of a part's own, free time, a fade in, a part that is not a verse, a chorus or a bridge) is refused until
- * the Session has it, and the Studio makes each iteration as the Song as it always was until it is made from the timeline (step 4): regions in another order are refused.
+ * the Session has it. Regions in any order are made: the Studio makes the Song from the timeline (step 5).
  */
 export function unmet(arrangement: Arrangement, reference: Arrangement): string | undefined {
   const known = new Set(reference.instances.map(({ name }) => name))
@@ -30,16 +30,10 @@ export function unmet(arrangement: Arrangement, reference: Arrangement): string 
     if (point.region !== undefined || point.bpm !== 'mood') return 'it changes the tempo, and a Session has one tempo, the Mood\'s'
   }
   for (const block of arrangement.blocks ?? []) if (block.fadeIn) return `its block "${block.key}" fades in, which a Session cannot yet say`
-  // every iteration is laid as the Song as it always was lays one, until the Studio makes the Song from the timeline
-  const names = (list: readonly { name: string }[]) => list.map(({ name }) => name)
-  const per = iterationsOf(arrangement.instances, arrangement.turns)
-  const own = names(arrangement.instances)
-  const referencePer = iterationsOf(reference.instances, reference.turns)
-  const first = names(reference.instances).filter((_, i) => referencePer[i] === 0)
-  const passes = Math.max(...per) + 1
-  for (let pass = 0; pass < passes; pass++) {
-    const these = own.filter((_, i) => per[i] === pass)
-    if (JSON.stringify(these) !== JSON.stringify(first)) return `its iteration ${pass + 1} is not laid as ${reference.id} lays one, which is the only way the Studio can make one yet`
+  // the Studio hums a guide for a section by its place among the sections it sang, and a section is a region: two bridges in a row would be sung as one section
+  for (let i = 1; i < arrangement.instances.length; i++) {
+    const [before, here] = [arrangement.instances[i - 1]!, arrangement.instances[i]!]
+    if (before.part === 'bridge' && here.part === 'bridge') return `its regions "${before.name}" and "${here.name}" are two bridges in a row, which are sung as one section`
   }
   return undefined
 }

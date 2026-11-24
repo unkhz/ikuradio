@@ -26,8 +26,8 @@ import { composer, type Iteration } from './lib/compose.js'
 import { perform, type SungLine } from './lib/perform.js'
 import { chosen, takeOf } from './lib/arrangement.js'
 import { songAsItAlwaysWas } from './lib/compose.js'
-import { shadowCheck } from './lib/shadow.js'
-import { toSession, type Made } from './lib/session.js'
+import { type Made } from './lib/session.js'
+import { sessionOf } from './lib/timeline.js'
 import { humGuides, type Guide } from './lib/guide.js'
 import { againstSections, askedOf, kindOf, laid, measure, partsOf, sourceOf } from './lib/asking.js'
 import { sweep } from './lib/sweep.js'
@@ -212,7 +212,8 @@ const guides: Guide[][] = []
 for (const [i, one] of composed.entries()) {
   const here = asked.passes[passOf(one)]!
   const heard = sections(sung[i])
-  if (heard.length !== here.regions.length) console.warn(`asking: the iteration was sung in ${heard.length} sections and its timeline has ${here.regions.length} regions`)
+  // a guide is hummed for a section by its place: a Song with sections that are not its regions would be made wrongly, and cannot be taken back
+  if (heard.length !== here.regions.length) throw new Error(`the iteration was sung in ${heard.length} sections and its timeline has ${here.regions.length} regions: the Song is not made`)
   guides.push(await humGuides(one, sung[i], guides[i - 1], here.guides.map((making) => ({ key: making.key, section: sourceOf(here, making).index }))))
 }
 
@@ -291,16 +292,17 @@ console.log(`${loudness.size} of ${files.size} recordings measured in ${seconds(
 const ids = new Map<string, string>()
 for (const file of [...voices, ...guiding]) ids.set(file, recordingName(file))
 for (const file of beds) ids.set(file, await store.putRecording(file))
-const session = toSession(
+// the Session is written from the Arrangement's timeline, over what was made: the Archive is for ever, and what is published is what the timeline says
+const session = sessionOf({
+  arrangement: songArrangement,
+  tracks,
   made,
-  (file) => ids.get(file)!,
-  (file) => loudness.get(file),
-  throatName(),
+  name: (file) => ids.get(file)!,
+  loudness: (file) => loudness.get(file),
+  throat: throatName(),
   thought,
-  named,
-)
-// beside it, the Session the Arrangement's timeline gives: compared, said, and never published (plan "The Studio on timelines", step 2)
-await shadowCheck({ made, session, name: (file) => ids.get(file)!, loudness: (file) => loudness.get(file), throat: throatName(), thought, songName: named, arrangement: made[0]?.composed.song.arrangement ?? songAsItAlwaysWas })
+  songName: named,
+})
 await store.putSession(session)
 // the thought is kept only once its Song is published: a Song made again is thought about again
 if (thought) {

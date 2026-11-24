@@ -1,7 +1,7 @@
-// The Session from the timeline (plan "The Studio on timelines", step 2). `toSession` lays a Song down by the rules the Studio keeps in code: every line end
-// to end, every bed under its section. `sessionOf` writes the same Session from an Arrangement's timeline: the regions measured from the lines as they were
-// sung, the Blocks resolved over them, and what was made (a voice's lines, a guide, a bed) placed where its Block says. It is made in the shadow of the real
-// one, beside it and unpublished, and the two are compared (./shadow.ts), until the Songs on the air have shown them the same.
+// The Session from the timeline (plan "The Studio on timelines", steps 2 and 5). `sessionOf` writes a Song's Session from an Arrangement's timeline: the regions measured
+// from the lines as they were sung, the Blocks resolved over them, and what was made (a voice's lines, a guide, a bed) placed where its Block says. It is what the Studio
+// publishes. Before step 5 it was made in the shadow of the Session the Studio wrote by its own rules, and compared with it for eleven and then six Songs on the air;
+// those rules are gone, and their answer on three Songs of the Archive is kept as JSON in fixtures/expected, to which `sessionOf` is held in timeline.test.ts.
 //
 // What was made is given as the iterations of `Made`. Beds and guides are made by key (step 4) and laid once for each place their key is placed, so each is found by its
 // key: the nth made of a key is the nth placing of it. The Session says where each lies from the timeline's placing, never from the made thing's own moment.
