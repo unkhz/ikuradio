@@ -101,9 +101,9 @@ export function melodyFor(base: Melody, parameters?: Readonly<Record<string, num
   }
 }
 
-/** How a section ends: the Arrangement's explicit ending if set, else full for a chorus/refrain or the last section, else half. */
+/** How a section ends: the Arrangement's explicit ending if set, else full for a chorus/refrain/outro or the last section, else half. */
 export const endingFor = (part: string, index: number, total: number, explicit?: 'full' | 'half'): 'full' | 'half' =>
-  explicit ?? (part === 'chorus' || part === 'refrain' || index === total - 1 ? 'full' : 'half')
+  explicit ?? (part === 'chorus' || part === 'refrain' || part === 'outro' || index === total - 1 ? 'full' : 'half')
 
 /** Applies a per-block `breath` preset (`soft`, `pressed`, or `plain`) on top of a singer's own throat. */
 export function throatForBreath(base: Throat | undefined, breath?: string): Throat | undefined {
@@ -337,7 +337,7 @@ export async function perform(
     if (pick === 'solo') return choir.slice(0, 1)
     if (pick === 'duet') return choir.slice(0, Math.min(2, choir.length))
     if (pick === 'choir') return choir
-    return part === 'chorus' || part === 'refrain' || settings.choir.verses ? choir : choir.slice(0, 1)
+    return part === 'chorus' || part === 'refrain' || part === 'outro' || settings.choir.verses ? choir : choir.slice(0, 1)
   }
 
   /** A line fitted to its bars: the lead's score, to its tune, and the words' stresses. */

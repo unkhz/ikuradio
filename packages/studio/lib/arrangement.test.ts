@@ -40,10 +40,10 @@ describe('what the Studio cannot yet make', () => {
     expect(unmet(turns, theSong, activeParts)).toBeUndefined()
     expect(unmet({ ...walked(2), tempo: [{ bpm: 96 }] }, theSong, activeParts)).toBeUndefined()
     expect(unmet({ ...walked(2), blocks: [{ track: 'bed', key: 'k', from: { edge: 'start' }, to: { edge: 'end' }, fadeIn: 2 }] }, theSong, activeParts)).toBeUndefined()
-    // new region names, active parts (pre-chorus, spoken, interlude, refrain, silence), consecutive bridges, and drone/pulse tracks are now supported
+    // new region names, active parts (pre-chorus, spoken, interlude, refrain, silence, outro), consecutive bridges, and drone/pulse/drums tracks are now supported
     const expanded = walked(1)
-    expanded.instances.splice(1, 0, { name: 'pre-1', part: 'pre-chorus' }, { name: 'spoke-1', part: 'spoken' }, { name: 'gap', part: 'silence' }, { name: 'coda', part: 'refrain' })
-    expanded.tracks = ['voice', 'bed', 'guide', 'drone', 'pulse']
+    expanded.instances.splice(1, 0, { name: 'pre-1', part: 'pre-chorus' }, { name: 'spoke-1', part: 'spoken' }, { name: 'gap', part: 'silence' }, { name: 'finale', part: 'outro' }, { name: 'coda', part: 'refrain' })
+    expanded.tracks = ['voice', 'bed', 'guide', 'drone', 'pulse', 'drums']
     expect(unmet(expanded, theSong, activeParts)).toBeUndefined()
     const twoBridges = walked(1)
     twoBridges.instances.splice(2, 0, { name: 'bridge-2', part: 'bridge' })
@@ -58,7 +58,7 @@ describe('what the Studio cannot yet make', () => {
     const odd = walked(2)
     odd.instances = odd.instances.map((one, i) => (i === 0 ? { ...one, part: 'unknown-part' } : one))
     expect(unmet(odd, theSong, activeParts)).toContain('not among the active parts')
-    expect(unmet({ ...walked(1), tracks: ['drums'] }, theSong, activeParts)).toContain('cannot make yet')
+    expect(unmet({ ...walked(1), tracks: ['brass'] }, theSong, activeParts)).toContain('cannot make yet')
     // the Mood's own tempo is the Song's one tempo
     expect(unmet({ ...walked(2), tempo: [{ bpm: 'mood' }] }, theSong, activeParts)).toBeUndefined()
   })
@@ -113,29 +113,32 @@ describe('weighted deterministic Arrangement selection', () => {
     expect(() => drawFrom([{ arrangement: theSong, title: 'The Song as it always was', iterations: 2, weight: 0 }], '1')).toThrow('no active, makeable Arrangement')
   })
 
-  it('poolOf keeps active, makeable, positive-weight Arrangements (the-song at weight 2, the-long-breath at weight 1, not tempo-turns at weight 0)', async () => {
+  it('poolOf keeps active, makeable, positive-weight Arrangements (the-song 6, the-long-breath 3, the-ascent 1, not tempo-turns at 0)', async () => {
     const pool = await poolOf()
     expect(pool.map(({ arrangement, weight }) => [arrangement.id, weight])).toEqual([
-      ['the-long-breath', 1],
-      ['the-song', 2],
+      ['the-ascent', 1],
+      ['the-long-breath', 3],
+      ['the-song', 6],
     ])
+    const ascent = await chosen('the-ascent')
+    expect(ascent.iterations).toBe(1)
+    expect(takeOf(ascent)).toEqual({ id: 'the-ascent', iterations: 1 })
     const pick = await chooser()
-    const drawn = new Set<string>()
-    let longBreath = 0
-    for (let s = 1n; s <= 300n; s++) {
+    const counts = new Map<string, number>()
+    for (let s = 1n; s <= 1000n; s++) {
       const one = pick.take(s)
       expect(pick.take(s)).toEqual(one)
-      drawn.add(one.id)
-      if (one.id === 'the-long-breath') {
-        expect(one.iterations).toBe(1)
-        longBreath++
-      } else {
-        expect(one).toEqual({ id: 'the-song', iterations: 2 })
-      }
+      counts.set(one.id, (counts.get(one.id) ?? 0) + 1)
+      if (one.id === 'the-song') expect(one.iterations).toBe(2)
+      else expect(one.iterations).toBe(1)
     }
-    expect([...drawn].sort()).toEqual(['the-long-breath', 'the-song'])
-    // weight 1 of 3 (~33%)
-    expect(longBreath).toBeGreaterThan(75)
-    expect(longBreath).toBeLessThan(125)
+    expect([...counts.keys()].sort()).toEqual(['the-ascent', 'the-long-breath', 'the-song'])
+    // weight 1 of 10 (~10%), 3 of 10 (~30%), 6 of 10 (~60%)
+    expect(counts.get('the-ascent')!).toBeGreaterThan(70)
+    expect(counts.get('the-ascent')!).toBeLessThan(135)
+    expect(counts.get('the-long-breath')!).toBeGreaterThan(250)
+    expect(counts.get('the-long-breath')!).toBeLessThan(350)
+    expect(counts.get('the-song')!).toBeGreaterThan(540)
+    expect(counts.get('the-song')!).toBeLessThan(660)
   })
 })

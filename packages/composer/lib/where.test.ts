@@ -30,7 +30,7 @@ describe('what a refusal is about', () => {
     expect(refused((a) => (a.turns[0].hearing = 0))!.where).toEqual({ thing: 'turn', index: 0, field: 'hearing' })
     expect(refused((a) => (a.id = 'Bad Id'))!.where).toEqual({ thing: 'arrangement', field: 'id' })
     expect(refused((a) => (a.title = ''))!.where).toEqual({ thing: 'arrangement', field: 'title' })
-    expect(refused((a) => (a.tracks = ['drums']))!.where).toMatchObject({ thing: 'arrangement', field: 'tracks' })
+    expect(refused((a) => (a.tracks = ['brass']))!.where).toMatchObject({ thing: 'arrangement', field: 'tracks' })
   })
 
   it('is nothing when it is about the whole', () => {

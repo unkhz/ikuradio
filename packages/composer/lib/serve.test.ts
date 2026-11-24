@@ -21,7 +21,7 @@ describe('the real parts and Arrangements', () => {
 
   it('answers every part, with its record, what it is, and its parameters with their ranges', async () => {
     const found = (await (await get(answer, '/parts.json')).json()) as { id: string; title: string; text: string; words: string; ending: string; parameters: { name: string; minimum?: number; maximum?: number; default?: number }[] }[]
-    expect(found.map(({ id }) => id).sort()).toEqual(['bridge', 'chorus', 'interlude', 'pre-chorus', 'refrain', 'silence', 'spoken', 'verse'])
+    expect(found.map(({ id }) => id).sort()).toEqual(['bridge', 'chorus', 'interlude', 'outro', 'pre-chorus', 'refrain', 'silence', 'spoken', 'verse'])
     const verse = found.find(({ id }) => id === 'verse')!
     expect(verse.title).toBeTruthy()
     expect(verse.text.length).toBeGreaterThan(20)
@@ -31,7 +31,7 @@ describe('the real parts and Arrangements', () => {
 
   it('answers every Arrangement with its layout, at a tempo that may be asked for', async () => {
     const arrangements = (await (await get(answer, '/arrangements.json?tempo=90')).json()) as { id: string; layout: { tempo: number; instances: unknown[] } }[]
-    expect(arrangements.map(({ id }) => id)).toEqual(['tempo-turns', 'the-long-breath', 'the-song'])
+    expect(arrangements.map(({ id }) => id)).toEqual(['tempo-turns', 'the-ascent', 'the-long-breath', 'the-song'])
     const song = arrangements.find(({ id }) => id === 'the-song')
     expect(song!.layout.tempo).toBe(90)
     expect(song!.layout.instances).toHaveLength(20)
@@ -107,7 +107,7 @@ describe('POST /format and /tracks.json', () => {
 
   it('lists the Tracks, with what makes them and the parameters a Block of each may be given', async () => {
     const tracks = (await (await get(answer, '/tracks.json')).json()) as { id: string; heard: boolean; makes: unknown; parameters: { name: string; minimum?: number; maximum?: number }[] }[]
-    expect(tracks.map(({ id }) => id)).toEqual(['bed', 'drone', 'guide', 'pulse', 'voice'])
+    expect(tracks.map(({ id }) => id)).toEqual(['bed', 'drone', 'drums', 'guide', 'pulse', 'voice'])
     expect(tracks.find(({ heard }) => !heard)!.parameters).toEqual([])
     expect(tracks.find(({ id }) => id === 'bed')!.parameters.map(({ name }) => name).sort()).toEqual(['fadeIn', 'fadeOut', 'gain'])
     expect(tracks.find(({ id }) => id === 'bed')!.parameters.find(({ name }) => name === 'gain')).toMatchObject({ minimum: 0, maximum: 2 })

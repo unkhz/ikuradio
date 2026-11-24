@@ -430,21 +430,26 @@ function prepare(airing) {
           song.done()
         })
     }
-    for (const recording of synths.values()) {
-      try {
-        const samples = globalThis.ikuradioSynth?.render(recording.synth)
-        if (samples) {
-          song.voices.set(recording.id, samples)
-          song.fetched++
-        } else {
-          song.gone.add(recording.id)
-          song.missing = song.gone.size
+    if (synths.size) {
+      ;(async () => {
+        for (const recording of synths.values()) {
+          await new Promise((resolve) => setTimeout(resolve, 0))
+          try {
+            const samples = globalThis.ikuradioSynth?.render(recording.synth)
+            if (samples) {
+              song.voices.set(recording.id, samples)
+              song.fetched++
+            } else {
+              song.gone.add(recording.id)
+              song.missing = song.gone.size
+            }
+          } catch {
+            song.gone.add(recording.id)
+            song.missing = song.gone.size
+          }
+          song.done()
         }
-      } catch {
-        song.gone.add(recording.id)
-        song.missing = song.gone.size
-      }
-      song.done()
+      })()
     }
     // throats opened already, while the Session was fetched, are idle and are given the first takes now
     singSoon()
@@ -544,11 +549,12 @@ const mostRaised = 12
 const ceiling = -1
 function levelOf({ kind, gain, loudness }) {
   if (!loudness) return gain ?? 1
-  if ((kind === 'drone' || kind === 'pulse') && gain !== undefined && gain <= 0) return 0
+  const scaledTrack = kind === 'drone' || kind === 'pulse' || kind === 'drums'
+  if (scaledTrack && gain !== undefined && gain <= 0) return 0
   const wanted =
     kind === 'voice' || kind === 'spoken'
       ? voiceLoudness + 20 * Math.log10(gain ?? 1)
-      : kind === 'drone' || kind === 'pulse'
+      : scaledTrack
         ? voiceLoudness - bedsUnder + 20 * Math.log10(gain ?? 1)
         : voiceLoudness - bedsUnder
   const raise = Math.min(mostRaised, wanted - loudness.lufs, ceiling - loudness.peak)
@@ -715,7 +721,7 @@ function placeSounds(audioContext) {
         const source = audioContext.createBufferSource()
         source.buffer = buffer
         let stopAt
-        if (recording.kind === 'bed' || recording.kind === 'drone' || recording.kind === 'pulse') {
+        if (recording.kind === 'bed' || recording.kind === 'drone' || recording.kind === 'pulse' || recording.kind === 'drums') {
           const level = audioContext.createGain()
           const gain = levelOf(recording)
           const now = audioContext.currentTime

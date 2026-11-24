@@ -129,7 +129,7 @@ describe('what a timeline asks to be made', () => {
     const refrain = blocks.filter((block) => block.key === 'bed:chorus')
     refrain[1]!.source = ['verse-2']
     expect(() => makingsOf({ blocks }, tracks)).toThrow('bed:chorus is placed from chorus and from verse-2: one key, one source')
-    expect(() => makingsOf(unmeasured, tracks.filter(({ track }) => track.id !== 'guide'))).toThrow('which is not among the tracks: bed, drone, pulse, voice')
+    expect(() => makingsOf(unmeasured, tracks.filter(({ track }) => track.id !== 'guide'))).toThrow('which is not among the tracks: bed, drone, drums, pulse, voice')
     // a Track that is there and not heard keeps a guide off the air
     expect(makingsOf(unmeasured, tracks).filter(({ track }) => track === 'guide').every(({ heard }) => !heard)).toBe(true)
   })

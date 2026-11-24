@@ -192,7 +192,7 @@ export function sessionOf({ arrangement, arrangementTitle, parts: partMap, track
       })
     }
 
-    // procedural tracks (`drone`, `pulse`): rendered identically by every Receiver from `synth`
+    // procedural tracks (`drone`, `pulse`, `drums`): rendered identically by every Receiver from `synth`
     for (const one of synths) {
       recordings.push({
         id: name(one.file),

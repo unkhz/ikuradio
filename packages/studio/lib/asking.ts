@@ -33,7 +33,7 @@ export type Region = {
   seconds?: number
 }
 
-/** What is asked of one iteration: its regions, and every voice, guide, bed, drone and pulse key under them. */
+/** What is asked of one iteration: its regions, and every voice, guide, bed, drone, pulse and drums key under them. */
 export type Asked = {
   regions: Region[]
   voices: ToMake[]
@@ -41,6 +41,7 @@ export type Asked = {
   beds: ToMake[]
   drones: ToMake[]
   pulses: ToMake[]
+  drums: ToMake[]
 }
 
 /** What an Arrangement asks, by iteration. `resolved` is the timeline it was read from, with the lengths it was given. */
@@ -117,6 +118,7 @@ export function askedOf(
       beds: asked.filter((making) => making.track === 'bed' && here(making)),
       drones: asked.filter((making) => making.track === 'drone' && here(making)),
       pulses: asked.filter((making) => making.track === 'pulse' && here(making)),
+      drums: asked.filter((making) => making.track === 'drums' && here(making)),
     })
   }
   return { passes: inPass, resolved, passOf }

@@ -34,6 +34,20 @@ export async function schemas(home?: string) {
   return { id: idSchema(records), parameters: parameterSchemas(records) }
 }
 
+/** Reads all literal `const` branches of an `anyOf` union from `root` along `schemaPath` so lists never truncate at TypeBox's 8-error cap. */
+function unionAllowed(root: TSchema, schemaPath: string): string[] | undefined {
+  const cut = schemaPath.lastIndexOf('/anyOf/')
+  if (cut < 0) return undefined
+  let node: unknown = root
+  for (const seg of schemaPath.slice(2, cut).split('/').filter(Boolean)) {
+    const key = seg.replace(/~1/g, '/').replace(/~0/g, '~')
+    node = node && typeof node === 'object' ? (node as Record<string, unknown>)[key] : undefined
+  }
+  const branches = (node as { anyOf?: { const?: unknown }[] } | undefined)?.anyOf
+  if (!Array.isArray(branches) || !branches.every((b) => b && 'const' in b)) return undefined
+  return branches.map((b) => String(b.const))
+}
+
 /**
  * Whether `value` keeps a schema: the first thing wrong with it, said plainly, or nothing. TypeBox says
  * a property that is not allowed twice, once as "schema is false"; the plain one is kept, with the
@@ -46,7 +60,9 @@ export function refusal(schema: TSchema, value: unknown): string | undefined {
   const where = error.instancePath || '/'
   if (error.keyword === 'additionalProperties') return `${where} ${error.message}: ${((error.params as { additionalProperties: string[] }).additionalProperties).join(', ')}`
   // only the options for this one place: another instance's are not this one's
-  const allowed = errors.filter(({ keyword, instancePath }) => keyword === 'const' && instancePath === error.instancePath).map(({ params }) => String((params as { allowedValue?: unknown }).allowedValue))
+  const allowed =
+    (error.keyword === 'const' && unionAllowed(schema, error.schemaPath)) ||
+    errors.filter(({ keyword, instancePath }) => keyword === 'const' && instancePath === error.instancePath).map(({ params }) => String((params as { allowedValue?: unknown }).allowedValue))
   if (error.keyword === 'const' && allowed.length > 1) return `${where} must be one of ${allowed.join(', ')}`
   return `${where} ${error.message}`
 }

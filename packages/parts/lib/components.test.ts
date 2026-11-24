@@ -1,24 +1,25 @@
 import { describe, expect, it } from 'bun:test'
 import { firstTune } from 'melody'
-import { fieldsOf, partsById, readParts, readTracks, refuseArrangement, resolve, makingsOf, type Arrangement } from '../index.js'
+import { fieldsOf, partsById, readArrangements, readParts, readTracks, refuseArrangement, resolve, makingsOf, type Arrangement } from '../index.js'
 
 const records = await readParts()
 const parts = await partsById()
 const tracks = await readTracks()
 
-describe('new song components (5 parts + voice controls + drone & pulse tracks)', () => {
-  it('registers all 8 active parts and 5 active tracks interchangeably', () => {
+describe('new song components (6 parts + voice controls + drone, drums & pulse tracks)', () => {
+  it('registers all 9 active parts and 6 active tracks interchangeably', () => {
     expect(records.map(({ part }) => part.id).sort()).toEqual([
       'bridge',
       'chorus',
       'interlude',
+      'outro',
       'pre-chorus',
       'refrain',
       'silence',
       'spoken',
       'verse',
     ])
-    expect(tracks.map(({ track }) => track.id).sort()).toEqual(['bed', 'drone', 'guide', 'pulse', 'voice'])
+    expect(tracks.map(({ track }) => track.id).sort()).toEqual(['bed', 'drone', 'drums', 'guide', 'pulse', 'voice'])
   })
 
   it('validates an Arrangement combining all new parts, per-block voice parameters, drone, and pulse', () => {
@@ -158,5 +159,47 @@ describe('new song components (5 parts + voice controls + drone & pulse tracks)'
     const silence = parts.get('silence')!
     expect(silence.durationSeconds?.(72, { seconds: 5 })).toBe(5)
     expect(silence.durationSeconds?.(null, { seconds: 5 })).toBe(5)
+
+    const outro = parts.get('outro')!
+    expect(outro.words).toBe('written')
+    expect(outro.ending).toBe('full')
+    const outroPhrases = outro.phrases(firstTune, place)
+    expect(outroPhrases).toHaveLength(3)
+    expect(outroPhrases[0]!.notes[0]![1]).toBe(firstTune.chorus.at(-3)!.notes[0]![1] * 2)
+    expect(outroPhrases[0]!.rest).toBe(firstTune.chorus.at(-3)!.rest * 2)
+  })
+
+  it('validates the-ascent arrangement with drums, evolving drone, silence drop, single chorus, and slow-motion outro', async () => {
+    const all = await readArrangements(records, undefined, tracks)
+    const ascent = all.find(({ arrangement }) => arrangement.id === 'the-ascent')!
+    expect(ascent).toBeDefined()
+    expect(ascent.state).toBe('active')
+    expect(ascent.weight).toBe(1)
+    expect(refuseArrangement(ascent.arrangement, records, tracks)).toBeUndefined()
+    // single chorus, 12 regions, 5 tracks including drone & drums
+    expect(ascent.arrangement.instances).toHaveLength(12)
+    expect(ascent.arrangement.instances.filter((i) => i.part === 'chorus')).toHaveLength(1)
+    expect(ascent.arrangement.tracks).toEqual(['voice', 'bed', 'guide', 'drone', 'drums'])
+    // every bed block has a matching guide block for its source region
+    const bedSources = ascent.arrangement.blocks!.filter((b) => b.track === 'bed').map((b) => b.source![0])
+    const guideSources = ascent.arrangement.blocks!.filter((b) => b.track === 'guide').map((b) => b.source![0])
+    expect(bedSources).toEqual(guideSources)
+    // refuses invalid drums parameters
+    const badDrums: Arrangement = {
+      id: 'bad-drums',
+      title: 'Bad Drums',
+      instances: [{ name: 'verse-1', part: 'verse' }],
+      tracks: ['drums'],
+      blocks: [
+        {
+          track: 'drums',
+          key: 'd',
+          from: { edge: 'start' },
+          to: { edge: 'end' },
+          parameters: { style: 'polka' },
+        },
+      ],
+    }
+    expect(refuseArrangement(badDrums, records, tracks)).toContain('drums')
   })
 })

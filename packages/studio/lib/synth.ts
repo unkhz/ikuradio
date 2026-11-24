@@ -1,4 +1,4 @@
-// Procedural Track rendering in the Studio (`drone` and `pulse`): builds
+// Procedural Track rendering in the Studio (`drone`, `pulse`, and `drums`): builds
 // deterministic `SynthSpec` payloads from the timeline, mode, tonic, tempo map,
 // and hummed guide chords, then renders WAVs via `vocals` so the Studio can
 // measure exact EBU R128 loudness and mix rehearsals. Only the declarative
@@ -12,13 +12,13 @@ import type { Guide } from './guide.js'
 
 export type KeyedSynth = Placed & {
   key: string
-  track: 'drone' | 'pulse'
+  track: 'drone' | 'pulse' | 'drums'
   synth: SynthSpec
 }
 
 /**
- * Renders every `drone` and `pulse` placing in `pass`. A `pulse` placing under
- * free time (`bpm === null`) produces nothing (silent in free time).
+ * Renders every `drone`, `pulse`, and `drums` placing in `pass`. A `pulse` or
+ * `drums` placing under free time (`bpm === null`) produces nothing.
  */
 export async function renderSynths(
   asking: Asking,
@@ -71,6 +71,7 @@ export async function renderSynths(
         ...(placing.fadeOut ? { fade: placing.fadeOut } : {}),
         ...(overlapping.length ? { chords: overlapping } : {}),
         ...(typeof params.warmth === 'number' ? { warmth: params.warmth } : {}),
+        ...(typeof params.build === 'number' ? { build: params.build } : {}),
         ...(typeof params.movement === 'number' ? { movement: params.movement } : {}),
         ...(typeof params.octave === 'number' ? { octave: params.octave } : {}),
         seed: `${songNumber}:${pass}:${making.key}:${n}`,
@@ -113,6 +114,43 @@ export async function renderSynths(
       results.push({
         key: making.key,
         track: 'pulse',
+        file,
+        at,
+        gain: placing.gain,
+        seconds: Math.max(0, placing.seconds - placing.fadeOut),
+        ...(placing.fadeIn ? { fadeIn: placing.fadeIn } : {}),
+        ...(placing.fadeOut ? { fade: placing.fadeOut } : {}),
+        synth: spec,
+      })
+    }
+  }
+
+  for (const making of asked.drums) {
+    for (const [n, placing] of making.placings.entries()) {
+      // drums are strictly silent in free time
+      if (placing.bpm === null || !(placing.bpm > 0)) continue
+      const at = placing.at - offset
+      const params = placing.parameters ?? {}
+      const style = params.style === 'trance' || params.style === 'ritual' ? params.style : 'tribal'
+      const spec: Extract<SynthSpec, { kind: 'drums' }> = {
+        kind: 'drums',
+        style,
+        mode: mood.character.mode,
+        tonic,
+        bpm: placing.bpm,
+        seconds: Math.round(placing.seconds * 1000) / 1000,
+        ...(placing.fadeIn ? { fadeIn: placing.fadeIn } : {}),
+        ...(placing.fadeOut ? { fade: placing.fadeOut } : {}),
+        ...(typeof params.intensity === 'number' ? { intensity: params.intensity } : {}),
+        ...(typeof params.build === 'number' ? { build: params.build } : {}),
+        ...(typeof params.swing === 'number' ? { swing: params.swing } : {}),
+        ...(typeof params.halfTime === 'number' ? { halfTime: params.halfTime } : {}),
+        seed: `${songNumber}:${pass}:${making.key}:${n}`,
+      }
+      const { file } = await synthInto(spec)
+      results.push({
+        key: making.key,
+        track: 'drums',
         file,
         at,
         gain: placing.gain,

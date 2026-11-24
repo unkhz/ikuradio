@@ -10,7 +10,7 @@ import { arrangementsHome, boundaryOf, iterationsOf, parseRecord, readArrangemen
 import { songAsItAlwaysWas, type Take } from './compose.js'
 
 /** Tracks the Studio knows how to realize. */
-const supportedTracks = new Set(['voice', 'bed', 'guide', 'drone', 'pulse'])
+const supportedTracks = new Set(['voice', 'bed', 'guide', 'drone', 'pulse', 'drums'])
 
 /** How many iterations an Arrangement makes: its turns and one. */
 export const iterationsOfArrangement = (arrangement: Pick<Arrangement, 'instances' | 'turns'>) => Math.max(...iterationsOf(arrangement.instances, arrangement.turns)) + 1

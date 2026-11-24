@@ -301,8 +301,8 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
         beats: (section.seconds * sectionBpm) / 60,
         bpm: sectionBpm,
         mode: key.mode,
-        // a chorus or refrain comes home, and so does the iteration; everything else leaves it open, on the fifth
-        ending: section.part === 'chorus' || section.part === 'refrain' || i === all.length - 1 ? 'full' : 'half',
+        // a chorus, refrain, or outro comes home, and so does the iteration; everything else leaves it open, on the fifth
+        ending: section.part === 'chorus' || section.part === 'refrain' || section.part === 'outro' || i === all.length - 1 ? 'full' : 'half',
         random: wrongness(`guide:${iteration}:${name}`),
         previous: previous.find((guide) => guide.name === name)?.composed,
         progression,

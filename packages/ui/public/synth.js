@@ -1,6 +1,7 @@
 // Deterministic procedural 48 kHz PCM synthesis for non-MusicGen Tracks
-// (`drone` and `pulse`) in the browser Receiver. Mirrors `packages/vocals/lib/synth.ts`
-// sample-for-sample so late joins and Studio loudness measurements agree.
+// (`drone`, `pulse`, and `drums`) in the browser Receiver. Mirrors
+// `packages/vocals/lib/synth.ts` sample-for-sample so late joins and Studio
+// loudness measurements agree.
 (() => {
   const synthRate = 48000
   const modeSteps = {
@@ -38,7 +39,8 @@
   function renderDrone(spec, sampleRate = synthRate) {
     const total = Math.max(1, Math.round(spec.seconds * sampleRate))
     const out = new Float32Array(total)
-    const warmth = Math.max(0, Math.min(1, spec.warmth ?? 0.55))
+    const warmthStart = Math.max(0, Math.min(1, spec.warmth ?? 0.55))
+    const warmthEnd = Math.max(0, Math.min(1, spec.build ?? warmthStart))
     const movement = Math.max(0, Math.min(1, spec.movement ?? 0.4))
     const octaveShift = Math.max(-1, Math.min(1, Math.round(spec.octave ?? 0))) * 12
     const baseTonic = spec.tonic + octaveShift
@@ -62,8 +64,6 @@
     let curThird = thirdHz0
 
     const glide = 1 - Math.exp(-1 / (0.18 * sampleRate))
-    const cutoff = 280 + warmth * 1250
-    const lpAlpha = Math.min(0.95, (2 * Math.PI * cutoff) / (2 * Math.PI * cutoff + sampleRate))
     let lp = 0
     let chordIdx = 0
 
@@ -71,9 +71,15 @@
     const twoPi = Math.PI * 2
     const invSr = 1 / sampleRate
     const detune = 0.0025 + movement * 0.004
+    const invTotal = 1 / Math.max(1, total - 1)
 
     for (let i = 0; i < total; i++) {
       const t = i * invSr
+      const progress = i * invTotal
+      const warmth = warmthStart + (warmthEnd - warmthStart) * progress
+      const cutoff = 140 + warmth * warmth * 1800
+      const lpAlpha = Math.min(0.95, (twoPi * cutoff) / (twoPi * cutoff + sampleRate))
+
       while (chordIdx < chords.length - 1 && t >= chords[chordIdx].at + chords[chordIdx].seconds) {
         chordIdx++
       }
@@ -101,13 +107,16 @@
       const breathA = 0.72 + 0.28 * movement * Math.sin(twoPi * 0.11 * t + lfoPhaseA)
       const breathB = 0.65 + 0.35 * movement * Math.sin(twoPi * 0.07 * t + lfoPhaseB)
 
+      const bloom = warmth * warmth
       const raw =
         0.42 * Math.sin(pRoot) +
         0.16 * Math.sin(pSub) +
         0.16 * breathA * Math.sin(pFifthA) +
         0.16 * breathB * Math.sin(pFifthB) +
-        (0.08 + 0.12 * warmth) * breathB * Math.sin(pOct) +
-        (0.04 + 0.08 * warmth) * breathA * Math.sin(pThird)
+        (0.05 + 0.16 * warmth) * breathB * Math.sin(pOct) +
+        (0.02 + 0.11 * warmth) * breathA * Math.sin(pThird) +
+        0.14 * bloom * breathB * Math.sin(pOct * 2) +
+        0.08 * bloom * breathA * Math.sin(pThird * 2)
 
       lp += lpAlpha * (raw - lp)
       let env = 1
@@ -173,10 +182,195 @@
     return out
   }
 
+  function renderDrums(spec, sampleRate = synthRate) {
+    const total = Math.max(1, Math.round(spec.seconds * sampleRate))
+    const out = new Float32Array(total)
+    if (!Number.isFinite(spec.bpm) || spec.bpm <= 0) return out
+
+    const style = spec.style ?? 'tribal'
+    const startIntensity = Math.max(0, Math.min(1, spec.intensity ?? 0.5))
+    const endIntensity = Math.max(0, Math.min(1, spec.build ?? startIntensity))
+    const swing = Math.max(0, Math.min(0.4, spec.swing ?? 0.08))
+    const half = spec.halfTime ? 2 : 1
+    const rand = prng(`drums:${spec.seed}`)
+    const noiseRand = prng(`drums-noise:${spec.seed}`)
+
+    const beatSeconds = (60 / spec.bpm) * half
+    const stepSeconds = beatSeconds / 4
+    const lowHz = Math.max(48, Math.min(82, midiToHz(spec.tonic - 12)))
+    const tomLowHz = Math.max(88, Math.min(150, midiToHz(spec.tonic)))
+    const tomHighHz = Math.max(132, Math.min(220, midiToHz(degreeToMidi(4, spec.mode, spec.tonic))))
+    const bellHz = Math.max(260, Math.min(520, midiToHz(degreeToMidi(4, spec.mode, spec.tonic + 12))))
+    const twoPi = Math.PI * 2
+    const invSr = 1 / sampleRate
+
+    const addDeep = (atSeconds, vel, punch = 1) => {
+      const start = Math.round(atSeconds * sampleRate)
+      if (start >= total) return
+      const dur = style === 'ritual' ? 0.42 : 0.28
+      const len = Math.min(total - Math.max(0, start), Math.round(dur * sampleRate))
+      if (len <= 0) return
+      let phase = 0
+      for (let k = 0; k < len; k++) {
+        const idx = start + k
+        if (idx < 0) continue
+        const t = k * invSr
+        const attack = Math.min(1, t / 0.0025)
+        const decay = Math.exp(-t / (style === 'ritual' ? 0.13 : 0.085))
+        const pitch = 1 + (1.25 * punch) * Math.exp(-t / 0.02)
+        phase += twoPi * lowHz * pitch * invSr
+        const slap = t < 0.012 ? (noiseRand() * 2 - 1) * Math.exp(-t / 0.004) * 0.22 : 0
+        const body = Math.sin(phase) + 0.18 * Math.sin(phase * 2)
+        out[idx] += (body + slap) * attack * decay * vel
+      }
+    }
+
+    const addTom = (atSeconds, hz, vel) => {
+      const start = Math.round(atSeconds * sampleRate)
+      if (start >= total) return
+      const len = Math.min(total - Math.max(0, start), Math.round(0.22 * sampleRate))
+      if (len <= 0) return
+      let phase = 0
+      for (let k = 0; k < len; k++) {
+        const idx = start + k
+        if (idx < 0) continue
+        const t = k * invSr
+        const attack = Math.min(1, t / 0.002)
+        const decay = Math.exp(-t / 0.055)
+        const pitch = 1 + 0.38 * Math.exp(-t / 0.016)
+        phase += twoPi * hz * pitch * invSr
+        const slap = t < 0.009 ? (noiseRand() * 2 - 1) * Math.exp(-t / 0.003) * 0.28 : 0
+        out[idx] += (Math.sin(phase) + 0.16 * Math.sin(phase * 1.59) + slap) * attack * decay * vel
+      }
+    }
+
+    const addRim = (atSeconds, vel) => {
+      const start = Math.round(atSeconds * sampleRate)
+      if (start >= total) return
+      const len = Math.min(total - Math.max(0, start), Math.round(0.065 * sampleRate))
+      if (len <= 0) return
+      const f = tomHighHz * 3.1
+      let p1 = 0
+      let p2 = 0
+      for (let k = 0; k < len; k++) {
+        const idx = start + k
+        if (idx < 0) continue
+        const t = k * invSr
+        const env = Math.min(1, t / 0.001) * Math.exp(-t / 0.014)
+        p1 += twoPi * f * invSr
+        p2 += twoPi * (f * 2.42) * invSr
+        const snap = t < 0.007 ? (noiseRand() * 2 - 1) * 0.45 : 0
+        out[idx] += (0.65 * Math.sin(p1) + 0.35 * Math.sin(p2) + snap) * env * vel
+      }
+    }
+
+    const addShaker = (atSeconds, vel, open, bright) => {
+      const start = Math.round(atSeconds * sampleRate)
+      if (start >= total) return
+      const dur = open ? 0.13 : 0.048
+      const len = Math.min(total - Math.max(0, start), Math.round(dur * sampleRate))
+      if (len <= 0) return
+      let prev = 0
+      let lp = 0
+      const alpha = 0.25 + 0.55 * bright
+      for (let k = 0; k < len; k++) {
+        const idx = start + k
+        if (idx < 0) continue
+        const t = k * invSr
+        const env = Math.min(1, t / (open ? 0.004 : 0.008)) * Math.exp(-t / (open ? 0.042 : 0.016))
+        const white = noiseRand() * 2 - 1
+        const hp = white - prev * 0.86
+        prev = white
+        lp += alpha * (hp - lp)
+        out[idx] += lp * env * vel
+      }
+    }
+
+    const addBell = (atSeconds, vel) => {
+      const start = Math.round(atSeconds * sampleRate)
+      if (start >= total) return
+      const len = Math.min(total - Math.max(0, start), Math.round(0.75 * sampleRate))
+      if (len <= 0) return
+      let p1 = 0
+      let p2 = 0
+      let p3 = 0
+      for (let k = 0; k < len; k++) {
+        const idx = start + k
+        if (idx < 0) continue
+        const t = k * invSr
+        const env = Math.min(1, t / 0.004) * Math.exp(-t / 0.24)
+        p1 += twoPi * bellHz * invSr
+        p2 += twoPi * (bellHz * 2.01) * invSr
+        p3 += twoPi * (bellHz * 2.98) * invSr
+        out[idx] += (0.6 * Math.sin(p1) + 0.28 * Math.sin(p2) + 0.12 * Math.sin(p3)) * env * vel
+      }
+    }
+
+    const totalSteps = Math.ceil(spec.seconds / stepSeconds)
+    const rising = endIntensity > startIntensity + 0.2
+    for (let s = 0; s < totalSteps; s++) {
+      const bar = Math.floor(s / 16)
+      const step = s % 16
+      const swingOffset = step % 2 === 1 ? swing * stepSeconds * 0.5 : 0
+      const t0 = s * stepSeconds + swingOffset
+      if (t0 >= spec.seconds) break
+      const progress = t0 / Math.max(0.001, spec.seconds)
+      const energy = Math.max(0, Math.min(1, startIntensity + (endIntensity - startIntensity) * progress))
+      const human = 0.88 + rand() * 0.24
+      const finalRamp = rising && spec.seconds - t0 < beatSeconds * 4
+
+      if (style === 'tribal') {
+        if (step === 0) addDeep(t0, (0.52 + 0.34 * energy) * human, 0.8 + 0.5 * energy)
+        if (step === 6 && energy >= 0.16) addDeep(t0, (0.24 + 0.26 * energy) * human, 0.7)
+        if (step === 8 && energy >= 0.42) addDeep(t0, (0.34 + 0.28 * energy) * human, 0.9)
+        if (step === 12 && energy >= 0.65) addDeep(t0, (0.28 + 0.22 * energy) * human, 0.75)
+
+        if ((step === 3 || step === 10) && energy >= 0.24) addTom(t0, tomLowHz, (0.22 + 0.28 * energy) * human)
+        if ((step === 4 || step === 14) && energy >= 0.36) addTom(t0, tomHighHz, (0.18 + 0.26 * energy) * human)
+        if (step === 11 && energy >= 0.58) addTom(t0, tomHighHz * 1.12, (0.16 + 0.2 * energy) * human)
+
+        if ((step === 4 || step === 12) && energy >= 0.48) addRim(t0, (0.12 + 0.18 * energy) * human)
+
+        if (energy >= 0.32 && (step % 2 === 0 || energy >= 0.6)) {
+          const accent = step % 4 === 2 ? 1.35 : 0.75
+          addShaker(t0, (0.06 + 0.16 * energy) * accent * human, step === 2 || step === 10, energy)
+        }
+
+        if ((bar % 4 === 3 && step >= 12 && energy >= 0.55) || (finalRamp && step % 2 === 0)) {
+          const rampGain = finalRamp ? 0.25 + 0.35 * (1 - (spec.seconds - t0) / (beatSeconds * 4)) : 0.24 * energy
+          addTom(t0, step % 4 === 0 ? tomLowHz : tomHighHz, rampGain * human)
+        }
+      } else if (style === 'trance') {
+        if (step % 4 === 0) addDeep(t0, (0.56 + 0.32 * energy) * human, 1.0 + 0.4 * energy)
+        if (step % 4 === 2 && energy >= 0.22) addShaker(t0, (0.12 + 0.22 * energy) * human, true, 0.4 + 0.6 * energy)
+        if (step % 2 === 1 && energy >= 0.45) addShaker(t0, (0.05 + 0.1 * energy) * human, false, 0.35 + 0.55 * energy)
+        if ((step === 4 || step === 12) && energy >= 0.35) addRim(t0, (0.14 + 0.2 * energy) * human)
+        if ((step === 6 || step === 14) && energy >= 0.55) addTom(t0, tomLowHz, (0.18 + 0.22 * energy) * human)
+        if (finalRamp && step % 2 === 0) addTom(t0, tomHighHz, (0.2 + 0.28 * energy) * human)
+      } else {
+        if (step === 0) addDeep(t0, (0.55 + 0.3 * energy) * human, 0.9)
+        if (step === 0 && bar % 2 === 0 && energy >= 0.18) addBell(t0, (0.1 + 0.16 * energy) * human)
+        if (step === 8 && energy >= 0.22) addTom(t0, tomLowHz, (0.24 + 0.26 * energy) * human)
+        if (step === 12 && energy >= 0.48) addTom(t0, tomHighHz, (0.16 + 0.2 * energy) * human)
+        if (step % 4 === 2 && energy >= 0.38) addShaker(t0, (0.07 + 0.12 * energy) * human, true, 0.3 + 0.5 * energy)
+      }
+    }
+
+    const edge = Math.min(Math.round(0.015 * sampleRate), Math.floor(total / 2))
+    for (let i = 0; i < total; i++) {
+      let env = 1
+      if (i >= total - edge) env = (total - 1 - i) / edge
+      out[i] = Math.tanh(out[i] * 1.15) * 0.72 * env
+    }
+    return out
+  }
+
   globalThis.ikuradioSynth = {
     render(spec) {
       if (!spec) return undefined
-      return spec.kind === 'drone' ? renderDrone(spec, synthRate) : renderPulse(spec, synthRate)
+      if (spec.kind === 'drone') return renderDrone(spec, synthRate)
+      if (spec.kind === 'drums') return renderDrums(spec, synthRate)
+      return renderPulse(spec, synthRate)
     },
   }
 })()

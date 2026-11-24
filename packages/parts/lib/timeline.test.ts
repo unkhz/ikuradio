@@ -117,8 +117,8 @@ describe('what is refused', () => {
   })
 
   it('a Block on a Track that does not exist', () => {
-    expect(refused({ blocks: [block({ track: 'drums' })] })).toContain('there is no track "drums": the tracks are bed, drone, guide, pulse, voice')
-    expect(refused({ tracks: ['drums'] })).toContain('names the track "drums", which does not exist')
+    expect(refused({ blocks: [block({ track: 'brass' })] })).toContain('there is no track "brass": the tracks are bed, drone, drums, guide, pulse, voice')
+    expect(refused({ tracks: ['brass'] })).toContain('names the track "brass", which does not exist')
   })
 
   it('an anchor naming a region that does not exist, or a hearing that is not', () => {
@@ -195,21 +195,21 @@ describe('what is refused', () => {
 describe('a Track nobody has told the package of', () => {
   it('is usable with no code changed: found by its folder, and a Block may be put on it', async () => {
     const home = mkdtempSync(join(tmpdir(), 'tracks-'))
-    const dir = join(home, 'drums')
+    const dir = join(home, 'brass')
     mkdirSync(dir)
     const typebox = Bun.resolveSync('typebox', fileURLToPath(new URL('./', import.meta.url)))
     const trackModule = fileURLToPath(new URL('./track.ts', import.meta.url))
-    writeFileSync(join(dir, 'track.md'), '---\nstate: active\nid: 9\nkind: track\nslug: drums\n---\n# The drums keep time\n\nNothing makes them yet.\n')
-    writeFileSync(join(dir, 'track.ts'), `import { Type } from '${typebox}'\nimport { Track } from '${trackModule}'\nclass Drums extends Track {\n  readonly id = 'drums'\n  readonly heard = true\n  readonly parameters = Type.Object({ gain: Type.Number({ minimum: 0, maximum: 1, default: 1 }) })\n}\nexport default new Drums()\n`)
+    writeFileSync(join(dir, 'track.md'), '---\nstate: active\nid: 9\nkind: track\nslug: brass\n---\n# The brass swells\n\nNothing makes it yet.\n')
+    writeFileSync(join(dir, 'track.ts'), `import { Type } from '${typebox}'\nimport { Track } from '${trackModule}'\nclass Brass extends Track {\n  readonly id = 'brass'\n  readonly heard = true\n  readonly parameters = Type.Object({ gain: Type.Number({ minimum: 0, maximum: 1, default: 1 }) })\n}\nexport default new Brass()\n`)
     const found = await readTracks(home)
-    expect(found.map(({ track }) => track.id)).toEqual(['drums'])
+    expect(found.map(({ track }) => track.id)).toEqual(['brass'])
     expect(found[0]!.track.makes).toBeUndefined()
-    expect(found[0]!.title).toBe('The drums keep time')
+    expect(found[0]!.title).toBe('The brass swells')
     const all = [...tracks, ...found]
-    expect(refuseArrangement(made({ blocks: [block({ track: 'drums', key: 'beat', gain: 0.5 })] }), records, all)).toBeUndefined()
-    expect(refuseArrangement(made({ blocks: [block({ track: 'drums', key: 'beat', gain: 2 })] }), records, all)).toContain('/gain')
+    expect(refuseArrangement(made({ blocks: [block({ track: 'brass', key: 'horn', gain: 0.5 })] }), records, all)).toBeUndefined()
+    expect(refuseArrangement(made({ blocks: [block({ track: 'brass', key: 'horn', gain: 2 })] }), records, all)).toContain('/gain')
     // and without it known, a Block on it is refused
-    expect(refuseArrangement(made({ blocks: [block({ track: 'drums', key: 'beat' })] }), records, tracks)).toContain('there is no track "drums"')
+    expect(refuseArrangement(made({ blocks: [block({ track: 'brass', key: 'horn' })] }), records, tracks)).toContain('there is no track "brass"')
   })
 
   it('must keep its folder, its record and its module in step', async () => {
@@ -223,8 +223,8 @@ describe('a Track nobody has told the package of', () => {
 })
 
 describe('the Tracks there are', () => {
-  it('has the voice, the bed, the guide, the drone and the pulse, each a Track, interchangeably', () => {
-    expect(tracks.map(({ track }) => track.id)).toEqual(['bed', 'drone', 'guide', 'pulse', 'voice'])
+  it('has the voice, the bed, the guide, the drone, the drums and the pulse, each a Track, interchangeably', () => {
+    expect(tracks.map(({ track }) => track.id)).toEqual(['bed', 'drone', 'drums', 'guide', 'pulse', 'voice'])
     for (const { track, dir } of tracks) {
       expect(track).toBeInstanceOf(Track)
       expect(dir.endsWith(`/${track.id}`)).toBe(true)

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import { isSynthesized, levelOf } from 'archive'
 import { firstMood } from 'mood'
 import { firstTune } from 'melody'
-import { partsById, readTracks, type Arrangement } from 'parts'
+import { partsById, readArrangements, readParts, readTracks, type Arrangement } from 'parts'
 import { firstLyrics } from 'song'
 import { askedOf } from './asking.js'
 import { extraPartsFor } from './compose.js'
@@ -214,6 +214,57 @@ describe('Studio support for new parts, voice controls, drone, and pulse', () =>
       expect(levelOf({ ...spokenRec, loudness: { lufs: -16, peak: -2 } })).toBe(1)
       expect(levelOf({ ...droneRec, loudness: { lufs: -16, peak: -2 } })).toBeCloseTo(0.2, 1)
       expect(levelOf({ ...droneRec, gain: 0, loudness: { lufs: -16, peak: -2 } })).toBe(0)
+    } finally {
+      for (const s of synths) rmSync(s.file, { force: true })
+    }
+  })
+
+  it('asks, renders evolving drone + drums synths, and writes Session cleanly for the-ascent', async () => {
+    const all = await readArrangements(await readParts(), undefined, tracks)
+    const ascent = all.find(({ arrangement }) => arrangement.id === 'the-ascent')!.arrangement
+    const asks = extraPartsFor(ascent, 0, firstTune, 74, 6, parts)
+    expect(asks.map(({ name, part, lines, spoken }) => ({ name, part, lines, spoken: Boolean(spoken) }))).toEqual([
+      { name: 'whisper-1', part: 'spoken', lines: 2, spoken: true },
+      { name: 'pre-chorus-1', part: 'pre-chorus', lines: 2, spoken: false },
+      { name: 'pre-chorus-2', part: 'pre-chorus', lines: 2, spoken: false },
+      { name: 'finale', part: 'outro', lines: 3, spoken: false },
+      { name: 'coda', part: 'refrain', lines: 1, spoken: false },
+    ])
+
+    // keep synthetic region lengths short so synth rendering in unit tests stays sub-second
+    const measuredSeconds = [4, 2, 4, 4, 3, 4, 3, 3.5, 4, 5, 3, 2]
+    const asking = askedOf(ascent, tracks, measuredSeconds, 74, parts)
+    expect(asking.passes).toHaveLength(1)
+    expect(asking.passes[0]!.drones.map((d) => d.key)).toEqual(['drone:ascent', 'drone:peak', 'drone:aftermath'])
+    expect(asking.passes[0]!.drums.map((d) => d.key)).toEqual(['drums:ascent', 'drums:peak', 'drums:aftermath'])
+    // drums:ascent & drums:peak at Mood 74 bpm, drums:aftermath at 56 bpm
+    expect(asking.passes[0]!.drums[0]!.placings[0]!.bpm).toBe(74)
+    expect(asking.passes[0]!.drums[1]!.placings[0]!.bpm).toBe(74)
+    expect(asking.passes[0]!.drums[2]!.placings[0]!.bpm).toBe(56)
+
+    const synths = await renderSynths(asking, 0, { ...firstMood, character: { ...firstMood.character, tempo: 74 } }, [], '2100')
+    try {
+      expect(synths.map((s) => `${s.track}:${s.key}`)).toEqual([
+        'drone:drone:ascent',
+        'drone:drone:peak',
+        'drone:drone:aftermath',
+        'drums:drums:ascent',
+        'drums:drums:peak',
+        'drums:drums:aftermath',
+      ])
+      const ascentDrone = synths.find((s) => s.key === 'drone:ascent')!.synth
+      expect(ascentDrone.kind === 'drone' && ascentDrone.warmth).toBe(0.12)
+      expect(ascentDrone.kind === 'drone' && ascentDrone.build).toBe(0.92)
+      const ascentDrums = synths.find((s) => s.key === 'drums:ascent')!.synth
+      expect(ascentDrums.kind === 'drums' && ascentDrums.style).toBe('tribal')
+      expect(ascentDrums.kind === 'drums' && ascentDrums.build).toBe(0.96)
+      const aftermathDrums = synths.find((s) => s.key === 'drums:aftermath')!.synth
+      expect(aftermathDrums.kind === 'drums' && aftermathDrums.style).toBe('ritual')
+      expect(aftermathDrums.kind === 'drums' && aftermathDrums.halfTime).toBe(1)
+
+      // levelOf scales drums under voices by gain (and 0 at gain 0)
+      expect(levelOf({ id: 'd', kind: 'drums', at: 0, gain: 0.85, seconds: 10, loudness: { lufs: -16, peak: -2 } })).toBeCloseTo(0.425, 2)
+      expect(levelOf({ id: 'd', kind: 'drums', at: 0, gain: 0, seconds: 10, loudness: { lufs: -16, peak: -2 } })).toBe(0)
     } finally {
       for (const s of synths) rmSync(s.file, { force: true })
     }

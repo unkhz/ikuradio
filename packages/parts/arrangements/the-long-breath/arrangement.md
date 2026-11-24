@@ -1,6 +1,6 @@
 ---
 state: active
-weight: 1
+weight: 3
 id: 3
 kind: arrangement
 slug: the-long-breath

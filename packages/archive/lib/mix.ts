@@ -23,11 +23,12 @@ export const ceiling = -1
  */
 export function levelOf({ kind, gain, loudness }: SessionRecording): number {
   if (!loudness) return gain ?? 1
-  if ((kind === 'drone' || kind === 'pulse') && gain !== undefined && gain <= 0) return 0
+  const scaledTrack = kind === 'drone' || kind === 'pulse' || kind === 'drums'
+  if (scaledTrack && gain !== undefined && gain <= 0) return 0
   const wanted =
     kind === 'voice' || kind === 'spoken'
       ? voiceLoudness + 20 * Math.log10(gain ?? 1)
-      : kind === 'drone' || kind === 'pulse'
+      : scaledTrack
         ? voiceLoudness - bedsUnder + 20 * Math.log10(gain ?? 1)
         : voiceLoudness - bedsUnder
   const raise = Math.min(mostRaised, wanted - loudness.lufs, ceiling - loudness.peak)

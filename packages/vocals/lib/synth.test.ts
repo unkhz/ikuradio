@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { encodeWav, speakInto } from './speak.js'
-import { renderDrone, renderPulse, renderSynth, synthRate } from './synth.js'
+import { renderDrone, renderDrums, renderPulse, renderSynth, synthRate } from './synth.js'
 
 describe('procedural synth tracks (drone & pulse)', () => {
   it('renders deterministic harmonic drone audio with smooth chord glides and bounded peaks', () => {
@@ -56,6 +56,75 @@ describe('procedural synth tracks (drone & pulse)', () => {
 
     // free time (bpm <= 0) must be strictly silent
     const silent = renderPulse({ ...spec, bpm: 0 })
+    expect(silent.every((s) => s === 0)).toBe(true)
+  })
+
+  it('evolves drone brightness across the block when build differs from warmth', () => {
+    const bloom = renderDrone({
+      kind: 'drone',
+      mode: 'dorian',
+      tonic: 45,
+      seconds: 4,
+      warmth: 0.1,
+      build: 0.95,
+      movement: 0.3,
+      octave: -1,
+      seed: 'bloom-1',
+    })
+    const steady = renderDrone({
+      kind: 'drone',
+      mode: 'dorian',
+      tonic: 45,
+      seconds: 4,
+      warmth: 0.1,
+      movement: 0.3,
+      octave: -1,
+      seed: 'bloom-1',
+    })
+    // high-frequency delta (rough spectral brightness proxy) in the final quarter is significantly higher when blooming
+    const hf = (buf: Float32Array, from: number, to: number) => {
+      let sum = 0
+      for (let i = from + 1; i < to; i++) sum += Math.abs(buf[i]! - buf[i - 1]!)
+      return sum / (to - from)
+    }
+    const q = Math.floor(bloom.length / 4)
+    expect(hf(bloom, 3 * q, bloom.length - 1000)).toBeGreaterThan(hf(steady, 3 * q, steady.length - 1000) * 1.25)
+  })
+
+  it('renders deterministic evolving drums across tribal, trance, and ritual styles, and stays silent in free time', () => {
+    const rms = (buf: Float32Array, from: number, to: number) => {
+      let sum = 0
+      for (let i = from; i < to; i++) sum += buf[i]! * buf[i]!
+      return Math.sqrt(sum / (to - from))
+    }
+    for (const style of ['tribal', 'trance', 'ritual'] as const) {
+      const spec = {
+        kind: 'drums' as const,
+        style,
+        mode: 'aeolian',
+        tonic: 45,
+        bpm: 76,
+        seconds: 8,
+        intensity: 0.12,
+        build: 0.96,
+        swing: 0.1,
+        halfTime: style === 'ritual' ? 1 : 0,
+        seed: `drums-${style}`,
+      }
+      const a = renderDrums(spec)
+      const b = renderSynth(spec)
+      expect(a.length).toBe(Math.round(8 * synthRate))
+      expect(a).toEqual(b)
+      let peak = 0
+      for (let i = 0; i < a.length; i++) peak = Math.max(peak, Math.abs(a[i]!))
+      expect(peak).toBeGreaterThan(0.15)
+      expect(peak).toBeLessThanOrEqual(0.82)
+      // genuine crescendo: last quarter RMS clearly exceeds opening quarter RMS
+      const q = Math.floor(a.length / 4)
+      expect(rms(a, 3 * q, a.length)).toBeGreaterThan(rms(a, 0, q) * 1.3)
+    }
+    // free time (bpm <= 0) must be strictly silent
+    const silent = renderDrums({ kind: 'drums', style: 'tribal', mode: 'dorian', tonic: 45, bpm: 0, seconds: 1, seed: 'silent-1' })
     expect(silent.every((s) => s === 0)).toBe(true)
   })
 

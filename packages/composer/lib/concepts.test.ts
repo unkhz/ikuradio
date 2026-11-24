@@ -107,7 +107,7 @@ describe('the map, and the pages', () => {
   it('gives the parts and the Arrangements as the pages of those concepts, as they were said before', async () => {
     const answer = composer()
     const parts = (await (await get(answer, '/parts.json')).json()) as { id: string }[]
-    expect(parts.map(({ id }) => id).sort()).toEqual(['bridge', 'chorus', 'interlude', 'pre-chorus', 'refrain', 'silence', 'spoken', 'verse'])
+    expect(parts.map(({ id }) => id).sort()).toEqual(['bridge', 'chorus', 'interlude', 'outro', 'pre-chorus', 'refrain', 'silence', 'spoken', 'verse'])
     const asked = (await (await get(answer, '/arrangement.json?tempo=90')).json()) as { layout: { tempo: number } }[]
     expect(asked[0]!.layout.tempo).toBe(90)
     expect(await (await get(answer, '/arrangements.json?tempo=90')).json()).toEqual(asked)

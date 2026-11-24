@@ -111,7 +111,7 @@ describe('what is refused', () => {
   it('a part that does not exist', () => {
     expect(refused((a) => (a.instances[0].part = 'unknown-part'))).toContain('/instances/0/part')
     // and says which parts there are
-    expect(refused((a) => (a.instances[0].part = 'unknown-part'))).toContain('must be one of bridge, chorus, interlude, pre-chorus, refrain, silence, spoken, verse')
+    expect(refused((a) => (a.instances[0].part = 'unknown-part'))).toContain('must be one of bridge, chorus, interlude, outro, pre-chorus, refrain, silence, spoken, verse')
   })
 
   it('a parameter outside its range', () => {
@@ -135,7 +135,7 @@ describe('what is refused', () => {
       a.instances[0].part = 'unknown-a'
       a.instances[1].part = 'unknown-b'
     })!
-    expect(message).toContain('/instances/0/part must be one of bridge, chorus, interlude, pre-chorus, refrain, silence, spoken, verse')
+    expect(message).toContain('/instances/0/part must be one of bridge, chorus, interlude, outro, pre-chorus, refrain, silence, spoken, verse')
     expect(message.match(/bridge/g)).toHaveLength(1)
   })
 

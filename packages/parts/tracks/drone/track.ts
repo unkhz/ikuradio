@@ -13,7 +13,8 @@ class Drone extends Track {
   readonly makes = { by: 'a harmonic drone', from: 'the Song\'s mode and guide chords' }
   readonly parameters = Type.Object({
     ...blockParameters({ gain: 2, fade: 15 }),
-    warmth: Type.Number({ minimum: 0, maximum: 1, default: 0.55, description: 'How bright or warm the drone sounds: 0 dark, 1 luminous' }),
+    warmth: Type.Number({ minimum: 0, maximum: 1, default: 0.55, description: 'Starting brightness of the drone: 0 dark subterranean hum, 1 luminous' }),
+    build: Type.Number({ minimum: 0, maximum: 1, default: 0.55, description: 'Target brightness by the end of the Block — set higher than warmth for a slow harmonic bloom, or lower to fade to embers' }),
     movement: Type.Number({ minimum: 0, maximum: 1, default: 0.4, description: 'How much the harmonics breathe and drift' }),
     octave: Type.Integer({ minimum: -1, maximum: 1, default: 0, description: 'Register shift in octaves: -1 sub-bass, 0 low-mid, 1 pad' }),
   })

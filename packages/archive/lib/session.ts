@@ -149,6 +149,7 @@ export type SessionSynth =
       fade?: number
       chords?: { at: number; seconds: number; root: number; bass?: number }[]
       warmth?: number
+      build?: number
       movement?: number
       octave?: number
       seed: string
@@ -164,6 +165,21 @@ export type SessionSynth =
       density?: number
       swing?: number
       tone?: number
+      seed: string
+    }
+  | {
+      kind: 'drums'
+      style: 'tribal' | 'trance' | 'ritual'
+      mode: string
+      tonic: number
+      bpm: number
+      seconds: number
+      fadeIn?: number
+      fade?: number
+      intensity?: number
+      build?: number
+      swing?: number
+      halfTime?: number
       seed: string
     }
 
