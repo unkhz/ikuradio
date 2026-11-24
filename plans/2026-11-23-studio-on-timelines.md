@@ -95,6 +95,8 @@ This plan makes the Studio read the Arrangement and make what its timeline says.
 
 Built and reviewed: step 1 as b51f939, with its fixes in 48cad8d; `the-song` corrected to a voice, a guide and a bed under every region. Step 2 as 6b89231, with the shadow kept from touching what is published in 3241309. Its proof held: Songs 1870 to 1880 on the air, 11 in all, each with the timeline's Session equal to the Session written, with no differences and no failures. Steps 1 and 2 are done.
 
+Step 3 is built as f402b32. Songs 1883 to 1885 began as "the-song", 2 iterations long, with the shadow clean, and their diary pages say so. `ITERATION_COUNT` is gone from the env, including xitra's `.env`. Until step 4, the Studio also refuses an Arrangement whose iterations aren't laid out as `the-song` lays one. Step 3 is done.
+
 ## How the work is done
 
 As in "Evolution of Song":
