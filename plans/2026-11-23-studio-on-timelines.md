@@ -93,6 +93,8 @@ This plan makes the Studio read the Arrangement and make what its timeline says.
 
      Then it goes on the air when the scientist sets `ARRANGEMENT`.
 
+Built and reviewed: step 1 as b51f939, with its fixes in 48cad8d; `the-song` corrected to a voice, a guide and a bed under every region. Step 2 as 6b89231, with the shadow kept from touching what is published in 3241309. Its proof held: Songs 1870 to 1880 on the air, 11 in all, each with the timeline's Session equal to the Session written, with no differences and no failures. Steps 1 and 2 are done.
+
 ## How the work is done
 
 As in "Evolution of Song":
