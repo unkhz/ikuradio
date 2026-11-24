@@ -3,5 +3,6 @@ private/
 .env.local
 .DS_Store
 .arkku/configs/
+/.arkku/workspaces/
 /models/
 dist/
