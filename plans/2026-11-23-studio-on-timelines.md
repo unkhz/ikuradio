@@ -99,6 +99,8 @@ Step 3 is built as f402b32. Songs 1883 to 1885 began as "the-song", 2 iterations
 
 Step 4 is built as aa8ad07. Songs 1888 to 1893 were made by the timeline's keys with the shadow clean and no `asking:` warning. Each had 9 beds asked per iteration, of which 0 to 1 were taken from the Shelf in the first iteration and 2 to 3 in the second, giving 15 to 16 distinct beds per Song (the baseline was 12 to 17). Each Session has 20 bed placings and 20 guides, every bed at a part's start with fade 3 and gain 0.45, and the two choruses of a pass sharing one bed. Step 4 is done.
 
+Step 5 is built as 2ce5686 and went live at 08:39 on 2026-11-24. The Studio publishes the Session written from the timeline; `toSession`, the shadow and `arrange()` in the Studio are gone. The old Studio's answers for Archive Sessions 1855, 1862 and 1864 are kept as a test. The Studio now makes Arrangements laid out other than `the-song`, but it refuses two bridges in a row and stops rather than publish a Song whose sung sections don't match its regions. Songs 1924 to 1927 were made this way, each with 20 beds and 20 guides, 12 to 15 distinct beds, and the beds placed as before. Step 5 is done. Step 6 waits for the scientist to choose a second Arrangement.
+
 ## How the work is done
 
 As in "Evolution of Song":
