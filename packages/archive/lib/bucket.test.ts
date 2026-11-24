@@ -92,6 +92,30 @@ describe('a bucket that reads a Session', () => {
   })
 })
 
+describe('a Song the bucket cannot answer for', () => {
+  const broken = (listed: string[]) => {
+    const store = new BucketStore({ url: bucket, accessKeyId: 'k', secretAccessKey: 's' })
+    ;(store as unknown as { pause: () => Promise<void> }).pause = async () => {}
+    const sessionKey = paths.session('7')
+    ;(store as unknown as { client: unknown }).client = {
+      exists: async (key: string) => {
+        if (key === sessionKey) throw new Error('an unexpected error has occurred')
+        return false
+      },
+      file: (key: string) => ({ json: async () => (key === paths.index ? { songs: listed } : Promise.reject(new Error('nothing'))) }),
+    }
+    return store
+  }
+
+  it('is there, if the index lists it: the Archive is for ever, and it is never made again over the object that will not answer', async () => {
+    expect(await broken(['6', '7']).hasSession('7')).toBe(true)
+  })
+
+  it('is an error, and not a Song that is not there, if the index does not list it either', async () => {
+    await expect(broken(['6']).hasSession('7')).rejects.toThrow('an unexpected error')
+  })
+})
+
 describe('bucketAt', () => {
   it('finds the endpoint, the bucket and the region in a public address', () => {
     expect(bucketAt('https://hel1.your-objectstorage.com/ikuradio')).toEqual({

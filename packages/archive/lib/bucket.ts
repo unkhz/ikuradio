@@ -42,6 +42,9 @@ export class BucketStore implements ArchiveStore {
     this.client = new S3Client({ ...bucketAt(url), accessKeyId, secretAccessKey })
   }
 
+  /** How long the Archive waits before it asks again: a thing to change in a test, never at the bucket. */
+  private pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
   /** Asks again, a little later each time, before giving up: the bucket is far away. */
   private async patiently<T>(what: string, work: () => Promise<T>): Promise<T> {
     for (let attempt = 0; ; attempt++) {
@@ -50,7 +53,7 @@ export class BucketStore implements ArchiveStore {
       } catch (error) {
         if (attempt >= 6) throw error
         console.warn(`the Archive did not answer (${what}), asking again: ${String(error).slice(0, 160)}`)
-        await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt))
+        await this.pause(1000 * 2 ** attempt)
       }
     }
   }
@@ -63,8 +66,20 @@ export class BucketStore implements ArchiveStore {
     return this.patiently(`look for ${key}`, () => this.client.exists(key))
   }
 
+  /**
+   * Whether a Song is in the Archive. The bucket is asked; if it cannot say (an object it holds can fail to answer for hours, as sessions/1934.json did on 2026-11-24),
+   * the index is: a Session is listed there only after it and its Recordings are in, and the Archive is for ever, so a Song that is listed is there, and is never made
+   * again over the object that will not answer. A Song neither answered for nor listed is an error, not a Song that is not there.
+   */
   async hasSession(song: string): Promise<boolean> {
-    return this.exists(paths.session(song))
+    try {
+      return await this.exists(paths.session(song))
+    } catch (error) {
+      const { songs } = await this.index()
+      if (!songs.includes(song)) throw error
+      console.warn(`the Archive could not say whether Song ${song} is there, and the index lists it: it is taken to be there`)
+      return true
+    }
   }
 
   async putRecording(file: string): Promise<string> {
