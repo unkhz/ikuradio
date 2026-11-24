@@ -23,6 +23,8 @@ import { describePerspectives } from 'perspectives'
 import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { perform, type SungLine } from './lib/perform.js'
+import { chosen, takeOf } from './lib/arrangement.js'
+import { songAsItAlwaysWas } from './lib/compose.js'
 import { shadowCheck } from './lib/shadow.js'
 import { toSession, type Made } from './lib/session.js'
 import { guidesFor, humGuides, type Guide } from './lib/guide.js'
@@ -42,7 +44,7 @@ try {
 }
 
 const {
-  ITERATION_COUNT,
+  ARRANGEMENT,
   MOOD_COUNT,
   CHOIR_COUNT,
   SYLLABLES_PER_SECOND,
@@ -103,6 +105,13 @@ const wakesAt = await diary.lastPage().then((page) => (page ? BigInt(page.iterat
 const endsSong = ({ iteration, song }: Iteration) =>
   iteration - BigInt(song.began) + 1n >= BigInt(song.lasts)
 
+// the Arrangement the Song is made as, before the mind is woken: the one a Song that begins now takes, and the one the Song in the middle was begun as, each read, checked and
+// found makeable, or refused here, plainly (plan "The Studio on timelines", step 3)
+const take = takeOf(await chosen(ARRANGEMENT))
+const middle = await diary.lastPage().then((page) => page?.song)
+if (middle && middle.arrangement !== undefined && middle.arrangement !== take.id) await chosen(middle.arrangement)
+console.log(`a Song that begins is made as the Arrangement "${take.id}", ${take.iterations} iteration${take.iterations > 1 ? 's' : ''} long`)
+
 // the words, all of them, while the mind is awake
 const mind = new Sleeper()
 await mind.wake()
@@ -123,7 +132,7 @@ console.log(
     (memories.heard.length ? `, and hears ${memories.heard.length} of the robot's` : ''),
 )
 const { compose } = await composer(diary, {
-  songLength: ITERATION_COUNT,
+  take,
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
   variationCount: VARIATION_COUNT,
@@ -252,7 +261,7 @@ const session = toSession(
   named,
 )
 // beside it, the Session the Arrangement's timeline gives: compared, said, and never published (plan "The Studio on timelines", step 2)
-await shadowCheck({ made, session, name: (file) => ids.get(file)!, loudness: (file) => loudness.get(file), throat: throatName(), thought, songName: named })
+await shadowCheck({ made, session, name: (file) => ids.get(file)!, loudness: (file) => loudness.get(file), throat: throatName(), thought, songName: named, arrangement: made[0]?.composed.song.arrangement ?? songAsItAlwaysWas })
 await store.putSession(session)
 // the thought is kept only once its Song is published: a Song made again is thought about again
 if (thought) {

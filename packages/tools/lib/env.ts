@@ -38,8 +38,11 @@ const envSchema = z.object({
   CACHE_PATH: z.string().default(':memory:'),
   /** How many Songs the Studio keeps ready ahead of the one the Radio plays. */
   SONGS_AHEAD: z.coerce.number().int().min(1).default(2),
-  /** How many iterations one Song lasts, all in the same Mood. */
-  ITERATION_COUNT: z.coerce.number().int().min(1).default(2),
+  /**
+   * The Arrangement a Song that begins is made as, by its name, and so how long it lasts: its turns and one iterations, all in the same Mood. It is chosen when the
+   * Song begins and kept in the diary until it ends.
+   */
+  ARRANGEMENT: z.string().min(1).default('the-song'),
   /** How many descriptions are blended into one Mood. */
   MOOD_COUNT: z.coerce.number().int().min(1).default(2),
   /** How many voices sing the chorus, the lead included. */

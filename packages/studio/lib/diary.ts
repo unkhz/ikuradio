@@ -28,8 +28,11 @@ import type { Lyrics } from 'song'
 import type { Choir } from 'vocals'
 import type { Tune } from 'melody'
 
-/** Where a Song stands: which one it is, where it began, and how long it lasts. */
-export type SongPlace = { number: string; began: string; lasts: number }
+/**
+ * Where a Song stands: which one it is, where it began, how long it lasts, and the Arrangement it is made as, chosen when the Song began and kept until it ends,
+ * so that a Studio that falls and wakes goes on with the same one. A page written before Arrangements has none, and is read as the Song as it always was.
+ */
+export type SongPlace = { number: string; began: string; lasts: number; arrangement?: string }
 
 export type Page = {
   /** The iteration, from 0. Kept as a string, because it will outgrow every other kind of number. */

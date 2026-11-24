@@ -35,11 +35,12 @@ import { Shelf, underlay } from 'music'
 import { describePerspectives } from 'perspectives'
 import { getEnv, pieces, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
+import { chosen, takeOf } from './lib/arrangement.js'
 import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 import { guidesFor, humGuides } from './lib/guide.js'
 
-const { ITERATION_COUNT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT, SYLLABLES_PER_SECOND } = getEnv()
+const { ARRANGEMENT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT, SYLLABLES_PER_SECOND } = getEnv()
 const given = process.argv.slice(2)
 const last = BigInt(given.find((arg) => /^\d+$/.test(arg)) ?? 1)
 const dry = given.includes('--dry')
@@ -80,7 +81,7 @@ if (mind) {
 await rm(`${dir}/thoughts.txt`, { force: true })
 let songWords: string[] = []
 const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
-  songLength: ITERATION_COUNT,
+  take: takeOf(await chosen(ARRANGEMENT)),
   ...(heardFrom ? { heardFrom } : {}),
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,

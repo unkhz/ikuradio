@@ -7,7 +7,7 @@
 // tune's Variations take turns. Everything else the composer needs, it reads
 // from the last page of the diary.
 //
-// A Song lasts as long as it is asked to: two iterations. The wrongness that
+// A Song lasts as long as its Arrangement says: its turns and one, two for the Song as it always was. The wrongness that
 // once made some Songs longer than others now chooses its Perspectives: a
 // few ways the Song is heard differently from the usual, drawn when it
 // begins, before its weather drifts, and kept in the diary with it. Their
@@ -61,9 +61,15 @@ export type Iteration = {
   rate: number
 }
 
+/** The Arrangement a new Song takes, and how many iterations it makes: its turns and one. */
+export type Take = { id: string; iterations: number }
+
+/** The Arrangement a Song is made as when its page does not say: the Song as it always was. */
+export const songAsItAlwaysWas = 'the-song'
+
 export type ComposerOptions = {
-  /** How many iterations one Song lasts. */
-  songLength: number
+  /** What a Song that begins now is made as: the Arrangement it takes, and so how many iterations it lasts. */
+  take: Take
   /**
    * For a rehearsal: the Perspectives every Song is heard from, by name,
    * drafts too, instead of drawing them.
@@ -82,43 +88,29 @@ export type ComposerOptions = {
 }
 
 /**
- * How many iterations a Song lasts: as many as asked, whatever its weather.
- * Songs once lasted longer or shorter by the wrongness of their Mood; that
- * wrongness now chooses the Song's Perspectives instead.
- */
-export function lastsFor(_mood: Mood, songLength: number): number {
-  return Math.max(1, songLength)
-}
-
-/**
- * Where an iteration stands among the Songs, from the page before it.
- * Pages written before Songs had their own lengths are read as they were
- * then: every Song `songLength` long, counted from the very first iteration.
- * `lasts` is decided only when a new Song begins, from its Mood.
+ * Where an iteration stands among the Songs, from the page before it. A Song goes on as it began: its Arrangement and its length are the page's, kept until it
+ * ends, whatever the Studio is asked to take now. A new Song takes `take`: the Arrangement chosen, and its turns and one for its length. Pages written before
+ * Songs had their own lengths are read as they were then: every Song `take.iterations` long, counted from the very first iteration, made as the Song as it always was.
  */
 export function placeOf(
   iteration: bigint,
   last: Page | undefined,
-  songLength: number,
-): { beginsSong: boolean; number: bigint; began: bigint; lasts?: number } {
+  take: Take,
+): { beginsSong: boolean; number: bigint; began: bigint; lasts: number; arrangement: string } {
+  const begins = (number: bigint) => ({ beginsSong: true, number, began: iteration, lasts: Math.max(1, take.iterations), arrangement: take.id })
   // the song counts from one: its first Song is Song 1
-  if (!last) return { beginsSong: true, number: 1n, began: iteration }
-  const length = BigInt(songLength)
+  if (!last) return begins(1n)
+  const length = BigInt(Math.max(1, take.iterations))
   const before: SongPlace = last.song ?? {
     number: `${BigInt(last.iteration) / length}`,
     began: `${BigInt(last.iteration) - (BigInt(last.iteration) % length)}`,
-    lasts: songLength,
+    lasts: Math.max(1, take.iterations),
   }
   const began = BigInt(before.began)
   if (iteration - began < BigInt(before.lasts)) {
-    return {
-      beginsSong: false,
-      number: BigInt(before.number),
-      began,
-      lasts: before.lasts,
-    }
+    return { beginsSong: false, number: BigInt(before.number), began, lasts: before.lasts, arrangement: before.arrangement ?? songAsItAlwaysWas }
   }
-  return { beginsSong: true, number: BigInt(before.number) + 1n, began: iteration }
+  return begins(BigInt(before.number) + 1n)
 }
 
 /**
@@ -157,7 +149,7 @@ export function fittingFor(sung: Tune, tempo: number, rate: number, lyrics: Sett
 export async function composer(
   diary: Diary,
   {
-    songLength,
+    take,
     moodCount,
     choirSize,
     variationCount,
@@ -192,7 +184,7 @@ export async function composer(
   }
 
   async function compose(iteration: bigint): Promise<Iteration> {
-    const place = placeOf(iteration, last, songLength)
+    const place = placeOf(iteration, last, take)
     // which of the Song's Variations this iteration sings, and how fast its voices may sing
     const variation = Number(iteration - place.began) % Math.max(1, variationCount)
     const rate = place.beginsSong || !last?.rate ? rateNow : last.rate
@@ -204,7 +196,7 @@ export async function composer(
     let lyrics: Lyrics
     let perspectives: Chosen[] = []
     // the defaults, moved by every Tide to where it stands at this iteration, its Song's place and how far through it
-    const tided = applyTides(defaults(choirSize), tides, positionOf(song, Number(iteration - place.began), place.lasts ?? songLength))
+    const tided = applyTides(defaults(choirSize), tides, positionOf(song, Number(iteration - place.began), place.lasts))
     let settings = tided.settings
     if (!last) {
       // the very first iteration there has ever been: everything as a human made it
@@ -226,7 +218,7 @@ export async function composer(
         settings = await perspectivesFor(song, { choirSize, base: tided.settings, only: perspectives.map(({ slug }) => slug) })
           .then((resolved) => resolved.settings)
           // a Perspective no longer there: the Song goes on as its first iteration was turned, the Tides moved along
-          .catch(() => applyTides({ ...tided.settings, ...last!.settings }, tides, positionOf(song, Number(iteration - place.began), place.lasts ?? songLength)).settings)
+          .catch(() => applyTides({ ...tided.settings, ...last!.settings }, tides, positionOf(song, Number(iteration - place.began), place.lasts)).settings)
       }
       // the last words sung shape the weather of the next Song
       const words = [last.lyrics.thirdVerse, last.lyrics.finalChorus].join('\n')
@@ -254,8 +246,7 @@ export async function composer(
       const fitting = fittingFor(tuneSung(tune, choir, settings, mood, song, variation), mood.character.tempo, rate, settings.lyrics)
       lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories, { deep, fitting })
     }
-    const lasts = place.lasts ?? lastsFor(mood, songLength)
-    const where: SongPlace = { number: song, began: `${place.began}`, lasts }
+    const where: SongPlace = { number: song, began: `${place.began}`, lasts: place.lasts, arrangement: place.arrangement }
     const sung = tuneSung(tune, choir, settings, mood, song, variation)
     last = {
       iteration: iteration.toString(),
