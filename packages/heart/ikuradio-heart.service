@@ -1,0 +1,29 @@
+# The Heart on xitra, kept beating by systemd itself: started at boot (the user lingers), and started again whenever it stops on its own.
+#
+# Installed as a user unit:
+#   cp packages/heart/ikuradio-heart.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now ikuradio-heart
+#   loginctl enable-linger   # once: user units start at boot, with no one logged in
+#
+# To let it rest, and stay resting: systemctl --user stop ikuradio-heart
+# (a stop is never undone by Restart=; the Heart finishes the Song in hand first).
+
+[Unit]
+Description=ikuradio: the Heart, which has the Studio make Songs, one after another
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Work/song
+Environment=PATH=%h/.bun/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env bun run heart
+# a stop reaches the Heart alone: it rests once the Song in hand is made, and the Studio is not cut off
+KillMode=process
+TimeoutStopSec=900
+# whenever it ends without being told to, it beats again a minute later
+Restart=always
+RestartSec=60
+StandardOutput=append:%h/Work/song/packages/heart/memory/heart.log
+StandardError=append:%h/Work/song/packages/heart/memory/heart.log
+
+[Install]
+WantedBy=default.target
