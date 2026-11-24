@@ -2,7 +2,7 @@
 // a folder of its own. The package finds them by reading its folders; the
 // schemas Arrangements are checked by are made from what it found.
 
-export { Part, type LineContext, type LineMeasure, type Place } from './lib/part.js'
+export { Part, type LineContext, type LineMeasure, type Place, type WordMode } from './lib/part.js'
 export { parseRecord, type RecordState } from './lib/record.js'
 export { partsById, partsHome, readParts, type PartRecord } from './lib/registry.js'
 export { arrangementSchema, ending, isArrangement, placesOf, refuseArrangement, type Arrangement, type Instance } from './lib/arrangement.js'

@@ -4,6 +4,8 @@
 /** The words a part sings, as the pages say them: "the first verse", "the chorus"; "hummed" where there are none, "words of its own" where the Song as it always was has none for the name. */
 function wordsSaid(part) {
   if (part.words) return `the ${part.words.replace(/([A-Z])/g, ' $1').toLowerCase()}`
+  if (part.sings === 'spoken') return 'spoken words'
+  if (part.sings === 'silent') return 'silence'
   return part.sings === 'written' ? 'words of its own' : 'hummed'
 }
 

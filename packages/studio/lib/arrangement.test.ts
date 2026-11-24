@@ -34,28 +34,33 @@ describe('what the Studio cannot yet make', () => {
     expect(unmet(walked(3), theSong)).toBeUndefined()
   })
 
-  it('refuses a name the Song as it always was does not have, plainly', () => {
-    const other = walked(2)
-    other.instances = other.instances.map((one, i) => (i === 3 ? { ...one, name: 'coda' } : one))
-    expect(unmet(other, theSong)).toContain('the name "coda", which the-song does not have')
-  })
-
-  it('accepts tempo changes, free time and fadeIn (step 6), and still refuses unknown part types or a key placed under two tempi', () => {
+  it('allows new region names, new active parts, consecutive bridges, and drone/pulse tracks while refusing unknown parts, unsupported tracks, or a key placed under two tempi', () => {
+    const activeParts = new Set(records.filter(({ state }) => state === 'active').map(({ part }) => part.id))
     const turns = arrangementOf('tempo-turns')
-    expect(unmet(turns, theSong)).toBeUndefined()
-    expect(unmet({ ...walked(2), tempo: [{ bpm: 96 }] }, theSong)).toBeUndefined()
-    expect(unmet({ ...walked(2), blocks: [{ track: 'bed', key: 'k', from: { edge: 'start' }, to: { edge: 'end' }, fadeIn: 2 }] }, theSong)).toBeUndefined()
-    // one key placed under two different tempi (even mood vs a number) is refused
+    expect(unmet(turns, theSong, activeParts)).toBeUndefined()
+    expect(unmet({ ...walked(2), tempo: [{ bpm: 96 }] }, theSong, activeParts)).toBeUndefined()
+    expect(unmet({ ...walked(2), blocks: [{ track: 'bed', key: 'k', from: { edge: 'start' }, to: { edge: 'end' }, fadeIn: 2 }] }, theSong, activeParts)).toBeUndefined()
+    // new region names, active parts (pre-chorus, spoken, interlude, refrain, silence), consecutive bridges, and drone/pulse tracks are now supported
+    const expanded = walked(1)
+    expanded.instances.splice(1, 0, { name: 'pre-1', part: 'pre-chorus' }, { name: 'spoke-1', part: 'spoken' }, { name: 'gap', part: 'silence' }, { name: 'coda', part: 'refrain' })
+    expanded.tracks = ['voice', 'bed', 'guide', 'drone', 'pulse']
+    expect(unmet(expanded, theSong, activeParts)).toBeUndefined()
+    const twoBridges = walked(1)
+    twoBridges.instances.splice(2, 0, { name: 'bridge-2', part: 'bridge' })
+    expect(unmet(twoBridges, theSong, activeParts)).toBeUndefined()
+    // one key placed under two different tempi (even mood vs a number) is still refused on tempo-bound tracks
     const mixedTempo = {
       ...turns,
       blocks: turns.blocks!.map((block) => (block.key === 'voice:chorus:96' ? { ...block, key: 'voice:chorus' } : block)),
     }
-    expect(unmet(mixedTempo, theSong)).toContain('placed under two tempi')
+    expect(unmet(mixedTempo, theSong, activeParts)).toContain('placed under two tempi')
+    // unknown part or unsupported track is refused plainly
     const odd = walked(2)
-    odd.instances = odd.instances.map((one, i) => (i === 0 ? { ...one, part: 'refrain' } : one))
-    expect(unmet(odd, theSong)).toContain('a Session can say only a verse, a chorus or a bridge')
+    odd.instances = odd.instances.map((one, i) => (i === 0 ? { ...one, part: 'unknown-part' } : one))
+    expect(unmet(odd, theSong, activeParts)).toContain('not among the active parts')
+    expect(unmet({ ...walked(1), tracks: ['drums'] }, theSong, activeParts)).toContain('cannot make yet')
     // the Mood's own tempo is the Song's one tempo
-    expect(unmet({ ...walked(2), tempo: [{ bpm: 'mood' }] }, theSong)).toBeUndefined()
+    expect(unmet({ ...walked(2), tempo: [{ bpm: 'mood' }] }, theSong, activeParts)).toBeUndefined()
   })
 
   it('makes regions in another order than the Song as it always was lays one: the Studio makes the Song from the timeline', () => {
@@ -64,12 +69,6 @@ describe('what the Studio cannot yet make', () => {
     other.instances[0] = b
     other.instances[1] = a
     expect(unmet(other, theSong)).toBeUndefined()
-  })
-
-  it('refuses two bridges in a row, which would be sung as one section', () => {
-    const other = walked(1)
-    other.instances.splice(2, 0, { name: 'bridge-2', part: 'bridge' })
-    expect(unmet(other, theSong)).toContain('two bridges in a row')
   })
 })
 
@@ -93,9 +92,9 @@ describe('weighted deterministic Arrangement selection', () => {
     const alt = { ...walked(1), id: 'alt', title: 'Alt' }
     const never = { ...walked(3), id: 'never', title: 'Never' }
     const pool: Weighted[] = [
-      { arrangement: theSong, iterations: 2, weight: 2 },
-      { arrangement: alt, iterations: 1, weight: 1 },
-      { arrangement: never, iterations: 3, weight: 0 },
+      { arrangement: theSong, title: 'The Song as it always was', iterations: 2, weight: 2 },
+      { arrangement: alt, title: 'Alt', iterations: 1, weight: 1 },
+      { arrangement: never, title: 'Never', iterations: 3, weight: 0 },
     ]
     let altCount = 0
     for (let s = 1; s <= 300; s++) {
@@ -111,7 +110,7 @@ describe('weighted deterministic Arrangement selection', () => {
 
   it('refuses an empty or zero-weight pool', () => {
     expect(() => drawFrom([], '1')).toThrow('no active, makeable Arrangement')
-    expect(() => drawFrom([{ arrangement: theSong, iterations: 2, weight: 0 }], '1')).toThrow('no active, makeable Arrangement')
+    expect(() => drawFrom([{ arrangement: theSong, title: 'The Song as it always was', iterations: 2, weight: 0 }], '1')).toThrow('no active, makeable Arrangement')
   })
 
   it('poolOf keeps active, makeable, positive-weight Arrangements (the-song at weight 2, the-long-breath at weight 1, not tempo-turns at weight 0)', async () => {

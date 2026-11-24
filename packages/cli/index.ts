@@ -11,9 +11,9 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { gunzipSync } from 'node:zlib'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { play } from 'vocals'
+import { play, speakInto, synthInto } from 'vocals'
 import { getEnv } from 'tools'
-import { levelOf, paths, type Session, type SessionTake } from 'archive'
+import { isSynthesized, levelOf, paths, type Session, type SessionTake } from 'archive'
 import { placements } from './lib/time.js'
 
 // the live Radio, wherever it is: RADIO_URL
@@ -115,7 +115,7 @@ async function prepare(airing: Airing) {
   }
   await mkdir(song.dir, { recursive: true })
   const session = song.session
-  const queue = [...new Set(session.recordings.filter(({ take }) => !take).map(({ id }) => id))]
+  const queue = [...new Set(session.recordings.filter((recording) => !isSynthesized(recording)).map(({ id }) => id))]
   // a few at a time, each asked for again, patiently, until it comes
   const worker = async () => {
     while (queue.length) {
@@ -132,17 +132,28 @@ async function prepare(airing: Airing) {
       }
     }
   }
-  // and the voices, sung here, each take once however often it is heard
+  // and the voices, spoken lines, and procedural synths made locally, each once however often it is heard
   const singing = (async () => {
-    const sung = new Set<string>()
-    for (const { id, take, voice } of session.recordings) {
-      if (!take || sung.has(id) || songs.get(airing.song) !== song) continue
-      sung.add(id)
-      const body = session.singers[voice ?? 0]?.body ?? 'female'
-      await singInto(join(song.dir, id), take, body).catch((error) => {
-        // a take that cannot be sung falls silent; the song goes on
-        console.warn(`\na take could not be sung: ${error}`)
-      })
+    const made = new Set<string>()
+    for (const { id, take, speech, synth, voice } of session.recordings) {
+      if (made.has(id) || songs.get(airing.song) !== song) continue
+      if (take) {
+        made.add(id)
+        const body = session.singers[voice ?? 0]?.body ?? 'female'
+        await singInto(join(song.dir, id), take, body).catch((error) => {
+          console.warn(`\na take could not be sung: ${error}`)
+        })
+      } else if (speech) {
+        made.add(id)
+        await speakInto(speech, join(song.dir, id)).catch((error) => {
+          console.warn(`\na spoken line could not be said: ${error}`)
+        })
+      } else if (synth) {
+        made.add(id)
+        await synthInto(synth, join(song.dir, id)).catch((error) => {
+          console.warn(`\na synth track could not be rendered: ${error}`)
+        })
+      }
     }
   })()
   await Promise.all([...Array.from({ length: fetching }, worker), singing])
@@ -205,7 +216,8 @@ function writeUpTo(song: Song, t: number) {
     }
     if (cursor.c < 0) {
       if (t < part.at) return
-      if (part.type === 'bridge') say('~\n\n')
+      const role = part.words ?? (part.type === 'bridge' ? 'none' : 'written')
+      if (role === 'none') say('~\n\n')
       cursor.c = 0
     }
     const line = part.lines[cursor.l]

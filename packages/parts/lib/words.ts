@@ -4,15 +4,24 @@
 
 import { readFileSync } from 'node:fs'
 import { arrange, firstLyrics, type Lyrics } from 'song'
+import type { Part } from './part.js'
 
 /** The Song as it always was, read once as the canonical reference for mapping region names to Lyrics fields. */
 const canonical = (JSON.parse(readFileSync(new URL('../arrangements/the-song/arrangement.json', import.meta.url), 'utf8')) as { instances: { name: string }[] }).instances
 
-/** The Lyrics field each instance sings, or nothing for a name the reference does not have (and a bridge, which has no words). */
-export function fieldsOf(instances: readonly { name: string; continues?: string }[], reference: readonly { name: string }[] = canonical): (keyof Lyrics | undefined)[] {
-  const named = Object.fromEntries((Object.keys(firstLyrics) as (keyof Lyrics)[]).map((field) => [field, field])) as Lyrics
+/**
+ * The Lyrics key each instance sings (or speaks), or undefined for wordless/silent regions.
+ * Names shared with `reference` (`the-song`) map to their canonical `Lyrics` fields (`firstVerse`, `chorus`, …);
+ * when `parts` is provided, any other region whose Part has `words === 'written' | 'spoken'` maps to its root region name (kept in `lyrics.extra`).
+ */
+export function fieldsOf(
+  instances: readonly { name: string; part?: string; continues?: string }[],
+  reference: readonly { name: string }[] = canonical,
+  parts?: ReadonlyMap<string, Pick<Part, 'words'>>,
+): (string | undefined)[] {
+  const named = Object.fromEntries(Object.keys(firstLyrics).map((field) => [field, field])) as unknown as Lyrics
   const sung = arrange(named)
-  const byName = new Map<string, { name: string; continues?: string }>()
+  const byName = new Map<string, { name: string; part?: string; continues?: string }>()
   for (const instance of instances) {
     if (!byName.has(instance.name)) byName.set(instance.name, instance)
   }
@@ -20,9 +29,18 @@ export function fieldsOf(instances: readonly { name: string; continues?: string 
     const next = start ?? byName.get(name)?.continues
     return next !== undefined && !seen.has(name) ? rootOf(next, undefined, seen.add(name)) : name
   }
-  const fieldOfName = (name: string): keyof Lyrics | undefined => {
+  const fieldOfName = (name: string, partId?: string): string | undefined => {
+    if (parts && partId) {
+      const mode = parts.get(partId)?.words
+      if (mode === 'none' || mode === 'silent') return undefined
+    }
     const first = reference.findIndex((instance) => instance.name === name)
-    return first >= 0 && sung[first]?.content ? (sung[first]!.content as keyof Lyrics) : undefined
+    if (first >= 0) return sung[first]?.content || undefined
+    if (parts && partId) {
+      const mode = parts.get(partId)?.words
+      if (mode === 'written' || mode === 'spoken') return name
+    }
+    return undefined
   }
-  return instances.map(({ name, continues }) => fieldOfName(rootOf(name, continues)))
+  return instances.map(({ name, part, continues }) => fieldOfName(rootOf(name, continues), part))
 }

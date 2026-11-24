@@ -388,16 +388,26 @@ function prepare(airing) {
       .filter(({ at, seconds, fade }) => seconds === undefined || at + seconds + (fade ?? 0) > from)
     heard.sort((a, b) => a.at - b.at)
     song.heard = new Set(heard)
-    // the Music is fetched; the voices with takes are sung here, each once, however often it is heard
-    const ids = [...new Set(heard.filter(({ take, said }) => !take && !said).map(({ id }) => id))]
+    // the Music is fetched; voices with takes, spoken lines, and procedural synth tracks are made locally
+    const isLocal = (r) => Boolean(r.take || r.said || r.speech || r.synth)
+    const ids = [...new Set(heard.filter((r) => !isLocal(r)).map(({ id }) => id))]
     const takes = new Map()
+    const speeches = new Map()
+    const synths = new Map()
     for (const recording of heard) {
-      if (!recording.take) continue
-      if (!takes.has(recording.id)) takes.set(recording.id, recording)
-      song.uses.set(recording.id, (song.uses.get(recording.id) ?? 0) + 1)
+      if (recording.take) {
+        if (!takes.has(recording.id)) takes.set(recording.id, recording)
+        song.uses.set(recording.id, (song.uses.get(recording.id) ?? 0) + 1)
+      } else if (recording.speech) {
+        if (!speeches.has(recording.id)) speeches.set(recording.id, recording)
+        song.uses.set(recording.id, (song.uses.get(recording.id) ?? 0) + 1)
+      } else if (recording.synth) {
+        if (!synths.has(recording.id)) synths.set(recording.id, recording)
+        song.uses.set(recording.id, (song.uses.get(recording.id) ?? 0) + 1)
+      }
     }
     const first = new Set(heard.filter(({ at }) => at < from + startingStretch).map(({ id }) => id))
-    song.needed = ids.length + takes.size
+    song.needed = ids.length + takes.size + speeches.size + synths.size
     song.first = first.size
     const here = (id) => song.files.has(id) || song.voices.has(id) || song.gone.has(id)
     song.done = () => {
@@ -407,6 +417,35 @@ function prepare(airing) {
       started()
     }
     for (const recording of takes.values()) wantSung(song, recording)
+    for (const recording of speeches.values()) {
+      say(recording.speech)
+        .then(({ samples }) => {
+          song.voices.set(recording.id, samples)
+          song.fetched++
+          song.done()
+        })
+        .catch(() => {
+          song.gone.add(recording.id)
+          song.missing = song.gone.size
+          song.done()
+        })
+    }
+    for (const recording of synths.values()) {
+      try {
+        const samples = globalThis.ikuradioSynth?.render(recording.synth)
+        if (samples) {
+          song.voices.set(recording.id, samples)
+          song.fetched++
+        } else {
+          song.gone.add(recording.id)
+          song.missing = song.gone.size
+        }
+      } catch {
+        song.gone.add(recording.id)
+        song.missing = song.gone.size
+      }
+      song.done()
+    }
     // throats opened already, while the Session was fetched, are idle and are given the first takes now
     singSoon()
     const fetchOne = async (id) => {
@@ -448,7 +487,7 @@ function prepare(airing) {
       introduced = recordings
       song.done()
       for (const recording of recordings) {
-        if (recording.take || recording.said) continue
+        if (isLocal(recording)) continue
         song.needed++
         if (!(await fetchOne(recording.id))) song.gone.add(recording.id)
         song.done()
@@ -505,8 +544,13 @@ const mostRaised = 12
 const ceiling = -1
 function levelOf({ kind, gain, loudness }) {
   if (!loudness) return gain ?? 1
+  if ((kind === 'drone' || kind === 'pulse') && gain !== undefined && gain <= 0) return 0
   const wanted =
-    kind === 'voice' ? voiceLoudness + 20 * Math.log10(gain ?? 1) : voiceLoudness - bedsUnder
+    kind === 'voice' || kind === 'spoken'
+      ? voiceLoudness + 20 * Math.log10(gain ?? 1)
+      : kind === 'drone' || kind === 'pulse'
+        ? voiceLoudness - bedsUnder + 20 * Math.log10(gain ?? 1)
+        : voiceLoudness - bedsUnder
   const raise = Math.min(mostRaised, wanted - loudness.lufs, ceiling - loudness.peak)
   return 10 ** (raise / 20)
 }
@@ -641,14 +685,15 @@ function placeSounds(audioContext) {
       const until = (starts - now()) / 1000
       if (until > ahead) return
       // a line whose place is already over is not decoded at all
+      const local = Boolean(recording.take || recording.said || recording.speech || recording.synth)
       if (recording.seconds !== undefined && until + recording.seconds + (recording.fade ?? 0) <= 0) {
         song.placed.add(n)
-        if (recording.take || recording.said) heardOnce(song, recording)
+        if (local) heardOnce(song, recording)
         return
       }
       let buffering
-      if (recording.take || recording.said) {
-        // a take the page sang: its samples become a sound, and are let go once heard for the last time
+      if (local) {
+        // a take, speech, or synth made locally: its samples become a sound, and are let go once heard for the last time
         const samples = song.voices.get(recording.id)
         if (!samples) return
         song.placed.add(n)
@@ -670,7 +715,7 @@ function placeSounds(audioContext) {
         const source = audioContext.createBufferSource()
         source.buffer = buffer
         let stopAt
-        if (recording.kind === 'bed') {
+        if (recording.kind === 'bed' || recording.kind === 'drone' || recording.kind === 'pulse') {
           const level = audioContext.createGain()
           const gain = levelOf(recording)
           const now = audioContext.currentTime
@@ -681,6 +726,7 @@ function placeSounds(audioContext) {
             ? when + recording.seconds
             : when + buffer.duration - letGoOf
           const ends = Math.min(when + buffer.duration, fades + fade)
+          if (ends <= now) return
           const fadeIn = recording.fadeIn > 0 ? recording.fadeIn : 0
           const risenAt = Math.min(when + fadeIn, fades)
           const hasFadeIn = fadeIn > 0 && fades > now && risenAt > now
@@ -733,6 +779,9 @@ function placeSounds(audioContext) {
           if (recording.said) {
             // a DJ speaks to the listener, in the middle, close, and without an echo
             source.connect(level).connect(dj(audioContext))
+          } else if (recording.kind === 'spoken' || recording.speech) {
+            // a spoken part sits intimate and dry, without heavy choir echo
+            source.connect(level).connect(speakers(audioContext))
           } else {
             const place = audioContext.createStereoPanner()
             place.pan.value = standingOf(recording.voice)
@@ -870,14 +919,13 @@ function writeUpTo(output, song, t) {
     if (cursor.c < 0) {
       if (t < part.at) return
       bridgeEnds()
-      switchStoryElement(output, part.type, part.lines)
+      const role = part.words ?? (part.type === 'bridge' ? 'none' : 'written')
+      switchStoryElement(output, role === 'none' ? `${part.type} wordless` : part.type, part.lines)
       if (showing && showing.part !== part) {
-        const before = showing.part?.tempo !== undefined ? showing.part.tempo : showing.session.tempo
-        const after = part.tempo !== undefined ? part.tempo : showing.session.tempo
         showing.part = part
-        if (before !== after) tellDetails()
+        tellDetails()
       }
-      if (part.type === 'bridge' && t < part.at + part.seconds) bridgeBegins(el)
+      if (role === 'none' && t < part.at + part.seconds) bridgeBegins(el)
       cursor.c = 0
     }
     const line = part.lines[cursor.l]
@@ -1261,31 +1309,95 @@ function tellThought(thought) {
   figure.hidden = !thought
 }
 
+function arrangementName(slug, title) {
+  if (title?.trim()) return title.trim()
+  if (!slug || slug === 'the-song') return 'The Song as it always was'
+  return slug
+    .split('-')
+    .map((word) => (word ? `${word[0].toUpperCase()}${word.slice(1)}` : word))
+    .join(' ')
+}
+
+function tellParts(session, activePart) {
+  const box = document.getElementById('parts')
+  if (!box) return
+  if (!session) {
+    if (box.hasAttribute('data-served')) return
+    box.hidden = true
+    return
+  }
+  const iterations = session.iterations ?? []
+  const items = iterations.flatMap((it) => it.parts ?? [])
+  if (!items.length) {
+    box.hidden = true
+    return
+  }
+  const passes = iterations.length
+  const summary = box.querySelector('summary')
+  const list = box.querySelector('ol')
+  summary.textContent =
+    passes > 1
+      ? `structure · ${passes} iterations, ${items.length} parts`
+      : `structure · ${items.length} part${items.length === 1 ? '' : 's'}`
+  const variesTempo = items.some((p) => p.tempo !== undefined && p.tempo !== session.tempo)
+  list.replaceChildren(
+    ...items.map((p) => {
+      const li = document.createElement('li')
+      if (p === activePart) li.setAttribute('aria-current', 'step')
+      const tempo = p.tempo !== undefined ? p.tempo : session.tempo
+      const pace = tempo === null ? 'free time' : `${tempo} bpm`
+      const lines = p.lines?.length ?? 0
+      const meta = [
+        `${Math.max(1, Math.round(p.seconds))}s`,
+        ...(variesTempo ? [pace] : []),
+        ...(p.mode && p.mode !== session.mode ? [p.mode] : []),
+        ...(lines > 0 ? [`${lines} line${lines === 1 ? '' : 's'}`] : []),
+      ].join(' · ')
+      li.append(span('part-type', p.type), span('part-meta', meta))
+      return li
+    }),
+  )
+  box.removeAttribute('data-served')
+  box.hidden = false
+}
+
 function tellDetails() {
   const details = document.getElementById('details')
   if (!showing) {
     // a Song's page comes with what the Radio knows of it: kept until the Song plays
     if (details.hasAttribute('data-served')) return
     details.replaceChildren(row('receiving', replay ? `Song ${replay.number}, soon` : 'nothing yet'))
+    tellParts(undefined)
     tellThought(undefined)
     return
   }
   const { session, iteration, part } = showing
   const partTempo = part?.tempo !== undefined ? part.tempo : session.tempo
   const pace = partTempo === null ? 'free time' : `${partTempo} bpm`
+  const mode = part?.mode ?? session.mode
+  const key = [mode, pace].filter(Boolean).join(', ')
+  const passCount = iteration?.of?.of ?? 1
+  const iterationLabel = iteration
+    ? passCount > 1
+      ? `${number(iteration.iteration)}, ${iteration.of.at} of ${passCount}`
+      : number(iteration.iteration)
+    : undefined
   details.replaceChildren(
     ...(session.name ? [row('name', session.name)] : []),
     row('song', `${number(session.song)}${replay ? ', from its beginning' : ', live'}`),
-    row('weather', session.mood.join(' + ')),
-    row('key', `${session.mode}, ${pace}`),
-    row('choir', session.choir),
+    row('arrangement', arrangementName(session.arrangement, session.arrangementTitle)),
+    ...(session.mood?.length ? [row('weather', session.mood.join(' + '))] : []),
+    ...(key ? [row('key', key)] : []),
+    ...(session.choir ? [row('choir', session.choir)] : []),
     ...(session.sound ? [row('band', session.sound)] : []),
+    ...(session.tracks?.length ? [row('tracks', session.tracks.join(', '))] : []),
     // the ways this Song is heard differently from the usual, if any
     ...(session.perspectives?.length
       ? [row('heard', session.perspectives.map(({ title, variant }) => (variant ? `${title}: ${variant}` : title)).join(', '))]
       : []),
-    row('iteration', `${number(iteration.iteration)}, ${iteration.of.at} of ${iteration.of.of}`),
+    ...(iterationLabel ? [row('iteration', iterationLabel)] : []),
   )
+  tellParts(session, part)
   tellThought(session.thought)
 }
 
@@ -1717,8 +1829,9 @@ function stopListening() {
   // what it would have let go is gone with the Songs
   queued.archive = false
   showing = undefined
-  // the details and the offered line the Radio wrote were of the Song it served for
+  // the details, structure, and offered line the Radio wrote were of the Song it served for
   document.getElementById('details').removeAttribute('data-served')
+  document.getElementById('parts')?.removeAttribute('data-served')
   document.getElementById('offered').removeAttribute('data-served')
   tellDetails()
 }

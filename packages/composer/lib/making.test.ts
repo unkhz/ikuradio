@@ -12,7 +12,7 @@ const parts = new Map(records.map(({ part }) => [part.id, part]))
 const theSong = (await readArrangements(records)).find(({ arrangement }) => arrangement.id === 'the-song')!.arrangement
 const fieldNames = Object.keys(firstLyrics) as (keyof Lyrics)[]
 /** What arrange() sings in each place, when every field is given its own name for a text. */
-const sung = arrange(Object.fromEntries(fieldNames.map((field) => [field, field])) as Lyrics)
+const sung = arrange(Object.fromEntries(fieldNames.map((field) => [field, field])) as unknown as Lyrics)
 
 describe('the Tune', () => {
   const plain = (phrases: { notes: [number, number][] }[]) => phrases.map(({ notes }) => notes)

@@ -10,8 +10,9 @@
 // anyone sings (./written.ts).
 
 import { getEnv } from 'tools'
-import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Score, type Syllables } from 'melody'
-import { blend, countSyllables, fullness, humanize, keepsPace, quickest, record, throatScore, type Take } from 'vocals'
+import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Phrase, type Score, type Syllables } from 'melody'
+import { blend, countSyllables, fullness, humanize, keepsPace, quickest, record, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
+import type { Part as PartDef, WordMode } from 'parts'
 import type { Melody } from 'perspectives'
 import type { Iteration } from './compose.js'
 import { stressedLine } from './stressed.js'
@@ -20,7 +21,11 @@ import { sungAs, writeSections, type Fitted, type Unwritten, type Written } from
 import { progressionOf } from './progression.js'
 
 export type SungLine = {
-  part: 'verse' | 'chorus' | 'bridge'
+  part: string
+  /** The region index within the iteration, so consecutive wordless sections never merge in `sections()`. */
+  region?: number
+  /** Word mode of the region (`written`, `spoken`, `none`, `silent`). */
+  words?: WordMode
   /** Which line of its part, from 0. */
   index: number
   lyrics: string
@@ -35,6 +40,8 @@ export type SungLine = {
    * singer where it likes in its mix. The recording stays in the Studio.
    */
   voices: { file: string; voice: number; gain: number; take: Take }[]
+  /** For a spoken line: the Chimera speech request synthesized locally by every Receiver. */
+  speech?: SpeechSpec
   /** Every recording made for this line: each voice's take, and their blend. */
   recordings: string[]
   /** How long the line lasts, rest included. */
@@ -94,18 +101,50 @@ export function melodyFor(base: Melody, parameters?: Readonly<Record<string, num
   }
 }
 
-/** How a section ends: the Arrangement's explicit ending if set, else full for a chorus or the last section, else half. */
-export const endingFor = (part: 'verse' | 'chorus' | 'bridge', index: number, total: number, explicit?: 'full' | 'half'): 'full' | 'half' =>
-  explicit ?? (part === 'chorus' || index === total - 1 ? 'full' : 'half')
+/** How a section ends: the Arrangement's explicit ending if set, else full for a chorus/refrain or the last section, else half. */
+export const endingFor = (part: string, index: number, total: number, explicit?: 'full' | 'half'): 'full' | 'half' =>
+  explicit ?? (part === 'chorus' || part === 'refrain' || index === total - 1 ? 'full' : 'half')
 
-/** A compact suffix distinguishing a region whose melody parameters, tempo or cadence differ from the defaults, or empty when default. */
-function scopeOf(parameters?: Readonly<Record<string, number>>, tempo?: number | null, ending?: 'full' | 'half'): string {
+/** Applies a per-block `breath` preset (`soft`, `pressed`, or `plain`) on top of a singer's own throat. */
+export function throatForBreath(base: Throat | undefined, breath?: string): Throat | undefined {
+  if (!breath || breath === 'plain') return base
+  if (breath === 'soft') {
+    return {
+      pressure: base?.pressure ?? 9,
+      ...base,
+      breathiness: Math.round(Math.min(0.95, (base?.breathiness ?? 0.25) + 0.2) * 1000) / 1000,
+      tension: Math.round(Math.max(0.05, (base?.tension ?? 0.45) - 0.15) * 1000) / 1000,
+    }
+  }
+  if (breath === 'pressed') {
+    return {
+      ...base,
+      breathiness: Math.round(Math.max(0.02, (base?.breathiness ?? 0.25) - 0.12) * 1000) / 1000,
+      tension: Math.round(Math.min(0.95, (base?.tension ?? 0.45) + 0.2) * 1000) / 1000,
+      pressure: Math.round(Math.min(18, (base?.pressure ?? 9) + 2) * 1000) / 1000,
+    }
+  }
+  return base
+}
+
+/** A compact suffix distinguishing a region whose melody parameters, tempo, cadence, or voice block overrides differ from the defaults, or empty when default. */
+function scopeOf(
+  parameters?: Readonly<Record<string, number>>,
+  tempo?: number | null,
+  ending?: 'full' | 'half',
+  voice?: Readonly<Record<string, number | string>>,
+): string {
   const parts: string[] = []
   if (tempo !== undefined) parts.push(`bpm=${tempo === null ? 'free' : tempo}`)
   if (ending !== undefined) parts.push(`end=${ending}`)
   if (parameters) {
     for (const key of ['ceiling', 'span', 'travel'] as const) {
       if (parameters[key] !== undefined) parts.push(`${key}=${parameters[key]}`)
+    }
+  }
+  if (voice) {
+    for (const key of ['singers', 'breath', 'humanness'] as const) {
+      if (voice[key] !== undefined) parts.push(`${key}=${voice[key]}`)
     }
   }
   return parts.length ? `@${parts.join(',')}` : ''
@@ -116,10 +155,16 @@ export const lineKey = (part: string, index: number, lyrics: string, scope = '')
   `${part}${scope}:${index}:${lyrics}`
 
 export type PerformedPart = {
-  type: 'verse' | 'chorus' | 'bridge'
+  type: string
   content: string
   index: number
+  /** Word mode of the part (`written`, `spoken`, `none`, `silent`). Defaults from `type` when omitted. */
+  words?: WordMode
+  /** Part module instance when available, for custom phrases and durations. */
+  part?: PartDef
   parameters?: Readonly<Record<string, number>>
+  /** Per-block voice overrides (`singers`, `breath`, `humanness`). */
+  voice?: Readonly<Record<string, number | string>>
   ending?: 'full' | 'half'
   /** The region's resolved tempo: beats a minute, or null for free time. */
   tempo?: number | null
@@ -166,8 +211,9 @@ export async function perform(
   }
 
   /** How many whole bars a line grew past its phrase, if any. */
-  const grownOf = (part: 'verse' | 'chorus', index: number, score: Score) => {
-    const phrase = (part === 'chorus' ? tune.chorus : tune.verse)[index % 4]!
+  const grownOf = (part: string, index: number, score: Score, explicit?: readonly Phrase[]) => {
+    const phrases = explicit?.length ? explicit : part === 'chorus' ? tune.chorus : tune.verse
+    const phrase = phrases[index % phrases.length]!
     const beats = (notes: readonly (readonly [number, number])[]) => notes.reduce((sum, [, b]) => sum + b, 0)
     const grown = Math.round((beats(score.notes) - beats(phrase.notes) - phrase.rest) / 4)
     return grown > 0 ? { grown } : {}
@@ -177,9 +223,18 @@ export async function perform(
   const order: Promise<Omit<SungLine, 'at'>>[] = []
 
   /** How many notes a line's tune has, before any words bend it. */
-  const notesOf = (part: SungLine['part'], index: number) => {
-    const phrases = part === 'chorus' ? tune.chorus : tune.verse
-    return phrases[index % phrases.length].notes.length
+  const notesOf = (part: string, index: number, explicit?: readonly Phrase[]) => {
+    const phrases = explicit?.length ? explicit : part === 'chorus' ? tune.chorus : tune.verse
+    return phrases[index % phrases.length]!.notes.length
+  }
+
+  const wordModeOf = (p: PerformedPart): WordMode =>
+    p.words ?? p.part?.words ?? (p.type === 'bridge' || p.type === 'interlude' ? 'none' : p.type === 'silence' ? 'silent' : p.type === 'spoken' ? 'spoken' : 'written')
+
+  const phrasesFor = (p: PerformedPart, regionIdx: number): readonly Phrase[] | undefined => {
+    if (!p.part) return undefined
+    const custom = p.part.phrases(tune, { iteration, last: regionIdx === parts.length - 1, ...(p.ending ? { ending: p.ending } : {}) })
+    return custom.length ? custom : undefined
   }
 
   /**
@@ -189,10 +244,11 @@ export async function perform(
    */
   const bridge = async (
     section: number,
-    from: 'verse' | 'chorus',
-    to: 'verse' | 'chorus',
+    from: string,
+    to: string,
     regionTempo?: number | null,
     regionSeconds?: number,
+    regionIndex?: number,
   ): Promise<Omit<SungLine, 'at'>> => {
     const [lead] = choir
     // the lead hums, or, in a Song heard that way, the whole choir in its harmonies
@@ -261,6 +317,8 @@ export async function perform(
     }
     return {
       part: 'bridge',
+      ...(regionIndex !== undefined ? { region: regionIndex } : {}),
+      words: 'none',
       index: section,
       lyrics: '',
       file,
@@ -273,17 +331,30 @@ export async function perform(
     }
   }
 
-  /** The lead sings every line; the others the chorus, or, in a Song heard that way, the verses too. */
-  const singersOf = (part: 'verse' | 'chorus') => (part === 'chorus' || settings.choir.verses ? choir : choir.slice(0, 1))
+  /** Who sings this line: per-block `singers` override if set (`solo`, `duet`, `choir`), else classic rule. */
+  const singersOf = (part: string, voice?: Readonly<Record<string, number | string>>) => {
+    const pick = voice?.singers
+    if (pick === 'solo') return choir.slice(0, 1)
+    if (pick === 'duet') return choir.slice(0, Math.min(2, choir.length))
+    if (pick === 'choir') return choir
+    return part === 'chorus' || part === 'refrain' || settings.choir.verses ? choir : choir.slice(0, 1)
+  }
 
   /** A line fitted to its bars: the lead's score, to its tune, and the words' stresses. */
-  const fit = async (part: 'verse' | 'chorus', index: number, line: string, bpm = mood.character.tempo): Promise<Fitted & { hummed: boolean }> => {
+  const fit = async (
+    part: string,
+    index: number,
+    line: string,
+    bpm = mood.character.tempo,
+    explicit?: readonly Phrase[],
+    voice?: Readonly<Record<string, number | string>>,
+  ): Promise<Fitted & { hummed: boolean }> => {
     // a line with nothing a throat can sing is hummed: one "ooh" for every note of its tune
     let syllables = await countSyllables(line).catch(() => 0)
     let words = line
     let hummed = false
     if (syllables < 1) {
-      syllables = notesOf(part, index)
+      syllables = notesOf(part, index, explicit)
       words = hum(syllables)
       hummed = true
     }
@@ -291,10 +362,11 @@ export async function perform(
     const stressed: Syllables[] | undefined = hummed ? undefined : await stressedLine(line, syllables)
     const score = setLine({
       part,
+      ...(explicit ? { phrases: explicit } : {}),
       line: index,
       lyrics: words,
       syllables,
-      singer: singersOf(part)[0]!.body,
+      singer: singersOf(part, voice)[0]!.body,
       character: { ...mood.character, tempo: bpm },
       tune,
       rate,
@@ -304,16 +376,21 @@ export async function perform(
   }
 
   const sing = async (
-    part: 'verse' | 'chorus',
+    part: string,
     index: number,
     line: string,
     fitted: Promise<Fitted & { hummed: boolean }>,
     written?: Written,
     bpm = mood.character.tempo,
     key = lineKey(part, index, line),
+    explicit?: readonly Phrase[],
+    voice?: Readonly<Record<string, number | string>>,
+    regionIndex?: number,
   ): Promise<Omit<SungLine, 'at'>> => {
     const { score: tuned, hummed } = await fitted
-    const voices = singersOf(part)
+    const voices = singersOf(part, voice)
+    const effectiveHumanness = typeof voice?.humanness === 'number' ? humanness * voice.humanness : humanness
+    const breathPreset = typeof voice?.breath === 'string' ? voice.breath : undefined
     // written over its guide, the lead sings the writer's pitches to the tune's rhythm
     const led = written ? sungAs(tuned, written.degrees, keyFor(voices[0]!.body, mood.character.mode)) : tuned
     // written over its guide, the choir hears the guide's chords too, and leans on them
@@ -321,32 +398,32 @@ export async function perform(
       ? chordsHeard(written.guide, modes[mood.character.mode], { offset: written.offset, bpm, lineBpm: led.bpm })
       : undefined
     const scores = choirOf(led, voices, key, chords)
-    const takes = voices.map((voice, v) => {
+    const takes = voices.map((singer, v) => {
       const score = scores[v]!
       const take = {
-        ...humanize(score, `${iteration}:${key}:${v}`, humanness, rate),
-        // each singer breathes through a throat of their own
-        ...voice.throat,
+        ...humanize(score, `${iteration}:${key}:${v}`, effectiveHumanness, rate),
+        // each singer breathes through a throat of their own, optionally shaped by block `breath`
+        ...throatForBreath(singer.throat, breathPreset),
       }
       // a line that would come too quickly is never sung: the iteration fails, and is made again
       keepsPace(take, rate, `"${line}" in iteration ${iteration}, voice ${v}`)
-      return { voice, score, take }
+      return { voice: singer, score, take }
     })
 
     const sung = (
       await Promise.all(
-        takes.map(async ({ voice, take }, v) => {
+        takes.map(async ({ voice: singer, take }, v) => {
           try {
             return {
-              file: await record(take, voice.body),
-              gain: voice.gain,
+              file: await record(take, singer.body),
+              gain: singer.gain,
               voice: v,
               take: throatScore(take),
             }
           } catch (error) {
             // a throat that cannot sing this line falls silent for it; the others go on
             console.warn(
-              `a ${voice.body} voice could not sing "${line}": ${error}`,
+              `a ${singer.body} voice could not sing "${line}": ${error}`,
             )
             return undefined
           }
@@ -357,7 +434,7 @@ export async function perform(
     if (hummed) console.warn(`hummed a line with no words to sing: "${line}"`)
 
     // the line keeps its place in time even if nobody could sing it
-    const { score, take } = takes[0]
+    const { score, take } = takes[0]!
     const [lastPitch, lastBeats] = score.notes.at(-1) ?? [0, 0]
     const rest = lastPitch === 0 ? (lastBeats * 60) / score.bpm : 0
     const file = sung.length > 0 ? await blend(sung).catch(() => '') : ''
@@ -370,6 +447,8 @@ export async function perform(
     const own = sung.map((s) => ({ ...s, gain: Math.round(s.gain * headroom * 1000) / 1000 }))
     return {
       part,
+      ...(regionIndex !== undefined ? { region: regionIndex } : {}),
+      words: 'written',
       index,
       lyrics: line,
       file,
@@ -378,9 +457,47 @@ export async function perform(
       seconds: scoreSeconds(score),
       enters: take.t0,
       voiced: scoreSeconds(score) - rest,
-      ...grownOf(part, index, score),
+      ...grownOf(part, index, score, explicit),
       quickest: Math.round(quickest(take) * 1000) / 1000,
       ...(written ? { written } : {}),
+    }
+  }
+
+  /** Speaks one line through Chimera's speaking throat, returning exact audio duration and speech spec for Receivers. */
+  const speakLine = async (
+    part: string,
+    index: number,
+    line: string,
+    parameters?: Readonly<Record<string, number>>,
+    voice?: Readonly<Record<string, number | string>>,
+    regionIndex?: number,
+  ): Promise<Omit<SungLine, 'at'>> => {
+    const [lead] = choir
+    const breathPreset = typeof voice?.breath === 'string' ? voice.breath : undefined
+    const throat = throatForBreath(lead!.throat, breathPreset)
+    const speech: SpeechSpec = {
+      text: line,
+      body: lead!.body,
+      rate: parameters?.rate ?? 0.92,
+      ...(throat?.pressure !== undefined ? { pressure: throat.pressure } : {}),
+      ...(throat?.tension !== undefined ? { tension: throat.tension } : {}),
+      ...(throat?.breathiness !== undefined ? { breathiness: throat.breathiness } : {}),
+    }
+    const said = await speakInto(speech)
+    const pause = 0.35
+    return {
+      part,
+      ...(regionIndex !== undefined ? { region: regionIndex } : {}),
+      words: 'spoken',
+      index,
+      lyrics: line,
+      file: said.file,
+      voices: [],
+      speech,
+      recordings: [said.file],
+      seconds: said.seconds + pause,
+      enters: 0.05,
+      voiced: said.seconds,
     }
   }
 
@@ -392,24 +509,34 @@ export async function perform(
       .map((line, index) => ({ line, index }))
       .filter(({ line }) => line.trim())
   const regionBpmOf = (tempo?: number | null) => (typeof tempo === 'number' ? tempo : mood.character.tempo)
-  const regionScope = (part: 'verse' | 'chorus', index: number, parameters?: Readonly<Record<string, number>>, tempo?: number | null, explicit?: 'full' | 'half') => {
+  const regionScope = (
+    part: string,
+    index: number,
+    parameters?: Readonly<Record<string, number>>,
+    tempo?: number | null,
+    explicit?: 'full' | 'half',
+    voice?: Readonly<Record<string, number | string>>,
+  ) => {
     const resolvedEnding = endingFor(part, index, parts.length, explicit)
     const defaultEnding = endingFor(part, index, parts.length)
     return scopeOf(
       parameters,
       tempo !== undefined && tempo !== mood.character.tempo ? tempo : undefined,
       resolvedEnding !== defaultEnding ? resolvedEnding : undefined,
+      voice,
     )
   }
 
-  for (const [s, { type: part, content, parameters, tempo, ending }] of parts.entries()) {
-    if (part === 'bridge') continue
+  for (const [s, one] of parts.entries()) {
+    if (wordModeOf(one) !== 'written') continue
+    const { type: part, content, parameters, tempo, ending, voice } = one
     const bpm = regionBpmOf(tempo)
-    const scope = regionScope(part, s, parameters, tempo, ending)
+    const scope = regionScope(part, s, parameters, tempo, ending, voice)
+    const explicit = phrasesFor(one, s)
     for (const { line, index } of linesOf(content)) {
       const key = lineKey(part, index, line, scope)
       if (fits.has(key)) continue
-      const fitting = fit(part, index, line, bpm)
+      const fitting = fit(part, index, line, bpm, explicit, voice)
       // a line that cannot be fitted fails the iteration when it is sung, not before
       fitting.catch(() => {})
       fits.set(key, fitting)
@@ -420,21 +547,24 @@ export async function perform(
   if (twoVoices) {
     const counted = new Map<string, number>()
     const unwritten: Unwritten[] = []
-    for (const [s, { type: part, content, parameters, ending, tempo }] of parts.entries()) {
+    for (const [s, one] of parts.entries()) {
+      const { type: part, content, parameters, ending, tempo, voice } = one
       const n = counted.get(part) ?? 0
       counted.set(part, n + 1)
-      if (part === 'bridge') continue
+      if (wordModeOf(one) !== 'written') continue
       const bpm = regionBpmOf(tempo)
-      const scope = regionScope(part, s, parameters, tempo, ending)
+      const scope = regionScope(part, s, parameters, tempo, ending, voice)
+      const progSetting = settings.progression[part as 'verse' | 'chorus' | 'bridge'] ?? settings.progression.verse
+      const melSetting = settings.melody[part as 'verse' | 'chorus' | 'bridge'] ?? settings.melody.verse
       unwritten.push({
         name: `${part}:${n}`,
-        // a chorus comes home, and so does the iteration, unless the Arrangement says otherwise
+        // a chorus or refrain comes home, and so does the iteration, unless the Arrangement says otherwise
         ending: endingFor(part, s, parts.length, ending),
         ...(bpm !== mood.character.tempo ? { bpm } : {}),
         // which chords: the part's progression, coming home to a favourite if a Perspective says so
-        progression: await progressionOf(settings.progression[part], { part, place: n, song: song.number }),
+        progression: await progressionOf(progSetting, { part, place: n, song: song.number }),
         // how high and how far the part's melody goes: Tides and Perspectives, with any explicit per-instance override layered on top
-        melody: melodyFor(settings.melody[part], parameters),
+        melody: melodyFor(melSetting, parameters),
         lines: await Promise.all(
           linesOf(content).map(async ({ line, index }) => {
             const key = lineKey(part, index, line, scope)
@@ -457,21 +587,113 @@ export async function perform(
     })
   }
 
-  for (const [s, { type: part, content, index: section, parameters, tempo, seconds, ending }] of parts.entries()) {
+  for (const [s, one] of parts.entries()) {
+    const { type: part, content, index: section, parameters, tempo, seconds, ending, voice } = one
+    const mode = wordModeOf(one)
+    if (mode === 'silent') {
+      const dur = seconds ?? one.part?.durationSeconds?.(tempo ?? mood.character.tempo, parameters ?? {}) ?? parameters?.seconds ?? 4
+      order.push(
+        Promise.resolve({
+          part,
+          region: s,
+          words: 'silent',
+          index: 0,
+          lyrics: '',
+          file: '',
+          voices: [],
+          recordings: [],
+          seconds: dur,
+          enters: 0,
+          voiced: 0,
+          unheard: true,
+        }),
+      )
+      continue
+    }
+    if (mode === 'spoken') {
+      const spokenLines = linesOf(content)
+      if (spokenLines.length === 0) {
+        order.push(
+          Promise.resolve({
+            part,
+            region: s,
+            words: 'spoken',
+            index: 0,
+            lyrics: '',
+            file: '',
+            voices: [],
+            recordings: [],
+            seconds: seconds ?? 2,
+            enters: 0,
+            voiced: 0,
+            unheard: true,
+          }),
+        )
+        continue
+      }
+      for (const { line, index } of spokenLines) {
+        order.push(speakLine(part, index, line, parameters, voice, s))
+      }
+      continue
+    }
     if (part === 'bridge') {
       const from = parts[section - 1]?.type === 'chorus' ? 'chorus' : 'verse'
       const to = parts[section + 1]?.type === 'chorus' ? 'chorus' : 'verse'
       const key = lineKey('bridge', section, '')
-      if (!takes.has(key)) takes.set(key, bridge(section, from, to, tempo, seconds))
+      if (!takes.has(key)) takes.set(key, bridge(section, from, to, tempo, seconds, s))
       order.push(takes.get(key)!)
       continue
     }
+    if (mode === 'none') {
+      // wordless musical section (e.g. `interlude`): fixed bars or free-time seconds; guide & bed carry the sound
+      const bpm = regionBpmOf(tempo)
+      const dur = seconds ?? one.part?.durationSeconds?.(tempo ?? bpm, parameters ?? {}) ?? ((parameters?.bars ?? 8) * 4 * 60) / bpm
+      order.push(
+        Promise.resolve({
+          part,
+          region: s,
+          words: 'none',
+          index: 0,
+          lyrics: '',
+          file: '',
+          voices: [],
+          recordings: [],
+          seconds: dur,
+          enters: 0,
+          voiced: 0,
+          unheard: true,
+        }),
+      )
+      continue
+    }
     const bpm = regionBpmOf(tempo)
-    const scope = regionScope(part, s, parameters, tempo, ending)
-    for (const { line, index } of linesOf(content)) {
+    const scope = regionScope(part, s, parameters, tempo, ending, voice)
+    const explicit = phrasesFor(one, s)
+    const writtenLines = linesOf(content)
+    if (writtenLines.length === 0) {
+      // keep 1-to-1 alignment with regions when an extra written part has no lines yet (e.g. iteration 1)
+      order.push(
+        Promise.resolve({
+          part,
+          region: s,
+          words: 'written',
+          index: 0,
+          lyrics: '',
+          file: '',
+          voices: [],
+          recordings: [],
+          seconds: seconds ?? 2,
+          enters: 0,
+          voiced: 0,
+          unheard: true,
+        }),
+      )
+      continue
+    }
+    for (const { line, index } of writtenLines) {
       const key = lineKey(part, index, line, scope)
-      if (!takes.has(key)) takes.set(key, sing(part, index, line, fits.get(key)!, written.get(key), bpm, key))
-      order.push(takes.get(key)!)
+      if (!takes.has(key)) takes.set(key, sing(part, index, line, fits.get(key)!, written.get(key), bpm, key, explicit, voice, s))
+      order.push(takes.get(key)!.then((sungLine) => ({ ...sungLine, region: s })))
     }
   }
 

@@ -3,7 +3,7 @@
 // lasts that long, and one with phrases lasts as long as its phrases are, at the tune it is laid out at.
 
 import { phraseBeats, type Tune } from 'melody'
-import { ending, iterationsOf, placesOf, type Arrangement, type Part } from 'parts'
+import { ending, iterationsOf, placesOf, type Arrangement, type Part, type WordMode } from 'parts'
 
 /** One instance, as drawn. */
 export type Placed = {
@@ -17,8 +17,8 @@ export type Placed = {
   /** The same, in seconds, at the tempo. */
   startSeconds: number
   seconds: number
-  /** Whether it has words, written by the mind, or none. */
-  words: 'written' | 'none'
+  /** Whether it has written words, spoken words, wordless music, or pure silence. */
+  words: WordMode
   /** Whether a line of it may grow past its bars, with the Song's age. */
   grows: boolean
   /** How it ends in its place: at home, or open. */
@@ -54,11 +54,16 @@ export function layoutOf(arrangement: Arrangement, parts: ReadonlyMap<string, Pa
     const from = said !== undefined ? arrangement.instances.findLastIndex((other, i) => i < index && other.name === said) : before(index, name)
     return from >= 0 ? { continues: from } : {}
   }
-  const instances = arrangement.instances.map(({ name, part: id }, index): Placed => {
+  const instances = arrangement.instances.map(({ name, part: id, parameters, seconds: explicitSeconds }, index): Placed => {
     const part = parts.get(id)
     if (!part) throw new Error(`instance ${index + 1} ("${name}"): there is no part "${id}"`)
     const place = places[index]!
-    const beats = part.beats ?? part.phrases(tune, place).reduce((sum, phrase) => sum + phraseBeats(phrase), 0)
+    const phrases = part.phrases(tune, place)
+    const fromDuration = part.durationSeconds?.(tempo, parameters ?? {})
+    const beats =
+      fromDuration !== undefined
+        ? (fromDuration * tempo) / 60
+        : part.beats ?? (phrases.length ? phrases.reduce((sum, phrase) => sum + phraseBeats(phrase), 0) : explicitSeconds !== undefined ? (explicitSeconds * tempo) / 60 : 8)
     const placed: Placed = {
       index,
       name,
@@ -68,7 +73,7 @@ export function layoutOf(arrangement: Arrangement, parts: ReadonlyMap<string, Pa
       startSeconds: (start * 60) / tempo,
       seconds: (beats * 60) / tempo,
       words: part.words,
-      grows: growsOf(part, part.phrases(tune, place).length, tune, tempo),
+      grows: growsOf(part, phrases.length, tune, tempo),
       ending: ending(part, place),
       ...(place.before !== undefined ? { before: place.before } : {}),
       ...(place.after !== undefined ? { after: place.after } : {}),

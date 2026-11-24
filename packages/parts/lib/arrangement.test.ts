@@ -49,7 +49,7 @@ describe('the first Arrangement is the Song as it always was', () => {
       const part = twice[i]!
       const original = name
       if (part.type === 'bridge') expect(part.content).toBe('')
-      else expect(part.content).toBe(lyrics[fieldOf[original]!])
+      else expect(part.content).toBe(lyrics[fieldOf[original]!] as string)
     }
   })
 
@@ -109,9 +109,9 @@ describe('what is refused', () => {
   })
 
   it('a part that does not exist', () => {
-    expect(refused((a) => (a.instances[0].part = 'refrain'))).toContain('/instances/0/part')
+    expect(refused((a) => (a.instances[0].part = 'unknown-part'))).toContain('/instances/0/part')
     // and says which parts there are
-    expect(refused((a) => (a.instances[0].part = 'refrain'))).toContain('must be one of bridge, chorus, verse')
+    expect(refused((a) => (a.instances[0].part = 'unknown-part'))).toContain('must be one of bridge, chorus, interlude, pre-chorus, refrain, silence, spoken, verse')
   })
 
   it('a parameter outside its range', () => {
@@ -132,10 +132,10 @@ describe('what is refused', () => {
 
   it('two instances wrong: the options told are the first one\'s, not both mixed', () => {
     const message = refused((a) => {
-      a.instances[0].part = 'refrain'
-      a.instances[1].part = 'interlude'
+      a.instances[0].part = 'unknown-a'
+      a.instances[1].part = 'unknown-b'
     })!
-    expect(message).toContain('/instances/0/part must be one of bridge, chorus, verse')
+    expect(message).toContain('/instances/0/part must be one of bridge, chorus, interlude, pre-chorus, refrain, silence, spoken, verse')
     expect(message.match(/bridge/g)).toHaveLength(1)
   })
 
@@ -153,7 +153,7 @@ describe('what is refused', () => {
     const schema = arrangementSchema(records, tracks)
     expect(isArrangement(theSong, records, tracks)).toBe(true)
     for (const bad of [
-      (a: any) => (a.instances[0].part = 'refrain'),
+      (a: any) => (a.instances[0].part = 'unknown-part'),
       (a: any) => (a.instances[0].parameters = { wordiness: 1.5 }),
       (a: any) => (a.instances[1].parameters = { wordiness: 0.5 }),
       (a: any) => (a.instances = []),
@@ -173,7 +173,7 @@ describe('the registry', () => {
     const dir = join(home, 'broken')
     mkdirSync(dir)
     writeFileSync(join(dir, 'arrangement.md'), '---\nstate: active\nid: 9\nkind: arrangement\nslug: broken\n---\n# Broken\n')
-    writeFileSync(join(dir, 'arrangement.json'), JSON.stringify({ id: 'broken', title: 'Broken', instances: [{ name: 'a', part: 'refrain' }] }))
+    writeFileSync(join(dir, 'arrangement.json'), JSON.stringify({ id: 'broken', title: 'Broken', instances: [{ name: 'a', part: 'unknown-part' }] }))
     await expect(readArrangements(records, home)).rejects.toThrow(/broken.*instances\/0\/part/)
   })
 

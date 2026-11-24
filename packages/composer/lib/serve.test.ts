@@ -21,7 +21,7 @@ describe('the real parts and Arrangements', () => {
 
   it('answers every part, with its record, what it is, and its parameters with their ranges', async () => {
     const found = (await (await get(answer, '/parts.json')).json()) as { id: string; title: string; text: string; words: string; ending: string; parameters: { name: string; minimum?: number; maximum?: number; default?: number }[] }[]
-    expect(found.map(({ id }) => id).sort()).toEqual(['bridge', 'chorus', 'verse'])
+    expect(found.map(({ id }) => id).sort()).toEqual(['bridge', 'chorus', 'interlude', 'pre-chorus', 'refrain', 'silence', 'spoken', 'verse'])
     const verse = found.find(({ id }) => id === 'verse')!
     expect(verse.title).toBeTruthy()
     expect(verse.text.length).toBeGreaterThan(20)
@@ -107,7 +107,7 @@ describe('POST /format and /tracks.json', () => {
 
   it('lists the Tracks, with what makes them and the parameters a Block of each may be given', async () => {
     const tracks = (await (await get(answer, '/tracks.json')).json()) as { id: string; heard: boolean; makes: unknown; parameters: { name: string; minimum?: number; maximum?: number }[] }[]
-    expect(tracks.map(({ id }) => id)).toEqual(['bed', 'guide', 'voice'])
+    expect(tracks.map(({ id }) => id)).toEqual(['bed', 'drone', 'guide', 'pulse', 'voice'])
     expect(tracks.find(({ heard }) => !heard)!.parameters).toEqual([])
     expect(tracks.find(({ id }) => id === 'bed')!.parameters.map(({ name }) => name).sort()).toEqual(['fadeIn', 'fadeOut', 'gain'])
     expect(tracks.find(({ id }) => id === 'bed')!.parameters.find(({ name }) => name === 'gain')).toMatchObject({ minimum: 0, maximum: 2 })
@@ -131,7 +131,7 @@ describe('POST /check', () => {
       change(a)
       return (await check(a)).refusal
     }
-    expect(await refused((a) => (a.instances[0].part = 'refrain'))).toContain('must be one of')
+    expect(await refused((a) => (a.instances[0].part = 'unknown-part'))).toContain('must be one of')
     expect(await refused((a) => (a.instances[0].parameters = { wordiness: 3 }))).toContain('/wordiness')
     expect(await refused((a) => (a.instances[1].parameters = { wordiness: 0.5 }))).toContain('must not have additional properties: wordiness')
     expect(await refused((a) => (a.instances[1].name = 'verse-1'))).toContain('one name, one part')

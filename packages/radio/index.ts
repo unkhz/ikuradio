@@ -28,7 +28,7 @@ import { normalize } from 'node:path'
 import { files as pageFiles, named as pageNames, release } from '../ui/dist/receiver.js'
 import { getEnv } from 'tools'
 import { addressAsked } from './lib/address.js'
-import { archiveAddress, linkOf, paths, publicArchive, sessionVersion, slugOf, type ArchiveIndex, type DjDeclaration, type Session } from 'archive'
+import { archiveAddress, isSynthesized, linkOf, paths, publicArchive, sessionVersion, slugOf, type ArchiveIndex, type DjDeclaration, type Session } from 'archive'
 import { endOf, Tactus, type Airing } from './lib/tactus.js'
 import { SongCache } from './lib/cache.js'
 import { favouriteSongs, inTurn } from './lib/favourites.js'
@@ -93,7 +93,7 @@ async function sessionOf(song: string): Promise<{ found: Session } | 'missing' |
 async function playable(song: string): Promise<Session | undefined> {
   const session = await read<Session>(paths.session(song))
   if (!session || session.version !== sessionVersion) return undefined
-  const first = session.recordings.find(({ take }) => !take)
+  const first = session.recordings.find((recording) => !isSynthesized(recording))
   if (!first) return session
   try {
     const response = await fetch(new URL(paths.recording(first.id), reading), {

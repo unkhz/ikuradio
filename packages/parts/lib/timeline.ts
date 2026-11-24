@@ -22,6 +22,8 @@ export type Block = {
   fadeIn?: number
   fadeOut?: number
   gain?: number
+  /** Track-specific parameters (e.g. `singers`, `breath`, `humanness` on voice; `warmth`, `movement` on drone; `density`, `swing`, `tone` on pulse). */
+  parameters?: Record<string, number | string>
 }
 
 /** The tempo from a region on, held until the next change: beats a minute, the Mood's own, or none (free time: no beat, no grid). */
@@ -79,6 +81,7 @@ export const timelineShape = (trackIds?: readonly string[]) => ({
           fadeIn: Type.Optional(Type.Number()),
           fadeOut: Type.Optional(Type.Number()),
           gain: Type.Optional(Type.Number()),
+          parameters: Type.Optional(Type.Record(Type.String(), Type.Union([Type.Number(), Type.String()]))),
         },
         { additionalProperties: false },
       ),
@@ -180,6 +183,8 @@ export type ResolvedBlock = {
   fadeIn: number
   fadeOut: number
   gain: number
+  /** Track-specific parameters declared on the Block, if any. */
+  parameters?: Readonly<Record<string, number | string>>
   /** The tempo it lies under, in beats a minute, where it begins: none (null) in free time. */
   tempo: number | null
   /** Where it begins in beats from the start of its segment, and how long it is, when the whole of it is under one tempo: otherwise none. */
@@ -262,7 +267,20 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
     const seconds = endSeconds - startSeconds
     const first = regionOf(startSeconds, 'start')
     const last = regionOf(endSeconds, 'end')
-    const resolved: ResolvedBlock = { index, track: block.track, key: block.key, source: block.source ?? [], startSeconds, endSeconds, seconds, fadeIn: block.fadeIn ?? 0, fadeOut: block.fadeOut ?? 0, gain: block.gain ?? 1, tempo: first?.tempo ?? null }
+    const resolved: ResolvedBlock = {
+      index,
+      track: block.track,
+      key: block.key,
+      source: block.source ?? [],
+      startSeconds,
+      endSeconds,
+      seconds,
+      fadeIn: block.fadeIn ?? 0,
+      fadeOut: block.fadeOut ?? 0,
+      gain: block.gain ?? 1,
+      ...(block.parameters && Object.keys(block.parameters).length ? { parameters: block.parameters } : {}),
+      tempo: first?.tempo ?? null,
+    }
     // in beats only where there is a tempo, and a Block under two tempi has no beats to count
     if (first && last && first.segment === last.segment && first.tempo !== null && first.startBeats !== undefined) {
       resolved.startBeats = first.startBeats + ((startSeconds - first.startSeconds) * first.tempo) / 60
@@ -276,7 +294,19 @@ export function resolve(arrangement: { instances: readonly Region[] } & Timeline
 // ---- what a timeline asks to be made
 
 /** One place a Block is played: the moment, the length, and how it is laid. */
-export type Placing = { block: number; at: number; seconds: number; gain: number; fadeIn: number; fadeOut: number; /** The tempo it lies under where it begins (none in free time). */ bpm: number | null; startBeats?: number; beats?: number }
+export type Placing = {
+  block: number
+  at: number
+  seconds: number
+  gain: number
+  fadeIn: number
+  fadeOut: number
+  parameters?: Readonly<Record<string, number | string>>
+  /** The tempo it lies under where it begins (none in free time). */
+  bpm: number | null
+  startBeats?: number
+  beats?: number
+}
 
 /** What a timeline asks to be made: one sound, by its key on its Track, from its source, and every place it is played. */
 export type ToMake = {
@@ -304,7 +334,18 @@ export function makingsOf(resolved: Pick<Resolved, 'blocks'>, tracks: readonly {
     const known = heard.get(block.track)
     if (known === undefined) throw new Error(`${block.key} is on the track "${block.track}", which is not among the tracks: ${[...heard.keys()].join(', ') || 'none'}`)
     const id = `${block.track}\u0000${block.key}`
-    const placing: Placing = { block: block.index, at: block.startSeconds, seconds: block.seconds, gain: block.gain, fadeIn: block.fadeIn, fadeOut: block.fadeOut, bpm: block.tempo, ...(block.startBeats !== undefined ? { startBeats: block.startBeats } : {}), ...(block.beats !== undefined ? { beats: block.beats } : {}) }
+    const placing: Placing = {
+      block: block.index,
+      at: block.startSeconds,
+      seconds: block.seconds,
+      gain: block.gain,
+      fadeIn: block.fadeIn,
+      fadeOut: block.fadeOut,
+      ...(block.parameters ? { parameters: block.parameters } : {}),
+      bpm: block.tempo,
+      ...(block.startBeats !== undefined ? { startBeats: block.startBeats } : {}),
+      ...(block.beats !== undefined ? { beats: block.beats } : {}),
+    }
     const had = found.get(id)
     if (had) {
       if (JSON.stringify(had.source) !== JSON.stringify(block.source)) throw new Error(`${block.key} is placed from ${had.source.join(', ') || 'nothing'} and from ${block.source.join(', ') || 'nothing'}: one key, one source`)
@@ -370,24 +411,30 @@ export function refuseTimeline(
     turned.add(boundary)
   }
 
-  // free time has seconds and no written words; a tempo has no seconds
+  // free time has seconds and no written words; spoken and silent parts may also live in free time with their own lengths; a tempo has no seconds
   const under = tempoOf(regions, arrangement.tempo)
   for (const [i, region] of regions.entries()) {
+    const mode = parts.get(region.part)?.words
     if (under[i] === null) {
-      // the words first: seconds cannot mend a part that has them
-      if (parts.get(region.part)?.words === 'written') return `${where(i)}: it has written words, and cannot be in free time: fitting words needs the beat grid, and free time has none`
-      if (region.seconds === undefined) return `${where(i)}: it is in free time, and so needs its seconds`
+      // the words first: seconds cannot mend a part that has sung words
+      if (mode === 'written') return `${where(i)}: it has written words, and cannot be in free time: fitting words needs the beat grid, and free time has none`
+      if (mode !== 'spoken' && mode !== 'silent' && region.seconds === undefined) return `${where(i)}: it is in free time, and so needs its seconds`
     } else if (region.seconds !== undefined) return `${where(i)}: it has seconds but is under a tempo: seconds are for a region in free time`
   }
 
-  const keys = new Map<string, { track: string; source: string }>()
+  const keys = new Map<string, { track: string; source: string; parameters: string }>()
   for (const [i, block] of (arrangement.blocks ?? []).entries()) {
     const label = `block ${i + 1} ("${block.key}")`
     const record = byId.get(block.track)
     if (!record) return `${label}: there is no track "${block.track}": the tracks are ${[...byId.keys()].join(', ') || 'none'}`
     // the tracks an Arrangement lists are the lanes it draws: a Block is on one of them
     if (arrangement.tracks && !arrangement.tracks.includes(block.track)) return `${label}: the Arrangement does not list the track "${block.track}": it lists ${arrangement.tracks.join(', ') || 'none'}`
-    const problem = refusal(blockSchema(record), { ...(block.gain !== undefined ? { gain: block.gain } : {}), ...(block.fadeIn !== undefined ? { fadeIn: block.fadeIn } : {}), ...(block.fadeOut !== undefined ? { fadeOut: block.fadeOut } : {}) })
+    const problem = refusal(blockSchema(record), {
+      ...(block.parameters ?? {}),
+      ...(block.gain !== undefined ? { gain: block.gain } : {}),
+      ...(block.fadeIn !== undefined ? { fadeIn: block.fadeIn } : {}),
+      ...(block.fadeOut !== undefined ? { fadeOut: block.fadeOut } : {}),
+    })
     if (problem) return `${label} on the ${block.track} track: the parameter ${problem}`
     for (const side of ['from', 'to'] as const) {
       const lost = missing(regions, block[side])
@@ -400,12 +447,14 @@ export function refuseTimeline(
     // a pickup before the first region is the Intro's business, which is still open
     if (from.boundary === 0 && from.plus < 0) return `${label}: it begins before the Song does`
     if ((from.boundary === to.boundary && from.plus > to.plus) || (from.boundary > to.boundary && from.plus >= 0 && to.plus <= 0)) return `${label}: it ends before it begins`
-    // one key is one sound: one Track, and one source
+    // one key is one sound: one Track, one source, and one set of Track parameters
     const source = JSON.stringify(block.source ?? [])
+    const parameters = JSON.stringify(Object.entries(block.parameters ?? {}).sort(([a], [b]) => a.localeCompare(b)))
     const had = keys.get(block.key)
     if (had && had.track !== block.track) return `${label}: the key "${block.key}" is already on the ${had.track} track: one key, one track`
     if (had && had.source !== source) return `${label}: the key "${block.key}" already has another source: one key, one sound, made from one thing`
-    keys.set(block.key, { track: block.track, source })
+    if (had && had.parameters !== parameters) return `${label}: the key "${block.key}" already has different parameters: one key, one sound`
+    keys.set(block.key, { track: block.track, source, parameters })
   }
   return undefined
 }

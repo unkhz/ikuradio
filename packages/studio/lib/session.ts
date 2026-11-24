@@ -5,14 +5,17 @@ import type { Placed, Take } from 'vocals'
 import type { Iteration } from './compose.js'
 import type { SungLine } from './perform.js'
 import type { Guide } from './guide.js'
+import type { KeyedSynth } from './synth.js'
 
-/** One iteration as the Studio made it: composed, sung, and with its beds. */
+/** One iteration as the Studio made it: composed, sung, and with its beds and procedural tracks. */
 export type Made = {
   composed: Iteration
   lines: SungLine[]
   beds: (Placed & { key?: string })[]
   /** The guide hums the Music grew the beds from. */
   guides?: Guide[]
+  /** Procedural non-MusicGen tracks (`drone`, `pulse`) rendered for this iteration. */
+  synths?: KeyedSynth[]
 }
 
 export const seconds = (n: number) => Math.round(n * 1000) / 1000

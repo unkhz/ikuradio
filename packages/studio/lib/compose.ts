@@ -14,8 +14,8 @@
 // Settings are what the Studio's hooks follow for the whole Song.
 
 import { firstMood, nextMood, type Mood } from 'mood'
-import { fieldsOf, iterationsOf, tempoOf, type Arrangement } from 'parts'
-import { firstLyrics, forgotten, longWear, versesOf, wordinessWords, wordyCount, wornDeep, writeLyrics, type Fitting, type Lyrics, type Memories } from 'song'
+import { fieldsOf, iterationsOf, partsById, tempoOf, type Arrangement, type Part } from 'parts'
+import { firstLyrics, forgotten, longWear, versesOf, wordinessWords, wordyCount, wornDeep, writeLyrics, type ExtraPartAsk, type Fitting, type Lyrics, type Memories } from 'song'
 import { countSyllables, firstChoir, gather, type Choir } from 'vocals'
 import {
   evolve,
@@ -130,6 +130,77 @@ export function placeOf(
 /** Per-field wordiness and tempo overrides read from an Arrangement's regions in one pass. */
 export type FieldOverride = { wordiness?: number; tempo?: number }
 
+const classicFields = new Set<string>(['firstVerse', 'secondVerse', 'thirdVerse', 'chorus', 'finalChorus'])
+
+/**
+ * Builds `ExtraPartAsk` entries for any written or spoken region in `pass` whose
+ * root field is not one of the five classic `Lyrics` fields.
+ */
+export function extraPartsFor(
+  arrangement: Arrangement,
+  pass: number,
+  sung: Tune,
+  moodTempo: number,
+  rate: number,
+  parts: ReadonlyMap<string, Part>,
+  lyrics: Settings['lyrics'] = defaults(1).lyrics,
+): ExtraPartAsk[] {
+  const passOf = iterationsOf(arrangement.instances, arrangement.turns)
+  const fields = fieldsOf(arrangement.instances, undefined, parts)
+  const tempi = tempoOf(arrangement.instances, arrangement.tempo)
+  const seen = new Set<string>()
+  const asks: ExtraPartAsk[] = []
+  for (const [i, instance] of arrangement.instances.entries()) {
+    if (passOf[i] !== pass) continue
+    const field = fields[i]
+    if (!field || classicFields.has(field) || seen.has(field)) continue
+    const part = parts.get(instance.part)
+    if (!part || (part.words !== 'written' && part.words !== 'spoken')) continue
+    seen.add(field)
+    const lines = Math.max(1, Math.round(instance.parameters?.lines ?? part.lines ?? (part.words === 'spoken' ? 2 : 4)))
+    if (part.words === 'spoken') {
+      asks.push({
+        name: field,
+        part: part.id,
+        lines,
+        spoken: true,
+        ...(part.instruction ? { instruction: part.instruction } : {}),
+      })
+      continue
+    }
+    const raw = tempi[i]
+    const bpm = typeof raw === 'number' ? raw : moodTempo
+    const wordiness = instance.parameters?.wordiness ?? lyrics.verse.wordiness
+    const phrases = part.phrases(sung, { iteration: 1n, last: false })
+    const k = spacing(bpm, rate)
+    const counts = Array.from({ length: lines }, (_, line) => {
+      const m = part.measure({ line, tune: sung, tempo: bpm, rate, parameters: { ...(instance.parameters ?? {}), wordiness } })
+      return { target: m.target, most: m.most }
+    })
+    const note = wordinessWords(wordiness)
+    const check = async (line: number, text: string): Promise<'fits' | 'grace' | 'refused'> => {
+      const syllables = await countSyllables(text).catch(() => 0)
+      if (syllables < 1) return 'refused'
+      const phrase = phrases[line % phrases.length] ?? sung.verse[line % sung.verse.length]!
+      const words = await stressedLine(text, syllables)
+      if (!words) return syllables <= mostSyllables(phrase, k) ? 'fits' : 'refused'
+      const fit = fitToCount(phrase, words, k)
+      return !fit ? 'refused' : fit.grown ? 'grace' : 'fits'
+    }
+    asks.push({
+      name: field,
+      part: part.id,
+      lines,
+      ...(part.instruction ? { instruction: part.instruction } : {}),
+      counts,
+      check,
+      measure: (text) => countSyllables(text),
+      ...(note ? { say: note } : {}),
+    })
+  }
+  return asks
+}
+
 /**
  * Extracts per-field overrides from an Arrangement for a single pass: the first explicit `wordiness` on an instance mapping to that Lyrics field, and the fastest
  * numeric tempo under which that field is sung (so fitted words fit every hearing of the field).
@@ -141,8 +212,9 @@ export function fieldOverrides(arrangement: Arrangement, pass: number, moodTempo
   const found: Partial<Record<keyof Lyrics, FieldOverride>> = {}
   for (const [i, instance] of arrangement.instances.entries()) {
     if (passOf[i] !== pass) continue
-    const field = fields[i]
-    if (!field) continue
+    const rawField = fields[i]
+    if (!rawField || !classicFields.has(rawField)) continue
+    const field = rawField as keyof Lyrics
     const current = (found[field] ??= {})
     const w = instance.parameters?.wordiness
     if (w !== undefined && current.wordiness === undefined) current.wordiness = w
@@ -241,8 +313,8 @@ export async function composer(
   }: ComposerOptions,
 ) {
   let last: Page | undefined = await diary.lastPage()
-  // the Tides, read once: what each moves, and its envelope
-  const tides = await readTides()
+  // the Tides and Parts, read once
+  const [tides, parts] = await Promise.all([readTides(), partsById()])
 
   /** Where the song wakes up: the iteration after the last one it wrote down. */
   const wakesAt = last ? BigInt(last.iteration) + 1n : 1n
@@ -326,9 +398,12 @@ export async function composer(
       if (deep.length) console.log(`iteration ${iteration} lets rest the words worn deep: ${deep.join(', ')}`)
       // the words are written to the tune they will be sung to, each line to its count
       const arrangement = arrangementOf ? await arrangementOf(place.arrangement) : undefined
-      const overrides = arrangement ? fieldOverrides(arrangement, Number(iteration - place.began), mood.character.tempo) : undefined
-      const fitting = fittingFor(tuneSung(tune, choir, settings, mood, song, variation), mood.character.tempo, rate, settings.lyrics, overrides)
-      lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories, { deep, fitting })
+      const pass = Number(iteration - place.began)
+      const currentSung = tuneSung(tune, choir, settings, mood, song, variation)
+      const overrides = arrangement ? fieldOverrides(arrangement, pass, mood.character.tempo) : undefined
+      const extras = arrangement ? extraPartsFor(arrangement, pass, currentSung, mood.character.tempo, rate, parts, settings.lyrics) : undefined
+      const fitting = fittingFor(currentSung, mood.character.tempo, rate, settings.lyrics, overrides)
+      lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories, { deep, fitting, ...(extras?.length ? { extras } : {}) })
     }
     const where: SongPlace = { number: song, began: `${place.began}`, lasts: place.lasts, arrangement: place.arrangement }
     const sung = tuneSung(tune, choir, settings, mood, song, variation)

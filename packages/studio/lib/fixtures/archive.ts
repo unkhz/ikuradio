@@ -16,7 +16,7 @@ const take = (lyrics: string): Take => ({ bpm: 76, lyrics, notes: [[57, 1]], t0:
 
 /** Which Lyrics field a place of the Song as it always was sings: arrange() gives each its words. */
 const fieldAt = (() => {
-  const named = Object.fromEntries((Object.keys(firstLyrics) as (keyof Lyrics)[]).map((field) => [field, field])) as Lyrics
+  const named = Object.fromEntries(Object.keys(firstLyrics).map((field) => [field, field])) as unknown as Lyrics
   return arrange(named).map((part) => (part.content ? (part.content as keyof Lyrics) : undefined))
 })()
 

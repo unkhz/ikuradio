@@ -118,13 +118,16 @@ export async function lyricsAnswer(records: readonly PartRecord[], arrangementsD
   const first = await theSong(records, arrangementsDir)
   const fieldOf = first ? fieldsOf(first.arrangement.instances) : []
   const fills = first ? first.arrangement.instances.map(({ name, part }, i) => ({ instance: name, part, field: fieldOf[i] })) : []
-  const lines = records.filter(({ part }) => written(part)).map(({ part }) => ({
-    part: part.id,
-    lines: [0, 1, 2, 3].map((line) => ({
-      line,
-      counts: sampleWordiness.map((wordiness) => ({ wordiness, ...part.measure({ line, tune: firstTune, tempo, rate, parameters: { wordiness } }) })),
-    })),
-  }))
+  const lines = records.filter(({ part }) => written(part)).map(({ part }) => {
+    const count = part.phrases(firstTune, { iteration: 1n, last: false }).length || 4
+    return {
+      part: part.id,
+      lines: Array.from({ length: count }, (_, line) => ({
+        line,
+        counts: sampleWordiness.map((wordiness) => ({ wordiness, ...part.measure({ line, tune: firstTune, tempo, rate, parameters: { wordiness } }) })),
+      })),
+    }
+  })
   return { fields, arrangement: first?.arrangement.id, fills, tempo, rate, lines, ageIn: ageIn(records), age: await Promise.all([1, 12, 2548].map((iteration) => ageOf(BigInt(iteration), tempo, rate))) }
 }
 

@@ -43,15 +43,21 @@ export type LineContext = {
 /** How many syllables a line is meant to have, how many it may have, and whether it may grow past its bars. */
 export type LineMeasure = { target: number; most: number; grows: boolean }
 
+export type WordMode = 'written' | 'spoken' | 'none' | 'silent'
+
 export abstract class Part {
   /** Its name, the folder's: never reused, and never removed once a Song has been made with it. */
   abstract readonly id: string
-  /** Whether it has words: written by the mind, or none (hummed, or silent). */
-  abstract readonly words: 'written' | 'none'
+  /** Whether it has words: written (sung by the choir), spoken (said in free or gridded time), none (wordless music/hum), or silent (pure pause). */
+  abstract readonly words: WordMode
   /** How it ends, unless its place says otherwise: home, or open on the fifth. */
   abstract readonly ending: 'full' | 'half'
-  /** A fixed length in beats (a bridge: 16); without it, as long as its lines. */
+  /** A fixed length in beats (a bridge: 16); without it, as long as its lines or `durationSeconds`. */
   readonly beats?: number
+  /** How many lines the mind writes for this part by default (4 for verse/chorus, 2 for pre-chorus/spoken/refrain, 0 for wordless/silent). */
+  readonly lines?: number
+  /** Guidance for the mind when writing words for an instance of this part that is not one of the Song as it always was's fields. */
+  readonly instruction?: string
   /** Its parameters and their ranges, as a TypeBox schema: wordiness, ceiling, span, travel. */
   abstract readonly parameters: TSchema
 
@@ -62,8 +68,10 @@ export abstract class Part {
 
   /** THE interchangeable contract: how many syllables line `line` should carry and may carry, and whether it may grow past its bars. */
   abstract measure(line: LineContext): LineMeasure
-  /** The phrases its lines are sung to, from the Song's tune. A part with no words has none. */
+  /** The phrases its lines are sung to, from the Song's tune. A part with no sung words has none. */
   abstract phrases(tune: Tune, place: Place): Phrase[]
   /** A line that is not the mind's to write, if any (the chorus's first: the Song's age). */
   fixedLine?(line: number, place: Place): string | undefined
+  /** How long this part lasts in seconds, when determined by its parameters rather than lines or fixed `beats` (e.g. `interlude`, `silence`). */
+  durationSeconds?(tempo: number | null, parameters: Readonly<Record<string, number>>): number | undefined
 }

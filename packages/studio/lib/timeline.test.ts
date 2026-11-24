@@ -108,11 +108,13 @@ describe('the Session from the timeline, for Songs in the Archive', () => {
     const guide = { ...base.guides![1]!, key: 'guide:bridge-2' }
     const session = sessionOf({
       arrangement: withFadeIn,
+      arrangementTitle: 'Tempo Turns',
       tracks,
       made: [{ composed: base.composed, lines, beds, guides: [guide] }],
       name,
     })
     expect(session.arrangement).toBe('tempo-turns')
+    expect(session.arrangementTitle).toBe('Tempo Turns')
     expect(session.iterations).toHaveLength(1)
     const parts = session.iterations[0]!.parts
     expect(parts).toHaveLength(7)

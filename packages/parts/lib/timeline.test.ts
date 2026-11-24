@@ -117,7 +117,7 @@ describe('what is refused', () => {
   })
 
   it('a Block on a Track that does not exist', () => {
-    expect(refused({ blocks: [block({ track: 'drums' })] })).toContain('there is no track "drums": the tracks are bed, guide, voice')
+    expect(refused({ blocks: [block({ track: 'drums' })] })).toContain('there is no track "drums": the tracks are bed, drone, guide, pulse, voice')
     expect(refused({ tracks: ['drums'] })).toContain('names the track "drums", which does not exist')
   })
 
@@ -223,8 +223,8 @@ describe('a Track nobody has told the package of', () => {
 })
 
 describe('the Tracks there are', () => {
-  it('has the voice, the bed and the guide, each a Track, interchangeably', () => {
-    expect(tracks.map(({ track }) => track.id)).toEqual(['bed', 'guide', 'voice'])
+  it('has the voice, the bed, the guide, the drone and the pulse, each a Track, interchangeably', () => {
+    expect(tracks.map(({ track }) => track.id)).toEqual(['bed', 'drone', 'guide', 'pulse', 'voice'])
     for (const { track, dir } of tracks) {
       expect(track).toBeInstanceOf(Track)
       expect(dir.endsWith(`/${track.id}`)).toBe(true)

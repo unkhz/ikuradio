@@ -13,7 +13,7 @@ const found = await readArrangements(records, undefined, tracks)
 const arrangementOf = (id: string) => found.find(({ arrangement }) => arrangement.id === id)!.arrangement
 
 const tempo = 72
-const named = Object.fromEntries((Object.keys(firstLyrics) as (keyof Lyrics)[]).map((field) => [field, field])) as Lyrics
+const named = Object.fromEntries(Object.keys(firstLyrics).map((field) => [field, field])) as unknown as Lyrics
 const sung = arrange(named)
 
 // ---- today's rules, written out from the Studio's and the Music's code (they are not imported)

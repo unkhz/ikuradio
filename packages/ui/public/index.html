@@ -115,11 +115,34 @@
         padding-left: 1.5em;
         background: radial-gradient(circle, #2f4a63 0 1.6px, transparent 2px) 0 0 / var(--pitch) var(--pitch) repeat-y;
       }
-      /* a bridge has no words: only a line of motion while the music carries across */
-      p.bridge {
+      /* pre-chorus leans forward; refrain echoes softly */
+      p.pre-chorus {
+        color: #e4effa;
+        padding-left: 0.75em;
+      }
+      p.refrain {
+        color: var(--chorus);
+        opacity: 0.85;
+        padding-left: 1.5em;
+      }
+      /* spoken words arrive close and unhurried, in warm amber light */
+      p.spoken {
+        color: #ffd9a0;
+        opacity: 0.9;
+        padding-left: 1em;
+      }
+      /* a bridge or interlude has no words: only a line of motion while the music carries across */
+      p.bridge,
+      p.interlude,
+      p.wordless {
         opacity: 0.35;
         white-space: pre;
         overflow: hidden;
+      }
+      /* a silence is quiet space alone */
+      p.silence {
+        min-height: 0.5em;
+        opacity: 0;
       }
       /* a DJ's words, typed as the Song's are, but in the warm of the receiver's antenna, with a
          rule of amber dots where the chorus has blue ones; they scroll up and away once the Song begins */
@@ -290,6 +313,9 @@
         right: 0.9rem;
         z-index: 3;
         width: min(24rem, calc(100vw - 1.8rem));
+        max-height: calc(100dvh - 4.5rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
         box-sizing: border-box;
         padding: 1rem 1.1rem;
         background:
@@ -316,6 +342,68 @@
         margin: 0;
         color: var(--chorus);
         overflow-wrap: anywhere;
+      }
+      /* compact per-part drilldown: closed by default, native disclosure on desktop and mobile */
+      #parts {
+        margin: -0.4rem 0 1rem;
+        border-top: 2px dotted #1a242d;
+        padding-top: 0.5rem;
+      }
+      #parts[hidden] {
+        display: none;
+      }
+      #parts summary {
+        color: var(--edge);
+        cursor: pointer;
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        user-select: none;
+      }
+      #parts summary::-webkit-details-marker {
+        display: none;
+      }
+      #parts summary::before {
+        content: '▸';
+        color: var(--weather);
+        transition: transform 0.2s;
+      }
+      #parts[open] summary::before {
+        transform: rotate(90deg);
+      }
+      #parts summary:hover,
+      #parts summary:focus-visible {
+        color: var(--chorus);
+        outline: none;
+      }
+      #parts ol {
+        list-style: none;
+        margin: 0.45rem 0 0;
+        padding: 0;
+        display: grid;
+        gap: 0.2rem;
+        font-size: 0.85em;
+      }
+      #parts li {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.6rem;
+        padding: 0.15rem 0.25rem;
+        border-radius: 0.25rem;
+      }
+      #parts li[aria-current='step'] {
+        background: rgba(255, 179, 71, 0.12);
+      }
+      #parts li[aria-current='step'] .part-type {
+        color: var(--glow);
+      }
+      #parts .part-type {
+        color: var(--chorus);
+      }
+      #parts .part-meta {
+        color: var(--weather);
+        text-align: right;
       }
       /* what the mind thought of the Song, last, in its own words */
       #thought {
@@ -640,6 +728,10 @@
     </div>
     <section id="panel" data-nosnippet hidden aria-label="What the receiver knows">
       <dl id="details"></dl>
+      <details id="parts" hidden>
+        <summary>structure</summary>
+        <ol></ol>
+      </details>
       <figure id="thought" hidden>
         <figcaption>the mind</figcaption>
         <p></p>
@@ -671,6 +763,7 @@
     <script type="module" src="/space.js"></script>
     <script src="/verses.js"></script>
     <script src="/dj.js"></script>
+    <script src="/synth.js"></script>
     <script src="/index.js"></script>
   </body>
 </html>

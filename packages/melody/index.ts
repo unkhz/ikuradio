@@ -110,7 +110,9 @@ export function keyFor(singer: Singer, mode: ModeName = 'aeolian'): Key {
 }
 
 export type LineOptions = {
-  part: 'verse' | 'chorus'
+  part: string
+  /** Explicit phrases for the part (e.g. from `part.phrases(tune, place)`); falls back to `tune.chorus` / `tune.verse`. */
+  phrases?: readonly Phrase[]
   /** Which line of the part, from 0. Lines past the hook wrap around. */
   line: number
   lyrics: string
@@ -138,6 +140,7 @@ export type LineOptions = {
 /** Sets one line of lyrics to its tune, for one voice. */
 export function setLine({
   part,
+  phrases: explicit,
   line,
   lyrics,
   syllables,
@@ -148,8 +151,8 @@ export function setLine({
   rate,
   words,
 }: LineOptions): Score {
-  const phrases = part === 'chorus' ? tune.chorus : tune.verse
-  const phrase = phrases[line % phrases.length]
+  const phrases = explicit?.length ? explicit : part === 'chorus' ? tune.chorus : tune.verse
+  const phrase = phrases[line % phrases.length]!
   const least = rate ? shortestBeats(character.tempo, rate) : undefined
   const counted = words?.reduce((sum, word) => sum + word.stresses.length, 0)
   // the line that carries the number grows on its reciting note; the tune it
@@ -211,8 +214,8 @@ export function setBridge({
   beats = bridgeBeats,
   song,
 }: {
-  from: 'verse' | 'chorus'
-  to: 'verse' | 'chorus'
+  from: string
+  to: string
   lyrics: (notes: number) => string
   singer: Singer
   character?: Character
@@ -222,7 +225,7 @@ export function setBridge({
   /** The Song the bridge is in, which decides whether it walks. */
   song?: string | bigint
 }): Score {
-  const phrases = (part: 'verse' | 'chorus') => (part === 'chorus' ? tune.chorus : tune.verse)
+  const phrases = (part: string) => (part === 'chorus' || part === 'refrain' ? tune.chorus : tune.verse)
   const key = keyFor(singer, character.mode)
   const leaving = phrases(from).at(-1)!
   const coming = phrases(to)[0]
@@ -247,9 +250,9 @@ export function holdLast(score: Score, beats: number): Score {
 }
 
 /** The phrase a line of a part is sung to: lines past the hook wrap around. */
-export function phraseOf(tune: Tune, part: 'verse' | 'chorus', line: number): Phrase {
-  const phrases = part === 'chorus' ? tune.chorus : tune.verse
-  return phrases[line % phrases.length]
+export function phraseOf(tune: Tune, part: string, line: number, explicit?: readonly Phrase[]): Phrase {
+  const phrases = explicit?.length ? explicit : part === 'chorus' ? tune.chorus : tune.verse
+  return phrases[line % phrases.length]!
 }
 
 /**

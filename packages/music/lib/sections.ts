@@ -3,7 +3,9 @@
 // line begins and lasts until the next section begins, rest included.
 
 export type Line = {
-  part: 'verse' | 'chorus' | 'bridge'
+  part: string
+  /** Optional region index in the iteration; when present, consecutive lines group by region rather than part+index so consecutive bridges/interludes stay separate. */
+  region?: number
   /** Which line of its part, from 0. */
   index: number
   /** When the line begins, in seconds from the start of the iteration. */
@@ -19,14 +21,14 @@ export type Line = {
  * part it leaves and which it leads to, since a bridge from a verse into
  * the chorus is a different journey from one back out of it.
  */
-export type Kind = 'verse' | 'chorus' | `bridge:${'verse' | 'chorus'}>${'verse' | 'chorus'}`
+export type Kind = string
 
 export type Section<L extends Line = Line> = {
   part: Line['part']
   kind: Kind
   /** For a bridge: the part it leaves, and the part it leads to. */
-  from?: 'verse' | 'chorus'
-  to?: 'verse' | 'chorus'
+  from?: string
+  to?: string
   at: number
   seconds: number
   lines: L[]
@@ -37,7 +39,12 @@ export function sections<L extends Line>(lines: L[]): Section<L>[] {
   const found: Section<L>[] = []
   for (const line of lines) {
     const current = found.at(-1)
-    if (current && current.part === line.part && line.index > 0) {
+    const sameRegion =
+      current &&
+      (line.region !== undefined && current.lines[0]?.region !== undefined
+        ? current.lines[0]!.region === line.region
+        : current.part === line.part && line.index > 0)
+    if (sameRegion) {
       current.lines.push(line)
     } else {
       found.push({

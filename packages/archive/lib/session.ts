@@ -22,9 +22,19 @@ export type Session = {
   song: string
   /**
    * The Arrangement the Song was made as, by its folder id (e.g. `the-song`).
-   * Missing on Songs made before Arrangements were recorded.
+   * Missing on Songs made before Arrangements were recorded (all of which used `the-song`).
    */
   arrangement?: string
+  /**
+   * The human title of the Arrangement (from its record heading, e.g. `The Long Breath`).
+   * Missing on older Songs; a Receiver falls back from `arrangement` when absent.
+   */
+  arrangementTitle?: string
+  /**
+   * Non-default Tracks active in the Song (e.g. `drone`, `pulse`), for anyone watching.
+   * Missing on Songs with only the standard voice and bed tracks.
+   */
+  tracks?: string[]
   /**
    * The name the mind gave it, punctuation and all: the title of its page,
    * and the words of its link, which is made from the name alone, by
@@ -111,6 +121,52 @@ export type SessionTake = {
   breathiness?: number
 }
 
+/**
+ * A spoken line, as Chimera's speaking throat says it: text, body, and optional voice settings.
+ * Synthesized locally by every Receiver (and Studio) from the same WASM throat — never kept as audio in the Archive.
+ */
+export type SessionSpeech = {
+  text: string
+  body: 'female' | 'male' | 'child'
+  f0?: number
+  rate?: number
+  pressure?: number
+  tension?: number
+  breathiness?: number
+}
+
+/**
+ * A deterministic procedural sound (drone or pulse), synthesized locally from the Song's mode, tonic, chords and tempo —
+ * never kept as audio in the Archive.
+ */
+export type SessionSynth =
+  | {
+      kind: 'drone'
+      mode: string
+      tonic: number
+      seconds: number
+      fadeIn?: number
+      fade?: number
+      chords?: { at: number; seconds: number; root: number; bass?: number }[]
+      warmth?: number
+      movement?: number
+      octave?: number
+      seed: string
+    }
+  | {
+      kind: 'pulse'
+      mode: string
+      tonic: number
+      bpm: number
+      seconds: number
+      fadeIn?: number
+      fade?: number
+      density?: number
+      swing?: number
+      tone?: number
+      seed: string
+    }
+
 export type SessionGuide = {
   /** Its name: the hash of what was hummed. Guides sung from a take are not in the Archive's recordings. */
   id: string
@@ -119,10 +175,10 @@ export type SessionGuide = {
   /** Only ever a guide for the Music, never to be played in the Song. */
   kind: 'guide'
   /** The part it guided the Music for. */
-  part: 'verse' | 'chorus' | 'bridge'
+  part: string
   /** For a bridge: the part it leaves, and the part it leads to. */
-  from?: 'verse' | 'chorus'
-  to?: 'verse' | 'chorus'
+  from?: string
+  to?: string
   /** The section it was hummed against, from the Song's beginning; it goes on through the tail after. */
   at: number
   seconds: number
@@ -214,12 +270,16 @@ export type SessionIntro = {
 export type IntroRecord = SessionIntro & { song: string }
 
 export type SessionPart = {
-  type: 'verse' | 'chorus' | 'bridge'
+  type: string
   at: number
   seconds: number
   /** The part's own tempo, when it differs from the Song's: beats a minute, or null for free time (no beat, no grid). */
   tempo?: number | null
-  /** The words, a line at a time. A bridge has none. */
+  /** The part's own musical mode, when it differs from the Song's. */
+  mode?: string
+  /** How the part presents its words (written, spoken, none for wordless motion, silent for stillness). Omitted on classic verse/chorus/bridge. */
+  words?: 'written' | 'spoken' | 'none' | 'silent'
+  /** The words, a line at a time. A bridge, interlude, or silence has none. */
   lines: SessionLine[]
 }
 
@@ -249,10 +309,20 @@ export type SessionRecording = {
    * voice with a take is not in the Archive's recordings.
    */
   take?: SessionTake
+  /**
+   * For a spoken part: the speech its speaker says via Chimera's speaking throat.
+   * Never stored as audio in the Archive.
+   */
+  speech?: SessionSpeech
+  /**
+   * For a procedural track (`drone`, `pulse`): declarative synth parameters.
+   * Never stored as audio in the Archive.
+   */
+  synth?: SessionSynth
   at: number
   /** How loud it is played, 1 being as recorded. */
   gain?: number
-  kind: 'voice' | 'bed'
+  kind: string
   /** Which singer sings it, a place in `singers`: 0 is the lead. Voices only. */
   voice?: number
   /** How long its place in the Song lasts, if the Studio knows: a Receiver arriving later need not fetch it. */
@@ -272,6 +342,10 @@ export type SessionRecording = {
    */
   loudness?: { lufs: number; peak: number }
 }
+
+/** Whether a Recording is synthesized locally (sung take, spoken speech, or procedural synth) rather than fetched from Archive audio. */
+export const isSynthesized = (recording: Pick<SessionRecording, 'take' | 'speech' | 'synth'>): boolean =>
+  Boolean(recording.take || recording.speech || recording.synth)
 
 /** What the Archive holds: the Songs it has, oldest first. */
 export type ArchiveIndex = {

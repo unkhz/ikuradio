@@ -22,3 +22,5 @@ export {
 } from './lib/singers.js'
 export { run, Turns } from './lib/exec.js'
 export { loudnessOf, parseLoudness, silence, type Loudness } from './lib/loudness.js'
+export { encodeWav, speakInto, speechRate, type SpeechSegment, type SpeechSpec } from './lib/speak.js'
+export { renderDrone, renderPulse, renderSynth, synthInto, synthRate, type SynthSpec } from './lib/synth.js'

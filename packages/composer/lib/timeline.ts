@@ -6,16 +6,27 @@ import { beatsPerBar } from 'melody'
 import { resolve, type Arrangement, type Resolved, type TrackRecord } from 'parts'
 import type { Layout } from './layout.js'
 
-/** What a Block on a Track may be given, with its range: the gain and the fades. */
-export type BlockParameter = { name: string; minimum?: number; maximum?: number; default?: number }
+/** What a Block on a Track may be given, with its range (numeric) or options (enum): gain, fades, and Track-specific controls. */
+export type BlockParameter = { name: string; minimum?: number; maximum?: number; options?: string[]; default?: number | string }
 
 /** A Track as the page needs it: what it is called, whether it is heard, what makes its Blocks (or nothing yet) and what a Block on it may be given. */
 export type TrackAnswer = { id: string; title: string; heard: boolean; makes: { by: string; from: string } | null; parameters: BlockParameter[] }
 
-/** A Track's Block parameters, with their ranges, read from its schema. */
+/** A Track's Block parameters, with their ranges or options, read from its schema. */
 export function blockParametersOf(track: TrackRecord['track']): BlockParameter[] {
-  const { properties = {} } = track.parameters as { properties?: Record<string, Omit<BlockParameter, 'name'>> }
-  return Object.entries(properties).map(([name, { minimum, maximum, default: given }]) => ({ name, ...(minimum !== undefined ? { minimum } : {}), ...(maximum !== undefined ? { maximum } : {}), ...(given !== undefined ? { default: given } : {}) }))
+  const { properties = {} } = track.parameters as {
+    properties?: Record<string, { minimum?: number; maximum?: number; default?: number | string; anyOf?: { const?: unknown }[] }>
+  }
+  return Object.entries(properties).map(([name, { minimum, maximum, default: given, anyOf }]) => {
+    const options = anyOf?.map((item) => item.const).filter((v): v is string => typeof v === 'string')
+    return {
+      name,
+      ...(minimum !== undefined ? { minimum } : {}),
+      ...(maximum !== undefined ? { maximum } : {}),
+      ...(options?.length ? { options } : {}),
+      ...(given !== undefined ? { default: given } : {}),
+    }
+  })
 }
 
 /** A stretch under one tempo, or in free time (`tempo` null), from and to seconds. */

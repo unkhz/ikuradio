@@ -143,7 +143,7 @@ export async function underlay(
 export type BedAsked = {
   key: string
   kind: Kind
-  part: 'verse' | 'chorus' | 'bridge'
+  part: string
   /** The guide hum it grows from. A bed whose guide could not be hummed is grown from the sung voice of `section` instead. */
   guide?: string
   seconds: number

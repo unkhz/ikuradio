@@ -37,10 +37,11 @@ import { getEnv, pieces, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
 import { chooser } from './lib/arrangement.js'
 import { askedOf, kindOf, laid, measure, partsOf, sourceOf } from './lib/asking.js'
-import { readTracks } from 'parts'
+import { partsById, readTracks } from 'parts'
 import { composer, songAsItAlwaysWas } from './lib/compose.js'
 import { perform } from './lib/perform.js'
 import { humGuides } from './lib/guide.js'
+import { renderSynths } from './lib/synth.js'
 
 const { ARRANGEMENT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT, SYLLABLES_PER_SECOND } = getEnv()
 const given = process.argv.slice(2)
@@ -97,7 +98,7 @@ const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
   memories,
 })
 
-const tracks = await readTracks()
+const [tracks, partMap] = await Promise.all([readTracks(), partsById()])
 
 const sung: {
   take: string
@@ -117,9 +118,9 @@ for (let iteration = 1n; iteration <= last; iteration++) {
   const composed = await compose(iteration)
   const written = Date.now()
   const arrangement = (await pick.byId(composed.song.arrangement ?? songAsItAlwaysWas)).arrangement
-  const asking = askedOf(arrangement, tracks, undefined, composed.mood.character.tempo)
+  const asking = askedOf(arrangement, tracks, undefined, composed.mood.character.tempo, partMap)
   const pass = Number(composed.iteration - BigInt(composed.song.began))
-  const lines = await perform(composed, sung.at(-1)?.lines ?? [], partsOf(asking.passes[pass]!.regions, composed.lyrics))
+  const lines = await perform(composed, sung.at(-1)?.lines ?? [], partsOf(asking.passes[pass]!.regions, composed.lyrics, partMap))
   if (composed.beginsSong) {
     console.log(`\n~ ${describe(composed.mood)} ~ [${arrangement.id}] heard ${describePerspectives(composed.perspectives)}`)
     console.log(`  sung by ${introduce(composed.choir)}`)
@@ -129,7 +130,17 @@ for (let iteration = 1n; iteration <= last; iteration++) {
     console.log(`${at.toFixed(1).padStart(6)}s  ${part.padEnd(6)} ${lyrics}`)
   }
   const passRegions = asking.passes[pass]!.regions
-  const voicedRegions = new Set(asking.passes[pass]!.voices.map((making) => sourceOf(asking.passes[pass]!, making).index))
+  const globalToPass = new Map(passRegions.map((r) => [r.global, r.index]))
+  const voicedRegions = new Set<number>()
+  for (const making of asking.passes[pass]!.voices) {
+    for (const placing of making.placings) {
+      const global = asking.resolved.regions.findIndex(
+        (r) => Math.abs(r.startSeconds - placing.at) < 1e-6 || (placing.at >= r.startSeconds - 1e-6 && placing.at < r.startSeconds + r.seconds - 1e-6),
+      )
+      const local = globalToPass.get(global)
+      if (local !== undefined) voicedRegions.add(local)
+    }
+  }
   const measured = measure(passRegions, composed.lyrics, lines)
   const audibleVoices = measured.lines.flatMap((group, idx) => (voicedRegions.has(idx) ? group.filter(({ file, unheard }) => file && !unheard) : []))
   const take = `${dir}/${iteration}`
@@ -144,7 +155,7 @@ for (let iteration = 1n; iteration <= last; iteration++) {
   // the regions last what they were sung for, and the guides and beds are asked from the timeline over those lengths
   const lasted = arrangement.instances.map(() => 1)
   for (const [n, lasts] of measure(asking.passes[pass]!.regions, composed.lyrics, lines).seconds.entries()) lasted[asking.passes[pass]!.regions[n]!.global] = lasts
-  const asked = askedOf(arrangement, tracks, lasted, composed.mood.character.tempo)
+  const asked = askedOf(arrangement, tracks, lasted, composed.mood.character.tempo, partMap)
   const here = asked.passes[pass]!
   console.log(
     `\n${take}.m4a: ${seconds(((end?.at ?? 0) + (end?.seconds ?? 0)) * 1000)}s of song,` +
@@ -193,10 +204,12 @@ if (!dry) {
         return { key: making.key, kind: kindOf(here.regions, region.index), part: region.part, seconds: making.seconds, tempo: making.placings[0]?.bpm, ...(guided ? { guide: guided } : {}), ...(heard[region.index] ? { section: heard[region.index] } : {}) }
       })
       const grew = await growBeds(wanted, mood, { shelf, iteration, bridgeBeds })
-      const { beds } = laid(asked, pass, guides, grew.beds)
-      if (beds.length === 0) continue
-      await mixdown(beds, `${take}.music.m4a`)
-      await mixdown([...audible, ...beds], `${take}.together.m4a`)
+      const { beds, guides: laidGuides } = laid(asked, pass, guides, grew.beds)
+      const synths = await renderSynths(asked, pass, mood, laidGuides, `${iteration}`)
+      const accompaniment = [...beds, ...synths]
+      if (accompaniment.length === 0) continue
+      await mixdown(accompaniment, `${take}.music.m4a`)
+      await mixdown([...audible, ...accompaniment], `${take}.together.m4a`)
       console.log(
         `${take}.together.m4a: ${new Set(beds.map(({ file }) => file)).size} beds` +
           ` under ${beds.length} sections, grown in ${seconds(Date.now() - started)}s`,

@@ -5,7 +5,8 @@ function drawConcept(root, parts) {
       'div',
       { className: 'cards' },
       ...parts.map((part) => {
-        const facts = [part.words === 'written' ? 'words written by the mind' : 'no words', part.ending === 'full' ? 'ends at home' : 'ends open', part.beats ? `fixed at ${beatsOf(part.beats)}` : 'as long as its lines']
+        const wordLabel = part.words === 'written' ? 'words written by the mind' : part.words === 'spoken' ? 'spoken words' : part.words === 'silent' ? 'silence' : 'no words'
+        const facts = [wordLabel, part.ending === 'full' ? 'ends at home' : 'ends open', part.beats ? `fixed at ${beatsOf(part.beats)}` : 'as long as its lines']
         const rows = part.parameters.flatMap((p) => [
           el('tr', { className: 'main' }, el('td', { textContent: p.name }), el('td', { textContent: `${p.minimum ?? '…'} to ${p.maximum ?? '…'}` }), el('td', { textContent: p.default ?? '' })),
           ...(p.description ? [el('tr', {}, el('td', { className: 'desc', colSpan: 3, textContent: p.description }))] : []),

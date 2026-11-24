@@ -69,7 +69,7 @@ describe('interchangeable', () => {
     expect(records.length).toBeGreaterThanOrEqual(3)
     for (const { part } of records) {
       expect(part).toBeInstanceOf(Part)
-      expect(['written', 'none']).toContain(part.words)
+      expect(['written', 'spoken', 'none', 'silent']).toContain(part.words)
       expect(['full', 'half']).toContain(part.ending)
       expect((part.parameters as { type?: string }).type).toBe('object')
       const place = { iteration: 2548n, last: false }
@@ -120,7 +120,8 @@ describe('the schemas', () => {
   it('the ids are those found, and no other', async () => {
     const id = idSchema(records)
     expect(refusal(id, 'verse')).toBeUndefined()
-    expect(refusal(id, 'refrain')).toBeDefined()
+    expect(refusal(id, 'refrain')).toBeUndefined()
+    expect(refusal(id, 'unknown-part')).toBeDefined()
   })
 
   it('a part takes only its own parameters, within their ranges', async () => {

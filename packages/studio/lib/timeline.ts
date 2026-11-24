@@ -6,7 +6,7 @@
 // What was made is given as the iterations of `Made`. Beds and guides are made by key (step 4) and laid once for each place their key is placed, so each is found by its
 // key: the nth made of a key is the nth placing of it. The Session says where each lies from the timeline's placing, never from the made thing's own moment.
 
-import { fieldsOf, iterationsOf, makingsOf, resolve, type Arrangement, type TrackRecord } from 'parts'
+import { fieldsOf, iterationsOf, makingsOf, resolve, type Arrangement, type Part, type TrackRecord } from 'parts'
 import { introduce, type Loudness } from 'vocals'
 import { sessionVersion, type Session, type SessionIteration } from 'archive'
 import type { Guide } from './guide.js'
@@ -18,9 +18,13 @@ import { typingMoments } from './typing.js'
 /** How close two moments are, in seconds, to be taken for one: well inside what a Session keeps (a thousandth). */
 const same = 1e-6
 
+const classicPartIds = new Set(['verse', 'chorus', 'bridge'])
+
 /** What `sessionOf` is given beside the Arrangement and what was made: where the Tracks are, and the names and measures `toSession` is given. */
 export type Shadow = {
   arrangement: Arrangement
+  arrangementTitle?: string
+  parts?: ReadonlyMap<string, Part>
   tracks: readonly TrackRecord[]
   made: readonly Made[]
   name: (file: string) => string
@@ -31,7 +35,7 @@ export type Shadow = {
 }
 
 /** The Session of a Song, written from its Arrangement's timeline over what the Studio made. */
-export function sessionOf({ arrangement, tracks, made, name, loudness = () => undefined, throat, thought, songName }: Shadow): Session {
+export function sessionOf({ arrangement, arrangementTitle, parts: partMap, tracks, made, name, loudness = () => undefined, throat, thought, songName }: Shadow): Session {
   const heard = (file: string) => {
     const measured = loudness(file)
     return measured ? { loudness: measured } : {}
@@ -43,12 +47,12 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
   const [{ composed: first }] = made
   const { mood, choir, song } = first
 
-  // the words of each region, by name, and so the lines it was sung in: a region without words (a bridge) is one line
-  const fields = fieldsOf(instances)
+  // the words of each region, by name, and so the lines it was sung or spoken in: a wordless/silent region is one line
+  const fields = fieldsOf(instances, undefined, partMap)
   const lines: SungLine[][] = instances.map(() => [])
   const measured: number[] = instances.map(() => 0)
   for (let pass = 0; pass < passes; pass++) {
-    const regions = instances.flatMap((instance, global) => (passOf[global] === pass ? [{ global, index: 0, name: instance.name, part: instance.part as 'verse' | 'chorus' | 'bridge', ...(fields[global] ? { field: fields[global] } : {}) }] : []))
+    const regions = instances.flatMap((instance, global) => (passOf[global] === pass ? [{ global, index: 0, name: instance.name, part: instance.part, ...(fields[global] ? { field: fields[global] } : {}) }] : []))
     const own = measure(regions, made[pass]!.composed.lyrics, made[pass]!.lines)
     for (const [n, region] of regions.entries()) {
       lines[region.global] = own.lines[n]!
@@ -86,24 +90,26 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
   const guides: NonNullable<Session['guides']> = []
 
   for (let pass = 0; pass < passes; pass++) {
-    const { composed, beds, guides: hummed = [] } = made[pass]!
+    const { composed, beds, guides: hummed = [], synths = [] } = made[pass]!
     const offset = begins(pass)
     const parts = []
     const voices: Session['recordings'] = []
     for (let r = firstOf(pass); r <= lastOf(pass); r++) {
       const region = resolved.regions[r]!
       const wordless = fields[r] === undefined
-      // what sings it is made once, by its key, and placed where its Block says; a silent region (e.g. a bridge with no voice Block) has none
+      // what sings or speaks it is made once, by its key, and placed where its Block says; a silent region has none
       const placed = findPlaced('voice', r)
       const at = placed ? placed.placing.at : region.startSeconds
-      const sung = placed ? (lines[placed.from] ?? []) : []
+      const sung = placed ? (lines[placed.from] ?? []) : (lines[r] ?? [])
       const start = sung[0]?.at ?? 0
       const partIndex = r - firstOf(pass)
+      const partWords = !classicPartIds.has(region.part) ? (partMap?.get(region.part)?.words ?? sung[0]?.words) : undefined
       parts.push({
-        type: region.part as 'verse' | 'chorus' | 'bridge',
+        type: region.part,
         at: seconds(at),
         seconds: seconds(region.seconds),
         ...(region.tempo !== mood.character.tempo ? { tempo: region.tempo } : {}),
+        ...(partWords ? { words: partWords } : {}),
         lines: wordless
           ? []
           : sung.map((line, index) => ({
@@ -114,18 +120,32 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
               ...(line.quickest !== undefined && Number.isFinite(line.quickest) ? { quickest: line.quickest } : {}),
             })),
       })
-      // every singer's own take, so that a Receiver can sing them and mix them as it likes
+      // every singer's own take (or spoken speech), so that a Receiver can render and mix them as it likes
       if (placed) {
         for (const [lineIndex, line] of sung.entries()) {
           if (line.unheard) continue
+          if (line.speech) {
+            voices.push({
+              id: name(line.file),
+              speech: line.speech,
+              at: seconds(at + (line.at - start)),
+              kind: 'spoken',
+              ...(placed.placing.gain !== 1 ? { gain: placed.placing.gain } : {}),
+              seconds: seconds(line.seconds),
+              ...(lineIndex === 0 && placed.placing.fadeIn ? { fadeIn: placed.placing.fadeIn } : {}),
+              ...heard(line.file),
+            })
+            continue
+          }
           for (const { file, voice, gain, take } of line.voices) {
+            const voiceGain = placed.placing.gain !== 1 ? Math.round(gain * placed.placing.gain * 1000) / 1000 : gain
             voices.push({
               id: name(file),
               ...(take ? { take: takeOf(take) } : {}),
               at: seconds(at + (line.at - start)),
               kind: 'voice',
               voice,
-              ...(gain !== 1 ? { gain } : {}),
+              ...(voiceGain !== 1 ? { gain: voiceGain } : {}),
               seconds: seconds(line.seconds),
               ...(lineIndex === 0 && placed.placing.fadeIn ? { fadeIn: placed.placing.fadeIn } : {}),
               ...heard(file),
@@ -133,7 +153,6 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
           }
         }
       }
-
     }
     iterations.push({
       iteration: `${composed.iteration}`,
@@ -166,10 +185,25 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
         gain: placing.gain,
         kind: 'bed',
         // a bed's place is its Block less its tail, and the tail is the fade the Session says: what the bed holds beyond its place fades under what follows
-        seconds: seconds(placing.seconds - placing.fadeOut),
+        seconds: seconds(Math.max(0, placing.seconds - placing.fadeOut)),
         ...(placing.fadeIn ? { fadeIn: placing.fadeIn } : {}),
         ...(placing.fadeOut ? { fade: placing.fadeOut } : {}),
         ...heard(bed.file),
+      })
+    }
+
+    // procedural tracks (`drone`, `pulse`): rendered identically by every Receiver from `synth`
+    for (const one of synths) {
+      recordings.push({
+        id: name(one.file),
+        synth: one.synth,
+        at: seconds(offset + one.at),
+        ...(one.gain !== undefined && one.gain !== 1 ? { gain: one.gain } : {}),
+        kind: one.track,
+        seconds: seconds(one.seconds ?? one.synth.seconds),
+        ...(one.fadeIn ? { fadeIn: one.fadeIn } : {}),
+        ...(one.fade ? { fade: one.fade } : {}),
+        ...heard(one.file),
       })
     }
 
@@ -204,10 +238,14 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
     }
   }
 
+  const extraTracks = [...new Set(recordings.map(({ kind }) => kind).filter((kind) => kind !== 'voice' && kind !== 'bed'))]
+
   return {
     version: sessionVersion,
     song: song.number,
     arrangement: arrangement.id,
+    ...(arrangementTitle ? { arrangementTitle } : {}),
+    ...(extraTracks.length ? { tracks: extraTracks } : {}),
     ...(songName ? { name: songName } : {}),
     mood: mood.descriptions,
     mode: mood.character.mode,

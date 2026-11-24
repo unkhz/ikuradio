@@ -16,7 +16,7 @@ import { readFile } from 'node:fs/promises'
 import { harmonizeHum, modes, wrongness, type Progression } from 'melody'
 import { archiveAddress, paths, type Session } from 'archive'
 
-export type Part = 'verse' | 'chorus' | 'bridge'
+export type Part = string
 
 /** A critic's file: under each part, its favourite Songs, or Songs' sections, `"45:3"`. */
 export type Critic = { favorites: Partial<Record<Part, (number | string)[]>> }

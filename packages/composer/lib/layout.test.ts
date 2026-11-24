@@ -80,7 +80,7 @@ describe('the Song laid out at 72 bpm', () => {
   })
 
   it('says plainly when an instance names a part that is not there', () => {
-    expect(() => layoutOf({ id: 'x', title: 'X', instances: [{ name: 'a', part: 'refrain' }] }, parts, firstTune, 72)).toThrow('there is no part "refrain"')
+    expect(() => layoutOf({ id: 'x', title: 'X', instances: [{ name: 'a', part: 'unknown-part' }] }, parts, firstTune, 72)).toThrow('there is no part "unknown-part"')
   })
 })
 

@@ -18,7 +18,7 @@ import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
 import { isBare } from './lib/bare.js'
 import { growBeds, musicDir, restBand, sections, Shelf, wakeBand, type BedAsked } from 'music'
-import { readTracks } from 'parts'
+import { partsById, readTracks } from 'parts'
 import { openArchive } from 'archive'
 import { describePerspectives } from 'perspectives'
 import { Diary } from './lib/diary.js'
@@ -30,6 +30,7 @@ import { type Made } from './lib/session.js'
 import { sessionOf } from './lib/timeline.js'
 import { humGuides, type Guide } from './lib/guide.js'
 import { againstSections, askedOf, kindOf, laid, measure, partsOf, sourceOf } from './lib/asking.js'
+import { renderSynths } from './lib/synth.js'
 import { sweep } from './lib/sweep.js'
 import { homecoming } from './lib/homecoming.js'
 import { holdStudio, StudioBusy } from './lib/lock.js'
@@ -188,16 +189,17 @@ console.log(
     `; ${composed.length} iterations written in ${seconds(started)}`,
 )
 
-// what the Arrangement's timeline asks to be made: the regions of each iteration, and every voice, guide and bed key under them
-const songArrangement = (await pick.byId(first.song.arrangement ?? songAsItAlwaysWas)).arrangement
-const tracks = await readTracks()
-const asking = askedOf(songArrangement, tracks, undefined, first.mood.character.tempo)
+// what the Arrangement's timeline asks to be made: the regions of each iteration, and every voice, guide, bed, drone and pulse key under them
+const chosenArrangement = await pick.byId(first.song.arrangement ?? songAsItAlwaysWas)
+const songArrangement = chosenArrangement.arrangement
+const [tracks, partMap] = await Promise.all([readTracks(), partsById()])
+const asking = askedOf(songArrangement, tracks, undefined, first.mood.character.tempo, partMap)
 const passOf = (one: Iteration) => Number(one.iteration - BigInt(one.song.began))
 
 // the voices
 const sungAt = Date.now()
 const sung: SungLine[][] = []
-for (const one of composed) sung.push(await perform(one, sung.at(-1) ?? [], partsOf(asking.passes[passOf(one)]!.regions, one.lyrics)))
+for (const one of composed) sung.push(await perform(one, sung.at(-1) ?? [], partsOf(asking.passes[passOf(one)]!.regions, one.lyrics, partMap)))
 console.log(`sung in ${seconds(sungAt)}`)
 
 // the regions last what they were sung for; the timeline is read again over those lengths, and the guides and beds are asked from it
@@ -206,7 +208,7 @@ for (const [i, one] of composed.entries()) {
   const { regions } = asking.passes[passOf(one)]!
   for (const [n, lasts] of measure(regions, one.lyrics, sung[i]).seconds.entries()) measured[regions[n]!.global] = lasts
 }
-const asked = askedOf(songArrangement, tracks, measured, first.mood.character.tempo)
+const asked = askedOf(songArrangement, tracks, measured, first.mood.character.tempo, partMap)
 
 // the guide hums, for the Music alone: what the lead's melody was written over, in two voices; one for each guide key
 const guides: Guide[][] = []
@@ -261,29 +263,41 @@ for (const [i, one] of composed.entries()) {
   }
   made.push({ composed: one, lines, beds: lay.beds, guides: lay.guides })
 }
+// render procedural tracks (`drone`, `pulse`) after all passes' guides exist so a whole-Song drone follows chords across every iteration
+const allLaidGuides = made.flatMap(({ guides: passGuides = [] }, idx) => {
+  const passOffset = asked.resolved.regions[asked.passes[idx]!.regions[0]!.global]!.startSeconds
+  return passGuides.map((g) => ({ ...g, at: passOffset + g.at }))
+})
+for (const [idx, entry] of made.entries()) {
+  const passOffset = asked.resolved.regions[asked.passes[idx]!.regions[0]!.global]!.startSeconds
+  const shiftedGuides = allLaidGuides.map((g) => ({ ...g, at: g.at - passOffset }))
+  const rendered = await renderSynths(asked, idx, entry.composed.mood, shiftedGuides, entry.composed.song.number)
+  if (rendered.length) entry.synths = rendered
+}
 await restBand()
 console.log(`accompanied in ${seconds(grownAt)}`)
-// a Song without any band is not kept: the Archive is for ever (issue 4)
+// a Song without any band or procedural accompaniment is not kept: the Archive is for ever (issue 4)
 if (isBare(made)) {
   console.error('no bed came for any iteration; the Song is not kept, and the Studio stops so the Heart may call another')
   process.exit(1)
 }
 
 // into the Archive: the Music's Recordings first, then the Session that names
-// them. The voices and the guides are kept as their source, the takes in the
-// Session, for every Receiver to sing; their recordings stay here, and are
-// let go with the rest of the Studio's copies
+// them. The voices, spoken lines, guides, and procedural synths are kept as
+// their source in the Session, for every Receiver to render; their recordings
+// stay here, and are let go with the rest of the Studio's copies
 const beds = new Set(made.flatMap(({ beds }) => beds.map(({ file }) => file)))
 const voices = new Set(
   made.flatMap(({ lines }) =>
-    lines.filter(({ unheard }) => !unheard).flatMap(({ voices }) => voices.map(({ file }) => file)),
+    lines.filter(({ unheard }) => !unheard).flatMap((line) => (line.speech && line.file ? [line.file] : line.voices.map(({ file }) => file))),
   ),
 )
+const synths = new Set(made.flatMap(({ synths = [] }) => synths.map(({ file }) => file)))
 const guiding = new Set(made.flatMap(({ guides = [] }) => guides.map(({ file }) => file)))
-// how loud each voice and bed sounds, heard from its recording, now that it is made
+// how loud each voice, spoken line, synth, and bed sounds, heard from its recording, now that it is made
 const heardAt = Date.now()
 const loudness = new Map<string, Loudness>()
-const files = new Set([...voices, ...beds])
+const files = new Set([...voices, ...beds, ...synths])
 await Promise.all(
   [...files].map(async (file) => {
     const measured = await loudnessOf(file)
@@ -292,11 +306,13 @@ await Promise.all(
 )
 console.log(`${loudness.size} of ${files.size} recordings measured in ${seconds(heardAt)}`)
 const ids = new Map<string, string>()
-for (const file of [...voices, ...guiding]) ids.set(file, recordingName(file))
+for (const file of [...voices, ...guiding, ...synths]) ids.set(file, recordingName(file))
 for (const file of beds) ids.set(file, await store.putRecording(file))
 // the Session is written from the Arrangement's timeline, over what was made: the Archive is for ever, and what is published is what the timeline says
 const session = sessionOf({
   arrangement: songArrangement,
+  arrangementTitle: chosenArrangement.title,
+  parts: partMap,
   tracks,
   made,
   name: (file) => ids.get(file)!,

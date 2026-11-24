@@ -12,7 +12,7 @@ const found = await readArrangements(records, undefined, tracks)
 const arrangementOf = (id: string) => found.find(({ arrangement }) => arrangement.id === id)!.arrangement
 
 const tempo = 72
-const named = Object.fromEntries((Object.keys(firstLyrics) as (keyof Lyrics)[]).map((field) => [field, field])) as Lyrics
+const named = Object.fromEntries(Object.keys(firstLyrics).map((field) => [field, field])) as unknown as Lyrics
 const sung = arrange(named)
 const parts = sung.map(({ type }) => type)
 /** How long a part lasts at the first tune, in beats: a bridge four bars, the rest the sum of their phrases. */
@@ -129,7 +129,7 @@ describe('what a timeline asks to be made', () => {
     const refrain = blocks.filter((block) => block.key === 'bed:chorus')
     refrain[1]!.source = ['verse-2']
     expect(() => makingsOf({ blocks }, tracks)).toThrow('bed:chorus is placed from chorus and from verse-2: one key, one source')
-    expect(() => makingsOf(unmeasured, tracks.filter(({ track }) => track.id !== 'guide'))).toThrow('which is not among the tracks: bed, voice')
+    expect(() => makingsOf(unmeasured, tracks.filter(({ track }) => track.id !== 'guide'))).toThrow('which is not among the tracks: bed, drone, pulse, voice')
     // a Track that is there and not heard keeps a guide off the air
     expect(makingsOf(unmeasured, tracks).filter(({ track }) => track === 'guide').every(({ heard }) => !heard)).toBe(true)
   })

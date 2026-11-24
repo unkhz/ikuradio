@@ -79,7 +79,7 @@ export type Guide = {
   key?: string
   /** The kind of bed it guided. */
   kind: Kind
-  part: 'verse' | 'chorus' | 'bridge'
+  part: string
   /** The section it was hummed for, from the start of the iteration. */
   at: number
   /** How long the section lasts; the guide goes on through the tail after it. */
@@ -189,7 +189,7 @@ export async function syllablesOf(
   const syllables: TimedSyllable[] = []
   for (const line of section.lines) {
     const lead = line.voices.find(({ voice }) => voice === 0) ?? line.voices[0]
-    if (!lead || line.unheard || line.part === 'bridge') continue
+    if (!lead || line.unheard || line.part === 'bridge' || line.words === 'none' || line.words === 'silent' || line.words === 'spoken' || !line.lyrics.trim()) continue
     const { take } = lead
     const sounding = take.notes.filter(([midi]) => midi > 0).length
     const words = await stressed(line.lyrics, sounding).catch(() => undefined)
@@ -290,17 +290,19 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
       const sectionBpm = typeof askedBpm === 'number' ? askedBpm : bpm
       const written = section.lines.flatMap((line) => (line.written ? [line.written] : []))
       const name = written[0]?.section ?? named[i]!
+      const progressionSetting =
+        settings.progression[section.part as 'verse' | 'chorus' | 'bridge'] ?? settings.progression.verse
       const progression =
         written[0]?.progression ??
-        (await progressionOf(settings.progression[section.part], { part: section.part, place: Number(named[i]!.split(':')[1]), song: song.number }))
+        (await progressionOf(progressionSetting, { part: section.part, place: Number(named[i]!.split(':')[1]), song: song.number }))
       // a section whose melody was written over its guide hums that guide; any other composes its own
       const composed = written[0]?.guide ?? composeGuide({
         syllables: await syllablesOf(section, sectionBpm),
         beats: (section.seconds * sectionBpm) / 60,
         bpm: sectionBpm,
         mode: key.mode,
-        // a chorus comes home, and so does the iteration; everything else leaves it open, on the fifth
-        ending: section.part === 'chorus' || i === all.length - 1 ? 'full' : 'half',
+        // a chorus or refrain comes home, and so does the iteration; everything else leaves it open, on the fifth
+        ending: section.part === 'chorus' || section.part === 'refrain' || i === all.length - 1 ? 'full' : 'half',
         random: wrongness(`guide:${iteration}:${name}`),
         previous: previous.find((guide) => guide.name === name)?.composed,
         progression,

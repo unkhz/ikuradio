@@ -354,13 +354,108 @@ function deIndent(part: string) {
   return lines.map((line) => line.replace(/^\s+/, '')).join('\n')
 }
 
-/** The words of one iteration. */
+/** The words of one iteration. Classic 5 fields are always kept for `the-song` and diary compatibility; extra named parts live in `extra`. */
 export type Lyrics = {
   firstVerse: string
   secondVerse: string
   thirdVerse: string
   chorus: string
   finalChorus: string
+  /** Words written for named regions outside the Song as it always was (e.g. `pre-chorus-1`, `spoken-1`, `refrain-1`). */
+  extra?: Record<string, string>
+}
+
+/** Reads the words of any field, classic or extra, from a Lyrics object. */
+export function lyricsOf(lyrics: Lyrics, field: string): string | undefined {
+  if (field === 'firstVerse' || field === 'secondVerse' || field === 'thirdVerse' || field === 'chorus' || field === 'finalChorus') {
+    return lyrics[field]
+  }
+  return lyrics.extra?.[field]
+}
+
+/** What a non-classic written or spoken region asks the mind to write. */
+export type ExtraPartAsk = {
+  /** The region's root name, used as its key in `lyrics.extra`. */
+  name: string
+  /** The part's kind (e.g. `pre-chorus`, `spoken`, `refrain`). */
+  part: string
+  /** How many lines to write. */
+  lines: number
+  /** Part-owned guidance for the mind. */
+  instruction?: string
+  /** Whether the lines are spoken rather than fitted to sung bars. */
+  spoken?: boolean
+  /** Syllable counts per line, for sung parts. */
+  counts?: readonly { target: number; most: number }[]
+  /** Optional bar-fit check per line, for sung parts. */
+  check?: (line: number, text: string) => Promise<'fits' | 'grace' | 'refused'>
+  /** Optional syllable counter for advice notes. */
+  measure?: (text: string) => Promise<number>
+  /** Optional wordiness note. */
+  say?: string
+}
+
+/** Writes the words for a non-classic written or spoken region, keeping its line count and fit. */
+export async function writeExtraPart(
+  ask: ExtraPartAsk,
+  previous: string,
+  mood: readonly string[],
+  resting: readonly string[] = [],
+  memories: Memories = forgotten,
+  focus?: Focus,
+  deep: readonly string[] = [],
+): Promise<string> {
+  const { name, part, lines, instruction, spoken, counts, check, measure, say } = ask
+  const seed = previous || `Under ${mood.join(' and ')}, the song turns quietly.`
+  const shape = `Write exactly ${lines} line${lines === 1 ? '' : 's'}. Output only the lines, nothing else.`
+  const prompt = [
+    instruction ?? `Write a ${part} (${lines} line${lines === 1 ? '' : 's'}) in the atmosphere of: ${mood.join(', ')}.`,
+    shape,
+    ...(focus ? [`Draw from this memory without naming it plainly: ${focus.memory}`] : []),
+    ...(resting.length ? [`Avoid these overused words: ${resting.slice(0, 8).join(', ')}.`] : []),
+    ...(deep.length ? [`Also rest these worn words: ${deep.slice(0, 6).join(', ')}.`] : []),
+    ...(say ? [say] : []),
+    ...(!spoken && counts?.length
+      ? [`Each line should be close to ${counts.map((c) => c.target).join(', ')} syllables (at most ${counts.map((c) => c.most).join(', ')}).`]
+      : []),
+  ].join('\n')
+  const accept = async (candidate: string[]) => {
+    if (spoken || !check) return true
+    for (let i = 0; i < candidate.length; i++) {
+      const verdict = await check(i, candidate[i]!)
+      if (verdict === 'refused') return false
+    }
+    return true
+  }
+  const advise =
+    spoken || !check || !counts?.length || !measure
+      ? undefined
+      : async (candidate: string[]) => {
+          const notes: string[] = []
+          for (let i = 0; i < candidate.length; i++) {
+            const verdict = await check(i, candidate[i]!)
+            if (verdict !== 'refused') continue
+            const got = await measure(candidate[i]!).catch(() => 0)
+            const want = counts[i % counts.length]!
+            notes.push(`Line ${i + 1} had ${got} syllables; keep it around ${want.target} (at most ${want.most}).`)
+          }
+          return notes.length ? notes.join(' ') : undefined
+        }
+  const written = await editVerse(seed, prompt, 1.0, {
+    lines,
+    minLength: spoken ? 8 : 6,
+    accept,
+    advise,
+    mayRepeat: !previous,
+  })
+  // if the mind gave up and returned the single-line fallback seed, shape it into `lines` lines cleanly
+  const got = written.split('\n').filter((l) => l.trim())
+  if (got.length === lines) return got.join('\n')
+  if (previous) return previous
+  const fallback = Array.from({ length: lines }, (_, i) =>
+    i === 0 ? `Under ${mood[0] ?? 'quiet skies'}, the signal holds its breath.` : `Far away the song keeps turning in the dark.`,
+  )
+  return fallback.join('\n')
 }
 
 /** The words a human wrote, in 2023, before the song began to write itself. */
@@ -382,7 +477,7 @@ export async function writeLyrics(
   mood: readonly string[],
   previous: Lyrics,
   memories: Memories = forgotten,
-  { deep = [], fitting }: { deep?: readonly string[]; fitting?: Fitting } = {},
+  { deep = [], fitting, extras }: { deep?: readonly string[]; fitting?: Fitting; extras?: readonly ExtraPartAsk[] } = {},
 ): Promise<Lyrics> {
   // each verse tells one memory of its own; the next iteration tells the next ones
   const focuses = focusesOf(memories)
@@ -406,20 +501,29 @@ export async function writeLyrics(
       check: own.check ? (p, line, text) => (p === part ? own.check!(line, text) : fitting.check(p, line, text)) : fitting.check,
     }
   }
-  const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus] =
+  const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus, extraEntries] =
     await Promise.all([
       pickChorus(previous.chorus, iteration, forField('chorus', 'chorus')),
       writeVerse(previous.firstVerse, mood, resting, memories, focusOf(0), deep, forField('firstVerse', 'verse')),
       writeVerse(previous.secondVerse, mood, resting, memories, focusOf(1), deep, forField('secondVerse', 'verse')),
       writeVerse(previous.thirdVerse, mood, resting, memories, focusOf(2), deep, forField('thirdVerse', 'verse')),
       writeVerse(previous.finalChorus, mood, resting, memories, focusOf(3), deep, forField('finalChorus', 'verse')),
+      extras?.length
+        ? Promise.all(
+            extras.map(async (ask, idx) => [
+              ask.name,
+              await writeExtraPart(ask, previous.extra?.[ask.name] ?? '', mood, resting, memories, focusOf(4 + idx), deep),
+            ] as const),
+          )
+        : Promise.resolve([]),
     ])
-  return { chorus, firstVerse, secondVerse, thirdVerse, finalChorus }
+  const extra = extraEntries.length ? Object.fromEntries(extraEntries) : undefined
+  return { chorus, firstVerse, secondVerse, thirdVerse, finalChorus, ...(extra ? { extra } : {}) }
 }
 
 export type SongPart = {
   /** A bridge has no words: it is music between a verse and a chorus, hummed or not. */
-  type: 'verse' | 'chorus' | 'bridge'
+  type: string
   /** Where the part stands in the iteration, from 0. */
   index: number
   /** The words, a line each. A bridge has one line, and no words in it. */
@@ -450,9 +554,22 @@ export function arrange(lyrics: Lyrics): SongPart[] {
 }
 
 /** The verses of an iteration, as the song wears them: every part the mind writes. */
-export const versesOf = (lyrics: Lyrics) => [lyrics.firstVerse, lyrics.secondVerse, lyrics.thirdVerse, lyrics.finalChorus]
+export const versesOf = (lyrics: Lyrics) => [
+  lyrics.firstVerse,
+  lyrics.secondVerse,
+  lyrics.thirdVerse,
+  lyrics.finalChorus,
+  ...(lyrics.extra ? Object.values(lyrics.extra) : []),
+]
 
 /** The parts with words in them, as a reader would want them. */
 export function words(lyrics: Lyrics): SongPart[] {
-  return arrange(lyrics).filter(({ type }) => type !== 'bridge')
+  const base = arrange(lyrics).filter(({ type }) => type !== 'bridge')
+  if (!lyrics.extra) return base
+  const extras = Object.entries(lyrics.extra).map(([name, content], i) => ({
+    type: name,
+    index: base.length + i,
+    content,
+  }))
+  return [...base, ...extras]
 }

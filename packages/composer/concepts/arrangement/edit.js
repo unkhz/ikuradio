@@ -468,19 +468,47 @@ function showBlocks() {
           showBlocks()
           hint()
         })
+        const envelopeKeys = new Set(['gain', 'fadeIn', 'fadeOut'])
         const gives = tracksThere.find((one) => one.id === block.track)?.parameters ?? []
-        const given = gives.map(({ name, minimum, maximum }) => {
-          const input = numberInput(block[name], { className: 'short', min: minimum, max: maximum, title: humanParameter(name, maximum).title })
-          input.dataset.field = name
-          input.addEventListener('input', () => {
-            setOrDrop(block, name, input.value === '' ? '' : Number(input.value))
+        const given = gives.map(({ name, minimum, maximum, options, default: fallback }) => {
+          const isEnv = envelopeKeys.has(name)
+          const current = isEnv ? block[name] : block.parameters?.[name]
+          const writeParam = (val) => {
+            if (isEnv) {
+              setOrDrop(block, name, val)
+            } else {
+              if (val === '' || val === undefined) {
+                if (block.parameters) {
+                  delete block.parameters[name]
+                  if (Object.keys(block.parameters).length === 0) delete block.parameters
+                }
+              } else {
+                block.parameters ??= {}
+                block.parameters[name] = val
+              }
+            }
             redrawSession()
             shell.changed()
-          })
+          }
+          if (options?.length) {
+            const select = el(
+              'select',
+              { className: 'short', title: humanParameter(name, maximum).title },
+              el('option', { value: '', textContent: fallback ? `${fallback} (usual)` : 'usual' }),
+              ...options.map((opt) => el('option', { value: opt, textContent: opt, selected: current === opt })),
+            )
+            select.dataset.field = name
+            select.addEventListener('change', () => writeParam(select.value))
+            return el('label', {}, ` ${humanParameter(name, maximum).label} `, select)
+          }
+          const input = numberInput(current, { className: 'short', min: minimum, max: maximum, title: humanParameter(name, maximum).title })
+          input.dataset.field = name
+          input.addEventListener('input', () => writeParam(input.value === '' ? '' : Number(input.value)))
           return el('label', {}, ` ${humanParameter(name, maximum).label} `, input)
         })
         track.addEventListener('change', () => {
           block.track = track.value
+          delete block.parameters
           showBlocks()
           redrawSession()
           shell.changed()

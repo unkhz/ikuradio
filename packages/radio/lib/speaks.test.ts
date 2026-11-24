@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'bun:test'
 import type { Session } from 'archive'
-import { aboutOf, cardOf, excerptOf, headlineOf, rowsOf, speak, structured } from './speaks.js'
+import { aboutOf, arrangementName, cardOf, excerptOf, headlineOf, paceOf, partsOf, rowsOf, speak, structured } from './speaks.js'
 
 const page = `<html><head>
     <title>ikuradio</title>
   </head><body>
       <p id="offered" hidden></p>
       <dl id="details"></dl>
+      <details id="parts" hidden>
+        <summary>structure</summary>
+        <ol></ol>
+      </details>
       <figure id="thought" hidden>
         <figcaption>the mind</figcaption>
         <p></p>
@@ -37,6 +41,7 @@ describe('a Song page that speaks', () => {
     const details = /<dl id="details" data-served>([\s\S]*?)<\/dl>/.exec(told)![1]!
     expect(details).toContain('<dt>name</dt><dd>Hollow death, by boredom</dd>')
     expect(details).toContain('<dt>song</dt><dd>1,234</dd>')
+    expect(details).toContain('<dt>arrangement</dt><dd>The Song as it always was</dd>')
     expect(details).toContain('<dt>weather</dt><dd>&lt;script&gt;alert(&quot;rain&quot;)&lt;/script&gt; + gears &amp; cogs</dd>')
     expect(details).toContain('<dt>key</dt><dd>dorian, 80 bpm</dd>')
     expect(details).toContain('<dt>choir</dt><dd>a woman&#39;s voice, with a &quot;child&quot;</dd>')
@@ -81,14 +86,56 @@ describe('a Song page that speaks', () => {
   })
 
   it('leaves out what a Session does not have', () => {
-    const plain = cardOf({ ...session, sound: undefined, perspectives: undefined, thought: undefined, name: undefined, iterations: [{ iteration: '7' }] } as unknown as Session)
-    expect(rowsOf(plain).map(([name]) => name)).toEqual(['song', 'weather', 'key', 'choir', 'length'])
+    const plain = cardOf({ ...session, sound: undefined, perspectives: undefined, thought: undefined, name: undefined, choir: '', iterations: [{ iteration: '7' }] } as unknown as Session)
+    expect(rowsOf(plain).map(([name]) => name)).toEqual(['song', 'arrangement', 'weather', 'key', 'length'])
     expect(rowsOf(plain).at(-1)![1]).toBe('8 minutes, iteration 7')
     const told = speak(page, plain, url)
     expect(told).toContain('<figure id="thought" hidden>')
     expect(told).toContain('<p id="offered" data-served>Song 1,234</p>')
     expect(told).toContain('<dl id="details" data-served><dt>song</dt>')
     expect(structured(plain, url)).toContain('"name":"Song 1,234"')
+  })
+
+  it('names Arrangements from title, legacy default, or slug, and SSRs per-part structure and multi-tempo pace', () => {
+    expect(arrangementName(undefined, undefined)).toBe('The Song as it always was')
+    expect(arrangementName('the-song', undefined)).toBe('The Song as it always was')
+    expect(arrangementName('the-long-breath', undefined)).toBe('The Long Breath')
+    expect(arrangementName('the-long-breath', 'The Long Breath <live>')).toBe('The Long Breath <live>')
+
+    const varied = cardOf({
+      ...session,
+      arrangement: 'the-long-breath',
+      arrangementTitle: 'The Long Breath',
+      tempo: 65,
+      tracks: ['drone', 'pulse'],
+      iterations: [
+        {
+          iteration: '4192',
+          parts: [
+            { type: 'verse', at: 0, seconds: 24, lines: [{ text: 'a' }, { text: 'b' }] },
+            { type: 'bridge', at: 24, seconds: 12, tempo: null, lines: [] },
+            { type: 'chorus', at: 36, seconds: 28, tempo: 96, mode: 'lydian', lines: [{ text: 'c' }] },
+          ],
+        },
+      ],
+    } as unknown as Session)
+
+    expect(paceOf(varied)).toBe('65–96 bpm, free time')
+    expect(rowsOf(varied)).toContainEqual(['arrangement', 'The Long Breath'])
+    expect(rowsOf(varied)).toContainEqual(['key', 'dorian, 65–96 bpm, free time'])
+    expect(rowsOf(varied)).toContainEqual(['tracks', 'drone, pulse'])
+    expect(partsOf(varied)).toEqual({
+      summary: 'structure · 3 parts',
+      items: [
+        { label: 'verse', meta: '24s · 65 bpm · 2 lines' },
+        { label: 'bridge', meta: '12s · free time' },
+        { label: 'chorus', meta: '28s · 96 bpm · lydian · 1 line' },
+      ],
+    })
+    const html = speak(page, varied, url)
+    expect(html).toContain('<details id="parts" data-served><summary>structure · 3 parts</summary><ol>')
+    expect(html).toContain('<li><span class="part-type">bridge</span><span class="part-meta">12s · free time</span></li>')
+    expect(html).toContain('<li><span class="part-type">chorus</span><span class="part-meta">28s · 96 bpm · lydian · 1 line</span></li>')
   })
 })
 
