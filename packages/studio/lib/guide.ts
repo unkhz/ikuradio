@@ -75,6 +75,8 @@ import { progressionOf, type UsedProgression } from './progression.js'
 export const twoVoices = true
 
 export type Guide = {
+  /** The key of the timeline's guide Block it was hummed for: one guide for each key, placed wherever the timeline places it. */
+  key?: string
   /** The kind of bed it guided. */
   kind: Kind
   part: 'verse' | 'chorus' | 'bridge'
@@ -102,17 +104,20 @@ export type Guide = {
   progression?: UsedProgression
 }
 
+/** A guide the timeline asks for: its key, and which section of the iteration, from 0, it is hummed for. */
+export type GuideAsked = { key: string; section: number }
+
 /**
- * Hums a guide for the first section of each kind of bed in an iteration:
- * the sections the Music grows its beds from. A guide the lead cannot hum
- * is left out, and the Music listens to the sung voice instead.
+ * Hums the guides an iteration's timeline asks for: one for each key, the sections the Music grows its beds from. A guide the lead cannot hum
+ * is left out, and the Music listens to the sung voice instead. Without two voices, a guide is hummed for the first section of each kind of bed, as it always was.
  */
 export async function humGuides(
   iteration: Iteration,
   lines: SungLine[],
   previous: readonly Guide[] = [],
+  asked: readonly GuideAsked[] = [],
 ): Promise<Guide[]> {
-  if (twoVoices) return humTwoVoices(iteration, lines, previous)
+  if (twoVoices) return humTwoVoices(iteration, lines, previous, asked)
   const { mood, choir, sung: tune, song, settings } = iteration
   const [lead] = choir
   const all = sections(lines)
@@ -262,7 +267,7 @@ function within(score: Score, body: Singer): Score {
  * ago. A section the voices cannot hum is left out, and its bed grows as
  * the old guide would have it.
  */
-export async function humTwoVoices({ mood, choir, settings, iteration, song }: Iteration, lines: SungLine[], previous: readonly Guide[]): Promise<Guide[]> {
+export async function humTwoVoices({ mood, choir, settings, iteration, song }: Iteration, lines: SungLine[], previous: readonly Guide[], asked: readonly GuideAsked[]): Promise<Guide[]> {
   const bpm = mood.character.tempo
   const key = keyOf(mood.character.mode)
   const [lead] = choir
@@ -275,7 +280,12 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
   })
   const { row } = settings['bridge-beds']
   const guides = await Promise.all(
-    all.map(async (section, i): Promise<Guide | undefined> => {
+    asked.map(async ({ key: asking, section: i }): Promise<Guide | undefined> => {
+      const section = all[i]
+      if (!section) {
+        console.warn(`${asking} is hummed for section ${i + 1}, which this iteration was not sung with`)
+        return undefined
+      }
       const written = section.lines.flatMap((line) => (line.written ? [line.written] : []))
       const name = written[0]?.section ?? named[i]!
       const progression =
@@ -317,6 +327,7 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
           mixdown([{ file: high, at: 0 }, { file: deep, at: 0 }], partial),
         )
         return {
+          key: asking,
           kind: section.kind,
           part: section.part,
           at: section.at,
@@ -348,6 +359,6 @@ export function melodyOf(written: readonly Written[]) {
   return { onChord: standing ? Math.round((onChord / standing) * 1000) / 1000 : 1, run: Math.max(...written.map((w) => w.run)) }
 }
 
-/** What the Music is given to listen to: a two-voice guide by its section, an old one by its kind. */
+/** What the Music is given to listen to: a two-voice guide by its key, an old one by its kind. */
 export const guidesFor = (hummed: readonly Guide[]): Map<Kind | number, string> =>
   new Map(hummed.map((guide) => [guide.section ?? guide.kind, guide.file]))

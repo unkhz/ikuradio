@@ -20,6 +20,10 @@ const fieldAt = (() => {
   return arrange(named).map((part) => (part.content ? (part.content as keyof Lyrics) : undefined))
 })()
 
+/** The names of an iteration's regions in the Song as it always was, in order: the key of what lies under one is its Track, its name and, from the second iteration, its number. */
+const regionNames = ['verse-1', 'bridge-1', 'chorus', 'bridge-2', 'verse-2', 'bridge-3', 'chorus', 'bridge-4', 'verse-3', 'final-chorus']
+const keyOfRegion = (track: string, region: number, iteration: number) => `${track}:${regionNames[region]}${iteration > 0 ? `:${iteration + 1}` : ''}`
+
 /** The iterations of a Session as the Studio made them. */
 export function madeFromSession(session: Session): Made[] {
   const first = BigInt(session.iterations[0]!.iteration)
@@ -91,6 +95,7 @@ export function madeFromSession(session: Session): Made[] {
       const k = sectionAt.findIndex((begin) => Math.abs(begin - moment) < 1e-6)
       return k < 0 ? undefined : derived[k]
     }
+    const regionOf = (moment: number) => sectionAt.findIndex((begin) => Math.abs(begin - moment) < 1e-6)
     const composed: Iteration = {
       iteration: BigInt(one.iteration),
       mood: { descriptions: session.mood, character: { mode: session.mode as never, tempo: session.tempo, ...(session.sound ? { sound: session.sound } : {}) } },
@@ -109,6 +114,7 @@ export function madeFromSession(session: Session): Made[] {
     const guides: Guide[] = (session.guides ?? [])
       .filter((guide) => guide.at >= one.at - 1e-6 && guide.at < end - 1e-6)
       .map((guide) => ({
+        key: keyOfRegion('guide', regionOf(guide.at - one.at), i),
         kind: (guide.from && guide.to ? `bridge:${guide.from}>${guide.to}` : guide.part) as never,
         part: guide.part,
         at: sectionOf(guide.at - one.at)?.at ?? guide.at - one.at,
@@ -127,7 +133,7 @@ export function madeFromSession(session: Session): Made[] {
       lines,
       beds: session.recordings
         .filter((recording) => recording.kind === 'bed' && recording.at >= one.at - 1e-6 && recording.at < end - 1e-6)
-        .map((recording) => ({ file: recording.id, at: sectionOf(recording.at - one.at)?.at ?? recording.at - one.at, gain: recording.gain, seconds: sectionOf(recording.at - one.at)?.seconds ?? recording.seconds, fade: recording.fade })),
+        .map((recording) => ({ key: keyOfRegion('bed', regionOf(recording.at - one.at), i), file: recording.id, at: sectionOf(recording.at - one.at)?.at ?? recording.at - one.at, gain: recording.gain, seconds: sectionOf(recording.at - one.at)?.seconds ?? recording.seconds, fade: recording.fade })),
       guides,
     }
   })

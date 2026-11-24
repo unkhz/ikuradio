@@ -13,7 +13,7 @@ import { typingMoments } from './typing.js'
 export type Made = {
   composed: Iteration
   lines: SungLine[]
-  beds: Placed[]
+  beds: (Placed & { key?: string })[]
   /** The guide hums the Music grew the beds from. */
   guides?: Guide[]
 }

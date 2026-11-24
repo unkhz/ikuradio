@@ -3,8 +3,8 @@
 // sung, the Blocks resolved over them, and what was made (a voice's lines, a guide, a bed) placed where its Block says. It is made in the shadow of the real
 // one, beside it and unpublished, and the two are compared (./shadow.ts), until the Songs on the air have shown them the same.
 //
-// What was made is given as the iterations of `Made`, as the Studio makes them today: the made things are found by where they lie in time, since today they
-// are kept by position. When the Studio makes by key (step 4), they will be given by key, and the finding goes.
+// What was made is given as the iterations of `Made`. Beds and guides are made by key (step 4) and laid once for each place their key is placed, so each is found by its
+// key: the nth made of a key is the nth placing of it. The Session says where each lies from the timeline's placing, never from the made thing's own moment.
 
 import { fieldsOf, iterationsOf, makingsOf, resolve, type Arrangement, type TrackRecord } from 'parts'
 import { introduce, type Loudness } from 'vocals'
@@ -12,6 +12,7 @@ import { sessionVersion, type Session, type SessionIteration } from 'archive'
 import type { Guide } from './guide.js'
 import type { SungLine } from './perform.js'
 import { progressionRecord, seconds, takeOf, type Made } from './session.js'
+import { measure } from './asking.js'
 import { typingMoments } from './typing.js'
 
 /** How close two moments are, in seconds, to be taken for one: well inside what a Session keeps (a thousandth). */
@@ -47,16 +48,11 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
   const lines: SungLine[][] = instances.map(() => [])
   const measured: number[] = instances.map(() => 0)
   for (let pass = 0; pass < passes; pass++) {
-    const { lyrics } = made[pass]!.composed
-    let cursor = 0
-    for (const [r, field] of fields.entries()) {
-      if (passOf[r] !== pass) continue
-      const texts = field === undefined ? [''] : (lyrics[field] as string).split('\n').filter((text) => text.trim())
-      lines[r] = texts.map(() => made[pass]!.lines[cursor++]).filter((line): line is SungLine => line !== undefined)
-      const at = lines[r]![0]?.at ?? 0
-      const end = Math.max(at, ...lines[r]!.map((line) => line.at + line.seconds))
-      // a region lasts what it was sung for
-      measured[r] = end - at
+    const regions = instances.flatMap((instance, global) => (passOf[global] === pass ? [{ global, index: 0, name: instance.name, part: instance.part as 'verse' | 'chorus' | 'bridge', ...(fields[global] ? { field: fields[global] } : {}) }] : []))
+    const own = measure(regions, made[pass]!.composed.lyrics, made[pass]!.lines)
+    for (const [n, region] of regions.entries()) {
+      lines[region.global] = own.lines[n]!
+      measured[region.global] = own.seconds[n]!
     }
   }
   const resolved = resolve(arrangement, { seconds: measured, mood: mood.character.tempo })
@@ -139,15 +135,19 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
     })
     recordings.push(...voices)
 
-    // the beds: each placing of a bed Block, in the order of the timeline; made once by its key, found by where the Studio put it
+    // the beds: each placing of a bed Block, in the order of the timeline; a bed was grown once for its key
     const bedPlacings = asked
       .filter((making) => making.track === 'bed')
       .flatMap((making) => making.placings.map((placing) => ({ making, placing })))
       .filter(({ placing }) => passOf[regionAt(placing.at)] === pass)
       .sort((a, b) => a.placing.at - b.placing.at)
-    for (const { placing } of bedPlacings) {
-      const bed = beds.find((one) => Math.abs(offset + one.at - placing.at) < same)
-      // a section whose bed was not grown has none to place
+    const bedsOf = new Map<string, number>()
+    for (const { making, placing } of bedPlacings) {
+      // the bed of a key, placing by placing: its first made place is its first placing
+      const nth = bedsOf.get(making.key) ?? 0
+      bedsOf.set(making.key, nth + 1)
+      const bed = beds.filter((one) => one.key === making.key)[nth]
+      // a bed that was not grown has none to place
       if (!bed) continue
       recordings.push({
         id: name(bed.file),
@@ -167,8 +167,11 @@ export function sessionOf({ arrangement, tracks, made, name, loudness = () => un
       .flatMap((making) => making.placings.map((placing) => ({ making, placing })))
       .filter(({ placing }) => passOf[regionAt(placing.at)] === pass)
       .sort((a, b) => a.placing.at - b.placing.at)
-    for (const { placing } of guidePlacings) {
-      const guide: Guide | undefined = hummed.find((one) => Math.abs(offset + one.at - placing.at) < same)
+    const guidesOf = new Map<string, number>()
+    for (const { making, placing } of guidePlacings) {
+      const nth = guidesOf.get(making.key) ?? 0
+      guidesOf.set(making.key, nth + 1)
+      const guide: Guide | undefined = hummed.filter((one) => one.key === making.key)[nth]
       if (!guide) continue
       const [, fromPart, toPart] = /^bridge:(\w+)>(\w+)$/.exec(guide.kind) ?? []
       guides.push({

@@ -8,7 +8,7 @@ import { mkdir, rm, stat } from 'node:fs/promises'
 import { describe, type Mood } from 'mood'
 import { mixdown, type Placed } from 'vocals'
 import { accompany, longest, musicDir, tail, words } from './bed.js'
-import { sections, type Kind, type Line } from './sections.js'
+import { sections, type Kind, type Line, type Section } from './sections.js'
 import type { Shelf } from './shelf.js'
 
 /** How loud the bed lies under the voice. Under it, never over it. */
@@ -137,4 +137,71 @@ export async function underlay(
     departed,
     grown,
   }
+}
+
+/** A bed a timeline asks for: its key, the kind of section it lies under, the guide it grows from, and how long it is made (its longest placing, tail included). */
+export type BedAsked = {
+  key: string
+  kind: Kind
+  part: 'verse' | 'chorus' | 'bridge'
+  /** The guide hum it grows from. A bed whose guide could not be hummed is grown from the sung voice of `section` instead. */
+  guide?: string
+  seconds: number
+  /** The section it lies under, as it was sung: only for a bed without a guide. */
+  section?: Section
+}
+
+/**
+ * Grows the beds a timeline asks for, each key once, in the order they are asked. A bed from a guide of its own is taken from the shelf only if it grew from that very
+ * guide, as `underlay` does; a bed without one is grown from the voice by the shelf's rules for its kind. A key placed again is the one bed, placed again by whoever lays it.
+ * Returns the bed of each key, the beds that left the shelf, and how many were grown anew.
+ */
+export async function growBeds(
+  asked: readonly BedAsked[],
+  mood: Mood,
+  { shelf, iteration = 0n, bridgeBeds }: { shelf?: Shelf; iteration?: bigint; bridgeBeds?: { instead?: string; melody: boolean } } = {},
+): Promise<{ beds: Map<string, string>; departed: string[]; grown: number }> {
+  const song = songOf(mood)
+  const beds = new Map<string, string>()
+  const byKind = new Map<Kind, string>()
+  const kinds = [...new Set(asked.map(({ kind }) => kind))]
+  const departed: string[] = []
+  let grown = 0
+  for (const ask of asked) {
+    const turned = ask.part === 'bridge' ? bridgeBeds : undefined
+    const told = turned?.instead ? `${turned.instead}, ${mood.character.tempo} bpm` : words(mood)
+    if (ask.guide) {
+      const kept = shelf?.grownFrom(song, ask.guide)
+      if (kept) {
+        beds.set(ask.key, kept)
+        continue
+      }
+      const bed = await accompany({ vocals: ask.guide, mood: told, seconds: ask.seconds, melody: turned?.melody ?? true })
+      beds.set(ask.key, bed)
+      grown++
+      if (shelf) departed.push(...shelf.keepGuided(song, ask.kind, ask.guide, bed, Math.min(longest, ask.seconds)))
+      continue
+    }
+    // no guide: the kind's bed, as the shelf chooses it, grown from the sung voice
+    const had = byKind.get(ask.kind)
+    if (had) {
+      beds.set(ask.key, had)
+      continue
+    }
+    if (!ask.section?.lines.some(({ file }) => file)) continue
+    const choice = shelf?.choose(iteration, song, ask.kind, kinds, ask.seconds)
+    if (choice && !choice.grow) {
+      byKind.set(ask.kind, choice.bed)
+      beds.set(ask.key, choice.bed)
+      continue
+    }
+    const vocals = await voiceOf(ask.section.lines, ask.section.at)
+    const bed = await accompany({ vocals, mood: told, seconds: ask.seconds, melody: turned?.melody ?? true }).finally(() => rm(vocals, { force: true }))
+    byKind.set(ask.kind, bed)
+    beds.set(ask.key, bed)
+    grown++
+    if (shelf) departed.push(...shelf.keep(song, ask.kind, bed, Math.min(longest, ask.seconds)))
+  }
+  if (beds.size === 0) console.warn(`no bed grew under ${describe(mood)}: nothing was sung`)
+  return { beds, departed, grown }
 }

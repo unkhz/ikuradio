@@ -17,7 +17,8 @@ import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, loudnessOf, recordingName, throatName, vocalsDir, type Loudness } from 'vocals'
 import { isBare } from './lib/bare.js'
-import { musicDir, restBand, Shelf, underlay, wakeBand } from 'music'
+import { growBeds, musicDir, restBand, sections, Shelf, wakeBand, type BedAsked } from 'music'
+import { readTracks } from 'parts'
 import { openArchive } from 'archive'
 import { describePerspectives } from 'perspectives'
 import { Diary } from './lib/diary.js'
@@ -27,7 +28,8 @@ import { chosen, takeOf } from './lib/arrangement.js'
 import { songAsItAlwaysWas } from './lib/compose.js'
 import { shadowCheck } from './lib/shadow.js'
 import { toSession, type Made } from './lib/session.js'
-import { guidesFor, humGuides, type Guide } from './lib/guide.js'
+import { humGuides, type Guide } from './lib/guide.js'
+import { againstSections, askedOf, kindOf, laid, measure, partsOf, sourceOf } from './lib/asking.js'
 import { sweep } from './lib/sweep.js'
 import { homecoming } from './lib/homecoming.js'
 import { holdStudio, StudioBusy } from './lib/lock.js'
@@ -185,15 +187,34 @@ console.log(
     `; ${composed.length} iterations written in ${seconds(started)}`,
 )
 
+// what the Arrangement's timeline asks to be made: the regions of each iteration, and every voice, guide and bed key under them
+const songArrangement = (await chosen(first.song.arrangement ?? songAsItAlwaysWas)).arrangement
+const tracks = await readTracks()
+const asking = askedOf(songArrangement, tracks)
+const passOf = (one: Iteration) => Number(one.iteration - BigInt(one.song.began))
+
 // the voices
 const sungAt = Date.now()
 const sung: SungLine[][] = []
-for (const one of composed) sung.push(await perform(one, sung.at(-1)))
+for (const one of composed) sung.push(await perform(one, sung.at(-1) ?? [], partsOf(asking.passes[passOf(one)]!.regions, one.lyrics)))
 console.log(`sung in ${seconds(sungAt)}`)
 
-// the guide hums, for the Music alone: what the lead's melody was written over, in two voices
+// the regions last what they were sung for; the timeline is read again over those lengths, and the guides and beds are asked from it
+const measured = songArrangement.instances.map(() => 0)
+for (const [i, one] of composed.entries()) {
+  const { regions } = asking.passes[passOf(one)]!
+  for (const [n, lasts] of measure(regions, one.lyrics, sung[i]).seconds.entries()) measured[regions[n]!.global] = lasts
+}
+const asked = askedOf(songArrangement, tracks, measured, first.mood.character.tempo)
+
+// the guide hums, for the Music alone: what the lead's melody was written over, in two voices; one for each guide key
 const guides: Guide[][] = []
-for (const [i, one] of composed.entries()) guides.push(await humGuides(one, sung[i], guides[i - 1]))
+for (const [i, one] of composed.entries()) {
+  const here = asked.passes[passOf(one)]!
+  const heard = sections(sung[i])
+  if (heard.length !== here.regions.length) console.warn(`asking: the iteration was sung in ${heard.length} sections and its timeline has ${here.regions.length} regions`)
+  guides.push(await humGuides(one, sung[i], guides[i - 1], here.guides.map((making) => ({ key: making.key, section: sourceOf(here, making).index }))))
+}
 
 // the Music, with the GPU to itself: the band is woken once for all the Song's beds
 const grownAt = Date.now()
@@ -206,18 +227,36 @@ const made: Made[] = []
 for (const [i, one] of composed.entries()) {
   const lines = sung[i]
   const hummed = guides[i]
-  const beds = await underlay(lines, one.mood, {
-    shelf,
-    iteration: one.iteration,
-    guides: guidesFor(hummed),
-    bridgeBeds: one.settings['bridge-beds'],
+  const here = asked.passes[passOf(one)]!
+  const heard = sections(lines)
+  const files = new Map(hummed.map(({ key, file }) => [key, file]))
+  // each bed key is grown once, from the guide of the region it is made from
+  const wanted: BedAsked[] = here.beds.map((making) => {
+    const region = sourceOf(here, making)
+    const guide = here.guides.find((one) => one.source[0] === making.source[0])
+    const guided = guide ? files.get(guide.key) : undefined
+    return {
+      key: making.key,
+      kind: kindOf(here.regions, region.index),
+      part: region.part,
+      seconds: making.seconds,
+      ...(guided ? { guide: guided } : {}),
+      ...(heard[region.index] ? { section: heard[region.index] } : {}),
+    }
   })
-    .then(({ beds }) => beds)
-    .catch((error) => {
-      console.warn(`the Music did not come for iteration ${one.iteration}: ${error.message}`)
-      return []
-    })
-  made.push({ composed: one, lines, beds, guides: hummed })
+  const grew = await growBeds(wanted, one.mood, { shelf, iteration: one.iteration, bridgeBeds: one.settings['bridge-beds'] }).catch((error) => {
+    console.warn(`the Music did not come for iteration ${one.iteration}: ${error.message}`)
+    return undefined
+  })
+  const beds = new Map(grew?.beds)
+  const lay = laid(asked, passOf(one), hummed, beds)
+  console.log(`iteration ${one.iteration}: ${wanted.length} beds asked, ${grew?.grown ?? 0} grown, ${beds.size - (grew?.grown ?? 0)} taken from the Shelf, ${lay.beds.length} placed under ${here.regions.length} regions`)
+  const unsaid = againstSections(lay, heard)
+  if (unsaid.length) {
+    console.warn(`asking: the timeline's placings differ from the sections as they were sung in ${unsaid.length} place${unsaid.length > 1 ? 's' : ''}:`)
+    for (const line of unsaid.slice(0, 20)) console.warn(`asking:   ${line}`)
+  }
+  made.push({ composed: one, lines, beds: lay.beds, guides: lay.guides })
 }
 await restBand()
 console.log(`accompanied in ${seconds(grownAt)}`)

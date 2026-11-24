@@ -9,7 +9,6 @@
 // and the lead's pitches are written over its section's guide before
 // anyone sings (./written.ts).
 
-import { arrange } from 'song'
 import { getEnv } from 'tools'
 import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Score, type Syllables } from 'melody'
 import { blend, countSyllables, fullness, humanize, keepsPace, quickest, record, throatScore, type Take } from 'vocals'
@@ -94,8 +93,10 @@ export const lineKey = (part: string, index: number, lyrics: string) =>
  * it had there, and each section's guide toward its guide.
  */
 export async function perform(
-  { iteration, lyrics, mood, choir, sung: tune, song, settings, rate }: Iteration,
-  before: readonly SungLine[] = [],
+  { iteration, mood, choir, sung: tune, song, settings, rate }: Iteration,
+  before: readonly SungLine[],
+  /** The regions of the iteration, in order, with the words each sings: what the timeline asks (./asking.ts). */
+  parts: readonly { type: 'verse' | 'chorus' | 'bridge'; content: string; index: number }[],
 ): Promise<SungLine[]> {
   // the Song's Perspectives, as its hooks here follow them
   const humanness = settings.humanness.scale
@@ -330,7 +331,6 @@ export async function perform(
     }
   }
 
-  const parts = arrange(lyrics)
   /** Every line fitted to its bars first, by its key: the same line in the same place is fitted once. */
   const fits = new Map<string, Promise<Fitted & { hummed: boolean }>>()
   const linesOf = (content: string) =>

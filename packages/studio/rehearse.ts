@@ -31,14 +31,16 @@ import { forgotten, readMemories, readThoughts, recall, words, writeThought } fr
 import { wrongness } from 'melody'
 import { describe } from 'mood'
 import { introduce, mixdown } from 'vocals'
-import { Shelf, underlay } from 'music'
+import { growBeds, sections, Shelf, type BedAsked } from 'music'
 import { describePerspectives } from 'perspectives'
 import { getEnv, pieces, wakeMind } from 'tools'
 import { Diary } from './lib/diary.js'
 import { chosen, takeOf } from './lib/arrangement.js'
+import { askedOf, kindOf, laid, measure, partsOf, sourceOf } from './lib/asking.js'
+import { readTracks } from 'parts'
 import { composer } from './lib/compose.js'
 import { perform } from './lib/perform.js'
-import { guidesFor, humGuides } from './lib/guide.js'
+import { humGuides } from './lib/guide.js'
 
 const { ARRANGEMENT, MOOD_COUNT, CHOIR_COUNT, VARIATION_COUNT, MIND_CONTEXT, SYLLABLES_PER_SECOND } = getEnv()
 const given = process.argv.slice(2)
@@ -90,12 +92,19 @@ const { compose } = await composer(new Diary(`${dir}/diary.jsonl`), {
   memories,
 })
 
+const arrangement = (await chosen(ARRANGEMENT)).arrangement
+const tracks = await readTracks()
+const asking = askedOf(arrangement, tracks)
+
 const sung: {
   take: string
   lines: Awaited<ReturnType<typeof perform>>
   mood: Awaited<ReturnType<typeof compose>>['mood']
   iteration: bigint
   guides: Awaited<ReturnType<typeof humGuides>>
+  asked: ReturnType<typeof askedOf>
+  pass: number
+  one: Awaited<ReturnType<typeof compose>>
   bridgeBeds: Awaited<ReturnType<typeof compose>>['settings']['bridge-beds']
 }[] = []
 
@@ -103,7 +112,8 @@ for (let iteration = 1n; iteration <= last; iteration++) {
   const started = Date.now()
   const composed = await compose(iteration)
   const written = Date.now()
-  const lines = await perform(composed, sung.at(-1)?.lines)
+  const pass = Number(composed.iteration - BigInt(composed.song.began))
+  const lines = await perform(composed, sung.at(-1)?.lines ?? [], partsOf(asking.passes[pass]!.regions, composed.lyrics))
   if (composed.beginsSong) {
     console.log(`\n~ ${describe(composed.mood)} ~ heard ${describePerspectives(composed.perspectives)}`)
     console.log(`  sung by ${introduce(composed.choir)}`)
@@ -124,6 +134,11 @@ for (let iteration = 1n; iteration <= last; iteration++) {
       .join('\n\n'),
   )
   const end = lines.at(-1)
+  // the regions last what they were sung for, and the guides and beds are asked from the timeline over those lengths
+  const lasted = arrangement.instances.map(() => 1)
+  for (const [n, lasts] of measure(asking.passes[pass]!.regions, composed.lyrics, lines).seconds.entries()) lasted[asking.passes[pass]!.regions[n]!.global] = lasts
+  const asked = askedOf(arrangement, tracks, lasted, composed.mood.character.tempo)
+  const here = asked.passes[pass]!
   console.log(
     `\n${take}.m4a: ${seconds(((end?.at ?? 0) + (end?.seconds ?? 0)) * 1000)}s of song,` +
       ` written in ${seconds(written - started)}s,` +
@@ -143,7 +158,10 @@ for (let iteration = 1n; iteration <= last; iteration++) {
     lines,
     mood: composed.mood,
     iteration,
-    guides: await humGuides(composed, lines, sung.at(-1)?.guides),
+    guides: await humGuides(composed, lines, sung.at(-1)?.guides, here.guides.map((making) => ({ key: making.key, section: sourceOf(here, making).index }))),
+    asked,
+    pass,
+    one: composed,
     bridgeBeds: composed.settings['bridge-beds'],
   })
 }
@@ -154,15 +172,20 @@ await mind?.rest()
 if (!dry) {
   // the shelf the live song keeps: a part grows a new bed, or plays one again
   const shelf = new Shelf()
-  for (const { take, lines, mood, iteration, guides, bridgeBeds } of sung) {
+  for (const { take, lines, mood, iteration, guides, asked, pass, bridgeBeds } of sung) {
     const started = Date.now()
     try {
-      const { beds } = await underlay(lines, mood, {
-        shelf,
-        iteration,
-        guides: guidesFor(guides),
-        bridgeBeds,
+      const here = asked.passes[pass]!
+      const heard = sections(lines)
+      const files = new Map(guides.map(({ key, file }) => [key, file]))
+      const wanted: BedAsked[] = here.beds.map((making) => {
+        const region = sourceOf(here, making)
+        const guide = here.guides.find((one) => one.source[0] === making.source[0])
+        const guided = guide ? files.get(guide.key) : undefined
+        return { key: making.key, kind: kindOf(here.regions, region.index), part: region.part, seconds: making.seconds, ...(guided ? { guide: guided } : {}), ...(heard[region.index] ? { section: heard[region.index] } : {}) }
       })
+      const grew = await growBeds(wanted, mood, { shelf, iteration, bridgeBeds })
+      const { beds } = laid(asked, pass, guides, grew.beds)
       if (beds.length === 0) continue
       await mixdown(beds, `${take}.music.m4a`)
       await mixdown(
