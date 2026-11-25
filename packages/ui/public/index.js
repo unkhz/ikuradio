@@ -1832,10 +1832,10 @@ function setAutoplay(on) {
 }
 let autoplayOn = autoplaying()
 
-/** The knob's toggle: shown only while a single Song is heard again (live and playlists always carry on). */
+/** The knob's toggle: shown on single-Song and playlist pages (on a playlist, autoplay loops it; live always carries on). */
 function drawAutoplay() {
   const toggle = document.getElementById('autoplay')
-  toggle.hidden = !replay || Boolean(playlist)
+  toggle.hidden = !replay && !playlist
   toggle.setAttribute('aria-pressed', String(autoplayOn))
   toggle.textContent = autoplayOn ? 'autoplay ✓' : 'autoplay'
 }
@@ -1980,6 +1980,18 @@ function offerToCarryOn(song) {
     button('autoplay next', () => {
       setAutoplay(true)
       carryOn(song)
+    }),
+    button('tune to live', () => tuneLive()),
+  )
+}
+
+/** Where a playlist has ended: loop it with autoplay on, or tune to live. */
+function offerToCarryOnPlaylist(slug) {
+  const button = (words, then) => Object.assign(document.createElement('button'), { type: 'button', className: 'carry', textContent: words, onclick: then })
+  document.getElementById('status').replaceChildren(
+    button('autoplay again', () => {
+      setAutoplay(true)
+      carryOnToPlaylist(slug, { push: false })
     }),
     button('tune to live', () => tuneLive()),
   )
@@ -2223,9 +2235,10 @@ const quiet = '~ the radio is quiet ~'
 const breath = '~ the song holds its breath ~'
 
 /**
- * Plays every Song in `playlist` seamlessly in order: no autoplay toggle required,
- * no pause or bottom navigation buttons between Songs. Preloads the next Song
- * while the current one plays so Web Audio schedules its opening sounds ahead of time.
+ * Plays every Song in `playlist` seamlessly in order: no pause or bottom
+ * navigation buttons between Songs. When the last Song finishes, `autoplayOn`
+ * loops the playlist seamlessly back to Track 1; otherwise end-of-playlist
+ * CTAs (`autoplay again` and `tune to live`) are offered.
  */
 async function listenPlaylist(output, audioContext) {
   const mine = generation
@@ -2250,13 +2263,17 @@ async function listenPlaylist(output, audioContext) {
   playlist = { slug, items, at: 0 }
   tellReplay()
 
-  const slots = new Array(items.length)
-  slots[0] = first
+  // monotonic slot index `idx` (`item = items[idx % items.length]`) so looping never reuses a slot key
+  const slots = new Map([[0, first]])
+  const posOf = (idx) => idx % items.length
+  const itemOf = (idx) => items[posOf(idx)]
+  const isLastInPass = (idx) => posOf(idx) === items.length - 1
 
   const prepareSlot = (idx, begins) => {
-    if (idx < 0 || idx >= items.length) return undefined
-    if (slots[idx]) return slots[idx]
-    const item = items[idx]
+    if (idx < 0) return undefined
+    const existing = slots.get(idx)
+    if (existing) return existing
+    const item = itemOf(idx)
     const airing = {
       song: item.song,
       session: item.session,
@@ -2266,8 +2283,9 @@ async function listenPlaylist(output, audioContext) {
       slot: idx,
       visit: false,
     }
-    slots[idx] = prepare(airing)
-    return slots[idx]
+    const created = prepare(airing)
+    slots.set(idx, created)
+    return created
   }
 
   let current = 0
@@ -2277,7 +2295,7 @@ async function listenPlaylist(output, audioContext) {
     every(200, () => {
       singSoon()
       if (!slot.startable) {
-        waiting(`readying Song ${number(items[current].song)} (${current + 1} of ${items.length}): ${slot.fetched} of ${slot.first || '…'}`)
+        waiting(`readying Song ${number(itemOf(current).song)} (${posOf(current) + 1} of ${items.length}): ${slot.fetched} of ${slot.first || '…'}`)
       }
     })
     await slot.starting
@@ -2293,21 +2311,25 @@ async function listenPlaylist(output, audioContext) {
   }
 
   const startSlot = (idx, beginsAt) => {
-    const slot = slots[idx]
+    const slot = slots.get(idx)
     slot.airing.seconds = slot.session.seconds
     // never shift begins after audio has already been placed for this slot
     if (!(slot.placed?.size > 0)) slot.airing.begins = beginsAt
-    playlist.at = idx
-    // preload the following Song immediately so its takes, synths, and beds are ready well before handoff
-    if (idx + 1 < items.length) prepareSlot(idx + 1, slot.airing.begins + slot.airing.seconds * 1000)
+    playlist.at = posOf(idx)
+    // preload the next Song in this pass, or Track 1 of the next pass when looping with autoplay
+    if (!isLastInPass(idx) || autoplayOn) {
+      prepareSlot(idx + 1, slot.airing.begins + slot.airing.seconds * 1000)
+    }
   }
 
   const forgetPastSlots = (moment) => {
-    for (let idx = 0; idx < current; idx++) {
-      const past = slots[idx]
-      if (!past) continue
+    for (const [idx, past] of slots) {
+      if (idx >= current) continue
       const ends = past.airing.begins + past.airing.seconds * 1000
-      if (moment - ends > 30_000) songs.delete(past.place)
+      if (moment - ends > 30_000) {
+        songs.delete(past.place)
+        slots.delete(idx)
+      }
     }
   }
 
@@ -2317,18 +2339,22 @@ async function listenPlaylist(output, audioContext) {
     announce('finished')
     bridgeEnds()
     weather(output, 'playlist ended')
-    waiting('playlist complete')
+    if (queued.radio) return reloadForUpdate()
+    offerToCarryOnPlaylist(slug)
   }
 
   startSlot(current, now() + 1200)
+  if (!capturing) every(5000, () => askRadio().catch(() => {}))
   let ended = false
+  let skippedInRow = 0
   every(50, () => {
     const moment = now()
     // resolve any completed track handoff BEFORE placing sounds or singing takes so delayed slots never desync or deadlock
     while (!ended) {
-      const active = slots[current]
+      const active = slots.get(current)
       if (!active || !songs.has(active.place)) {
-        if (current + 1 >= items.length) {
+        skippedInRow++
+        if (skippedInRow >= items.length || (isLastInPass(current) && !autoplayOn)) {
           finishPlaylist()
           break
         }
@@ -2339,30 +2365,56 @@ async function listenPlaylist(output, audioContext) {
       if (!active.startable) {
         // active track (after a skip) is still loading: wait without placing sounds or dropping takes
         if (Number.isFinite(active.airing.begins) && !(active.placed?.size > 0)) active.airing.begins = Infinity
-        waiting(`readying Song ${number(items[current].song)} (${current + 1} of ${items.length}): ${active.fetched} of ${active.first || '…'}`)
+        waiting(`readying Song ${number(itemOf(current).song)} (${posOf(current) + 1} of ${items.length}): ${active.fetched} of ${active.first || '…'}`)
         singSoon()
         forgetPastSlots(moment)
         return
       }
       if (!Number.isFinite(active.airing.begins)) {
+        skippedInRow = 0
         startSlot(current, moment + 150)
         break
       }
       const endsAt = active.airing.begins + active.airing.seconds * 1000
+      // keep loop-next preloading in sync if the listener toggles autoplay during the final track
+      if (isLastInPass(current)) {
+        if (autoplayOn && !queued.radio) {
+          prepareSlot(current + 1, endsAt)
+        } else {
+          const pre = slots.get(current + 1)
+          if (pre && !(pre.placed?.size > 0)) {
+            songs.delete(pre.place)
+            slots.delete(current + 1)
+          }
+        }
+      }
       if (moment < endsAt) break
-      // active track ended: advance to next playable slot, or wait with begins = Infinity if still buffering
-      if (current + 1 >= items.length) {
-        finishPlaylist()
-        break
+      // active track ended: advance within pass, loop if autoplayOn, or offer end-of-playlist CTAs
+      if (isLastInPass(current)) {
+        if (!autoplayOn) {
+          finishPlaylist()
+          break
+        }
+        if (queued.radio) {
+          ended = true
+          reloadForUpdate()
+          return
+        }
       }
       const nextIdx = current + 1
       const next = prepareSlot(nextIdx, endsAt)
       if (!songs.has(next.place)) {
         // next track's Session failed to load; skip directly past it
+        skippedInRow++
+        if (skippedInRow >= items.length) {
+          finishPlaylist()
+          break
+        }
         current = nextIdx
         continue
       }
       if (next.startable) {
+        skippedInRow = 0
         current = nextIdx
         const delayed = !(next.placed?.size > 0) && (!Number.isFinite(next.airing.begins) || moment - next.airing.begins > 1000)
         startSlot(current, delayed ? moment + 150 : next.airing.begins)
@@ -2370,7 +2422,7 @@ async function listenPlaylist(output, audioContext) {
       }
       // still buffering past endsAt: hold begins at Infinity so singSoon prioritizes takes without dropping them
       if (Number.isFinite(next.airing.begins) && !(next.placed?.size > 0)) next.airing.begins = Infinity
-      waiting(`readying Song ${number(items[nextIdx].song)} (${nextIdx + 1} of ${items.length}): ${next.fetched} of ${next.first || '…'}`)
+      waiting(`readying Song ${number(itemOf(nextIdx).song)} (${posOf(nextIdx) + 1} of ${items.length}): ${next.fetched} of ${next.first || '…'}`)
       singSoon()
       forgetPastSlots(moment)
       return
@@ -2380,10 +2432,10 @@ async function listenPlaylist(output, audioContext) {
     singSoon()
     forgetPastSlots(moment)
     if (ended) return
-    const active = slots[current]
+    const active = slots.get(current)
     if (!active?.session) return
     const t = (now() - active.airing.begins) / 1000
-    if (t < 0) return waiting(`Song ${number(active.airing.song)} (${current + 1} of ${items.length}) begins in ${Math.ceil(-t)}s`)
+    if (t < 0) return waiting(`Song ${number(active.airing.song)} (${posOf(current) + 1} of ${items.length}) begins in ${Math.ceil(-t)}s`)
     writeUpTo(output, active, t)
     if (active.missing && t < 6) waiting('its voices were lost; only its words remain')
   })
