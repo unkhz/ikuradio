@@ -269,4 +269,27 @@ describe('Studio support for new parts, voice controls, drone, and pulse', () =>
       for (const s of synths) rmSync(s.file, { force: true })
     }
   })
+
+  it('asks and renders procedural tracks cleanly for the-nocturne, the-clockwork, and the-triptych', async () => {
+    const all = await readArrangements(await readParts(), undefined, tracks)
+    const byId = new Map(all.map((r) => [r.arrangement.id, r.arrangement]))
+    const files: string[] = []
+    try {
+      for (const [id, expectedTracks] of [
+        ['the-nocturne', ['drone', 'drone']],
+        ['the-clockwork', ['pulse', 'pulse', 'pulse', 'drums']],
+        ['the-triptych', ['drone', 'drone', 'drone', 'drone', 'pulse', 'drums', 'drums']],
+      ] as const) {
+        const arr = byId.get(id)!
+        const measured = arr.instances.map(() => 2)
+        const asking = askedOf(arr, tracks, measured, 74, parts)
+        expect(asking.passes).toHaveLength(1)
+        const rendered = await renderSynths(asking, 0, firstMood, [], `test-${id}`)
+        files.push(...rendered.map((r) => r.file))
+        expect(rendered.map((r) => r.track)).toEqual([...expectedTracks])
+      }
+    } finally {
+      for (const f of files) rmSync(f, { force: true })
+    }
+  })
 })

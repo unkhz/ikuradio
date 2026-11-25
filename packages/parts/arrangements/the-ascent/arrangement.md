@@ -1,6 +1,6 @@
 ---
 state: active
-weight: 1
+weight: 2
 id: 4
 kind: arrangement
 slug: the-ascent

@@ -1,0 +1,40 @@
+{
+  "id": "the-nocturne",
+  "title": "The Nocturne",
+  "instances": [
+    { "name": "stillness", "part": "silence", "parameters": { "seconds": 2.5 } },
+    { "name": "prelude", "part": "spoken", "parameters": { "lines": 2, "rate": 0.82 } },
+    { "name": "verse-1", "part": "verse", "parameters": { "wordiness": 0.2, "ceiling": 6, "travel": 2 } },
+    { "name": "breath-1", "part": "silence", "parameters": { "seconds": 3 } },
+    { "name": "drift", "part": "interlude", "parameters": { "bars": 6 } },
+    { "name": "reflection", "part": "spoken", "parameters": { "lines": 3, "rate": 0.8 } },
+    { "name": "verse-2", "part": "verse", "parameters": { "wordiness": 0.25, "ceiling": 5, "travel": 1 } },
+    { "name": "breath-2", "part": "silence", "parameters": { "seconds": 2.5 } },
+    { "name": "refrain", "part": "refrain", "parameters": { "lines": 2, "wordiness": 0.25 }, "ending": "full" }
+  ],
+  "tempo": [
+    { "bpm": 62 },
+    { "region": "prelude", "bpm": null },
+    { "region": "verse-1", "bpm": 62 },
+    { "region": "reflection", "bpm": null },
+    { "region": "verse-2", "bpm": 60 }
+  ],
+  "tracks": ["voice", "bed", "guide", "drone"],
+  "blocks": [
+    { "track": "voice", "key": "voice:prelude", "from": { "region": "prelude", "edge": "start" }, "to": { "region": "prelude", "edge": "end" }, "source": ["prelude"], "gain": 0.9, "parameters": { "breath": "soft" } },
+    { "track": "voice", "key": "voice:verse-1", "from": { "region": "verse-1", "edge": "start" }, "to": { "region": "verse-1", "edge": "end" }, "source": ["verse-1"], "parameters": { "singers": "solo", "breath": "soft", "humanness": 0.85 } },
+    { "track": "voice", "key": "voice:reflection", "from": { "region": "reflection", "edge": "start" }, "to": { "region": "reflection", "edge": "end" }, "source": ["reflection"], "gain": 0.9, "parameters": { "breath": "soft" } },
+    { "track": "voice", "key": "voice:verse-2", "from": { "region": "verse-2", "edge": "start" }, "to": { "region": "verse-2", "edge": "end" }, "source": ["verse-2"], "parameters": { "singers": "duet", "breath": "soft", "humanness": 1 } },
+    { "track": "voice", "key": "voice:refrain", "from": { "region": "refrain", "edge": "start" }, "to": { "region": "refrain", "edge": "end" }, "source": ["refrain"], "gain": 0.9, "parameters": { "singers": "solo", "breath": "soft", "humanness": 0.85 } },
+    { "track": "bed", "key": "bed:verse-1", "from": { "region": "verse-1", "edge": "start" }, "to": { "region": "verse-1", "edge": "end", "plus": 1.2 }, "source": ["verse-1"], "fadeIn": 4, "fadeOut": 1.2, "gain": 0.34 },
+    { "track": "bed", "key": "bed:drift", "from": { "region": "drift", "edge": "start" }, "to": { "region": "drift", "edge": "end", "plus": 3 }, "source": ["drift"], "fadeIn": 3, "fadeOut": 3, "gain": 0.36 },
+    { "track": "bed", "key": "bed:verse-2", "from": { "region": "verse-2", "edge": "start" }, "to": { "region": "verse-2", "edge": "end", "plus": 1 }, "source": ["verse-2"], "fadeIn": 3.5, "fadeOut": 1, "gain": 0.36 },
+    { "track": "bed", "key": "bed:refrain", "from": { "region": "refrain", "edge": "start" }, "to": { "region": "refrain", "edge": "end", "plus": 6 }, "source": ["refrain"], "fadeIn": 2.5, "fadeOut": 6, "gain": 0.34 },
+    { "track": "guide", "key": "guide:verse-1", "from": { "region": "verse-1", "edge": "start" }, "to": { "region": "verse-1", "edge": "end" }, "source": ["verse-1"] },
+    { "track": "guide", "key": "guide:drift", "from": { "region": "drift", "edge": "start" }, "to": { "region": "drift", "edge": "end" }, "source": ["drift"] },
+    { "track": "guide", "key": "guide:verse-2", "from": { "region": "verse-2", "edge": "start" }, "to": { "region": "verse-2", "edge": "end" }, "source": ["verse-2"] },
+    { "track": "guide", "key": "guide:refrain", "from": { "region": "refrain", "edge": "start" }, "to": { "region": "refrain", "edge": "end" }, "source": ["refrain"] },
+    { "track": "drone", "key": "drone:haze", "from": { "region": "stillness", "edge": "start" }, "to": { "region": "drift", "edge": "end" }, "fadeIn": 5, "fadeOut": 3, "gain": 0.5, "parameters": { "warmth": 0.22, "build": 0.65, "movement": 0.55, "octave": 1 } },
+    { "track": "drone", "key": "drone:deep", "from": { "region": "reflection", "edge": "start" }, "to": { "region": "refrain", "edge": "end", "plus": 7 }, "fadeIn": 4, "fadeOut": 9, "gain": 0.55, "parameters": { "warmth": 0.28, "build": 0.12, "movement": 0.4, "octave": -1 } }
+  ]
+}

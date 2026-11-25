@@ -1,6 +1,6 @@
 ---
 state: active
-weight: 6
+weight: 8
 id: 1
 kind: arrangement
 slug: the-song

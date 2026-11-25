@@ -113,16 +113,21 @@ describe('weighted deterministic Arrangement selection', () => {
     expect(() => drawFrom([{ arrangement: theSong, title: 'The Song as it always was', iterations: 2, weight: 0 }], '1')).toThrow('no active, makeable Arrangement')
   })
 
-  it('poolOf keeps active, makeable, positive-weight Arrangements (the-song 6, the-long-breath 3, the-ascent 1, not tempo-turns at 0)', async () => {
+  it('poolOf keeps active, makeable, positive-weight Arrangements (40/20/10/10/10/10 split, excluding tempo-turns at 0)', async () => {
     const pool = await poolOf()
     expect(pool.map(({ arrangement, weight }) => [arrangement.id, weight])).toEqual([
-      ['the-ascent', 1],
-      ['the-long-breath', 3],
-      ['the-song', 6],
+      ['the-ascent', 2],
+      ['the-clockwork', 2],
+      ['the-long-breath', 4],
+      ['the-nocturne', 2],
+      ['the-song', 8],
+      ['the-triptych', 2],
     ])
-    const ascent = await chosen('the-ascent')
-    expect(ascent.iterations).toBe(1)
-    expect(takeOf(ascent)).toEqual({ id: 'the-ascent', iterations: 1 })
+    for (const id of ['the-ascent', 'the-nocturne', 'the-clockwork', 'the-triptych']) {
+      const one = await chosen(id)
+      expect(one.iterations).toBe(1)
+      expect(takeOf(one)).toEqual({ id, iterations: 1 })
+    }
     const pick = await chooser()
     const counts = new Map<string, number>()
     for (let s = 1n; s <= 1000n; s++) {
@@ -132,13 +137,22 @@ describe('weighted deterministic Arrangement selection', () => {
       if (one.id === 'the-song') expect(one.iterations).toBe(2)
       else expect(one.iterations).toBe(1)
     }
-    expect([...counts.keys()].sort()).toEqual(['the-ascent', 'the-long-breath', 'the-song'])
-    // weight 1 of 10 (~10%), 3 of 10 (~30%), 6 of 10 (~60%)
-    expect(counts.get('the-ascent')!).toBeGreaterThan(70)
-    expect(counts.get('the-ascent')!).toBeLessThan(135)
-    expect(counts.get('the-long-breath')!).toBeGreaterThan(250)
-    expect(counts.get('the-long-breath')!).toBeLessThan(350)
-    expect(counts.get('the-song')!).toBeGreaterThan(540)
-    expect(counts.get('the-song')!).toBeLessThan(660)
+    expect([...counts.keys()].sort()).toEqual([
+      'the-ascent',
+      'the-clockwork',
+      'the-long-breath',
+      'the-nocturne',
+      'the-song',
+      'the-triptych',
+    ])
+    // 40% the-song, 20% the-long-breath, 10% each of the four newer arrangements
+    expect(counts.get('the-song')!).toBeGreaterThan(340)
+    expect(counts.get('the-song')!).toBeLessThan(460)
+    expect(counts.get('the-long-breath')!).toBeGreaterThan(150)
+    expect(counts.get('the-long-breath')!).toBeLessThan(250)
+    for (const id of ['the-ascent', 'the-clockwork', 'the-nocturne', 'the-triptych']) {
+      expect(counts.get(id)!).toBeGreaterThan(65)
+      expect(counts.get(id)!).toBeLessThan(140)
+    }
   })
 })

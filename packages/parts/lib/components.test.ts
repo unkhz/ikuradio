@@ -174,7 +174,7 @@ describe('new song components (6 parts + voice controls + drone, drums & pulse t
     const ascent = all.find(({ arrangement }) => arrangement.id === 'the-ascent')!
     expect(ascent).toBeDefined()
     expect(ascent.state).toBe('active')
-    expect(ascent.weight).toBe(1)
+    expect(ascent.weight).toBe(2)
     expect(refuseArrangement(ascent.arrangement, records, tracks)).toBeUndefined()
     // single chorus, 12 regions, 5 tracks including drone & drums
     expect(ascent.arrangement.instances).toHaveLength(12)
@@ -201,5 +201,42 @@ describe('new song components (6 parts + voice controls + drone, drums & pulse t
       ],
     }
     expect(refuseArrangement(badDrums, records, tracks)).toContain('drums')
+  })
+
+  it('validates the-nocturne, the-clockwork, and the-triptych with 1-to-1 bed/guide pairing and distinct sonic profiles', async () => {
+    const all = await readArrangements(records, undefined, tracks)
+    const byId = new Map(all.map((r) => [r.arrangement.id, r]))
+
+    for (const id of ['the-nocturne', 'the-clockwork', 'the-triptych']) {
+      const rec = byId.get(id)!
+      expect(rec).toBeDefined()
+      expect(rec.state).toBe('active')
+      expect(rec.weight).toBe(2)
+      expect(refuseArrangement(rec.arrangement, records, tracks)).toBeUndefined()
+      // every bed block has a matching guide block for its source region and matching fadeOut tail
+      const beds = rec.arrangement.blocks!.filter((b) => b.track === 'bed')
+      const guides = rec.arrangement.blocks!.filter((b) => b.track === 'guide')
+      expect(beds.map((b) => b.source![0])).toEqual(guides.map((g) => g.source![0]))
+      for (const bed of beds) {
+        expect(bed.to.plus ?? 0).toBe(bed.fadeOut ?? 0)
+      }
+    }
+
+    // the-nocturne: quiet spoken/chamber drone world — zero drums, zero pulse, zero chorus
+    const nocturne = byId.get('the-nocturne')!.arrangement
+    expect(nocturne.tracks).toEqual(['voice', 'bed', 'guide', 'drone'])
+    expect(nocturne.instances.filter((i) => i.part === 'chorus')).toHaveLength(0)
+    expect(nocturne.instances.filter((i) => i.part === 'spoken')).toHaveLength(2)
+    expect(nocturne.instances.filter((i) => i.part === 'silence')).toHaveLength(3)
+
+    // the-clockwork: brisk motorik pulse + drums, zero drone, 102 -> 114 -> 84 bpm
+    const clockwork = byId.get('the-clockwork')!.arrangement
+    expect(clockwork.tracks).toEqual(['voice', 'bed', 'guide', 'pulse', 'drums'])
+    expect(clockwork.tempo!.map((t) => t.bpm)).toEqual([102, 114, 84])
+
+    // the-triptych: all 6 tracks across 3 movements separated by 2 silences
+    const triptych = byId.get('the-triptych')!.arrangement
+    expect(triptych.tracks).toEqual(['voice', 'bed', 'guide', 'drone', 'pulse', 'drums'])
+    expect(triptych.instances.filter((i) => i.part === 'silence')).toHaveLength(2)
   })
 })

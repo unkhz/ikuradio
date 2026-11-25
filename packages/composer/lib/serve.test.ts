@@ -31,7 +31,15 @@ describe('the real parts and Arrangements', () => {
 
   it('answers every Arrangement with its layout, at a tempo that may be asked for', async () => {
     const arrangements = (await (await get(answer, '/arrangements.json?tempo=90')).json()) as { id: string; layout: { tempo: number; instances: unknown[] } }[]
-    expect(arrangements.map(({ id }) => id)).toEqual(['tempo-turns', 'the-ascent', 'the-long-breath', 'the-song'])
+    expect(arrangements.map(({ id }) => id)).toEqual([
+      'tempo-turns',
+      'the-ascent',
+      'the-clockwork',
+      'the-long-breath',
+      'the-nocturne',
+      'the-song',
+      'the-triptych',
+    ])
     const song = arrangements.find(({ id }) => id === 'the-song')
     expect(song!.layout.tempo).toBe(90)
     expect(song!.layout.instances).toHaveLength(20)

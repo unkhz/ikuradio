@@ -40,7 +40,11 @@ export type TimelineAnswer =
 export function timelineOf(arrangement: Arrangement, layout: Layout, tracks: readonly TrackRecord[], tempo: number): TimelineAnswer {
   let resolved: Resolved
   try {
-    resolved = resolve(arrangement, { beats: layout.instances.map(({ beats }) => beats), mood: tempo })
+    resolved = resolve(arrangement, {
+      beats: layout.instances.map(({ beats }) => beats),
+      seconds: layout.instances.map(({ words, seconds }) => (words === 'spoken' || words === 'silent' ? seconds : undefined)),
+      mood: tempo,
+    })
   } catch (error) {
     return { refusal: (error as Error).message }
   }

@@ -15,15 +15,20 @@ const parts = new Map(records.map(({ part }) => [part.id, part]))
 const found = await readArrangements(records, undefined, tracks)
 const arrangementOf = (id: string) => found.find(({ arrangement }) => arrangement.id === id)!.arrangement
 
-type Answered = { id: string; layout: { instances: { beats: number }[] }; timeline: Exclude<TimelineAnswer, { refusal: string }> }
+type Answered = { id: string; layout: { instances: { beats: number; words: string; seconds: number }[] }; timeline: Exclude<TimelineAnswer, { refusal: string }> }
 const asked = async (tempo: number, answer = composer()) => (await (await answer(new Request(`http://composer.test/arrangements.json?tempo=${tempo}`))).json()) as Answered[]
 
 describe('the timeline /arrangements.json answers', () => {
   it('is what resolve gives, region for region and Block for Block, at the layout\'s lengths and the tempo asked for', async () => {
     for (const tempo of [72, 90]) {
       for (const answered of await asked(tempo)) {
+        expect('refusal' in answered.timeline).toBe(false)
         const arrangement = arrangementOf(answered.id)
-        const resolved = resolve(arrangement, { beats: answered.layout.instances.map(({ beats }) => beats), mood: tempo })
+        const resolved = resolve(arrangement, {
+          beats: answered.layout.instances.map(({ beats }) => beats),
+          seconds: answered.layout.instances.map(({ words, seconds }) => (words === 'spoken' || words === 'silent' ? seconds : undefined)),
+          mood: tempo,
+        })
         expect(answered.timeline.seconds).toBeCloseTo(resolved.seconds, 9)
         expect(answered.timeline.iterations).toBe(resolved.iterations)
         expect(answered.timeline.regions).toHaveLength(resolved.regions.length)
@@ -101,11 +106,11 @@ describe('a Track that nothing makes yet', () => {
     const home = mkdtempSync(join(tmpdir(), 'tracks-'))
     const tracksLib = fileURLToPath(new URL('../../parts/lib/', import.meta.url))
     const typebox = Bun.resolveSync('typebox', tracksLib)
-    for (const id of ['voice', 'bed', 'guide', 'drone', 'drums']) {
+    for (const id of ['voice', 'bed', 'guide', 'drone', 'pulse', 'drums']) {
       const dir = join(home, id)
       mkdirSync(dir)
       writeFileSync(join(dir, 'track.md'), `---\nstate: active\nid: 1\nkind: track\nslug: ${id}\n---\n# ${id}\n\nA lane.\n`)
-      writeFileSync(join(dir, 'track.ts'), `import { Type } from '${typebox}'\nimport { Track } from '${tracksLib}track.ts'\nclass One extends Track {\n  readonly id = '${id}'\n  readonly heard = true\n  readonly parameters = Type.Object({ gain: Type.Optional(Type.Number({ minimum: 0, maximum: 2 })), fadeIn: Type.Optional(Type.Number({ minimum: 0, maximum: 30 })), fadeOut: Type.Optional(Type.Number({ minimum: 0, maximum: 30 })), singers: Type.Optional(Type.String()), breath: Type.Optional(Type.String()), humanness: Type.Optional(Type.Number()), warmth: Type.Optional(Type.Number()), build: Type.Optional(Type.Number()), movement: Type.Optional(Type.Number()), octave: Type.Optional(Type.Integer()), style: Type.Optional(Type.String()), intensity: Type.Optional(Type.Number()), swing: Type.Optional(Type.Number()), halfTime: Type.Optional(Type.Integer()) })\n}\nexport default new One()\n`)
+      writeFileSync(join(dir, 'track.ts'), `import { Type } from '${typebox}'\nimport { Track } from '${tracksLib}track.ts'\nclass One extends Track {\n  readonly id = '${id}'\n  readonly heard = true\n  readonly parameters = Type.Object({ gain: Type.Optional(Type.Number({ minimum: 0, maximum: 2 })), fadeIn: Type.Optional(Type.Number({ minimum: 0, maximum: 30 })), fadeOut: Type.Optional(Type.Number({ minimum: 0, maximum: 30 })), singers: Type.Optional(Type.String()), breath: Type.Optional(Type.String()), humanness: Type.Optional(Type.Number()), warmth: Type.Optional(Type.Number()), build: Type.Optional(Type.Number()), movement: Type.Optional(Type.Number()), octave: Type.Optional(Type.Integer()), density: Type.Optional(Type.Number()), tone: Type.Optional(Type.Number()), style: Type.Optional(Type.String()), intensity: Type.Optional(Type.Number()), swing: Type.Optional(Type.Number()), halfTime: Type.Optional(Type.Integer()) })\n}\nexport default new One()\n`)
     }
     const song = (await asked(72, composer({ tracksDir: home }))).find(({ id }) => id === 'the-song')!.timeline
     expect(song.tracks.map(({ id }) => id)).toEqual(['voice', 'bed', 'guide'])
