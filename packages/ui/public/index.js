@@ -149,7 +149,7 @@ const songs = new Map()
  * the one that begins. It is kept on the Song, for a Song heard again is
  * given its beginning only after it is prepared.
  */
-const placeOf = (airing) => `${airing.song}@${airing.begins}`
+const placeOf = (airing) => (airing.slot !== undefined ? `${airing.song}#${airing.slot}` : `${airing.song}@${airing.begins}`)
 
 // The choir, in this page. A Session keeps every voice as its take, the
 // score exactly as the Studio's throat was given it, and the page sings each
@@ -963,10 +963,12 @@ let showing // what is being received: a Session, and the iteration of it
 function describe(session, iteration, encore = false) {
   if (showing?.session !== session) window.space?.tune(session.song)
   showing = { session, iteration }
+  const inPlaylist = playlist && playlist.items?.length && playlist.at !== undefined
   document.getElementById('status').replaceChildren(
     // a rerun is not mistaken for a new Song: the Tactus declares it an encore
     ...(encore ? [span('encore', 'encore · ')] : []),
     span('song', `Song ${number(session.song)}`),
+    ...(inPlaylist ? [span('side', ` · ${playlist.at + 1} of ${playlist.items.length}`)] : []),
     span('side', ` · iteration ${number(iteration.iteration)}`),
     // the name, written after the iteration, as the Song is known
     ...(session.name ? [span('side', ` · ${session.name}`)] : []),
@@ -1372,7 +1374,7 @@ function tellDetails() {
   if (!showing) {
     // a Song's page comes with what the Radio knows of it: kept until the Song plays
     if (details.hasAttribute('data-served')) return
-    details.replaceChildren(row('receiving', replay ? `Song ${replay.number}, soon` : 'nothing yet'))
+    details.replaceChildren(row('receiving', playlist ? 'playlist, soon' : replay ? `Song ${replay.number}, soon` : 'nothing yet'))
     tellParts(undefined)
     tellThought(undefined)
     return
@@ -1388,9 +1390,13 @@ function tellDetails() {
       ? `${number(iteration.iteration)}, ${iteration.of.at} of ${passCount}`
       : number(iteration.iteration)
     : undefined
+  const songLabel =
+    playlist && playlist.items?.length && playlist.at !== undefined
+      ? `${number(session.song)}, ${playlist.at + 1} of ${playlist.items.length} in playlist`
+      : `${number(session.song)}${replay ? ', from its beginning' : ', live'}`
   details.replaceChildren(
     ...(session.name ? [row('name', session.name)] : []),
-    row('song', `${number(session.song)}${replay ? ', from its beginning' : ', live'}`),
+    row('song', songLabel),
     row('arrangement', arrangementName(session.arrangement, session.arrangementTitle)),
     ...(session.mood?.length ? [row('weather', session.mood.join(' + '))] : []),
     ...(key ? [row('key', key)] : []),
@@ -1783,7 +1789,12 @@ const replayAt = (path) => {
   const asked = /^\/s\/([1-9]\d{0,399})\/([\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\-]{0,399})$/u.exec(said)
   return asked ? { index: BigInt(asked[1]), number: BigInt(asked[1]).toLocaleString('en'), slug: asked[2] } : undefined
 }
+const playlistAt = (path) => {
+  const asked = /^\/p\/([0-9a-z]{2,512})$/.exec(path)
+  return asked ? { slug: asked[1] } : undefined
+}
 let replay = replayAt(location.pathname)
+let playlist = replay ? undefined : playlistAt(location.pathname)
 // A visit is the page's first entry being a Song's page: only then is the Song's
 // intro heard. Everything after the first entry, carrying on, the back button,
 // live, is not a visit, whatever address it lands on.
@@ -1821,29 +1832,46 @@ function setAutoplay(on) {
 }
 let autoplayOn = autoplaying()
 
-/** The knob's toggle: shown only while a Song is heard again, for live always carries on. */
+/** The knob's toggle: shown only while a single Song is heard again (live and playlists always carry on). */
 function drawAutoplay() {
   const toggle = document.getElementById('autoplay')
-  toggle.hidden = !replay
+  toggle.hidden = !replay || Boolean(playlist)
   toggle.setAttribute('aria-pressed', String(autoplayOn))
   toggle.textContent = autoplayOn ? 'autoplay ✓' : 'autoplay'
 }
 document.getElementById('autoplay').addEventListener('click', () => setAutoplay(!autoplayOn))
 
-/** What the page says of the Song it will play from its beginning, or of live. */
+/** What the page says of the Song or playlist it will play from its beginning, or of live. */
 let titled = true // the Radio titled the page it served
 function tellReplay() {
-  document.getElementById('play').textContent = replay ? 'play song' : 'tune to live'
+  document.getElementById('play').textContent = playlist ? 'play playlist' : replay ? 'play song' : 'tune to live'
   const offered = document.getElementById('offered')
-  // the Radio wrote the number and the name of the Song it served the page for;
+  // the Radio wrote the number and the name of the Song (or playlist summary) it served the page for;
   // a Song taken up in this page is told its number, and its name when known
-  if (!offered.hasAttribute('data-served'))
-    offered.textContent = replay ? `Song ${replay.number}${replay.name ? ` · ${replay.name}` : ''}` : ''
-  offered.hidden = !replay
-  document.getElementById('live').hidden = !replay
-  // the Radio titled a Song's page by its name; the page titles itself only after
+  if (!offered.hasAttribute('data-served')) {
+    offered.textContent = playlist
+      ? playlist.items?.length
+        ? `Playlist · ${playlist.items.length} song${playlist.items.length === 1 ? '' : 's'}`
+        : 'Playlist'
+      : replay
+        ? `Song ${replay.number}${replay.name ? ` · ${replay.name}` : ''}`
+        : ''
+  }
+  offered.hidden = !replay && !playlist
+  document.getElementById('live').hidden = !replay && !playlist
+  // the Radio titled the served page; the page titles itself only after client navigation
   if (titled) titled = false
-  else document.title = replay ? (replay.name ? `${replay.name} · ikuradio` : `Song ${replay.number} · ikuradio`) : 'ikuradio'
+  else {
+    document.title = playlist
+      ? playlist.items?.length
+        ? `Playlist · ${playlist.items.length} Song${playlist.items.length === 1 ? '' : 's'} · ikuradio`
+        : 'Playlist · ikuradio'
+      : replay
+        ? replay.name
+          ? `${replay.name} · ikuradio`
+          : `Song ${replay.number} · ikuradio`
+        : 'ikuradio'
+  }
   drawAutoplay()
 }
 tellReplay()
@@ -1863,6 +1891,17 @@ function stopListening() {
   bridgeEnds()
   rezzy.away()
   document.querySelectorAll('#output .dj').forEach((node) => node.remove())
+  // abandon any preloads still in flight so they never leak into `songs` after switching modes
+  if (preloading) {
+    const abandoned = preloading
+    preloading = undefined
+    abandoned.ready.then((r) => r?.prepared && songs.delete(r.prepared.place))
+  }
+  if (preloadingPlaylist) {
+    const abandoned = preloadingPlaylist
+    preloadingPlaylist = undefined
+    abandoned.ready.then((r) => r?.first && songs.delete(r.first.place))
+  }
   // its sounds are let go; what has been placed on the audio clock plays out
   songs.clear()
   // what it would have let go is gone with the Songs
@@ -1878,6 +1917,7 @@ function stopListening() {
 /** Takes up Song `n` from its beginning, in this page, at the link its name makes. */
 function carryOnTo(n, slug, name, { push = true } = {}) {
   stopListening()
+  playlist = undefined
   const at = `/s/${n}/${slug}`
   replay = { ...replayAt(at), name }
   if (push) history.pushState(null, '', at)
@@ -1885,10 +1925,21 @@ function carryOnTo(n, slug, name, { push = true } = {}) {
   listenAgain(listening.output, listening.audioContext)
 }
 
+/** Takes up a playlist at `/p/<slug>`, playing every Song in order seamlessly. */
+function carryOnToPlaylist(slug, { push = true } = {}) {
+  stopListening()
+  replay = undefined
+  playlist = { slug }
+  if (push) history.pushState(null, '', `/p/${slug}`)
+  tellReplay()
+  listenPlaylist(listening.output, listening.audioContext)
+}
+
 /** Takes up live, in this page. */
 function tuneLive({ push = true } = {}) {
   stopListening()
   replay = undefined
+  playlist = undefined
   if (push) history.pushState(null, '', '/')
   tellReplay()
   listenLive(listening.output, listening.audioContext)
@@ -1942,17 +1993,20 @@ document.getElementById('live').addEventListener('click', (event) => {
   tuneLive()
 })
 
-// back and forward go to the Song, or live, the address names
+// back and forward go to the Song, playlist, or live the address names
 addEventListener('popstate', () => {
-  const asked = replayAt(location.pathname)
+  const askedSong = replayAt(location.pathname)
+  const askedList = askedSong ? undefined : playlistAt(location.pathname)
   if (!listening) {
-    replay = asked
+    replay = askedSong
+    playlist = askedList
     // the page's first entry was not this one
     entry = false
     tellReplay()
     return
   }
-  if (asked) carryOnTo(String(asked.index), asked.slug, undefined, { push: false })
+  if (askedList) carryOnToPlaylist(askedList.slug, { push: false })
+  else if (askedSong) carryOnTo(String(askedSong.index), askedSong.slug, undefined, { push: false })
   else tuneLive({ push: false })
 })
 
@@ -1982,14 +2036,37 @@ async function readyReplay(index, visit) {
   return { aired: true, tactus, airing, prepared }
 }
 
-// A page that is opened at a Song begins to ready it at once, before anything
-// is clicked, so that the Song is ready sooner when it is. Only the page at
+/** Fetches a playlist's metadata and begins preloading its first Song before the play click. */
+async function readyPlaylist(slug) {
+  openThroats()
+  const response = await fetch(`${radio}/p/${slug}.json`, { cache: 'no-store' })
+  if (!response.ok) return { found: false }
+  const data = await response.json()
+  const items = Array.isArray(data?.songs) ? data.songs : []
+  if (!items.length) return { found: false }
+  window.space?.tune(items[0].song)
+  const airing = {
+    song: items[0].song,
+    session: items[0].session,
+    archive: data.archive,
+    begins: Infinity,
+    seconds: items[0].seconds || 0,
+    slot: 0,
+    visit: false,
+  }
+  const first = prepare(airing)
+  return { found: true, archive: data.archive, items, first }
+}
+
+// A page that is opened at a Song or playlist begins to ready it at once, before anything
+// is clicked, so that it is ready sooner when it is. Only the page at
 // `/` waits for the click: it has nothing yet to ready.
 // ?time=<seconds> is a look at the page, held still: nothing is readied until the Song is played
 const looking = new URLSearchParams(location.search).has('time')
 // a Song's own page has the space of its Song from the first moment, before it is played
 if (replay) addEventListener('DOMContentLoaded', () => window.space?.tune(String(replay.index)))
 let preloading = replay && !looking ? { song: String(replay.index), ready: readyReplay(replay.index, !introOff).catch(() => undefined) } : undefined
+let preloadingPlaylist = playlist && !looking ? { slug: playlist.slug, ready: readyPlaylist(playlist.slug).catch(() => undefined) } : undefined
 
 /**
  * Hidden signs for whatever films the page (packages/marketing): `started` when the
@@ -2145,7 +2222,174 @@ async function listenAgain(output, audioContext) {
 const quiet = '~ the radio is quiet ~'
 const breath = '~ the song holds its breath ~'
 
-/** The first click: the page may sound from now on, and takes up the Song asked for, or live. */
+/**
+ * Plays every Song in `playlist` seamlessly in order: no autoplay toggle required,
+ * no pause or bottom navigation buttons between Songs. Preloads the next Song
+ * while the current one plays so Web Audio schedules its opening sounds ahead of time.
+ */
+async function listenPlaylist(output, audioContext) {
+  const mine = generation
+  const slug = playlist?.slug
+  if (!slug) return
+  const early = preloadingPlaylist
+  preloadingPlaylist = undefined
+  let loaded
+  if (early?.slug === slug) loaded = await early.ready
+  else early?.ready.then((r) => r?.first && songs.delete(r.first.place))
+  loaded ??= await readyPlaylist(slug).catch(() => undefined)
+  if (mine !== generation) {
+    if (loaded?.first) songs.delete(loaded.first.place)
+    return
+  }
+  if (!loaded || !loaded.found) {
+    weather(output, 'this playlist cannot be found')
+    waiting('tune to live from the knob')
+    return
+  }
+  const { archive, items, first } = loaded
+  playlist = { slug, items, at: 0 }
+  tellReplay()
+
+  const slots = new Array(items.length)
+  slots[0] = first
+
+  const prepareSlot = (idx, begins) => {
+    if (idx < 0 || idx >= items.length) return undefined
+    if (slots[idx]) return slots[idx]
+    const item = items[idx]
+    const airing = {
+      song: item.song,
+      session: item.session,
+      archive,
+      begins,
+      seconds: item.seconds || 0,
+      slot: idx,
+      visit: false,
+    }
+    slots[idx] = prepare(airing)
+    return slots[idx]
+  }
+
+  let current = 0
+  // find the first playable Song in the playlist
+  while (current < items.length) {
+    const slot = prepareSlot(current, Infinity)
+    every(200, () => {
+      singSoon()
+      if (!slot.startable) {
+        waiting(`readying Song ${number(items[current].song)} (${current + 1} of ${items.length}): ${slot.fetched} of ${slot.first || '…'}`)
+      }
+    })
+    await slot.starting
+    if (mine !== generation) return
+    for (const loop of loops.splice(0)) clearInterval(loop)
+    if (slot.startable) break
+    current++
+  }
+  if (current >= items.length) {
+    weather(output, 'none of the Songs in this playlist could be found')
+    waiting('tune to live from the knob')
+    return
+  }
+
+  const startSlot = (idx, beginsAt) => {
+    const slot = slots[idx]
+    slot.airing.seconds = slot.session.seconds
+    // never shift begins after audio has already been placed for this slot
+    if (!(slot.placed?.size > 0)) slot.airing.begins = beginsAt
+    playlist.at = idx
+    // preload the following Song immediately so its takes, synths, and beds are ready well before handoff
+    if (idx + 1 < items.length) prepareSlot(idx + 1, slot.airing.begins + slot.airing.seconds * 1000)
+  }
+
+  const forgetPastSlots = (moment) => {
+    for (let idx = 0; idx < current; idx++) {
+      const past = slots[idx]
+      if (!past) continue
+      const ends = past.airing.begins + past.airing.seconds * 1000
+      if (moment - ends > 30_000) songs.delete(past.place)
+    }
+  }
+
+  const finishPlaylist = () => {
+    if (ended) return
+    ended = true
+    announce('finished')
+    bridgeEnds()
+    weather(output, 'playlist ended')
+    waiting('playlist complete')
+  }
+
+  startSlot(current, now() + 1200)
+  let ended = false
+  every(50, () => {
+    const moment = now()
+    // resolve any completed track handoff BEFORE placing sounds or singing takes so delayed slots never desync or deadlock
+    while (!ended) {
+      const active = slots[current]
+      if (!active || !songs.has(active.place)) {
+        if (current + 1 >= items.length) {
+          finishPlaylist()
+          break
+        }
+        current++
+        prepareSlot(current, Infinity)
+        continue
+      }
+      if (!active.startable) {
+        // active track (after a skip) is still loading: wait without placing sounds or dropping takes
+        if (Number.isFinite(active.airing.begins) && !(active.placed?.size > 0)) active.airing.begins = Infinity
+        waiting(`readying Song ${number(items[current].song)} (${current + 1} of ${items.length}): ${active.fetched} of ${active.first || '…'}`)
+        singSoon()
+        forgetPastSlots(moment)
+        return
+      }
+      if (!Number.isFinite(active.airing.begins)) {
+        startSlot(current, moment + 150)
+        break
+      }
+      const endsAt = active.airing.begins + active.airing.seconds * 1000
+      if (moment < endsAt) break
+      // active track ended: advance to next playable slot, or wait with begins = Infinity if still buffering
+      if (current + 1 >= items.length) {
+        finishPlaylist()
+        break
+      }
+      const nextIdx = current + 1
+      const next = prepareSlot(nextIdx, endsAt)
+      if (!songs.has(next.place)) {
+        // next track's Session failed to load; skip directly past it
+        current = nextIdx
+        continue
+      }
+      if (next.startable) {
+        current = nextIdx
+        const delayed = !(next.placed?.size > 0) && (!Number.isFinite(next.airing.begins) || moment - next.airing.begins > 1000)
+        startSlot(current, delayed ? moment + 150 : next.airing.begins)
+        break
+      }
+      // still buffering past endsAt: hold begins at Infinity so singSoon prioritizes takes without dropping them
+      if (Number.isFinite(next.airing.begins) && !(next.placed?.size > 0)) next.airing.begins = Infinity
+      waiting(`readying Song ${number(items[nextIdx].song)} (${nextIdx + 1} of ${items.length}): ${next.fetched} of ${next.first || '…'}`)
+      singSoon()
+      forgetPastSlots(moment)
+      return
+    }
+
+    placeSounds(audioContext)
+    singSoon()
+    forgetPastSlots(moment)
+    if (ended) return
+    const active = slots[current]
+    if (!active?.session) return
+    const t = (now() - active.airing.begins) / 1000
+    if (t < 0) return waiting(`Song ${number(active.airing.song)} (${current + 1} of ${items.length}) begins in ${Math.ceil(-t)}s`)
+    writeUpTo(output, active, t)
+    if (active.missing && t < 6) waiting('its voices were lost; only its words remain')
+  })
+}
+
+/** The first click: the page may sound from now on, and takes up the playlist, Song asked for, or live. */
 async function listen() {
   promoClock = Date.now()
   // a promo's recording begins here: Rezzy is already in place, not walking on from an empty screen
@@ -2156,6 +2400,7 @@ async function listen() {
   // the first page of Songs comes with the first Song, so the dialog opens full
   received.at = Date.now()
   if (!capturing) loadPage(0)
+  if (playlist) return listenPlaylist(listening.output, listening.audioContext)
   if (replay) return listenAgain(listening.output, listening.audioContext)
   return listenLive(listening.output, listening.audioContext)
 }

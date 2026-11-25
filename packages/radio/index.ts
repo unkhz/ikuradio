@@ -34,7 +34,8 @@ import { SongCache } from './lib/cache.js'
 import { favouriteSongs, inTurn } from './lib/favourites.js'
 import critic from '../../critic/scientist.json' with { type: 'json' }
 import { Introduced, sitemapOf } from './lib/sitemap.js'
-import { aboutOf, cardOf, excerptOf, headlineOf, speak, type Card } from './lib/speaks.js'
+import { aboutOf, cardOf, excerptOf, headlineOf, playlistExcerptOf, speak, speakPlaylist, type Card, type PlaylistEntry } from './lib/speaks.js'
+import { decodePlaylist, playlistAsked, playlistJsonAsked } from './lib/playlist.js'
 
 const { SERVER_PORT, CACHE_PATH } = getEnv()
 
@@ -384,6 +385,76 @@ async function page(request: Request, url: URL, song?: bigint) {
   })
 }
 
+/** Resolves a base36 playlist slug into aired Songs, or 'missing' / 'unknown'. Nothing from the future is ever exposed. */
+async function resolvePlaylist(slug: string): Promise<{ entries: PlaylistEntry[] } | 'missing' | 'unknown'> {
+  const ids = decodePlaylist(slug)
+  if (!ids) return 'missing'
+  const now = Date.now()
+  const aired = new Set(tactus.history.filter((a) => a.begins <= now).map((a) => a.song))
+  for (const song of ids) {
+    if (!aired.has(song)) return 'missing'
+  }
+  const unique = [...new Set(ids)]
+  const loaded = new Map<string, Card>()
+  const missing: string[] = []
+  for (const song of unique) {
+    const kept = cards.get(song)?.card
+    if (kept) loaded.set(song, kept)
+    else missing.push(song)
+  }
+  if (missing.length) {
+    const fetched = await Promise.all(missing.map(async (song) => [song, await sessionOf(song)] as const))
+    for (const [song, got] of fetched) {
+      if (got === 'unknown') return 'unknown'
+      if (got === 'missing') return 'missing'
+      loaded.set(song, cardOf(got.found))
+    }
+  }
+  const entries: PlaylistEntry[] = ids.map((song) => {
+    const card = loaded.get(song)!
+    return {
+      song,
+      ...(card.name ? { name: card.name, slug: slugOf(card.name) } : {}),
+      arrangement: card.arrangement,
+      seconds: card.seconds,
+    }
+  })
+  return { entries }
+}
+
+async function playlistPage(request: Request, url: URL, entries: readonly PlaylistEntry[]) {
+  const scheme = request.headers.get('x-forwarded-proto') ?? url.protocol.slice(0, -1)
+  const origin = `${scheme}://${request.headers.get('host') ?? url.host}`
+  const count = `${entries.length} Song${entries.length === 1 ? '' : 's'}`
+  const title = `Playlist · ${count} · ${site}`
+  const description = playlistExcerptOf(entries)
+  const meta = [
+    `<title>${escaped(title)}</title>`,
+    `<meta name="description" content="${escaped(description)}" />`,
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="${escaped(site)}" />`,
+    `<meta property="og:title" content="${escaped(title)}" />`,
+    `<meta property="og:description" content="${escaped(description)}" />`,
+    `<link rel="canonical" href="${escaped(origin + url.pathname)}" />`,
+    `<meta property="og:url" content="${escaped(origin + url.pathname)}" />`,
+    `<meta property="og:image" content="${escaped(`${origin}/${names['card.png']}`)}" />`,
+    `<meta property="og:image:width" content="1200" />`,
+    `<meta property="og:image:height" content="630" />`,
+    `<meta property="og:image:alt" content="A lost receiver from another world, a little broken" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:title" content="${escaped(title)}" />`,
+    `<meta name="twitter:description" content="${escaped(description)}" />`,
+  ].join('\n    ')
+  const told = speakPlaylist(
+    aboutOf(pageText.replace(/<!--meta-->[\s\S]*<!--\/meta-->/, () => meta), description),
+    entries,
+    origin + url.pathname,
+  )
+  return new Response(told, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' },
+  })
+}
+
 Bun.serve({
   port: SERVER_PORT,
   hostname: '0.0.0.0',
@@ -514,6 +585,27 @@ async function answer(request: Request): Promise<Response> {
     })
   }
   if (url.pathname === '/' || url.pathname === '/index.html') return page(request, url)
+  const askedPlaylistJson = playlistJsonAsked(url.pathname)
+  if (askedPlaylistJson) {
+    const got = await resolvePlaylist(askedPlaylistJson)
+    if (got === 'unknown') return json({ error: 'the Archive did not answer' }, 503)
+    if (got === 'missing') return json({ error: 'playlist not found' }, 404)
+    return json({
+      slug: askedPlaylistJson,
+      archive,
+      songs: got.entries.map((entry) => ({
+        ...entry,
+        session: new URL(paths.session(entry.song), archive).href,
+      })),
+    })
+  }
+  const askedPlaylist = playlistAsked(url.pathname)
+  if (askedPlaylist) {
+    const got = await resolvePlaylist(askedPlaylist)
+    if (got === 'unknown') return new Response(null, { status: 503, headers: { 'retry-after': '5' } })
+    if (got === 'missing') return new Response(null, { status: 404 })
+    return playlistPage(request, url, got.entries)
+  }
   // A Song's only address: its number, and the slug its name makes. A wrong
   // slug is not found, like any path that is not the link: the Radio says
   // nothing of a Song it does not link.

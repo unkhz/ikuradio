@@ -265,3 +265,61 @@ export function speak(page: string, card: Card | undefined, url: string): string
   }
   return told.replace('</head>', () => `  <script type="application/ld+json">${structured(card, url)}</script>\n  </head>`)
 }
+
+/** One Song summarized for a playlist's SSR page and API payload. */
+export type PlaylistEntry = {
+  song: string
+  name?: string
+  slug?: string
+  arrangement: string
+  seconds: number
+}
+
+/** Plain description for a playlist's meta tags and `#about`. */
+export function playlistExcerptOf(entries: readonly PlaylistEntry[]): string {
+  const total = entries.reduce((sum, item) => sum + item.seconds, 0)
+  const count = `${entries.length} song${entries.length === 1 ? '' : 's'}`
+  const titles = entries
+    .slice(0, 6)
+    .map((item) => item.name ?? `Song ${number(item.song)}`)
+    .join(', ')
+  const more = entries.length > 6 ? `, and ${entries.length - 6} more` : ''
+  return `${count} (${minutes(total)}): ${titles}${more}.`
+}
+
+/**
+ * The page, telling what it knows of a playlist at `/p/<slug>`: offered line,
+ * knob details with tracklist, and schema.org MusicPlaylist structured data.
+ */
+export function speakPlaylist(page: string, entries: readonly PlaylistEntry[], url: string): string {
+  if (!entries.length) return page
+  const totalSeconds = entries.reduce((sum, item) => sum + item.seconds, 0)
+  const count = `${entries.length} song${entries.length === 1 ? '' : 's'}`
+  const offered = `Playlist · ${count}`
+  const rows: [string, string][] = [
+    ['playlist', `${count}, ${minutes(totalSeconds)}`],
+    ...entries.map((item, i): [string, string] => [
+      `${i + 1}`,
+      `${item.name ?? `Song ${number(item.song)}`} · ${item.arrangement}`,
+    ]),
+  ]
+  const detailsHtml = rows.map(([k, v]) => `<dt>${escaped(k)}</dt><dd>${escaped(v)}</dd>`).join('')
+  const data = {
+    '@context': 'https://schema.org',
+    '@type': 'MusicPlaylist',
+    name: `Playlist · ${count}`,
+    numTracks: entries.length,
+    url,
+    track: entries.map((item) => ({
+      '@type': 'MusicRecording',
+      name: item.name ?? `Song ${number(item.song)}`,
+      duration: duration(item.seconds),
+      byArtist: { '@type': 'MusicGroup', name: 'ikuradio' },
+    })),
+  }
+  const ld = JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026')
+  return page
+    .replace('<p id="offered" hidden></p>', () => `<p id="offered" data-served>${escaped(offered)}</p>`)
+    .replace('<dl id="details"></dl>', () => `<dl id="details" data-served>${detailsHtml}</dl>`)
+    .replace('</head>', () => `  <script type="application/ld+json">${ld}</script>\n  </head>`)
+}

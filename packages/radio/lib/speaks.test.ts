@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Session } from 'archive'
-import { aboutOf, arrangementName, cardOf, excerptOf, headlineOf, paceOf, partsOf, rowsOf, speak, structured } from './speaks.js'
+import { aboutOf, arrangementName, cardOf, excerptOf, headlineOf, paceOf, partsOf, playlistExcerptOf, rowsOf, speak, speakPlaylist, structured } from './speaks.js'
 
 const page = `<html><head>
     <title>ikuradio</title>
@@ -187,5 +187,29 @@ describe('the first line of text a crawler reads', () => {
   it('is left alone if the page has none, and a $ in the words is only a $', () => {
     expect(aboutOf('<body></body>', 'x')).toBe('<body></body>')
     expect(aboutOf(about, 'costs $& and $1')).toContain('costs $&amp; and $1')
+  })
+})
+
+describe('a playlist page (/p/<slug>)', () => {
+  it('renders SSR offered header, tracklist details, excerpt, and MusicPlaylist JSON-LD', () => {
+    const entries = [
+      { song: '2177', name: 'FirstLightWhisperEcho', slug: 'firstlightwhisperecho', arrangement: 'The Ascent', seconds: 338 },
+      { song: '2178', name: "Leaves' Lullaby", slug: 'leaves-lullaby', arrangement: 'The Nocturne', seconds: 139 },
+      { song: '2179', name: 'Mist Ascends', slug: 'mist-ascends', arrangement: 'The Clockwork', seconds: 217 },
+      { song: '2180', name: 'Dandelion Lullaby', slug: 'dandelion-lullaby', arrangement: 'The Triptych', seconds: 254 },
+    ]
+    const excerpt = playlistExcerptOf(entries)
+    expect(excerpt).toBe("4 songs (16 minutes): FirstLightWhisperEcho, Leaves' Lullaby, Mist Ascends, Dandelion Lullaby.")
+    const html = speakPlaylist(page, entries, 'https://ikurad.io/p/testslug')
+    expect(html).toContain('<p id="offered" data-served>Playlist · 4 songs</p>')
+    expect(html).toContain('<dt>playlist</dt><dd>4 songs, 16 minutes</dd>')
+    expect(html).toContain('<dt>1</dt><dd>FirstLightWhisperEcho · The Ascent</dd>')
+    expect(html).toContain('<dt>4</dt><dd>Dandelion Lullaby · The Triptych</dd>')
+    const match = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)
+    expect(match).toBeTruthy()
+    const ld = JSON.parse(match![1]!)
+    expect(ld['@type']).toBe('MusicPlaylist')
+    expect(ld.numTracks).toBe(4)
+    expect(ld.track).toHaveLength(4)
   })
 })
