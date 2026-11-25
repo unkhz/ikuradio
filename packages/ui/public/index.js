@@ -674,6 +674,22 @@ function heardOnce(song, recording) {
   if (left <= 0) song.voices.delete(id)
 }
 
+/** Currently scheduled or playing Web Audio sources so switching modes silences the old Song immediately. */
+const activeSources = new Set()
+
+function stopAllSounds(audioContext) {
+  const t = audioContext?.currentTime ?? 0
+  for (const entry of activeSources) {
+    activeSources.delete(entry)
+    try {
+      entry.level.gain.cancelScheduledValues(t)
+      entry.level.gain.setValueAtTime(entry.level.gain.value, t)
+      entry.level.gain.linearRampToValueAtTime(0, t + 0.06)
+      entry.source.stop(t + 0.07)
+    } catch {}
+  }
+}
+
 /**
  * Places every sound that begins soon, or began a moment ago and is still
  * going, on the audio clock: at the moment the Tactus says, translated into
@@ -681,6 +697,7 @@ function heardOnce(song, recording) {
  * apart for long. A sound already under way is joined where it would be.
  */
 function placeSounds(audioContext) {
+  const gen = generation
   for (const song of songs.values()) {
     if (!song.startable) continue
     const { begins } = song.airing
@@ -715,14 +732,15 @@ function placeSounds(audioContext) {
         buffering = audioContext.decodeAudioData(data.slice(0))
       }
       buffering.then((buffer) => {
+        if (gen !== generation) return
         const since = (now() - starts) / 1000
         if (since >= buffer.duration) return
         const when = audioContext.currentTime - since
         const source = audioContext.createBufferSource()
         source.buffer = buffer
+        const level = audioContext.createGain()
         let stopAt
         if (recording.kind === 'bed' || recording.kind === 'drone' || recording.kind === 'pulse' || recording.kind === 'drums') {
-          const level = audioContext.createGain()
           const gain = levelOf(recording)
           const now = audioContext.currentTime
           // a bed with a tail is held through its place, then fades out under
@@ -770,7 +788,6 @@ function placeSounds(audioContext) {
           level.connect(music(audioContext))
           source.connect(level)
         } else {
-          const level = audioContext.createGain()
           const gain = levelOf(recording)
           const now = audioContext.currentTime
           const fadeIn = recording.fadeIn > 0 ? recording.fadeIn : 0
@@ -794,6 +811,9 @@ function placeSounds(audioContext) {
             source.connect(level).connect(place).connect(voices(audioContext))
           }
         }
+        const entry = { source, level }
+        activeSources.add(entry)
+        source.onended = () => activeSources.delete(entry)
         if (since > 0) source.start(audioContext.currentTime, since)
         else source.start(when)
         if (stopAt !== undefined) source.stop(stopAt)
@@ -1902,7 +1922,8 @@ function stopListening() {
     preloadingPlaylist = undefined
     abandoned.ready.then((r) => r?.first && songs.delete(r.first.place))
   }
-  // its sounds are let go; what has been placed on the audio clock plays out
+  // stop any audio already playing or scheduled on the Web Audio clock with a brief click-free fade
+  stopAllSounds(listening?.audioContext)
   songs.clear()
   // what it would have let go is gone with the Songs
   queued.archive = false
