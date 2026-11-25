@@ -7,7 +7,7 @@ import { firstLyrics } from 'song'
 import { askedOf } from './asking.js'
 import { extraPartsFor } from './compose.js'
 import { throatForBreath, type SungLine } from './perform.js'
-import { renderSynths } from './synth.js'
+import { mixOf, renderSynths } from './synth.js'
 import { sessionOf } from './timeline.js'
 import { madeFromSession } from './fixtures/archive.js'
 import { readFileSync, rmSync } from 'node:fs'
@@ -290,6 +290,140 @@ describe('Studio support for new parts, voice controls, drone, and pulse', () =>
       }
     } finally {
       for (const f of files) rmSync(f, { force: true })
+    }
+  })
+
+  it('extracts and propagates declarative browser-side mix controls onto recordings while leaving dry blocks clean', async () => {
+    expect(mixOf(undefined)).toBeUndefined()
+    expect(mixOf({})).toBeUndefined()
+    expect(mixOf({ reverb: 0, echo: 0, filter: 1, pan: 0 })).toBeUndefined()
+    expect(mixOf({ reverb: 0.72, echo: 0.45, echoBeats: 0.75, filter: 0.6, pan: -0.25 })).toEqual({
+      reverb: 0.72,
+      echo: 0.45,
+      echoBeats: 0.75,
+      filter: 0.6,
+      pan: -0.25,
+    })
+    // echoBeats without echo > 0, NaN, and values that round back to defaults are ignored
+    expect(mixOf({ echoBeats: 1.5 })).toBeUndefined()
+    expect(mixOf({ reverb: Number.NaN, pan: Number.NaN, filter: 0.9999, echo: 0.0001 })).toBeUndefined()
+
+    const arrangement: Arrangement = {
+      id: 'spatial-test',
+      title: 'Spatial Test',
+      instances: [
+        { name: 'verse-1', part: 'verse' },
+        { name: 'pause', part: 'silence', parameters: { seconds: 3 } },
+        { name: 'whisper', part: 'spoken', parameters: { lines: 1 } },
+      ],
+      tracks: ['voice', 'bed', 'drone'],
+      blocks: [
+        {
+          track: 'voice',
+          key: 'voice:verse-1',
+          source: ['verse-1'],
+          from: { region: 'verse-1', edge: 'start' },
+          to: { region: 'verse-1', edge: 'end' },
+          parameters: { singers: 'solo', reverb: 0.7, echo: 0.4, echoBeats: 0.75 },
+        },
+        {
+          track: 'voice',
+          key: 'voice:whisper',
+          source: ['whisper'],
+          from: { region: 'whisper', edge: 'start' },
+          to: { region: 'whisper', edge: 'end' },
+        },
+        {
+          track: 'bed',
+          key: 'bed:verse-1',
+          source: ['verse-1'],
+          from: { region: 'verse-1', edge: 'start' },
+          to: { region: 'verse-1', edge: 'end', plus: 1 },
+          fadeOut: 1,
+          parameters: { filter: 0.55, reverb: 0.8, echo: 0.5, echoBeats: 1 },
+        },
+        {
+          track: 'drone',
+          key: 'drone:all',
+          from: { edge: 'start' },
+          to: { edge: 'end' },
+          gain: 0.4,
+          parameters: { warmth: 0.5, reverb: 0.65, pan: 0.2 },
+        },
+      ],
+    }
+
+    const base = madeFromSession(archived)[0]!
+    let cursor = 0
+    const verseLines: SungLine[] = base.lines
+      .filter((l) => l.part === 'verse')
+      .slice(0, 4)
+      .map((l) => {
+        const p = { ...l, at: cursor, region: 0 }
+        cursor += l.seconds
+        return p
+      })
+    const verseSeconds = cursor
+    const silentLine: SungLine = {
+      part: 'silence',
+      region: 1,
+      words: 'silent',
+      index: 0,
+      lyrics: '',
+      file: '',
+      voices: [],
+      recordings: [],
+      seconds: 3,
+      enters: 0,
+      voiced: 0,
+      at: cursor,
+      unheard: true,
+    }
+    cursor += 3
+    const spokenLine: SungLine = {
+      part: 'spoken',
+      region: 2,
+      words: 'spoken',
+      index: 0,
+      lyrics: 'Echoes fade.',
+      file: 'speech-2.wav',
+      voices: [],
+      speech: { text: 'Echoes fade.', body: 'female', rate: 0.9 },
+      recordings: ['speech-2.wav'],
+      seconds: 2,
+      enters: 0,
+      voiced: 1.8,
+      at: cursor,
+    }
+    const asking = askedOf(arrangement, tracks, [verseSeconds, 3, 2], firstMood.character.tempo, parts)
+    const synths = await renderSynths(asking, 0, firstMood, [], '9998')
+    try {
+      const session = sessionOf({
+        arrangement,
+        arrangementTitle: 'Spatial Test',
+        parts,
+        tracks,
+        made: [
+          {
+            composed: { ...base.composed, lyrics: { ...firstLyrics, extra: { whisper: 'Echoes fade.' } } },
+            lines: [...verseLines, silentLine, spokenLine],
+            beds: [{ file: 'bed-1.mp3', at: 0, key: 'bed:verse-1', seconds: verseSeconds + 1 }],
+            synths,
+          },
+        ],
+        name: (f) => f,
+      })
+
+      const voiceRec = session.recordings.find((r) => r.kind === 'voice')!
+      const spokenRec = session.recordings.find((r) => r.kind === 'spoken')!
+      const bedRec = session.recordings.find((r) => r.kind === 'bed')!
+      const droneRec = session.recordings.find((r) => r.kind === 'drone')!
+      expect(voiceRec.mix).toEqual({ reverb: 0.7, echo: 0.4, echoBeats: 0.75 })
+      expect(spokenRec.mix).toBeUndefined()
+      expect(bedRec.mix).toEqual({ reverb: 0.8, echo: 0.5, echoBeats: 1, filter: 0.55 })
+      expect(droneRec.mix).toEqual({ reverb: 0.65, pan: 0.2 })
+    } finally {
+      for (const s of synths) rmSync(s.file, { force: true })
     }
   })
 })

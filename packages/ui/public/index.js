@@ -674,6 +674,121 @@ function heardOnce(song, recording) {
   if (left <= 0) song.voices.delete(id)
 }
 
+// Declarative browser-side spatial sends (hall reverb + tempo-synced stereo dub echo).
+// Both ring out naturally across silence drops when a dry source stops, and are
+// faded & reset cleanly on mode switches (`stopAllSounds`).
+let reverbSpace
+const echoSpaces = new Map()
+
+function reverbImpulse(audioContext, duration = 3.8) {
+  const sr = audioContext.sampleRate
+  const length = Math.round(sr * duration)
+  const buffer = audioContext.createBuffer(2, length, sr)
+  // deterministic PRNG so every Receiver builds the same warm stereo hall
+  let seed = 0x5f3759df
+  const nextRand = () => {
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296 - 0.5
+  }
+  const early = [
+    [0.019, 0.42, 0.18],
+    [0.031, 0.22, 0.38],
+    [0.047, 0.34, 0.2],
+    [0.064, 0.16, 0.3],
+    [0.083, 0.25, 0.24],
+  ]
+  const alpha = 0.22 // warm high-frequency damping across the hall tail
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buffer.getChannelData(ch)
+    let lp = 0
+    for (let i = 0; i < length; i++) {
+      const t = i / sr
+      const env = Math.pow(1 - t / duration, 2.4) * Math.exp(-t / 1.35)
+      const white = nextRand() * 2
+      lp += alpha * (white - lp)
+      data[i] = lp * env * 0.48
+    }
+    for (const [at, gL, gR] of early) {
+      const idx = Math.round(at * sr)
+      if (idx < length) data[idx] += (ch === 0 ? gL : gR) * 0.32
+    }
+  }
+  return buffer
+}
+
+function reverbBus(audioContext) {
+  if (!reverbSpace) {
+    const input = audioContext.createGain()
+    const convolver = audioContext.createConvolver()
+    convolver.buffer = reverbImpulse(audioContext)
+    const wet = audioContext.createGain()
+    wet.gain.value = 0.68
+    input.connect(convolver)
+    convolver.connect(wet)
+    wet.connect(speakers(audioContext))
+    reverbSpace = { input, wet, convolver }
+  }
+  return reverbSpace.input
+}
+
+function echoBus(audioContext, delaySeconds) {
+  const safe = Number.isFinite(delaySeconds) && delaySeconds > 0 ? delaySeconds : 0.6
+  const clamped = Math.max(0.15, Math.min(1.8, safe))
+  const key = Math.round(clamped * 20) * 50 // bucket to 50ms steps to reuse buses cleanly
+  const existing = echoSpaces.get(key)
+  if (existing) return existing.input
+  const d = key / 1000
+  const input = audioContext.createGain()
+  const wet = audioContext.createGain()
+  wet.gain.value = 0.72
+  wet.connect(speakers(audioContext))
+  const delayL = audioContext.createDelay(2)
+  const delayR = audioContext.createDelay(2)
+  delayL.delayTime.value = d
+  delayR.delayTime.value = Math.min(1.95, d * 1.03)
+  const toneL = audioContext.createBiquadFilter()
+  const toneR = audioContext.createBiquadFilter()
+  toneL.type = 'lowpass'
+  toneR.type = 'lowpass'
+  toneL.frequency.value = 2100
+  toneR.frequency.value = 1650
+  const fbL = audioContext.createGain()
+  const fbR = audioContext.createGain()
+  fbL.gain.value = 0.44
+  fbR.gain.value = 0.42
+  const panL = audioContext.createStereoPanner()
+  const panR = audioContext.createStereoPanner()
+  panL.pan.value = -0.45
+  panR.pan.value = 0.45
+  // ping-pong stereo dub loop: input -> L -> R -> L ..., darkening with each bounce
+  input.connect(delayL)
+  delayL.connect(toneL)
+  toneL.connect(panL).connect(wet)
+  toneL.connect(fbL).connect(delayR)
+  delayR.connect(toneR)
+  toneR.connect(panR).connect(wet)
+  toneR.connect(fbR).connect(delayL)
+  const space = { input, wet, delayL, delayR, toneL, toneR, fbL, fbR, panL, panR }
+  echoSpaces.set(key, space)
+  return input
+}
+
+/** Resolves the active musical tempo (BPM) at a moment in the Session, honoring per-part tempo changes. */
+function tempoAt(session, at) {
+  const allParts = session?.iterations?.flatMap((it) => it.parts ?? []) ?? []
+  let lastTimed
+  for (const part of allParts) {
+    const partTempo = part.tempo === undefined ? session.tempo : part.tempo
+    if (typeof partTempo === 'number' && partTempo > 0) lastTimed = partTempo
+    if (at >= part.at - 0.05 && at < part.at + (part.seconds ?? 0) - 0.05) {
+      return typeof partTempo === 'number' && partTempo > 0 ? partTempo : (lastTimed || session.tempo || 76)
+    }
+  }
+  return lastTimed || session?.tempo || 76
+}
+
 /** Currently scheduled or playing Web Audio sources so switching modes silences the old Song immediately. */
 const activeSources = new Set()
 
@@ -686,6 +801,40 @@ function stopAllSounds(audioContext) {
       entry.level.gain.setValueAtTime(entry.level.gain.value, t)
       entry.level.gain.linearRampToValueAtTime(0, t + 0.06)
       entry.source.stop(t + 0.07)
+    } catch {}
+  }
+  // also silence and reset spatial send tails on explicit mode switch so old reverb/echo never bleeds into live
+  if (reverbSpace) {
+    const old = reverbSpace
+    reverbSpace = undefined
+    try {
+      old.wet.gain.cancelScheduledValues(t)
+      old.wet.gain.setValueAtTime(old.wet.gain.value, t)
+      old.wet.gain.linearRampToValueAtTime(0, t + 0.06)
+      setTimeout(() => {
+        try {
+          old.wet.disconnect()
+          old.convolver.disconnect()
+          old.input.disconnect()
+        } catch {}
+      }, 100)
+    } catch {}
+  }
+  for (const [key, old] of echoSpaces) {
+    echoSpaces.delete(key)
+    try {
+      old.fbL.gain.setValueAtTime(0, t)
+      old.fbR.gain.setValueAtTime(0, t)
+      old.wet.gain.cancelScheduledValues(t)
+      old.wet.gain.setValueAtTime(old.wet.gain.value, t)
+      old.wet.gain.linearRampToValueAtTime(0, t + 0.06)
+      setTimeout(() => {
+        for (const node of [old.input, old.delayL, old.delayR, old.toneL, old.toneR, old.fbL, old.fbR, old.panL, old.panR, old.wet]) {
+          try {
+            node.disconnect()
+          } catch {}
+        }
+      }, 100)
     } catch {}
   }
 }
@@ -739,6 +888,19 @@ function placeSounds(audioContext) {
         const source = audioContext.createBufferSource()
         source.buffer = buffer
         const level = audioContext.createGain()
+        const owned = [source, level]
+        const mix = recording.mix
+        let chain = level
+        if (mix?.filter !== undefined && mix.filter < 0.99) {
+          const lp = audioContext.createBiquadFilter()
+          lp.type = 'lowpass'
+          const norm = Math.max(0, Math.min(1, mix.filter))
+          lp.frequency.value = 260 * Math.pow(18000 / 260, norm)
+          lp.Q.value = 0.85
+          chain.connect(lp)
+          chain = lp
+          owned.push(lp)
+        }
         let stopAt
         if (recording.kind === 'bed' || recording.kind === 'drone' || recording.kind === 'pulse' || recording.kind === 'drums') {
           const gain = levelOf(recording)
@@ -785,8 +947,15 @@ function placeSounds(audioContext) {
           }
           level.gain.linearRampToValueAtTime(0, Math.max(now, ends))
           stopAt = Math.max(now, ends) + 0.05
-          level.connect(music(audioContext))
           source.connect(level)
+          if (mix?.pan) {
+            const panner = audioContext.createStereoPanner()
+            panner.pan.value = Math.max(-1, Math.min(1, mix.pan))
+            chain.connect(panner).connect(music(audioContext))
+            owned.push(panner)
+          } else {
+            chain.connect(music(audioContext))
+          }
         } else {
           const gain = levelOf(recording)
           const now = audioContext.currentTime
@@ -799,21 +968,52 @@ function placeSounds(audioContext) {
           } else {
             level.gain.value = gain
           }
+          source.connect(level)
           if (recording.said) {
             // a DJ speaks to the listener, in the middle, close, and without an echo
-            source.connect(level).connect(dj(audioContext))
+            chain.connect(dj(audioContext))
           } else if (recording.kind === 'spoken' || recording.speech) {
-            // a spoken part sits intimate and dry, without heavy choir echo
-            source.connect(level).connect(speakers(audioContext))
+            // a spoken part sits intimate and dry, without heavy choir echo (unless mix sends it to space)
+            if (mix?.pan) {
+              const panner = audioContext.createStereoPanner()
+              panner.pan.value = Math.max(-1, Math.min(1, mix.pan))
+              chain.connect(panner).connect(speakers(audioContext))
+              owned.push(panner)
+            } else {
+              chain.connect(speakers(audioContext))
+            }
           } else {
             const place = audioContext.createStereoPanner()
-            place.pan.value = standingOf(recording.voice)
-            source.connect(level).connect(place).connect(voices(audioContext))
+            place.pan.value = Math.max(-1, Math.min(1, standingOf(recording.voice) + (mix?.pan ?? 0)))
+            chain.connect(place).connect(voices(audioContext))
+            owned.push(place)
           }
+        }
+        // declarative browser-side spatial sends (ring out naturally across silence drops after dry source stops)
+        if (mix?.reverb > 0) {
+          const send = audioContext.createGain()
+          send.gain.value = Math.min(1, mix.reverb) * 0.85
+          chain.connect(send).connect(reverbBus(audioContext))
+          owned.push(send)
+        }
+        if (mix?.echo > 0) {
+          const bpm = recording.synth?.bpm || recording.take?.bpm || tempoAt(song.session, recording.at)
+          const beats = mix.echoBeats || 0.75
+          const send = audioContext.createGain()
+          send.gain.value = Math.min(1, mix.echo) * 0.72
+          chain.connect(send).connect(echoBus(audioContext, (beats * 60) / bpm))
+          owned.push(send)
         }
         const entry = { source, level }
         activeSources.add(entry)
-        source.onended = () => activeSources.delete(entry)
+        source.onended = () => {
+          activeSources.delete(entry)
+          for (const node of owned) {
+            try {
+              node.disconnect()
+            } catch {}
+          }
+        }
         if (since > 0) source.start(audioContext.currentTime, since)
         else source.start(when)
         if (stopAt !== undefined) source.stop(stopAt)

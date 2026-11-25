@@ -6,14 +6,47 @@
 
 import { keyFor } from 'melody'
 import type { Mood } from 'mood'
+import type { SessionMix } from 'archive'
 import { synthInto, type Placed, type SynthSpec } from 'vocals'
 import type { Asking } from './asking.js'
 import type { Guide } from './guide.js'
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000
+
+/** Extracts non-default declarative browser-side Web Audio mix controls from Block parameters. */
+export function mixOf(parameters?: Readonly<Record<string, number | string>>): SessionMix | undefined {
+  if (!parameters) return undefined
+  const out: SessionMix = {}
+  if (typeof parameters.reverb === 'number' && Number.isFinite(parameters.reverb)) {
+    const v = round3(parameters.reverb)
+    if (v > 0) out.reverb = v
+  }
+  if (typeof parameters.echo === 'number' && Number.isFinite(parameters.echo)) {
+    const v = round3(parameters.echo)
+    if (v > 0) {
+      out.echo = v
+      if (typeof parameters.echoBeats === 'number' && Number.isFinite(parameters.echoBeats)) {
+        const b = round3(parameters.echoBeats)
+        if (b > 0) out.echoBeats = b
+      }
+    }
+  }
+  if (typeof parameters.filter === 'number' && Number.isFinite(parameters.filter)) {
+    const v = round3(parameters.filter)
+    if (v < 1) out.filter = v
+  }
+  if (typeof parameters.pan === 'number' && Number.isFinite(parameters.pan)) {
+    const v = round3(parameters.pan)
+    if (v !== 0) out.pan = v
+  }
+  return Object.keys(out).length ? out : undefined
+}
 
 export type KeyedSynth = Placed & {
   key: string
   track: 'drone' | 'pulse' | 'drums'
   synth: SynthSpec
+  mix?: SessionMix
 }
 
 /**
@@ -77,6 +110,7 @@ export async function renderSynths(
         seed: `${songNumber}:${pass}:${making.key}:${n}`,
       }
       const { file } = await synthInto(spec)
+      const mix = mixOf(placing.parameters)
       results.push({
         key: making.key,
         track: 'drone',
@@ -86,6 +120,7 @@ export async function renderSynths(
         seconds: Math.max(0, placing.seconds - placing.fadeOut),
         ...(placing.fadeIn ? { fadeIn: placing.fadeIn } : {}),
         ...(placing.fadeOut ? { fade: placing.fadeOut } : {}),
+        ...(mix ? { mix } : {}),
         synth: spec,
       })
     }
@@ -111,6 +146,7 @@ export async function renderSynths(
         seed: `${songNumber}:${pass}:${making.key}:${n}`,
       }
       const { file } = await synthInto(spec)
+      const mix = mixOf(placing.parameters)
       results.push({
         key: making.key,
         track: 'pulse',
@@ -120,6 +156,7 @@ export async function renderSynths(
         seconds: Math.max(0, placing.seconds - placing.fadeOut),
         ...(placing.fadeIn ? { fadeIn: placing.fadeIn } : {}),
         ...(placing.fadeOut ? { fade: placing.fadeOut } : {}),
+        ...(mix ? { mix } : {}),
         synth: spec,
       })
     }
@@ -148,6 +185,7 @@ export async function renderSynths(
         seed: `${songNumber}:${pass}:${making.key}:${n}`,
       }
       const { file } = await synthInto(spec)
+      const mix = mixOf(placing.parameters)
       results.push({
         key: making.key,
         track: 'drums',
@@ -157,6 +195,7 @@ export async function renderSynths(
         seconds: Math.max(0, placing.seconds - placing.fadeOut),
         ...(placing.fadeIn ? { fadeIn: placing.fadeIn } : {}),
         ...(placing.fadeOut ? { fade: placing.fadeOut } : {}),
+        ...(mix ? { mix } : {}),
         synth: spec,
       })
     }

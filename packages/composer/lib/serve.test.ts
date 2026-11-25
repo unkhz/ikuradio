@@ -117,7 +117,7 @@ describe('POST /format and /tracks.json', () => {
     const tracks = (await (await get(answer, '/tracks.json')).json()) as { id: string; heard: boolean; makes: unknown; parameters: { name: string; minimum?: number; maximum?: number }[] }[]
     expect(tracks.map(({ id }) => id)).toEqual(['bed', 'drone', 'drums', 'guide', 'pulse', 'voice'])
     expect(tracks.find(({ heard }) => !heard)!.parameters).toEqual([])
-    expect(tracks.find(({ id }) => id === 'bed')!.parameters.map(({ name }) => name).sort()).toEqual(['fadeIn', 'fadeOut', 'gain'])
+    expect(tracks.find(({ id }) => id === 'bed')!.parameters.map(({ name }) => name).sort()).toEqual(['echo', 'echoBeats', 'fadeIn', 'fadeOut', 'filter', 'gain', 'pan', 'reverb'])
     expect(tracks.find(({ id }) => id === 'bed')!.parameters.find(({ name }) => name === 'gain')).toMatchObject({ minimum: 0, maximum: 2 })
   })
 })

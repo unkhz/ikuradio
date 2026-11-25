@@ -13,9 +13,19 @@ export const melody = () => ({
   travel: Type.Number({ minimum: 0, maximum: 10, default: 0, description: 'How far the melody is stilled' }),
 })
 
-/** What a Block may be given: a gain, and a fade in and a fade out in seconds, each within the most the Track allows. */
+/** Declarative browser-side Web Audio mixing sends and tone shaping available on every heard Track. */
+export const mixParameters = () => ({
+  reverb: Type.Number({ minimum: 0, maximum: 1, default: 0, description: 'Stereo hall reverb send (0 dry, 1 cavernous wash that rings across silences)' }),
+  echo: Type.Number({ minimum: 0, maximum: 1, default: 0, description: 'Warm tempo-synced stereo dub echo send (0 dry, 1 deep repeating trail)' }),
+  echoBeats: Type.Number({ minimum: 0.25, maximum: 2, default: 0.75, description: 'Echo delay length in beats (e.g. 0.5 eighth, 0.75 dotted eighth, 1.5 dotted quarter)' }),
+  filter: Type.Number({ minimum: 0, maximum: 1, default: 1, description: 'Low-pass warmth filter (1 fully open, 0 muffled underwater haze)' }),
+  pan: Type.Number({ minimum: -1, maximum: 1, default: 0, description: 'Stereo placement (-1 left, 0 center, 1 right)' }),
+})
+
+/** What a Block may be given: a gain, fades, and optional browser-side spatial/tone mixing controls. */
 export const blockParameters = ({ gain = 2, fade = 10 }: { gain?: number; fade?: number } = {}) => ({
   gain: Type.Number({ minimum: 0, maximum: gain, default: 1, description: 'How loud the Block is: 1 as it is made' }),
   fadeIn: Type.Number({ minimum: 0, maximum: fade, default: 0, description: 'Seconds it takes to rise from nothing' }),
   fadeOut: Type.Number({ minimum: 0, maximum: fade, default: 0, description: 'Seconds it takes to fall to nothing, at its end' }),
+  ...mixParameters(),
 })

@@ -314,6 +314,23 @@ export type SessionLine = {
   quickest?: number
 }
 
+/**
+ * Declarative browser-side Web Audio mixing sends and tone shaping for a Recording.
+ * Omitted when dry/default so legacy Sessions remain unchanged.
+ */
+export type SessionMix = {
+  /** Stereo hall reverb send level (`0..1`), ringing out naturally across silence drops. */
+  reverb?: number
+  /** Warm tempo-synced stereo dub echo send level (`0..1`). */
+  echo?: number
+  /** Echo delay time in beats (`0.25..2`, default `0.75`). */
+  echoBeats?: number
+  /** Low-pass warmth filter (`0..1`, `1` fully open). */
+  filter?: number
+  /** Stereo pan (`-1..1`, `0` center). */
+  pan?: number
+}
+
 export type SessionRecording = {
   /**
    * Its name: for a Recording in the Archive, its content as a hash; for a
@@ -351,6 +368,10 @@ export type SessionRecording = {
    * that goes on is never cut off; music that stops has a silent tail.
    */
   fade?: number
+  /**
+   * Optional browser-side Web Audio spatial/tone mixing declared by the Arrangement Block.
+   */
+  mix?: SessionMix
   /**
    * How loud it sounds, measured from the Recording itself after it was
    * made (EBU R128): integrated loudness in LUFS, true peak in dBTP. A

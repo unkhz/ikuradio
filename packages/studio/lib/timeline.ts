@@ -12,6 +12,7 @@ import { sessionVersion, type Session, type SessionIteration } from 'archive'
 import type { Guide } from './guide.js'
 import type { SungLine } from './perform.js'
 import { progressionRecord, seconds, takeOf, type Made } from './session.js'
+import { mixOf } from './synth.js'
 import { measure } from './asking.js'
 import { typingMoments } from './typing.js'
 
@@ -122,6 +123,7 @@ export function sessionOf({ arrangement, arrangementTitle, parts: partMap, track
       })
       // every singer's own take (or spoken speech), so that a Receiver can render and mix them as it likes
       if (placed) {
+        const voiceMix = mixOf(placed.placing.parameters)
         for (const [lineIndex, line] of sung.entries()) {
           if (line.unheard) continue
           if (line.speech) {
@@ -133,6 +135,7 @@ export function sessionOf({ arrangement, arrangementTitle, parts: partMap, track
               ...(placed.placing.gain !== 1 ? { gain: placed.placing.gain } : {}),
               seconds: seconds(line.seconds),
               ...(lineIndex === 0 && placed.placing.fadeIn ? { fadeIn: placed.placing.fadeIn } : {}),
+              ...(voiceMix ? { mix: voiceMix } : {}),
               ...heard(line.file),
             })
             continue
@@ -148,6 +151,7 @@ export function sessionOf({ arrangement, arrangementTitle, parts: partMap, track
               ...(voiceGain !== 1 ? { gain: voiceGain } : {}),
               seconds: seconds(line.seconds),
               ...(lineIndex === 0 && placed.placing.fadeIn ? { fadeIn: placed.placing.fadeIn } : {}),
+              ...(voiceMix ? { mix: voiceMix } : {}),
               ...heard(file),
             })
           }
@@ -179,6 +183,7 @@ export function sessionOf({ arrangement, arrangementTitle, parts: partMap, track
       const bed = beds.filter((one) => one.key === making.key)[nth]
       // a bed that was not grown has none to place
       if (!bed) continue
+      const bedMix = mixOf(placing.parameters)
       recordings.push({
         id: name(bed.file),
         at: seconds(placing.at),
@@ -188,6 +193,7 @@ export function sessionOf({ arrangement, arrangementTitle, parts: partMap, track
         seconds: seconds(Math.max(0, placing.seconds - placing.fadeOut)),
         ...(placing.fadeIn ? { fadeIn: placing.fadeIn } : {}),
         ...(placing.fadeOut ? { fade: placing.fadeOut } : {}),
+        ...(bedMix ? { mix: bedMix } : {}),
         ...heard(bed.file),
       })
     }
@@ -203,6 +209,7 @@ export function sessionOf({ arrangement, arrangementTitle, parts: partMap, track
         seconds: seconds(one.seconds ?? one.synth.seconds),
         ...(one.fadeIn ? { fadeIn: one.fadeIn } : {}),
         ...(one.fade ? { fade: one.fade } : {}),
+        ...(one.mix ? { mix: one.mix } : {}),
         ...heard(one.file),
       })
     }
