@@ -13,7 +13,7 @@
 // begins, before its weather drifts, and kept in the diary with it. Their
 // Settings are what the Studio's hooks follow for the whole Song.
 
-import { firstMood, nextMood, type Mood } from 'mood'
+import { firstMood, hear, nextMood, type Mood } from 'mood'
 import { fieldsOf, iterationsOf, partsById, tempoOf, type Arrangement, type Part } from 'parts'
 import { firstLyrics, forgotten, longWear, versesOf, wordinessWords, wordyCount, wornDeep, writeLyrics, type ExtraPartAsk, type Fitting, type Lyrics, type Memories } from 'song'
 import { countSyllables, firstChoir, gather, type Choir } from 'vocals'
@@ -35,6 +35,7 @@ import { stressedLine } from './stressed.js'
 import { defaults, perspectivesFor, type Chosen, type Settings } from 'perspectives'
 import { applyTides, positionOf, readTides, type TideReading } from 'tides'
 import type { Diary, Page, SongPlace } from './diary.js'
+import { applyQueuedMood, type QueuedSongSpec } from './queue.js'
 
 export type Iteration = {
   iteration: bigint
@@ -91,6 +92,8 @@ export type ComposerOptions = {
   rate: number
   /** What the mind remembers at this sitting, its own and heard, to tell its story from in the verses. */
   memories?: Memories
+  /** Optional manual production-queue overrides applied when a new Song begins. */
+  queued?: QueuedSongSpec
 }
 
 /**
@@ -310,6 +313,7 @@ export async function composer(
     rate: rateNow,
     heardFrom,
     memories = forgotten,
+    queued,
   }: ComposerOptions,
 ) {
   let last: Page | undefined = await diary.lastPage()
@@ -341,7 +345,7 @@ export async function composer(
     const place = placeOf(iteration, last, take)
     // which of the Song's Variations this iteration sings, and how fast its voices may sing
     const variation = Number(iteration - place.began) % Math.max(1, variationCount)
-    const rate = place.beginsSong || !last?.rate ? rateNow : last.rate
+    const rate = place.beginsSong ? (queued?.rate ?? rateNow) : (last?.rate ?? rateNow)
     const { beginsSong } = place
     const song = `${place.number}`
     let mood: Mood
@@ -354,17 +358,18 @@ export async function composer(
     let settings = tided.settings
     if (!last) {
       // the very first iteration there has ever been: everything as a human made it
-      mood = firstMood
-      choir = firstChoir.slice(0, choirSize)
+      mood = queued ? applyQueuedMood(firstMood, queued) : firstMood
+      choir = firstChoir.slice(0, queued?.choir ?? choirSize)
       tune = firstTune
       lyrics = firstLyrics
     } else {
       // a new Song's Perspectives are drawn before anything else, since one may turn its weather
       if (beginsSong) {
+        const pinnedPerspectives = queued?.perspectives ?? heardFrom
         ;({ perspectives, settings } = await perspectivesFor(song, {
           choirSize,
           base: tided.settings,
-          ...(heardFrom ? { only: heardFrom } : {}),
+          ...(pinnedPerspectives !== undefined ? { only: pinnedPerspectives } : {}),
         }))
       } else {
         perspectives = last.perspectives ?? []
@@ -374,17 +379,32 @@ export async function composer(
           // a Perspective no longer there: the Song goes on as its first iteration was turned, the Tides moved along
           .catch(() => applyTides({ ...tided.settings, ...last!.settings }, tides, positionOf(song, Number(iteration - place.began), place.lasts)).settings)
       }
-      // the last words sung shape the weather of the next Song
+      // the last words sung shape the weather of the next Song (or a queued Song may pin weather/character explicitly)
       const words = [last.lyrics.thirdVerse, last.lyrics.finalChorus].join('\n')
-      mood = beginsSong
-        ? await nextMood(last.mood, moodCount, { words, letGo: settings.drift.letGo })
-        : last.mood
+      if (beginsSong) {
+        if (queued?.mood?.length) {
+          const allCharacterPinned =
+            queued.mode !== undefined &&
+            queued.tempo !== undefined &&
+            queued.sound !== undefined &&
+            queued.lead !== undefined &&
+            queued.breath !== undefined
+          const character = allCharacterPinned ? last.mood.character : await hear(queued.mood, last.mood.character)
+          mood = applyQueuedMood({ descriptions: [...queued.mood], character, remembered: last.mood.remembered }, queued)
+        } else {
+          const drifted = await nextMood(last.mood, moodCount, { words, letGo: settings.drift.letGo })
+          mood = queued ? applyQueuedMood(drifted, queued) : drifted
+        }
+      } else {
+        mood = last.mood
+      }
       // pages written before there was a choir are sung by the first choir
       const remembered = last.choir ?? firstChoir.slice(0, choirSize)
       // the Mood names who leads and how the choir breathes, if the mind heard it
+      const targetChoirSize = queued?.choir ?? settings.choir.size
       choir = beginsSong
-        ? gather(settings.choir.size, Math.random, mood.character.voice, {
-            high: sidesOf(settings.harmony.placement, settings.choir.size - 1).map((side) => side === 'above'),
+        ? gather(targetChoirSize, Math.random, mood.character.voice, {
+            high: sidesOf(settings.harmony.placement, targetChoirSize - 1).map((side) => side === 'above'),
           })
         : remembered
       // pages written before the tune could change remember the tune it was born with

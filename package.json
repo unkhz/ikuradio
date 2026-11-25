@@ -23,7 +23,9 @@
     "test": "bun test ./packages/archive ./packages/cli/lib ./packages/composer ./packages/dj ./packages/heart ./packages/melody ./packages/marketing/lib ./packages/mood ./packages/music/lib ./packages/parts ./packages/perspectives ./packages/radio ./packages/song ./packages/studio ./packages/tides ./packages/tools ./packages/ui ./packages/vocals/lib",
     "lint": "for p in archive cli composer dj heart marketing melody mood music parts perspectives radio song studio tides tools ui vocals; do (cd packages/$p && tsc --noEmit) || exit 1; done",
     "check": "bun run lint && bun run test",
-    "deploy:xitra": "bash deploy/xitra.sh"
+    "queue": "cd packages/studio && bun queue.ts",
+    "deploy:xitra": "bash deploy/xitra.sh",
+    "queue:xitra": "bash deploy/queue.sh"
   },
   "devDependencies": {
     "@types/bun": "1.4.5",

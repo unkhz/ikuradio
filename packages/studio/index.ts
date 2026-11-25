@@ -24,8 +24,9 @@ import { describePerspectives } from 'perspectives'
 import { Diary } from './lib/diary.js'
 import { composer, type Iteration } from './lib/compose.js'
 import { perform, type SungLine } from './lib/perform.js'
-import { chooser } from './lib/arrangement.js'
+import { chooser, takeOf } from './lib/arrangement.js'
 import { songAsItAlwaysWas } from './lib/compose.js'
+import { describeQueued, SongQueue } from './lib/queue.js'
 import { type Made } from './lib/session.js'
 import { sessionOf } from './lib/timeline.js'
 import { humGuides, type Guide } from './lib/guide.js'
@@ -108,12 +109,20 @@ const wakesAt = await diary.lastPage().then((page) => (page ? BigInt(page.iterat
 const endsSong = ({ iteration, song }: Iteration) =>
   iteration - BigInt(song.began) + 1n >= BigInt(song.lasts)
 
-// the Arrangement the Song is made as, before the mind is woken: pinned by `ARRANGEMENT`, or drawn by weight across active makeable Arrangements, and the one a Song
-// in the middle was begun as — each read, checked and found makeable, or refused here, plainly
+// the Arrangement the Song is made as, before the mind is woken: pinned by `ARRANGEMENT`, popped from the manual production queue when beginning a new Song,
+// or drawn by weight across active makeable Arrangements — each read, checked and found makeable, or refused here, plainly
 const pick = await chooser(ARRANGEMENT)
 const middle = await diary.lastPage().then((page) => page?.song)
-if (middle && middle.arrangement !== undefined && wakesAt - BigInt(middle.began) < BigInt(middle.lasts)) await pick.byId(middle.arrangement)
-console.log(`a Song that begins is made as ${pick.summary}`)
+const inMiddle = Boolean(middle && wakesAt - BigInt(middle.began) < BigInt(middle.lasts))
+if (inMiddle && middle?.arrangement !== undefined) await pick.byId(middle.arrangement)
+const queue = new SongQueue('memory/queue.jsonl')
+const queued = !inMiddle && ARRANGEMENT === undefined ? await queue.nextReady({ checkArrangement: (id) => pick.byId(id) }) : undefined
+const queuedTake = queued?.arrangement ? takeOf(await pick.byId(queued.arrangement)) : undefined
+if (queued) {
+  const attempt = await queue.markAttempt(queued.id)
+  console.log(`picking up queued Song ${queued.id} (attempt ${attempt}): ${describeQueued(queued)}`)
+}
+console.log(`a Song that begins is made as ${queuedTake ? `queued "${queuedTake.id}" (${queuedTake.iterations} iteration${queuedTake.iterations > 1 ? 's' : ''})` : pick.summary}`)
 
 // the words, all of them, while the mind is awake
 const mind = new Sleeper()
@@ -135,13 +144,14 @@ console.log(
     (memories.heard.length ? `, and hears ${memories.heard.length} of the robot's` : ''),
 )
 const { compose } = await composer(diary, {
-  take: pick.take,
+  take: queuedTake ? () => queuedTake : pick.take,
   arrangementOf: (id) => pick.byId(id).then(({ arrangement }) => arrangement),
   moodCount: MOOD_COUNT,
   choirSize: CHOIR_COUNT,
   variationCount: VARIATION_COUNT,
   rate: SYLLABLES_PER_SECOND,
   memories,
+  ...(queued ? { queued } : {}),
 })
 const composed: Iteration[] = []
 for (let iteration = wakesAt; ; iteration++) {
@@ -322,6 +332,10 @@ const session = sessionOf({
   songName: named,
 })
 await store.putSession(session)
+if (queued) {
+  await queue.consume(queued.id)
+  console.log(`consumed queued Song ${queued.id} (published as Song ${session.song})`)
+}
 // the thought is kept only once its Song is published: a Song made again is thought about again
 if (thought) {
   const month = await keepThought(thoughtsDir, { song: session.song, written: new Date().toISOString(), thought })
