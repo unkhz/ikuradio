@@ -1,9 +1,28 @@
 import { firstCharacter, type Character } from 'melody'
 import { fastest, hear, settle, slowest, stride } from './lib/character.js'
-import { firstWeather, weather } from './lib/weather.js'
+import { firstWeather, moodScenes, musicalStyles, weather } from './lib/weather.js'
 import { forecast, isWeather } from './lib/forecast.js'
+import { allInstruments, instruments, samplePalette, sampleSparks, textures, type SampledPalette } from './lib/palette.js'
 
-export { hear, settle, weather, firstWeather, forecast, isWeather, slowest, fastest, stride }
+export {
+  allInstruments,
+  fastest,
+  firstWeather,
+  forecast,
+  hear,
+  instruments,
+  isWeather,
+  moodScenes,
+  musicalStyles,
+  samplePalette,
+  sampleSparks,
+  settle,
+  slowest,
+  stride,
+  textures,
+  weather,
+  type SampledPalette,
+}
 
 /**
  * The weather a Song grows in. Every Iteration of a Song shares one Mood.

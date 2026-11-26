@@ -11,6 +11,10 @@
 // draws from the weather it was given, as before. It never goes without.
 
 import { ask } from 'tools'
+import { sampleSparks } from './palette.js'
+import { resembles } from './resembles.js'
+
+export { resembles }
 
 const schema = {
   type: 'object',
@@ -22,9 +26,9 @@ const schema = {
 
 const instruction = `You are the weather of a song that never ends. Its mood is a blend of a few short descriptions: a sound or style of music, a place, a thing, a feeling, a moment in time.
 
-One description is leaving the mood. Offer exactly one new description to take its place. It should feel like a natural next step from the mood that remains and from the last words the song sang: close enough to be heard as a change of weather, never a different song.
+One description is leaving the mood. Offer exactly one new description to take its place. It can be a musical style, a vivid physical place, an object, a natural phenomenon, or a sharp feeling. Be concrete and varied — avoid generic poetic fillers.
 
-Answer with two to six words, lowercase, with no punctuation at the end. Do not repeat any description you are shown.`
+Answer with two to six words, lowercase, with no punctuation at the end. Do not repeat any description you are shown as staying, leaving, or recent.`
 
 export type ForecastOptions = {
   /** The descriptions that stay in the Mood. */
@@ -35,47 +39,6 @@ export type ForecastOptions = {
   remembered: readonly string[]
   /** The last words the song sang. */
   words: string
-}
-
-/** Small words that carry no weather of their own. */
-const small = new Set([
-  'a',
-  'an',
-  'the',
-  'of',
-  'in',
-  'on',
-  'at',
-  'with',
-  'and',
-  'to',
-  'by',
-  'for',
-  'from',
-])
-
-/** The words that make a description what it is, with plurals let go. */
-function essence(description: string): Set<string> {
-  return new Set(
-    description
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}']+/u)
-      .filter((word) => word && !small.has(word))
-      .map((word) => word.replace(/'s$/, '').replace(/(?<=\w{3})s$/, '')),
-  )
-}
-
-/**
- * Whether two descriptions are the same weather in different words: when
- * most of what they are made of is shared, as in "whispers of a distant
- * shore" and "a whisper of distant shores".
- */
-export function resembles(a: string, b: string): boolean {
-  const x = essence(a)
-  const y = essence(b)
-  if (x.size === 0 || y.size === 0) return false
-  const shared = [...x].filter((word) => y.has(word)).length
-  return shared / Math.min(x.size, y.size) >= 0.75
 }
 
 /** Whether something the mind said can be weather: a few plain words, nothing the song has just had. */
@@ -101,10 +64,13 @@ export async function forecast({
   remembered,
   words,
 }: ForecastOptions): Promise<string | undefined> {
+  const avoid = [...staying, ...leaving, ...remembered]
+  const sparks = sampleSparks(avoid)
   const input = [
     `The mood that stays: ${staying.join(' + ') || '(nothing)'}`,
     `Leaving: ${leaving.join(' + ')}`,
     `Recent weather, not to return yet: ${remembered.join(', ') || '(none)'}`,
+    `Possible directions to spark a turn (pick one, adapt one, or invent something wholly fresh): ${sparks.join(', ')}`,
     `The last words the song sang:\n${words}`,
   ].join('\n')
   try {
@@ -116,7 +82,6 @@ export async function forecast({
     })
     const description = answer?.description?.trim().toLowerCase()
     if (!description) return undefined
-    const avoid = [...staying, ...leaving, ...remembered]
     return isWeather(description, avoid) ? description : undefined
   } catch (error) {
     console.warn(`the mind offered no weather: ${error}`)

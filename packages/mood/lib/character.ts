@@ -7,6 +7,7 @@
 
 import { modes, type Breath, type Character, type ModeName, type Singer } from 'melody'
 import { ask, Unshapely } from 'tools'
+import { samplePalette } from './palette.js'
 
 /** The slowest and the fastest tempo a Mood may have, in beats per minute. */
 export const slowest = 56
@@ -40,7 +41,7 @@ Choose a mode:
 
 Choose a tempo in beats per minute, between ${slowest} and ${fastest}.
 
-Describe the sound of the band that plays under the voice in that mood, in at most twelve words, the way a musician would say it to the band: its instruments and its style, for example "slow string quartet with a cello drone" or "dusty desert blues guitar and hand drums". The mood may be a feeling, a place or a picture; say how it sounds. Do not mention singing, a voice or words.
+Describe the sound of the band that plays under the voice in that mood, in at most twelve words, the way a musician would say it to the band: name specific instruments, style, and texture. Reach widely across acoustic, orchestral, world, jazz, folk, and electronic instruments — do not default to plain piano or violin unless the mood truly asks for them. Do not mention singing, a voice or words.
 
 Choose who leads the singing in that mood: a female, a male or a child voice. And choose how the choir sings: soft (breathy, close, intimate), plain, or pressed (strong, clear, carrying far).`
 
@@ -118,6 +119,12 @@ export async function hear(
   let heard: Character | undefined
   for (let attempt = 0; attempt < tries; attempt++) {
     try {
+      const palette = samplePalette()
+      const input = [
+        `Mood: ${descriptions.join(' + ')}`,
+        `Instruments at hand (use any that fit, or pick others): ${palette.instruments.join(', ')}`,
+        `Styles & textures at hand: ${[...palette.styles, ...palette.textures].join(', ')}`,
+      ].join('\n')
       const answer = await ask<{
         mode?: string
         tempo?: number
@@ -126,9 +133,9 @@ export async function hear(
         breath?: string
       }>({
         instruction,
-        input: descriptions.join(' + '),
+        input,
         schema,
-        temperature: 0.7 + attempt * 0.2,
+        temperature: 0.75 + attempt * 0.18,
       })
       if (!answer?.mode || !(answer.mode in modes)) continue
       const tempo = Number.isFinite(answer.tempo)

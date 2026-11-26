@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'bun:test'
 import { settle } from './character.js'
 import { isWeather, resembles } from './forecast.js'
+import { allInstruments, instrumentalStyles, instruments, samplePalette, sampleSparks, textures } from './palette.js'
+import { moodScenes, musicalStyles, weather } from './weather.js'
 import { nextMood } from '../index.js'
 
 describe('settle', () => {
@@ -96,5 +98,46 @@ describe('nextMood without the mind', () => {
     const next = await nextMood(long, 2, { mind: false })
     expect(next.remembered).toHaveLength(12)
     expect(next.remembered?.at(-1)).toBe('eternity')
+  })
+})
+
+describe('abundant weather, styles, instruments, and textures', () => {
+  it('provides an abundant, deduplicated, lowercase weather pool where every entry is valid weather', () => {
+    expect(musicalStyles.length).toBeGreaterThanOrEqual(100)
+    expect(moodScenes.length).toBeGreaterThanOrEqual(100)
+    expect(weather.length).toBeGreaterThanOrEqual(200)
+    const lower = weather.map((w) => w.toLowerCase())
+    expect(new Set(lower).size).toBe(weather.length)
+    for (const entry of weather) {
+      expect(entry as string).toBe(entry.toLowerCase())
+      expect(isWeather(entry, [])).toBe(true)
+    }
+  })
+
+  it('provides an abundant, deduplicated instrument and texture palette', () => {
+    expect(allInstruments.length).toBeGreaterThanOrEqual(120)
+    expect(new Set(allInstruments.map((i) => i.toLowerCase())).size).toBe(allInstruments.length)
+    expect(textures.length).toBeGreaterThanOrEqual(30)
+    expect(new Set(textures.map((t) => t.toLowerCase())).size).toBe(textures.length)
+    expect(Object.keys(instruments).length).toBeGreaterThanOrEqual(8)
+  })
+
+  it('samples cross-family palettes and fresh non-avoided sparks without duplicates', () => {
+    const palette = samplePalette()
+    expect(palette.styles).toHaveLength(4)
+    expect(new Set(palette.styles).size).toBe(4)
+    expect(palette.instruments).toHaveLength(8)
+    expect(new Set(palette.instruments).size).toBe(8)
+    expect(palette.textures).toHaveLength(3)
+    expect(new Set(palette.textures).size).toBe(3)
+
+    const avoid = [...musicalStyles.slice(0, 10), ...moodScenes.slice(0, 10), 'first snows', 'the granite quarry']
+    const sparks = sampleSparks(avoid)
+    expect(sparks).toHaveLength(6)
+    expect(new Set(sparks).size).toBe(6)
+    for (const spark of sparks) {
+      expect(isWeather(spark, avoid)).toBe(true)
+    }
+    expect(instrumentalStyles.every((s) => !/\b(choir|quartet|chant|yodel|throat|polyphony|kulning|madrigal|qawwali|shanty|rhyme)\b/i.test(s))).toBe(true)
   })
 })

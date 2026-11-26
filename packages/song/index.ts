@@ -4,9 +4,11 @@ import { editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
 import { known } from './lib/known.js'
 import { leansDeep, leansOn, overlap, stemOf, worn } from './lib/wear.js'
+import { allVocabulary, drawVocabulary, vocabulary, vocabularyNote } from './lib/vocabulary.js'
 import { itsAgeOf, ofItsAge, timeless, timelessInstruction } from './lib/timeless.js'
 import { forgotten, type Memories } from './lib/memories.js'
 export { forgotten, gather, memoriesOf, readMemories, recall, type Memories } from './lib/memories.js'
+export { allVocabulary, drawVocabulary, vocabulary, vocabularyNote } from './lib/vocabulary.js'
 export {
   attentions,
   echoOf,
@@ -225,11 +227,12 @@ export async function writeVerse(
 ) {
   const rest = restingNote(resting)
   const restDeep = deepNote(deep)
+  const tray = vocabularyNote(drawVocabulary({ avoid: [...resting, ...deep] }))
   const instruction =
     (memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction) +
     `\n${countInstruction(fitting?.verse)}` +
     (fitting?.say?.verse ? ` ${fitting.say.verse}` : '')
-  const asked = inMood(instruction, mood) + rest + restDeep
+  const asked = inMood(instruction, mood) + rest + restDeep + tray
   // a verse that sings a word of this short age is not sung, nor one whose lines do not fit their bars
   const suits = (lines: string[]) =>
     leansOn(lines, resting) <= slips && leansDeep(lines, deep) <= slips && !lines.some(ofItsAge)
@@ -408,12 +411,14 @@ export async function writeExtraPart(
   const { name, part, lines, instruction, spoken, counts, check, measure, say } = ask
   const seed = previous || `Under ${mood.join(' and ')}, the song turns quietly.`
   const shape = `Write exactly ${lines} line${lines === 1 ? '' : 's'}. Output only the lines, nothing else.`
+  const tray = vocabularyNote(drawVocabulary({ avoid: [...resting, ...deep], count: 7 }))
   const prompt = [
     instruction ?? `Write a ${part} (${lines} line${lines === 1 ? '' : 's'}) in the atmosphere of: ${mood.join(', ')}.`,
     shape,
     ...(focus ? [`Draw from this memory without naming it plainly: ${focus.memory}`] : []),
     ...(resting.length ? [`Avoid these overused words: ${resting.slice(0, 8).join(', ')}.`] : []),
     ...(deep.length ? [`Also rest these worn words: ${deep.slice(0, 6).join(', ')}.`] : []),
+    ...(tray ? [tray.trim()] : []),
     ...(say ? [say] : []),
     ...(!spoken && counts?.length
       ? [`Each line should be close to ${counts.map((c) => c.target).join(', ')} syllables (at most ${counts.map((c) => c.most).join(', ')}).`]
