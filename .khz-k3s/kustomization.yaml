@@ -7,4 +7,4 @@ resources:
   - radio.yaml
 images:
   - name: ghcr.io/unkhz/ikuradio/radio
-    newTag: "5bb748a30a523949f3143b589f837c73051163fa"
+    newTag: "5bb748a30a523949f3143b589f837c73051163fa@sha256:9ac98763d046fdb7474c1c472c1263b2b8472ac87690662b6b19fcf516c04912"
