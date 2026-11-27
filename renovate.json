@@ -36,6 +36,16 @@
       "matchFileNames": ["packages/music/pyproject.toml"],
       "matchDepNames": ["python"],
       "enabled": false
+    },
+    {
+      "description": "The Radio workflow updates .khz-k3s/kustomization.yaml on each build; keep it the single mechanism.",
+      "matchFileNames": [".khz-k3s/kustomization.yaml"],
+      "enabled": false
+    },
+    {
+      "description": "Radio images are built and pinned by the Radio workflow, not Renovate.",
+      "matchPackageNames": ["ghcr.io/unkhz/ikuradio/radio"],
+      "enabled": false
     }
   ]
 }
