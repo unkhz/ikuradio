@@ -25,19 +25,25 @@ Three entities inhabit the project: **the scientist** (the human who planted the
 
 ### High-Level Architecture
 
-Four lives keep the song breathing: **Heart** watches queue depth, **Studio** wakes on a GPU to produce one Song, **Archive** preserves every Song immutably, and **Radio** keeps the shared **Tactus** clock. Voices and procedural instruments are never stored as audio files — browsers synthesize them live in WebAssembly from declarative scores.
-
 <p align="center">
   <img src="docs/architecture-high-level.svg" alt="ikuradio High-Level System Architecture" width="100%" />
 </p>
 
-### Low-Level Song Production Pipeline
+- **Heart & Studio (GPU):** Heart polls the Radio's `/tactus` clock and wakes the Studio whenever Songs queued ahead run low (and triggers post-air DJ intros). Studio reads the Diary, queue, and mind journal, runs **The Mind** (`llama.cpp`), **The Throat** (Chimera), and **The Band** (`musicgen-melody`), publishes to the Archive, and exits.
+- **Archive (Immutable Storage):** Stores every Song's additive `Session` v1 JSON, MusicGen `.m4a` beds (~1 MB per Song), DJ intros, and Diary/thought backups for recovery.
+- **Radio (Stateless Server):** Serves the canonical **Tactus** clock (`GET /tactus`), Song pages (`/s/<n>/<slug>`), playlists (`/p/<slug>`), search cache, and content-hashed Receiver assets (`chimera.wasm`, CMUdict) — never proxying audio beds.
+- **Receiver (Browser & CLI):** Syncs to the Tactus clock, fetches Sessions and `.m4a` beds directly from the Archive, synthesizes all vocals and procedural instruments locally in WebAssembly, and mixes them live through Web Audio FX alongside the dot-matrix stage.
 
-Inside the Studio, **time follows the lyrics** and **every musical layer follows one two-voice guide** — supporting diatonic roaming, chromatic semitone approaches, tonicization, and interval-guided modulation so MusicGen, lead melodies, choir harmonies, and procedural drones move in lockstep before the browser mixes the final room.
+### Low-Level Song Production Pipeline
 
 <p align="center">
   <img src="docs/production-low-level.svg" alt="How One Song Is Produced — Low-Level Pipeline" width="100%" />
 </p>
+
+- **Direction & Form:** Mood drifts one phrase per Song across 260+ styles and scenes, choosing instrumentation from 130+ instruments and 36 textures. Slow **Tides** shift numeric parameters across Songs, deterministic **wrongness** draws rare **Perspectives**, and an **Arrangement** defines Parts, tempo curves, tracks, and mix FX.
+- **Words & Rhythm (Time Follows Lyrics):** The Mind writes verses from its own thoughts, robot telepathy, and a 490-word vocabulary, counting the iteration aloud in the chorus. Chimera/CMUdict syllable counts and word stress set bar lengths and exact section timings.
+- **Two-Voice Harmonic Guide:** Chords are composed first from word stress — supporting diatonic roaming, chromatic `±1` semitone approaches, tonicization, and whole-section modulation — then hummed in turns (`bass → upper → leading-tone pivot`) so MusicGen tracks roots and key changes cleanly.
+- **Parallel Tracks & Browser Mix:** Vocals/choirs (Chimera `Take` scores), MusicGen `.m4a` beds (reused within a Song via the Shelf), and procedural synths (`drone`, `pulse`, `drums` specs) all lock to the same guide, archive into immutable `Session` v1 JSON, and render live in the browser with LUFS leveling, stereo pan, low-pass filtering, hall reverb, and tempo-synced dub echo.
 
 ---
 

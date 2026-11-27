@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 790" width="1160" height="790" role="img" aria-labelledby="ll-title ll-desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 564" width="880" height="564" role="img" aria-labelledby="ll-title ll-desc">
   <title id="ll-title">ikuradio Low-Level Song Production Pipeline</title>
-  <desc id="ll-desc">Step-by-step pipeline inside Studio and Browser Receiver showing how Mood, Perspectives, Tides, Arrangement timelines, lyrics, two-voice guides, vocals, MusicGen beds, procedural synths, and browser Web Audio mixing produce a Song.</desc>
+  <desc id="ll-desc">How Mood, Tides, Perspectives, and Arrangement guide The Mind to write lyrics, fit syllables to bars, compose a two-voice harmonic guide, produce vocals, MusicGen beds, and procedural synths in parallel, archive the Session, and mix it live in the browser.</desc>
   <defs>
     <pattern id="dotGrid2" width="16" height="16" patternUnits="userSpaceOnUse">
       <circle cx="8" cy="8" r="0.9" fill="#1e2736"/>
@@ -19,136 +19,92 @@
     </marker>
     <style>
       .bg { fill: #0c0f15; }
-      .title { font: 700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #eef2f6; letter-spacing: 0.2px; }
-      .subtitle { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #8b97ab; }
-      .stageTag { font: 700 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 1px; }
-      .cardTitle { font: 600 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #eef2f6; }
-      .cardBody { font: 400 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #a4b0c2; }
-      .mono { font: 500 10.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #c6d0df; }
-      .pill { font: 600 10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+      .title { font: 700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #eef2f6; }
+      .cardTitle { font: 700 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #eef2f6; }
+      .cardSub { font: 400 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #aebac9; }
+      .highlightSub { font: 500 14.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #9ec4b0; }
+      .mixSub { font: 500 14px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #cfa9de; }
     </style>
   </defs>
 
   <!-- Canvas -->
-  <rect width="1160" height="790" rx="14" class="bg"/>
-  <rect width="1160" height="790" rx="14" fill="url(#dotGrid2)"/>
-  <rect x="1" y="1" width="1158" height="788" rx="13" fill="none" stroke="#222b3a" stroke-width="1.5"/>
+  <rect width="880" height="564" rx="14" class="bg"/>
+  <rect width="880" height="564" rx="14" fill="url(#dotGrid2)"/>
+  <rect x="1" y="1" width="878" height="562" rx="13" fill="none" stroke="#222b3a" stroke-width="1.5"/>
 
   <!-- Header -->
-  <circle cx="42" cy="40" r="5" fill="#9ec4b0"/>
-  <circle cx="42" cy="40" r="10" fill="#9ec4b0" opacity="0.18"/>
-  <text x="62" y="46" class="title">How One Song Is Produced — Low-Level Pipeline</text>
-  <text x="62" y="68" class="subtitle">Time follows the lyrics; chords follow word stress; MusicGen, melodies, choir, and drones all follow the two-voice guide.</text>
+  <circle cx="40" cy="40" r="5.5" fill="#9ec4b0"/>
+  <circle cx="40" cy="40" r="11" fill="#9ec4b0" opacity="0.18"/>
+  <text x="62" y="47" class="title">Low-Level Song Production Pipeline</text>
 
-  <!-- STAGE 1: DIRECTION & FORM -->
-  <rect x="28" y="92" width="1104" height="132" rx="12" fill="#121722" stroke="#ffb347" stroke-opacity="0.45" stroke-width="1.3"/>
-  <text x="46" y="114" class="stageTag" fill="#ffb347">STAGE 1 — DIRECTION &amp; FORM</text>
+  <!-- ROW 1: DIRECTION & FORM -->
+  <rect x="28" y="74" width="258" height="72" rx="10" fill="#131926" stroke="#ffb347" stroke-opacity="0.6" stroke-width="1.6"/>
+  <text x="157" y="104" text-anchor="middle" class="cardTitle">Mood &amp; Weather</text>
+  <text x="157" y="128" text-anchor="middle" class="cardSub">Styles, scenes &amp; band</text>
 
-  <rect x="44" y="126" width="340" height="84" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="58" y="147" class="cardTitle">Mood &amp; Weather</text>
-  <text x="372" y="146" text-anchor="end" class="pill" fill="#ffb347">packages/mood</text>
-  <text x="58" y="166" class="cardBody">Drifts one phrase per Song across 260+ styles &amp;</text>
-  <text x="58" y="182" class="cardBody">scenes. Mind hears mode, tempo, lead, breath,</text>
-  <text x="58" y="198" class="cardBody">and band from 130+ instruments &amp; 36 textures.</text>
+  <rect x="311" y="74" width="258" height="72" rx="10" fill="#131926" stroke="#ffb347" stroke-opacity="0.6" stroke-width="1.6"/>
+  <text x="440" y="104" text-anchor="middle" class="cardTitle">Tides &amp; Perspectives</text>
+  <text x="440" y="128" text-anchor="middle" class="cardSub">Slow waves &amp; rare twists</text>
 
-  <rect x="410" y="126" width="340" height="84" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="424" y="147" class="cardTitle">Tides &amp; Perspectives</text>
-  <text x="738" y="146" text-anchor="end" class="pill" fill="#ffb347">tides · perspectives</text>
-  <text x="424" y="166" class="cardBody">Slow multi-Song Tides move ceiling &amp; wordiness.</text>
-  <text x="424" y="182" class="cardBody">Deterministic wrongness draws rare Perspectives:</text>
-  <text x="424" y="198" class="cardBody">chromatic, tonicized, modulated, atonal, scat.</text>
+  <rect x="594" y="74" width="258" height="72" rx="10" fill="#131926" stroke="#ffb347" stroke-opacity="0.6" stroke-width="1.6"/>
+  <text x="723" y="104" text-anchor="middle" class="cardTitle">Arrangement</text>
+  <text x="723" y="128" text-anchor="middle" class="cardSub">Parts, tempo &amp; mix FX</text>
 
-  <rect x="776" y="126" width="340" height="84" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="790" y="147" class="cardTitle">Arrangement Timeline</text>
-  <text x="1104" y="146" text-anchor="end" class="pill" fill="#ffb347">packages/parts</text>
-  <text x="790" y="166" class="cardBody">Weighted pick: the-song, the-long-breath,</text>
-  <text x="790" y="182" class="cardBody">the-ascent, nocturne, clockwork, triptych.</text>
-  <text x="790" y="198" class="cardBody">Declares regions, tempo map, blocks &amp; mix FX.</text>
+  <!-- Row 1 -> Row 2 -->
+  <line x1="157" y1="146" x2="157" y2="174" stroke="#ffb347" stroke-width="2.2" marker-end="url(#arrAmber)"/>
+  <line x1="440" y1="146" x2="440" y2="174" stroke="#ffb347" stroke-width="2.2" marker-end="url(#arrAmber)"/>
+  <line x1="723" y1="146" x2="723" y2="174" stroke="#ffb347" stroke-width="2.2" marker-end="url(#arrAmber)"/>
 
-  <!-- Stage 1 -> Stage 2 arrows -->
-  <line x1="214" y1="224" x2="214" y2="256" stroke="#ffb347" stroke-width="2" marker-end="url(#arrAmber)"/>
-  <line x1="580" y1="224" x2="580" y2="256" stroke="#ffb347" stroke-width="2" marker-end="url(#arrAmber)"/>
-  <line x1="946" y1="224" x2="946" y2="256" stroke="#ffb347" stroke-width="2" marker-end="url(#arrAmber)"/>
+  <!-- ROW 2: WORDS & RHYTHM -->
+  <rect x="28" y="178" width="392" height="72" rx="10" fill="#131926" stroke="#7aa2c4" stroke-opacity="0.6" stroke-width="1.6"/>
+  <text x="224" y="208" text-anchor="middle" class="cardTitle">The Mind (llama.cpp)</text>
+  <text x="224" y="232" text-anchor="middle" class="cardSub">Writes lyrics, chorus count &amp; rhymes</text>
 
-  <!-- STAGE 2: WORDS & RHYTHM -->
-  <rect x="28" y="260" width="1104" height="122" rx="12" fill="#121722" stroke="#7aa2c4" stroke-opacity="0.45" stroke-width="1.3"/>
-  <text x="46" y="282" class="stageTag" fill="#7aa2c4">STAGE 2 — WORDS &amp; RHYTHM (TIME FOLLOWS LYRICS)</text>
+  <line x1="420" y1="214" x2="456" y2="214" stroke="#7aa2c4" stroke-width="2.2" marker-end="url(#arrBlue)"/>
 
-  <rect x="44" y="294" width="516" height="74" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="58" y="315" class="cardTitle">The Mind (llama.cpp + JSON Schema Grammar)</text>
-  <text x="548" y="314" text-anchor="end" class="pill" fill="#7aa2c4">packages/song</text>
-  <text x="58" y="334" class="cardBody">Writes verses from its own thoughts &amp; robot telepathy, counts chorus</text>
-  <text x="58" y="350" class="cardBody">(CMUdict rhymes), draws from 490 timeless words &amp; rests worn words.</text>
+  <rect x="460" y="178" width="392" height="72" rx="10" fill="#131926" stroke="#7aa2c4" stroke-opacity="0.6" stroke-width="1.6"/>
+  <text x="656" y="208" text-anchor="middle" class="cardTitle">Bar &amp; Stress Fitting</text>
+  <text x="656" y="232" text-anchor="middle" class="cardSub">Syllables set exact section timing</text>
 
-  <line x1="560" y1="331" x2="594" y2="331" stroke="#7aa2c4" stroke-width="2" marker-end="url(#arrBlue)"/>
+  <!-- Row 2 -> Row 3 -->
+  <line x1="440" y1="250" x2="440" y2="278" stroke="#7aa2c4" stroke-width="2.2" marker-end="url(#arrBlue)"/>
 
-  <rect x="598" y="294" width="518" height="74" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="612" y="315" class="cardTitle">Bar &amp; Stress Fitting + Timeline Resolution</text>
-  <text x="1104" y="314" text-anchor="end" class="pill" fill="#7aa2c4">melody · parts</text>
-  <text x="612" y="334" class="cardBody">Counts syllables via Chimera/CMUdict and aligns stress to strong beats</text>
-  <text x="612" y="350" class="cardBody">within pace limits; resolves anchors &amp; exact region durations in seconds.</text>
+  <!-- ROW 3: TWO-VOICE GUIDE -->
+  <rect x="28" y="282" width="824" height="68" rx="10" fill="#16222e" stroke="#9ec4b0" stroke-opacity="0.75" stroke-width="1.8"/>
+  <text x="440" y="311" text-anchor="middle" class="cardTitle">Two-Voice Harmonic Guide</text>
+  <text x="440" y="335" text-anchor="middle" class="highlightSub">Diatonic · Chromatic +/-1 Semitone · Tonicization · Key-Change Pivots</text>
 
-  <!-- Stage 2 -> Stage 3 arrow -->
-  <line x1="580" y1="382" x2="580" y2="412" stroke="#7aa2c4" stroke-width="2" marker-end="url(#arrBlue)"/>
+  <!-- Row 3 -> Row 4 Fan-out -->
+  <line x1="157" y1="350" x2="157" y2="376" stroke="#9ec4b0" stroke-width="2.2" marker-end="url(#arrMint)"/>
+  <line x1="440" y1="350" x2="440" y2="376" stroke="#9ec4b0" stroke-width="2.2" marker-end="url(#arrMint)"/>
+  <line x1="723" y1="350" x2="723" y2="376" stroke="#9ec4b0" stroke-width="2.2" marker-end="url(#arrMint)"/>
 
-  <!-- STAGE 3: TWO-VOICE GUIDE & PARALLEL TRACKS -->
-  <rect x="28" y="416" width="1104" height="214" rx="12" fill="#121722" stroke="#9ec4b0" stroke-opacity="0.45" stroke-width="1.3"/>
-  <text x="46" y="438" class="stageTag" fill="#9ec4b0">STAGE 3 — HARMONIC GUIDE &amp; PARALLEL TRACK PRODUCTION</text>
+  <!-- ROW 4: PARALLEL TRACK PRODUCTION -->
+  <rect x="28" y="380" width="258" height="72" rx="10" fill="#131926" stroke="#9ec4b0" stroke-opacity="0.6" stroke-width="1.6"/>
+  <text x="157" y="410" text-anchor="middle" class="cardTitle">Vocals &amp; Choir</text>
+  <text x="157" y="434" text-anchor="middle" class="cardSub">Chimera Take scores</text>
 
-  <!-- Two-Voice Guide centerpiece -->
-  <rect x="44" y="450" width="1072" height="62" rx="8" fill="#182230" stroke="#9ec4b0" stroke-opacity="0.65" stroke-width="1.3"/>
-  <text x="60" y="472" class="cardTitle">Two-Voice Guide (Chords Composed First From Word Stress)</text>
-  <text x="1102" y="471" text-anchor="end" class="pill" fill="#9ec4b0">melody/guide · chromatic</text>
-  <text x="60" y="491" class="cardBody">Supports diatonic roaming, known progressions, chromatic +/- 1 semitone approaches, tonicization, and whole-section modulation.</text>
-  <text x="60" y="505" class="mono" fill="#9ec4b0">inTurnsPitches: lower bass -&gt; upper chord tone -&gt; leading-tone pivot interval (so MusicGen reads key changes clearly)</text>
+  <rect x="311" y="380" width="258" height="72" rx="10" fill="#131926" stroke="#9ec4b0" stroke-opacity="0.6" stroke-width="1.6"/>
+  <text x="440" y="410" text-anchor="middle" class="cardTitle">MusicGen Beds</text>
+  <text x="440" y="434" text-anchor="middle" class="cardSub">Follows hummed guide (.m4a)</text>
 
-  <!-- Fan-out arrows from Guide to 3 parallel tracks -->
-  <line x1="214" y1="512" x2="214" y2="534" stroke="#9ec4b0" stroke-width="2" marker-end="url(#arrMint)"/>
-  <line x1="580" y1="512" x2="580" y2="534" stroke="#9ec4b0" stroke-width="2" marker-end="url(#arrMint)"/>
-  <line x1="946" y1="512" x2="946" y2="534" stroke="#9ec4b0" stroke-width="2" marker-end="url(#arrMint)"/>
+  <rect x="594" y="380" width="258" height="72" rx="10" fill="#131926" stroke="#9ec4b0" stroke-opacity="0.6" stroke-width="1.6"/>
+  <text x="723" y="410" text-anchor="middle" class="cardTitle">Procedural Synths</text>
+  <text x="723" y="434" text-anchor="middle" class="cardSub">Drone, pulse &amp; drums specs</text>
 
-  <!-- Track 1: Lead, Choir & Spoken -->
-  <rect x="44" y="538" width="340" height="78" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="58" y="559" class="cardTitle">Lead, Choir &amp; Spoken</text>
-  <text x="372" y="558" text-anchor="end" class="pill" fill="#9ec4b0">Chimera throat</text>
-  <text x="58" y="577" class="cardBody">writeOverGuide (diatonic/chromatic) + choir</text>
-  <text x="58" y="592" class="cardBody">part-writing + humanize. Stored only as</text>
-  <text x="58" y="607" class="mono">Take / SpeechSpec + EBU R128 loudness</text>
+  <!-- Row 4 -> Row 5 -->
+  <line x1="157" y1="452" x2="157" y2="476" stroke="#b98cc6" stroke-width="2.2" marker-end="url(#arrLav)"/>
+  <line x1="440" y1="452" x2="440" y2="476" stroke="#b98cc6" stroke-width="2.2" marker-end="url(#arrLav)"/>
+  <line x1="723" y1="452" x2="723" y2="476" stroke="#b98cc6" stroke-width="2.2" marker-end="url(#arrLav)"/>
 
-  <!-- Track 2: MusicGen Beds -->
-  <rect x="410" y="538" width="340" height="78" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="424" y="559" class="cardTitle">MusicGen Beds</text>
-  <text x="738" y="558" text-anchor="end" class="pill" fill="#9ec4b0">MusicGen-melody</text>
-  <text x="424" y="577" class="cardBody">Hears hummed guide chromagram + Mood</text>
-  <text x="424" y="592" class="cardBody">band prompt. Grows keyed beds with fade</text>
-  <text x="424" y="607" class="mono">tails (.m4a), reused via Shelf per Song</text>
+  <!-- ROW 5: SESSION & BROWSER MIX -->
+  <rect x="28" y="480" width="320" height="68" rx="10" fill="#131926" stroke="#b98cc6" stroke-opacity="0.65" stroke-width="1.6"/>
+  <text x="188" y="509" text-anchor="middle" class="cardTitle">Session JSON v1</text>
+  <text x="188" y="533" text-anchor="middle" class="cardSub">Immutable Archive + .m4a beds</text>
 
-  <!-- Track 3: Procedural Synths -->
-  <rect x="776" y="538" width="340" height="78" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="790" y="559" class="cardTitle">Procedural Tracks</text>
-  <text x="1104" y="558" text-anchor="end" class="pill" fill="#9ec4b0">drone · pulse · drums</text>
-  <text x="790" y="577" class="cardBody">Deterministic 48 kHz PCM: chord-gliding</text>
-  <text x="790" y="592" class="cardBody">drone, tempo-locked pulse, evolving drums.</text>
-  <text x="790" y="607" class="mono">Stored only as SynthSpec + loudness</text>
+  <line x1="348" y1="514" x2="380" y2="514" stroke="#b98cc6" stroke-width="2.2" marker-end="url(#arrLav)"/>
 
-  <!-- Stage 3 -> Stage 4 arrows -->
-  <line x1="214" y1="630" x2="214" y2="658" stroke="#b98cc6" stroke-width="2" marker-end="url(#arrLav)"/>
-  <line x1="580" y1="630" x2="580" y2="658" stroke="#b98cc6" stroke-width="2" marker-end="url(#arrLav)"/>
-  <line x1="946" y1="630" x2="946" y2="658" stroke="#b98cc6" stroke-width="2" marker-end="url(#arrLav)"/>
-
-  <!-- STAGE 4: SESSION & BROWSER MIXING -->
-  <rect x="28" y="662" width="1104" height="104" rx="12" fill="#121722" stroke="#b98cc6" stroke-opacity="0.5" stroke-width="1.3"/>
-  <text x="46" y="684" class="stageTag" fill="#b98cc6">STAGE 4 — IMMUTABLE SESSION &amp; BROWSER-SIDE WEB AUDIO MIXING</text>
-
-  <rect x="44" y="696" width="368" height="56" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="58" y="716" class="cardTitle">Session v1 (Archive)</text>
-  <text x="58" y="734" class="cardBody">All takes, speech, synths, beds, guides, typing</text>
-  <text x="58" y="747" class="mono">&amp; declarative mix: { reverb, echo, filter, pan }</text>
-
-  <line x1="412" y1="724" x2="444" y2="724" stroke="#b98cc6" stroke-width="2" marker-end="url(#arrLav)"/>
-
-  <rect x="448" y="696" width="668" height="56" rx="8" fill="#171e2c" stroke="#2c374b"/>
-  <text x="462" y="716" class="cardTitle">Browser Receiver Audio Graph (WebAssembly + Web Audio API)</text>
-  <text x="462" y="734" class="cardBody">WASM Workers sing takes + render synths -&gt; LUFS gain -&gt; low-pass filter &amp; pan -&gt; dry bus +</text>
-  <text x="462" y="747" class="mono" fill="#d9b8e6">Hall Reverb (ConvolverNode) + Tempo-Synced Ping-Pong Echo (ringing over silences) -&gt; Limiter</text>
+  <rect x="384" y="480" width="468" height="68" rx="10" fill="#131926" stroke="#b98cc6" stroke-opacity="0.65" stroke-width="1.6"/>
+  <text x="618" y="509" text-anchor="middle" class="cardTitle">Browser Web Audio Mix</text>
+  <text x="618" y="533" text-anchor="middle" class="mixSub">WASM synth · pan · filter · reverb · dub echo</text>
 </svg>
