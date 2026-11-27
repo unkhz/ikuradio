@@ -452,6 +452,54 @@
       #panel nav button[hidden] {
         display: none;
       }
+      /* quiet links to where the song also lives, below its own controls */
+      #elsewhere {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin-top: 0.85rem;
+        padding-top: 0.65rem;
+        border-top: 2px dotted #1a242d;
+      }
+      #elsewhere a {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        box-sizing: border-box;
+        color: var(--edge);
+        background: none;
+        border: 1.5px dotted var(--seam);
+        border-radius: 50%;
+        text-decoration: none;
+        transition: color 0.2s, border-color 0.2s;
+      }
+      /* subtle hit-area padding without enlarging the 24px minimum target */
+      #elsewhere a::after {
+        content: '';
+        position: absolute;
+        inset: -5px;
+      }
+      #elsewhere a svg {
+        width: 12px;
+        height: 12px;
+        display: block;
+      }
+      #elsewhere a.soundcloud svg {
+        width: 14px;
+        height: 14px;
+      }
+      #elsewhere a:hover {
+        color: var(--chorus);
+        border-color: var(--weather);
+      }
+      #elsewhere a:focus-visible {
+        color: var(--glow);
+        border-color: var(--glow);
+        outline: none;
+      }
       /* every Song received, newest first, opened over the receiver */
       #songs {
         width: min(40rem, calc(100vw - 2rem));
@@ -797,6 +845,27 @@
         <a id="live" href="/" hidden>tune to live</a>
         <button id="autoplay" type="button" aria-pressed="false" hidden>autoplay</button>
       </nav>
+      <footer id="elsewhere" aria-label="Elsewhere">
+        <a href="https://github.com/unkhz/ikuradio" target="_blank" rel="noopener noreferrer" aria-label="GitHub" title="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2C6.48 2 2 6.58 2 12.24c0 4.52 2.87 8.36 6.84 9.71.5.09.68-.22.68-.49 0-.24-.01-1.04-.01-1.89-2.78.62-3.37-1.21-3.37-1.21-.45-1.18-1.11-1.5-1.11-1.5-.91-.64.07-.62.07-.62 1 .07 1.53 1.05 1.53 1.05.9 1.57 2.35 1.12 2.92.86.09-.66.35-1.12.64-1.38-2.22-.26-4.56-1.14-4.56-5.06 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.71 0 0 .84-.27 2.75 1.05A9.36 9.36 0 0 1 12 6.84c.85 0 1.71.12 2.51.35 1.91-1.32 2.75-1.05 2.75-1.05.55 1.41.2 2.45.1 2.71.64.72 1.03 1.63 1.03 2.75 0 3.93-2.34 4.8-4.57 5.05.36.32.68.94.68 1.9 0 1.37-.01 2.48-.01 2.82 0 .27.18.59.69.49A10.22 10.22 0 0 0 22 12.24C22 6.58 17.52 2 12 2Z" />
+          </svg>
+        </a>
+        <a href="https://x.com/ikuradio" target="_blank" rel="noopener noreferrer" aria-label="X" title="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+        </a>
+        <a class="soundcloud" href="https://soundcloud.com/ikuradio" target="_blank" rel="noopener noreferrer" aria-label="SoundCloud" title="SoundCloud">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <rect x="1.2" y="13.2" width="1.5" height="4" rx="0.75" />
+            <rect x="3.7" y="11.2" width="1.5" height="6" rx="0.75" />
+            <rect x="6.2" y="9.4" width="1.5" height="7.8" rx="0.75" />
+            <rect x="8.7" y="10.4" width="1.5" height="6.8" rx="0.75" />
+            <path d="M11.6 17.2H19.7A3.1 3.1 0 0 0 20.1 11.03A4.7 4.7 0 0 0 11.2 8.8V16.8Q11.2 17.2 11.6 17.2Z" />
+          </svg>
+        </a>
+      </footer>
     </section>
     <div data-nosnippet style="display: contents">
     <dialog id="songs" aria-label="Songs received">
