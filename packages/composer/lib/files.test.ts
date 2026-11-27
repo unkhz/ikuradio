@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { firstTune } from 'melody'
 import { readParts } from 'parts'
-import { perspectivesHome } from 'perspectives'
+import { perspectivesHome, readPerspectives } from 'perspectives'
 import { readTides, valueAt } from 'tides'
 import { composer } from './serve.js'
 
@@ -14,7 +14,7 @@ const get = async (path: string) => (await (await answer(new Request(`http://com
 describe("every Perspective's record, at the Composer", () => {
   it('is accepted, and is formatted as the file it is', async () => {
     const { drafts, kinds } = await get('/perspectives.json')
-    expect(drafts).toHaveLength(22)
+    expect(drafts).toHaveLength(readPerspectives().length)
     expect(kinds.facets).toContain('choir')
     expect(kinds.partFacets.sort()).toEqual(['lyrics', 'melody', 'progression'])
     for (const draft of drafts) {
