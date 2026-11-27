@@ -35,14 +35,29 @@ export {
   inTurns,
   timedLine,
   type ChordFunction,
+  type ChordQuality,
+  type ChromaticFlavor,
   type Ending,
   type GuideChord,
   type TimedSyllable,
   type Turn,
   type TwoVoiceGuide,
 } from './lib/guide.js'
+export {
+  chordBassMidi,
+  chordLeadMidi,
+  chordPitchClasses,
+  chordUpperMidi,
+  chromaticCounterpoint,
+  chromaticSteps,
+  inTurnsPitches,
+  isChromaticGuide,
+  tonicizedSteps,
+  triadIntervals,
+  type MidiTurn,
+} from './lib/chromatic.js'
 export { degreeOf, nearestDegree, vocalRange } from './lib/reach.js'
-export { standing, unfamiliarVerse, writeOverGuide, writerCosts } from './lib/writer.js'
+export { standing, unfamiliarVerse, writeOverGuide, writeOverGuideChromatic, writerCosts } from './lib/writer.js'
 export {
   harmonizeChoir,
   parallel,

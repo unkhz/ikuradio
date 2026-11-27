@@ -17,7 +17,7 @@ import type { Melody } from 'perspectives'
 import type { Iteration } from './compose.js'
 import { stressedLine } from './stressed.js'
 import { twoVoices } from './guide.js'
-import { sungAs, writeSections, type Fitted, type Unwritten, type Written } from './written.js'
+import { sungAs, sungMidi, writeSections, type Fitted, type Unwritten, type Written } from './written.js'
 import { progressionOf } from './progression.js'
 
 export type SungLine = {
@@ -391,8 +391,12 @@ export async function perform(
     const voices = singersOf(part, voice)
     const effectiveHumanness = typeof voice?.humanness === 'number' ? humanness * voice.humanness : humanness
     const breathPreset = typeof voice?.breath === 'string' ? voice.breath : undefined
-    // written over its guide, the lead sings the writer's pitches to the tune's rhythm
-    const led = written ? sungAs(tuned, written.degrees, keyFor(voices[0]!.body, mood.character.mode)) : tuned
+    // written over its guide, the lead sings the writer's pitches (exact MIDI when chromatic/modulated) to the tune's rhythm
+    const led = written
+      ? written.midi
+        ? sungMidi(tuned, written.midi)
+        : sungAs(tuned, written.degrees, keyFor(voices[0]!.body, mood.character.mode))
+      : tuned
     // written over its guide, the choir hears the guide's chords too, and leans on them
     const chords = written
       ? chordsHeard(written.guide, modes[mood.character.mode], { offset: written.offset, bpm, lineBpm: led.bpm })
@@ -555,14 +559,24 @@ export async function perform(
       const bpm = regionBpmOf(tempo)
       const scope = regionScope(part, s, parameters, tempo, ending, voice)
       const progSetting = settings.progression[part as 'verse' | 'chorus' | 'bridge'] ?? settings.progression.verse
+      const nextMusical = parts.slice(s + 1).find((p) => {
+        const wm = wordModeOf(p)
+        return wm !== 'silent' && wm !== 'spoken'
+      })
+      const nextProg = nextMusical
+        ? (settings.progression[nextMusical.type as 'verse' | 'chorus' | 'bridge'] ?? settings.progression.verse)
+        : undefined
+      const resolvedEnding = endingFor(part, s, parts.length, ending)
+      const nextShift = nextProg ? (nextProg.shift ?? 0) : undefined
       const melSetting = settings.melody[part as 'verse' | 'chorus' | 'bridge'] ?? settings.melody.verse
       unwritten.push({
         name: `${part}:${n}`,
         // a chorus or refrain comes home, and so does the iteration, unless the Arrangement says otherwise
-        ending: endingFor(part, s, parts.length, ending),
+        ending: resolvedEnding,
         ...(bpm !== mood.character.tempo ? { bpm } : {}),
         // which chords: the part's progression, coming home to a favourite if a Perspective says so
         progression: await progressionOf(progSetting, { part, place: n, song: song.number }),
+        ...(resolvedEnding === 'half' && nextShift !== undefined && nextShift !== (progSetting.shift ?? 0) ? { nextShift } : {}),
         // how high and how far the part's melody goes: Tides and Perspectives, with any explicit per-instance override layered on top
         melody: melodyFor(melSetting, parameters),
         lines: await Promise.all(

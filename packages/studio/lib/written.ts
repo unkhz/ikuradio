@@ -10,13 +10,17 @@
 
 import type { UsedProgression } from './progression.js'
 import {
+  chordPitchClasses,
   composeGuide,
   degreeToMidi,
+  isChromaticGuide,
   modes,
+  nearestDegree,
   standing,
   vocalRange,
   wrongness,
   writeOverGuide,
+  writeOverGuideChromatic,
   type Key,
   type Score,
   type Singer,
@@ -30,8 +34,10 @@ export type Written = {
   /** The section's name, `verse:1`: where in the iteration the guide was composed. */
   section: string
   guide: TwoVoiceGuide
-  /** The lead's pitches, one a syllable, in degrees of the Song's key. */
+  /** The lead's pitches, one a syllable, in degrees of the Song's key (nearest degree when chromatic). */
   degrees: number[]
+  /** Exact chromatic MIDI pitches when written over a chromatic, tonicized, or modulated guide. */
+  midi?: number[]
   /** How far into its section the line begins, in beats at the Song's tempo: where its chords are found in the guide. */
   offset: number
   /** How many of its standing syllables there were, and how many stood on a tone of the guide's chord. */
@@ -93,14 +99,25 @@ export function longestRun(degrees: readonly number[]) {
 const cls = (d: number) => ((d % 7) + 7) % 7
 
 /** How many standing syllables there are, and how many stand on a tone of the chord sounding under them. */
-export function standingOnChord(syllables: readonly TimedSyllable[], degrees: readonly number[], guide: TwoVoiceGuide) {
+export function standingOnChord(
+  syllables: readonly TimedSyllable[],
+  degrees: readonly number[],
+  guide: TwoVoiceGuide,
+  chromatic?: { midi: readonly number[]; mode: readonly number[]; tonic: number },
+) {
   let all = 0
   let on = 0
   for (const [i, s] of syllables.entries()) {
     if (!standing(s)) continue
     all++
     const chord = guide.chords.findLast((c) => c.at <= s.at + 1e-9) ?? guide.chords[0]!
-    if ([0, 2, 4].some((k) => cls(chord.root + k) === cls(degrees[i]!))) on++
+    if (chromatic) {
+      const tones = chordPitchClasses(chord, chromatic.mode, chromatic.tonic)
+      const pc = ((chromatic.midi[i]! % 12) + 12) % 12
+      if (tones.includes(pc)) on++
+    } else if ([0, 2, 4].some((k) => cls(chord.root + k) === cls(degrees[i]!))) {
+      on++
+    }
   }
   return { standing: all, onChord: on }
 }
@@ -114,6 +131,8 @@ export type Unwritten = {
   lines: { key: string; index: number; fitted: Fitted }[]
   /** Which chords its guide takes: roaming, unless its part's progression says otherwise. */
   progression?: UsedProgression
+  /** If the following section modulates to another key shift (semitones), pivot into it at the end of this section. */
+  nextShift?: number
   /** How high and how far its melody goes: the writer's own, unless its part's melody says otherwise. */
   melody?: { ceiling: number; span: number; travel: number }
 }
@@ -149,10 +168,12 @@ export function writeSections({
   pull: number
 }): Map<string, Written> {
   const [low, high] = compass(lead.key, lead.body)
+  const lowMidi = Math.max(vocalRange[lead.body][0], degreeToMidi(low, lead.key))
+  const highMidi = Math.min(vocalRange[lead.body][1], degreeToMidi(high, lead.key))
   const semitones = (a: number, b: number) => Math.abs(degreeToMidi(a, lead.key) - degreeToMidi(b, lead.key))
   const written = new Map<string, Written>()
   const shared = new Map<string, TwoVoiceGuide>()
-  for (const { name, ending, bpm: ownBpm, lines, progression, melody } of sections) {
+  for (const { name, ending, bpm: ownBpm, lines, progression, nextShift, melody } of sections) {
     const sectionBpm = ownBpm ?? bpm
     const timed: TimedSyllable[][] = []
     const offsets: number[] = []
@@ -162,7 +183,7 @@ export function writeSections({
       timed.push(timedLine(fitted, beats, sectionBpm))
       beats += beatsOf(fitted, sectionBpm)
     }
-    const same = `${sectionBpm}|${ending}|${JSON.stringify(progression ?? null)}|${lines.map(({ key }) => key).join('|')}`
+    const same = `${sectionBpm}|${ending}|${JSON.stringify(progression ?? null)}|${nextShift ?? 'none'}|${lines.map(({ key }) => key).join('|')}`
     const guide =
       shared.get(same) ??
       composeGuide({
@@ -174,39 +195,79 @@ export function writeSections({
         random: wrongness(`guide:${iteration}:${name}`),
         previous: [...before.values()].find((w) => w.section === name)?.guide,
         progression,
+        ...(nextShift !== undefined ? { nextShift } : {}),
       })
     shared.set(same, guide)
+    const chromatic = isChromaticGuide(guide)
     let from: number | undefined
+    let fromMidi: number | undefined
     for (const [i, { key, index }] of lines.entries()) {
       const already = written.get(key)
       if (already || !timed[i]!.length) {
-        from = already?.degrees.at(-1) ?? from
+        if (already) {
+          from = already.degrees.at(-1) ?? from
+          fromMidi = already.midi?.at(-1) ?? (already.degrees.length ? degreeToMidi(already.degrees.at(-1)!, lead.key) : fromMidi)
+        }
         continue
       }
-      const degrees = writeOverGuide({
-        syllables: timed[i]!,
-        guide,
-        low,
-        high,
-        random: wrongness(`melody:${iteration}:${key}`),
-        semitones,
-        from,
-        closes: i === lines.length - 1,
-        previous: before.get(`${name}:${index}`)?.degrees,
-        sprinkle,
-        pull,
-        ...melody,
-      })
-      written.set(key, {
-        section: name,
-        guide,
-        degrees,
-        offset: offsets[i]!,
-        ...standingOnChord(timed[i]!, degrees, guide),
-        run: longestRun(degrees),
-        ...(progression ? { progression } : {}),
-      })
-      from = degrees.at(-1)
+      if (chromatic) {
+        const prev = before.get(`${name}:${index}`)
+        const previousMidi = prev?.midi ?? prev?.degrees.map((d) => degreeToMidi(d, lead.key))
+        const midi = writeOverGuideChromatic({
+          syllables: timed[i]!,
+          guide,
+          mode: modes[mode],
+          tonic: lead.key.tonic,
+          lowMidi,
+          highMidi,
+          random: wrongness(`melody:${iteration}:${key}`),
+          fromMidi,
+          closes: i === lines.length - 1,
+          previousMidi,
+          sprinkle,
+          pull,
+          ...melody,
+        })
+        const degrees = midi.map((m) => nearestDegree(m, lead.key))
+        written.set(key, {
+          section: name,
+          guide,
+          degrees,
+          midi,
+          offset: offsets[i]!,
+          ...standingOnChord(timed[i]!, degrees, guide, { midi, mode: modes[mode], tonic: lead.key.tonic }),
+          run: longestRun(midi),
+          ...(progression ? { progression } : {}),
+        })
+        from = degrees.at(-1)
+        fromMidi = midi.at(-1)
+      } else {
+        const degrees = writeOverGuide({
+          syllables: timed[i]!,
+          guide,
+          low,
+          high,
+          random: wrongness(`melody:${iteration}:${key}`),
+          semitones,
+          from,
+          closes: i === lines.length - 1,
+          previous: before.get(`${name}:${index}`)?.degrees,
+          sprinkle,
+          pull,
+          ...melody,
+        })
+        written.set(key, {
+          section: name,
+          guide,
+          degrees,
+          offset: offsets[i]!,
+          ...standingOnChord(timed[i]!, degrees, guide),
+          run: longestRun(degrees),
+          ...(progression ? { progression } : {}),
+        })
+        from = degrees.at(-1)
+        fromMidi = from !== undefined ? degreeToMidi(from, lead.key) : undefined
+      }
     }
   }
   return written
@@ -217,4 +278,11 @@ export function sungAs(score: Score, degrees: readonly number[], key: Key): Scor
   if (score.notes.filter(([midi]) => midi > 0).length !== degrees.length) return score
   let k = 0
   return { ...score, notes: score.notes.map(([midi, beats]): [number, number] => [midi > 0 ? degreeToMidi(degrees[k++]!, key) : midi, beats]) }
+}
+
+/** A score given exact chromatic MIDI pitches, one a sounding note; unchanged if they do not match its notes. */
+export function sungMidi(score: Score, pitches: readonly number[]): Score {
+  if (score.notes.filter(([midi]) => midi > 0).length !== pitches.length) return score
+  let k = 0
+  return { ...score, notes: score.notes.map(([midi, beats]): [number, number] => [midi > 0 ? pitches[k++]! : midi, beats]) }
 }

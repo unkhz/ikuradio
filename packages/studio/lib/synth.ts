@@ -77,6 +77,9 @@ export async function renderSynths(
         seconds: c.beats * secPerBeat,
         root: c.root,
         bass: c.bass,
+        ...(c.semitone !== undefined ? { semitone: c.semitone } : {}),
+        ...(c.bassSemitone !== undefined ? { bassSemitone: c.bassSemitone } : {}),
+        ...(c.quality !== undefined ? { quality: c.quality } : {}),
       }))
     })
     .sort((a, b) => a.at - b.at)
@@ -92,6 +95,9 @@ export async function renderSynths(
           seconds: Math.round(Math.min(end - Math.max(at, c.at), c.seconds) * 1000) / 1000,
           root: c.root,
           bass: c.bass,
+          ...(c.semitone !== undefined ? { semitone: c.semitone } : {}),
+          ...(c.bassSemitone !== undefined ? { bassSemitone: c.bassSemitone } : {}),
+          ...(c.quality !== undefined ? { quality: c.quality } : {}),
         }))
         .filter((c) => c.seconds > 0)
       const params = placing.parameters ?? {}

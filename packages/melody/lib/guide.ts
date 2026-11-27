@@ -10,6 +10,17 @@
 
 import type { Note, Phrase } from './fit.js'
 import { degreeToMidi, type Key } from './scale.js'
+import {
+  applyModulationPivot,
+  chordPitchClasses,
+  chromaticCounterpoint,
+  chromaticSteps,
+  diatonicToChromaticSpecs,
+  mod12,
+  nearestScaleDegree,
+  shiftChords,
+  tonicizedSteps,
+} from './chromatic.js'
 
 /** How often the guide moves, at most, in beats. */
 export const guideStep = 2
@@ -105,18 +116,36 @@ export type TimedSyllable = {
 /** How far a chord stands from home: home itself, away from it, or in the tension that wants to return. */
 export type ChordFunction = 'home' | 'away' | 'tension'
 
+/** Triad quality when a chord steps outside the 7-note mode (chromatic, tonicized, or modulated). */
+export type ChordQuality = 'major' | 'minor' | 'diminished' | 'augmented'
+
+/** Which semitone idiom a chromatic progression favors. */
+export type ChromaticFlavor = 'approach' | 'descent' | 'climb' | 'roam'
+
 /** A chord of the guide, as it is meant: degrees are scale steps of the key, the voices' in a shared frame. */
 export type GuideChord = {
   /** Its onset and length, in beats from the start of the section. */
   at: number
   beats: number
-  /** The scale degree its triad is built on, 0 to 6. */
+  /** The scale degree its triad is built on, 0 to 6 (nearest scale degree when chromatic). */
   root: number
   /** The lower voice's degree, in the frame. */
   bass: number
   /** The upper voice's first degree, in the frame. */
   upper: number
   function: ChordFunction
+  /** Chromatic root in semitones above the Song's tonic (0..11), when chromatic/tonicized/modulated. */
+  semitone?: number
+  /** Triad quality for chromatic/tonicized/modulated chords. */
+  quality?: ChordQuality
+  /** Lower voice offset in semitones from `frameTonic` (57), when chromatic/tonicized/modulated. */
+  bassSemitone?: number
+  /** Upper voice offset in semitones from `frameTonic` (57), when chromatic/tonicized/modulated. */
+  upperSemitone?: number
+  /** Optional leading-tone/approach pitch offset (semitones from `frameTonic`) exposed in the guide for key changes. */
+  leadSemitone?: number
+  /** Active tonal center in semitones above Song tonic (`0` = home, `1..11` = tonicized/modulated center). */
+  center?: number
 }
 
 /** A section's two-voice guide. */
@@ -243,8 +272,14 @@ export function stable(root: number, mode: readonly number[]): boolean {
  * names where they are to be found, `scientist` for a critic's favourites.
  */
 export type Progression = {
-  style: 'roaming' | 'known'
+  style: 'roaming' | 'known' | 'chromatic' | 'tonicize'
   known?: { from: string; roots?: number[] }
+  /** For `chromatic`: which semitone idiom to favor (`approach`, `descent`, `climb`, `roam`). */
+  chromatic?: ChromaticFlavor
+  /** For `tonicize`: target secondary tonal center in semitones above Song tonic (1..11). */
+  target?: number
+  /** Whole-section key modulation in semitones (e.g. +1 half-step lift, +2 whole-step, +3 relative, +4 mediant, +5 subdominant, -2 drop). */
+  shift?: number
   temperature: number
   pull: number
 }
@@ -501,6 +536,7 @@ export function composeGuide({
   departure = 0,
   previous,
   progression,
+  nextShift,
 }: {
   syllables: readonly TimedSyllable[]
   beats: number
@@ -512,9 +548,54 @@ export function composeGuide({
   previous?: TwoVoiceGuide
   /** Which chords: roaming unless given. Where they change is always the words'. */
   progression?: Progression
+  /** If the following section modulates to another key shift (semitones), pivot the final chord into it for MusicGen. */
+  nextShift?: number
 }): TwoVoiceGuide {
   const points = changePoints(syllables, beats, bpm)
   const spans = points.map((at, i) => ({ at, beats: (points[i + 1] ?? beats) - at }))
+  const shift = progression?.shift ? mod12(progression.shift) : 0
+  const needsPivot = ending === 'half' && nextShift !== undefined && mod12(nextShift) !== shift
+  const isChromatic = progression?.style === 'chromatic' || progression?.style === 'tonicize' || shift !== 0 || needsPivot
+
+  if (isChromatic) {
+    let specs =
+      progression?.style === 'chromatic'
+        ? chromaticSteps(spans.length, ending, mode, random, progression.chromatic ?? 'approach')
+        : progression?.style === 'tonicize'
+          ? tonicizedSteps(spans.length, ending, mode, random, progression.target)
+          : diatonicToChromaticSpecs(
+              chordPath(spans.length, ending, random, { departure, previous: previous?.chords.map(({ root }) => root), mode, progression }),
+              mode,
+            )
+    if (shift !== 0) specs = shiftChords(specs, shift)
+    if (needsPivot) specs = applyModulationPivot(specs, shift, nextShift!, random)
+    const { bass, upper, lead } = chromaticCounterpoint(specs, needsPivot ? 'half' : ending, random)
+    const chords: GuideChord[] = spans.map((span, i) => {
+      const spec = specs[i]!
+      const root = nearestScaleDegree(spec.semitone, mode)
+      const bassDeg = Math.floor(bass[i]! / 12) * 7 + nearestScaleDegree(bass[i]!, mode)
+      const upperDeg = Math.floor(upper[i]! / 12) * 7 + nearestScaleDegree(upper[i]!, mode)
+      return {
+        ...span,
+        root,
+        bass: bassDeg,
+        upper: upperDeg,
+        function: spec.function,
+        semitone: spec.semitone,
+        quality: spec.quality,
+        bassSemitone: bass[i]!,
+        upperSemitone: upper[i]!,
+        ...(lead[i] !== undefined ? { leadSemitone: lead[i]! } : {}),
+        ...(spec.center !== 0 ? { center: spec.center } : {}),
+      }
+    })
+    const lower: [number, number][] = chords.map(({ bass: b, beats: length }) => [b, length])
+    const upperNotes: [number, number][] = chords.map(({ upper: u, beats: length }) => [u, length])
+    const foundFurthest = chords.findLastIndex((c, i) => i < chords.length - 1 && (c.function === 'tension' || (c.center ?? 0) !== 0))
+    const furthest = foundFurthest >= 0 ? foundFurthest : chords.length - 1
+    return { beats, chords, lower, upper: upperNotes, furthest }
+  }
+
   const roots = chordPath(spans.length, ending, random, { departure, previous: previous?.chords.map(({ root }) => root), mode, progression })
   const { bass, upper } = counterpoint(roots, ending, mode, random)
   const chords: GuideChord[] = spans.map((span, i) => ({
@@ -581,7 +662,7 @@ export function chordsHeard(
   mode: readonly number[],
   { offset, bpm, lineBpm }: { offset: number; bpm: number; lineBpm: number },
 ): (beat: number) => readonly number[] | undefined {
-  const tones = guide.chords.map(({ root }) => [0, 2, 4].map((k) => (frameTonic + degreeToMidi(root + k, { tonic: 0, mode })) % 12))
+  const tones = guide.chords.map((chord) => chordPitchClasses(chord, mode, frameTonic))
   return (beat) => {
     const at = offset + (beat * bpm) / lineBpm
     const i = guide.chords.findLastIndex((c) => c.at <= at + 1e-9)

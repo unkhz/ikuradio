@@ -128,6 +128,42 @@ describe('procedural synth tracks (drone & pulse)', () => {
     expect(silent.every((s) => s === 0)).toBe(true)
   })
 
+  it('renders chromatic and modulated drone chords smoothly with bounded peaks', () => {
+    const chrom = renderDrone({
+      kind: 'drone',
+      mode: 'aeolian',
+      tonic: 45,
+      seconds: 4,
+      chords: [
+        { at: 0, seconds: 2, root: 0, bass: -7, semitone: 1, bassSemitone: -11, quality: 'major' },
+        { at: 2, seconds: 2, root: 0, bass: -7, semitone: 0, bassSemitone: -12, quality: 'minor' },
+      ],
+      warmth: 0.5,
+      movement: 0.3,
+      seed: 'chrom-drone-1',
+    })
+    const diatonic = renderDrone({
+      kind: 'drone',
+      mode: 'aeolian',
+      tonic: 45,
+      seconds: 4,
+      chords: [
+        { at: 0, seconds: 2, root: 0, bass: -7 },
+        { at: 2, seconds: 2, root: 0, bass: -7 },
+      ],
+      warmth: 0.5,
+      movement: 0.3,
+      seed: 'chrom-drone-1',
+    })
+    expect(chrom.length).toBe(Math.round(4 * synthRate))
+    let peak = 0
+    for (let i = 0; i < chrom.length; i++) peak = Math.max(peak, Math.abs(chrom[i]!))
+    expect(peak).toBeGreaterThan(0.1)
+    expect(peak).toBeLessThanOrEqual(0.6)
+    // Chromatic bII -> i produces genuinely distinct frequencies from static i -> i
+    expect(chrom).not.toEqual(diatonic)
+  })
+
   it('encodes valid 16-bit mono RIFF WAV headers', () => {
     const wav = encodeWav(new Float32Array([0, 0.5, -0.5, 1, -1]), 48000)
     expect(wav.subarray(0, 4).toString('ascii')).toBe('RIFF')

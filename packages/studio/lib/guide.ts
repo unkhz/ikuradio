@@ -39,9 +39,8 @@
 import {
   atonal,
   composeGuide,
-  degreeToMidi,
   holdLast,
-  inTurns,
+  inTurnsPitches,
   modes,
   phraseOf,
   setBridge,
@@ -49,12 +48,12 @@ import {
   vocalRange,
   wrongness,
   type Key,
+  type MidiTurn,
   type Phrase,
   type Score,
   type Singer,
   type Syllables,
   type TimedSyllable,
-  type Turn,
   type TwoVoiceGuide,
 } from 'melody'
 import { createHash } from 'node:crypto'
@@ -233,11 +232,11 @@ export function lowerVoice(choir: Iteration['choir'], lowest: number): { body: S
 export const inversion = (row: readonly number[]) => row.map((pitch) => (((2 * row[0]! - pitch) % 12) + 12) % 12)
 
 /** A voice in MIDI and beats, a rest being 0, folded by octaves into what `body` reaches. */
-function voiceOf(turns: readonly Turn[], key: Key, body: Singer): [number, number][] {
+function voiceOfMidi(turns: readonly MidiTurn[], body: Singer): [number, number][] {
   const [low, high] = vocalRange[body]
-  return turns.map(([degree, beats]): [number, number] => {
-    if (degree === null) return [0, beats]
-    let midi = degreeToMidi(degree, key)
+  return turns.map(([raw, beats]): [number, number] => {
+    if (raw === null) return [0, beats]
+    let midi = raw
     while (midi < low) midi += 12
     while (midi > high) midi -= 12
     return [midi, beats]
@@ -292,26 +291,33 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
       const name = written[0]?.section ?? named[i]!
       const progressionSetting =
         settings.progression[section.part as 'verse' | 'chorus' | 'bridge'] ?? settings.progression.verse
+      const nextMusical = all.slice(i + 1).find((s) => s.part !== 'silence' && s.part !== 'spoken')
+      const nextProg = nextMusical
+        ? (settings.progression[nextMusical.part as 'verse' | 'chorus' | 'bridge'] ?? settings.progression.verse)
+        : undefined
+      const sectionEnding = section.part === 'chorus' || section.part === 'refrain' || section.part === 'outro' || i === all.length - 1 ? 'full' : 'half'
+      const nextShift = nextProg ? (nextProg.shift ?? 0) : undefined
       const progression =
         written[0]?.progression ??
         (await progressionOf(progressionSetting, { part: section.part, place: Number(named[i]!.split(':')[1]), song: song.number }))
       // a section whose melody was written over its guide hums that guide; any other composes its own
+      // (and if a half-ending section flows into a differently shifted key, pivots its final chord for MusicGen!)
       const composed = written[0]?.guide ?? composeGuide({
         syllables: await syllablesOf(section, sectionBpm),
         beats: (section.seconds * sectionBpm) / 60,
         bpm: sectionBpm,
         mode: key.mode,
-        // a chorus, refrain, or outro comes home, and so does the iteration; everything else leaves it open, on the fifth
-        ending: section.part === 'chorus' || section.part === 'refrain' || section.part === 'outro' || i === all.length - 1 ? 'full' : 'half',
+        ending: sectionEnding,
         random: wrongness(`guide:${iteration}:${name}`),
         previous: previous.find((guide) => guide.name === name)?.composed,
         progression,
+        ...(sectionEnding === 'half' && nextShift !== undefined && nextShift !== (progressionSetting.shift ?? 0) ? { nextShift } : {}),
       })
-      const turns = inTurns(composed, sectionBpm)
-      const lowest = Math.min(...turns.lower.flatMap(([d]) => (d === null ? [] : [degreeToMidi(d, key)])))
+      const turns = inTurnsPitches(composed, key, sectionBpm)
+      const lowest = Math.min(...turns.lower.flatMap(([m]) => (m === null ? [] : [m])))
       const low = lowerVoice(choir, lowest)
-      let upper: Score = { bpm: sectionBpm, lyrics: '', notes: voiceOf(turns.upper, key, lead.body) }
-      let lower: Score = { bpm: sectionBpm, lyrics: '', notes: voiceOf(turns.lower, key, low.body) }
+      let upper: Score = { bpm: sectionBpm, lyrics: '', notes: voiceOfMidi(turns.upper, lead.body) }
+      let lower: Score = { bpm: sectionBpm, lyrics: '', notes: voiceOfMidi(turns.lower, low.body) }
       // a bridge that has lost its key: the upper voice hums the row, the lower its inversion
       if (section.part === 'bridge' && row) {
         upper = within(atonal(upper, row), lead.body)

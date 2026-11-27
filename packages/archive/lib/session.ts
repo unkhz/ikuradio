@@ -147,7 +147,15 @@ export type SessionSynth =
       seconds: number
       fadeIn?: number
       fade?: number
-      chords?: { at: number; seconds: number; root: number; bass?: number }[]
+      chords?: {
+        at: number
+        seconds: number
+        root: number
+        bass?: number
+        semitone?: number
+        bassSemitone?: number
+        quality?: 'major' | 'minor' | 'diminished' | 'augmented'
+      }[]
       warmth?: number
       build?: number
       movement?: number
@@ -207,7 +215,20 @@ export type SessionGuide = {
    * beginning: the scale degree each triad stands on, the lower and upper
    * voices' degrees, and its function. Degrees count from A in the Song's mode.
    */
-  chords?: { at: number; beats: number; root: number; bass: number; upper: number; function: 'home' | 'away' | 'tension' }[]
+  chords?: {
+    at: number
+    beats: number
+    root: number
+    bass: number
+    upper: number
+    function: 'home' | 'away' | 'tension'
+    semitone?: number
+    quality?: 'major' | 'minor' | 'diminished' | 'augmented'
+    bassSemitone?: number
+    upperSemitone?: number
+    leadSemitone?: number
+    center?: number
+  }[]
   /** Which of its chords lies furthest from home: the arc's turning point. */
   furthest?: number
   /** How its voices were hummed for the Music: in turns, the lower opening each chord and the upper finishing it. */
@@ -216,12 +237,22 @@ export type SessionGuide = {
   melody?: { onChord: number; run: number }
   /**
    * For a two-voice guide: what its chords were chosen by. Roaming along the
-   * arc, with its temperature and pull; or known, with where its roots came
+   * arc, with its temperature and pull; known, with where its roots came
    * from (`scientist:45`, `scientist:45:3`, `classic:ii-V-I`) and the roots
-   * themselves, degrees of the Song's mode; or a homecoming that found no
-   * favourite it could use, and roamed (`unfound`, the critic it looked to).
+   * themselves; chromatic (travelling by semitones); or tonicize (temporarily
+   * tonicizing a secondary key); plus optional whole-section key `shift`.
    */
-  progression?: { style: 'roaming' | 'known'; temperature: number; pull: number; from?: string; roots?: number[]; unfound?: string }
+  progression?: {
+    style: 'roaming' | 'known' | 'chromatic' | 'tonicize'
+    temperature: number
+    pull: number
+    from?: string
+    roots?: number[]
+    chromatic?: 'approach' | 'descent' | 'climb' | 'roam'
+    target?: number
+    shift?: number
+    unfound?: string
+  }
 }
 
 export type SessionIteration = {

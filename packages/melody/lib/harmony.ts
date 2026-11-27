@@ -76,9 +76,15 @@ const motionCost = (steps: number) => [0, 0.2, 0.7, 1.6][steps] ?? 1.6 + 1.2 * (
 export function parallel(lead: Score, leadKey: Key, voiceKey: Key, harmony: number): Score {
   return {
     ...lead,
-    notes: lead.notes.map(([midi, beats]): [number, number] =>
-      midi === 0 ? [0, beats] : [degreeToMidi((degreeOf(midi, leadKey) ?? nearestDegree(midi, leadKey)) + harmony, voiceKey), beats],
-    ),
+    notes: lead.notes.map(([midi, beats]): [number, number] => {
+      if (midi === 0) return [0, beats]
+      const exact = degreeOf(midi, leadKey)
+      if (exact !== undefined) return [degreeToMidi(exact + harmony, voiceKey), beats]
+      // preserve any chromatic/modulated semitone offset so parallel harmony never clashes against modulated leads
+      const base = nearestDegree(midi, leadKey)
+      const offset = midi - degreeToMidi(base, leadKey)
+      return [degreeToMidi(base + harmony, voiceKey) + offset, beats]
+    }),
   }
 }
 
@@ -113,13 +119,39 @@ export function voiceLine({
   const last = sounding.at(-1)
 
   type Choice = { degree: number; midi: number; cost: number }
+  const modeClasses = new Set(frame.mode.map((s) => (((frame.tonic + s) % 12) + 12) % 12))
   const choicesAt = (i: number): Choice[] => {
     const leadMidi = lead.notes[i]![0]
     const leadDegree = nearestDegree(leadMidi, frame)
     const beside = neighbour[i] || leadMidi
     const chord = chords?.(beatAt[i]!)
+    // When the active chord or lead steps outside the 7-note mode, allow chromatic MIDI candidates
+    // so harmonies sing true chromatic/modulated chord tones without clashing against the old scale.
+    const chromatic =
+      !modeClasses.has(((leadMidi % 12) + 12) % 12) ||
+      Boolean(chord?.some((pc) => !modeClasses.has(((pc % 12) + 12) % 12)))
     const tried = (strict: boolean): Choice[] => {
       const found: Choice[] = []
+      if (chromatic) {
+        const homeSemi = Math.round(home * 1.7)
+        for (let semi = -24; semi <= 24; semi++) {
+          const midi = leadMidi + semi
+          if (midi < low || midi > high) continue
+          const apart = Math.abs(semi) % 12
+          if (!consonant.has(apart)) continue
+          if (strict && (side < 0 ? midi > beside : midi < beside)) continue
+          const degree = nearestDegree(midi, frame)
+          let cost = 0.45 * Math.abs(semi - homeSemi)
+          if (midi === leadMidi) cost += 2.5
+          if (midi === beside && beside !== leadMidi) cost += 2
+          if (apart === 7) cost += 0.3
+          if (chord && !chord.includes(((midi % 12) + 12) % 12)) cost += 3.5
+          if (i === last) cost += apart === 7 ? 1.5 : apart === 0 ? 0 : -0.5
+          if (!strict) cost += 4
+          found.push({ degree, midi, cost: cost + random() * 0.05 })
+        }
+        return found
+      }
       for (let step = -16; step <= 16; step++) {
         const degree = leadDegree + step
         const midi = degreeToMidi(degree, frame)

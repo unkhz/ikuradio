@@ -18,6 +18,7 @@
 
 import type { Phrase } from './fit.js'
 import type { TimedSyllable, TwoVoiceGuide } from './guide.js'
+import { chordBassMidi, chordPitchClasses, chordUpperMidi, mod12 } from './chromatic.js'
 import { degreeToMidi, type Key } from './scale.js'
 
 /** What a line of the verse is asked to do: where it begins, how high it climbs, where it may end. */
@@ -383,6 +384,179 @@ export function writeOverGuide({
   if (span <= 0 || temperature <= 0) return draw()
   const drawn = Array.from({ length: c.spanDraws }, draw)
   const width = (path: number[]) => Math.max(...path) - Math.min(...path)
+  const narrowest = Math.min(...drawn.map(width))
+  const weights = drawn.map((path) => Math.exp(-(span * (width(path) - narrowest)) / temperature))
+  let left = random() * weights.reduce((x, y) => x + y, 0)
+  for (const [j, w] of weights.entries()) if ((left -= w) <= 0) return drawn[j]!
+  return drawn.at(-1)!
+}
+
+/**
+ * Chromatic melody writer over a chromatic, tonicized, or modulated TwoVoiceGuide:
+ * chooses exact MIDI pitches within `[lowMidi, highMidi]` so the lead sings true
+ * chromatic chord tones, half-step passing/approach tones, and key-modulated lines
+ * without ever clashing against the Song's original 7-note scale.
+ */
+export function writeOverGuideChromatic({
+  syllables,
+  guide,
+  mode,
+  tonic,
+  lowMidi,
+  highMidi,
+  random,
+  fromMidi,
+  closes = false,
+  previousMidi,
+  sprinkle = 1,
+  pull = 1,
+  ceiling = 2,
+  span = 0,
+  travel = 0,
+}: {
+  syllables: readonly TimedSyllable[]
+  guide: TwoVoiceGuide
+  mode: readonly number[]
+  tonic: number
+  lowMidi: number
+  highMidi: number
+  random: () => number
+  fromMidi?: number
+  closes?: boolean
+  previousMidi?: readonly number[]
+  sprinkle?: number
+  pull?: number
+  ceiling?: number
+  span?: number
+  travel?: number
+}): number[] {
+  const n = syllables.length
+  if (n === 0) return []
+  const c = writerCosts
+  const pitches = Array.from({ length: Math.max(1, highMidi - lowMidi + 1) }, (_, k) => lowMidi + k)
+  // Convert ceiling from scale steps (~1.7 semitones each) into semitone headroom
+  const ceilingSemi = Math.round(ceiling * 1.7)
+  const usualCeilingSemi = Math.round(2 * 1.7)
+  const middle = (lowMidi + highMidi) / 2 + (usualCeilingSemi - ceilingSemi) / 2
+  const summitPull = (c.summit * 0.6) * (1 + Math.max(0, usualCeilingSemi - ceilingSemi) / 2)
+  const at = syllables.map((s) => guideAt(guide, s.at))
+  const chordTones = at.map(({ chord }) => chordPitchClasses(chord, mode, tonic))
+  const finalChord = guide.chords.at(-1)!
+  const finalUpperClass = mod12(chordUpperMidi(finalChord, mode, tonic))
+  const summit = syllables.reduce((best, s, i) => (s.stress === 1 && (best < 0 || s.beats >= syllables[best]!.beats) ? i : best), -1)
+
+  const node = (i: number, m: number) => {
+    const s = syllables[i]!
+    const { chord } = at[i]!
+    const tones = chordTones[i]!
+    const pc = mod12(m)
+    const isTone = tones.includes(pc)
+    const upperPc = mod12(chordUpperMidi(chord, mode, tonic))
+    let cost = (c.middle * 0.6) * Math.abs(m - middle)
+    if (standing(s)) {
+      if (!isTone) cost += c.standingOff + 1
+      else {
+        const apart = mod12(m - upperPc)
+        if (![0, 3, 4, 8, 9].includes(apart)) cost += c.standingLoose
+      }
+    } else if (!isTone) {
+      cost += c.passing
+    }
+    if (breath(s)) {
+      const idx = tones.indexOf(pc)
+      cost += idx === 2 ? c.breathFifth : idx === 0 || idx === 1 ? 0 : c.breathOff
+    }
+    if (closes && i === n - 1 && pc !== finalUpperClass) cost += c.cadence
+    if (i === summit) cost += summitPull * Math.max(0, highMidi - ceilingSemi - m)
+    cost += (c.overCeiling * 0.6) * Math.max(0, m - (highMidi - ceilingSemi + 3))
+    return cost
+  }
+
+  const semiMoveCost = (delta: number) => {
+    const d = Math.abs(delta)
+    if (d === 0) return 0.35
+    if (d === 1) return 0 // semitone motion is cheap and expressive!
+    if (d === 2) return 0.08
+    if (d === 3 || d === 4) return 0.65
+    if (d === 5) return 1.2
+    if (d === 6) return 2.8 // tritone leap
+    if (d === 7) return 1.8
+    return 2.4 + (d - 7) * 0.45
+  }
+
+  const move = (i: number, a: number | undefined, b: number, m: number) => {
+    const d = Math.abs(m - b)
+    let cost = semiMoveCost(d) + travel * (d / 1.7)
+    if (d >= 5 && !standing(syllables[i]!)) cost += c.leapLight
+    if (d > 2 && (!chordTones[i - 1]!.includes(mod12(b)) || !chordTones[i]!.includes(mod12(m)))) cost += c.unprepared
+    if (a !== undefined && Math.abs(b - a) >= 5) {
+      cost += Math.sign(m - b) === Math.sign(b - a) ? c.afterLeap : d <= 2 ? c.turnBack : 0
+    }
+    if (at[i]!.chord !== at[i - 1]!.chord && m !== b) {
+      const prevBass = chordBassMidi(at[i - 1]!.chord, mode, tonic)
+      const curBass = chordBassMidi(at[i]!.chord, mode, tonic)
+      const isPerf = (x: number, bass: number) => [0, 7].includes(mod12(x - bass))
+      if (isPerf(b, prevBass) && isPerf(m, curBass)) cost += c.parallel
+    }
+    if (previousMidi && previousMidi[i] !== undefined && previousMidi[i - 1] !== undefined) {
+      if (Math.sign(m - b) !== Math.sign(previousMidi[i]! - previousMidi[i - 1]!)) cost += c.contour * pull
+    }
+    return cost
+  }
+
+  type State = { a: number | undefined; b: number; run: number }
+  const keyOf = (s: State) => `${s.a},${s.b},${s.run}`
+  const temperature = c.temperature * sprinkle
+  const combine = (x: number, y: number) =>
+    temperature <= 0 ? Math.min(x, y) : Math.min(x, y) - temperature * Math.log1p(Math.exp(-Math.abs(x - y) / temperature))
+  const layers: Map<string, { state: State; cost: number; from: Map<string, number> }>[] = []
+  const first = new Map<string, { state: State; cost: number; from: Map<string, number> }>()
+  for (const m of pitches) {
+    const enter = fromMidi === undefined ? 0 : 0.5 * semiMoveCost(m - fromMidi)
+    const state = { a: undefined, b: m, run: 1 }
+    first.set(keyOf(state), { state, cost: node(0, m) + enter, from: new Map() })
+  }
+  layers.push(first)
+  for (let i = 1; i < n; i++) {
+    const next = new Map<string, { state: State; cost: number; from: Map<string, number> }>()
+    for (const [k, { state, cost }] of layers[i - 1]!) {
+      for (const m of pitches) {
+        if (Math.abs(m - state.b) > 12) continue // keep DP tight and vocal
+        const run = m === state.b ? Math.min(state.run + 1, 6) : 1
+        const step = move(i, state.a, state.b, m) + node(i, m) + (run > 3 ? c.sameAgain * (run - 3) : 0)
+        const to = { a: state.b, b: m, run }
+        const tk = keyOf(to)
+        const total = cost + step
+        const there = next.get(tk)
+        if (there) {
+          there.cost = combine(there.cost, total)
+          there.from.set(k, total)
+        } else next.set(tk, { state: to, cost: total, from: new Map([[k, total]]) })
+      }
+    }
+    layers.push(next)
+  }
+  const choose = (options: [string, number][]) => {
+    if (temperature <= 0) return options.reduce((x, y) => (y[1] < x[1] ? y : x))[0]
+    const least = Math.min(...options.map(([, v]) => v))
+    const weights = options.map(([, v]) => Math.exp(-(v - least) / temperature))
+    let left = random() * weights.reduce((x, y) => x + y, 0)
+    for (const [j, w] of weights.entries()) if ((left -= w) <= 0) return options[j]![0]
+    return options.at(-1)![0]
+  }
+  const draw = () => {
+    let k = choose([...layers[n - 1]!].map(([key, { cost }]) => [key, cost]))
+    const path: number[] = []
+    for (let i = n - 1; i >= 0; i--) {
+      const here = layers[i]!.get(k)!
+      path.unshift(here.state.b)
+      if (i > 0) k = choose([...here.from])
+    }
+    return path
+  }
+  if (span <= 0 || temperature <= 0) return draw()
+  const drawn = Array.from({ length: c.spanDraws }, draw)
+  const width = (path: number[]) => (Math.max(...path) - Math.min(...path)) / 1.7
   const narrowest = Math.min(...drawn.map(width))
   const weights = drawn.map((path) => Math.exp(-(span * (width(path) - narrowest)) / temperature))
   let left = random() * weights.reduce((x, y) => x + y, 0)

@@ -32,11 +32,14 @@ export const takeOf = ({ bpm, lyrics, notes, t0, vibrato, pressure, tension, bre
   ...(breathiness !== undefined ? { breathiness } : {}),
 })
 
-/** A section's progression as the Session keeps it: the style and its numbers, and, if known, where its roots came from and what they were. */
-export const progressionRecord = ({ style, temperature, pull, known, unfound }: NonNullable<Guide['progression']>) => ({
+/** A section's progression as the Session keeps it: the style and its numbers, and any chromatic/tonicization/modulation settings. */
+export const progressionRecord = ({ style, temperature, pull, known, chromatic, target, shift, unfound }: NonNullable<Guide['progression']>) => ({
   style,
   temperature,
   pull,
   ...(known?.roots ? { from: known.from, roots: known.roots } : {}),
+  ...(chromatic ? { chromatic } : {}),
+  ...(target !== undefined ? { target } : {}),
+  ...(shift !== undefined && shift !== 0 ? { shift } : {}),
   ...(unfound ? { unfound } : {}),
 })

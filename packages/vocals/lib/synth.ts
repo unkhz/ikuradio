@@ -16,7 +16,15 @@ export type SynthSpec =
       seconds: number
       fadeIn?: number
       fade?: number
-      chords?: { at: number; seconds: number; root: number; bass?: number }[]
+      chords?: {
+        at: number
+        seconds: number
+        root: number
+        bass?: number
+        semitone?: number
+        bassSemitone?: number
+        quality?: 'major' | 'minor' | 'diminished' | 'augmented'
+      }[]
       warmth?: number
       build?: number
       movement?: number
@@ -146,11 +154,20 @@ export function renderDrone(spec: Extract<SynthSpec, { kind: 'drone' }>, sampleR
     let targetRoot = tonicHz
     let targetFifth = fifthHz0
     let targetThird = thirdHz0
-    if (active && t >= active.at && t <= active.at + active.seconds + 0.5) {
-      const deg = active.bass ?? active.root
-      targetRoot = midiToHz(degreeToMidi(deg, spec.mode, baseTonic))
-      targetFifth = midiToHz(degreeToMidi(active.root + 4, spec.mode, baseTonic))
-      targetThird = midiToHz(degreeToMidi(active.root + 2, spec.mode, baseTonic + 12))
+    if (active && t >= active.at && (t <= active.at + active.seconds + 0.5 || active.semitone !== undefined)) {
+      if (active.semitone !== undefined) {
+        const bassSemi = active.bassSemitone ?? active.semitone
+        const thirdIv = active.quality === 'major' || active.quality === 'augmented' ? 4 : 3
+        const fifthIv = active.quality === 'diminished' ? 6 : active.quality === 'augmented' ? 8 : 7
+        targetRoot = midiToHz(baseTonic + bassSemi)
+        targetFifth = midiToHz(baseTonic + active.semitone + fifthIv)
+        targetThird = midiToHz(baseTonic + 12 + active.semitone + thirdIv)
+      } else {
+        const deg = active.bass ?? active.root
+        targetRoot = midiToHz(degreeToMidi(deg, spec.mode, baseTonic))
+        targetFifth = midiToHz(degreeToMidi(active.root + 4, spec.mode, baseTonic))
+        targetThird = midiToHz(degreeToMidi(active.root + 2, spec.mode, baseTonic + 12))
+      }
     }
     curRoot += (targetRoot - curRoot) * glide
     curFifth += (targetFifth - curFifth) * glide
