@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 630" width="1160" height="630" role="img" aria-labelledby="hl-title hl-desc">
+  <title id="hl-title">ikuradio High-Level Architecture</title>
+  <desc id="hl-desc">How Heart, Studio, Archive, Radio, and Browser Receivers work together to produce, preserve, broadcast, and synthesize an eternal song.</desc>
+  <defs>
+    <pattern id="dotGrid" width="16" height="16" patternUnits="userSpaceOnUse">
+      <circle cx="8" cy="8" r="0.9" fill="#1e2736"/>
+    </pattern>
+    <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#ffb347"/>
+    </marker>
+    <marker id="arrowBlue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#7aa2c4"/>
+    </marker>
+    <marker id="arrowMint" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#9ec4b0"/>
+    </marker>
+    <marker id="arrowSlate" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#7a889e"/>
+    </marker>
+    <style>
+      .bg { fill: #0c0f15; }
+      .title { font: 700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #eef2f6; letter-spacing: 0.2px; }
+      .subtitle { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #8b97ab; }
+      .zoneLabel { font: 700 11.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 1px; }
+      .cardTitle { font: 600 13.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #eef2f6; }
+      .cardBody { font: 400 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #a4b0c2; }
+      .mono { font: 500 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #c6d0df; }
+      .edgeLabel { font: 500 11px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; fill: #b8c4d6; }
+      .badge { font: 600 10px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    </style>
+  </defs>
+
+  <!-- Cosmic Dot-Matrix Canvas -->
+  <rect width="1160" height="630" rx="14" class="bg"/>
+  <rect width="1160" height="630" rx="14" fill="url(#dotGrid)"/>
+  <rect x="1" y="1" width="1158" height="628" rx="13" fill="none" stroke="#222b3a" stroke-width="1.5"/>
+
+  <!-- Header -->
+  <circle cx="42" cy="40" r="5" fill="#ffb347"/>
+  <circle cx="42" cy="40" r="10" fill="#ffb347" opacity="0.18"/>
+  <text x="62" y="46" class="title">ikuradio — High-Level System Architecture</text>
+  <text x="62" y="68" class="subtitle">Produce once on a GPU, archive forever in object storage, sync via one Radio clock, and synthesize live in every browser.</text>
+
+  <!-- ZONE 1: HEART & STUDIO (GPU BOX) -->
+  <rect x="28" y="96" width="282" height="448" rx="12" fill="#121722" stroke="#ffb347" stroke-opacity="0.55" stroke-width="1.5"/>
+  <text x="46" y="120" class="zoneLabel" fill="#ffb347">1. HEART &amp; STUDIO (GPU)</text>
+  <text x="46" y="136" class="cardBody">Wakes per Song on xitra, then exits</text>
+
+  <!-- Heart Card -->
+  <rect x="44" y="152" width="250" height="86" rx="8" fill="#171e2c" stroke="#2c374b" stroke-width="1"/>
+  <text x="58" y="174" class="cardTitle">Heart</text>
+  <text x="282" y="173" text-anchor="end" class="badge" fill="#ffb347">packages/heart</text>
+  <text x="58" y="195" class="cardBody">Watches Radio &amp; Archive queue.</text>
+  <text x="58" y="211" class="cardBody">Spawns Studio when Songs run low</text>
+  <text x="58" y="227" class="cardBody">and triggers post-air DJ intros.</text>
+
+  <!-- Studio Card -->
+  <rect x="44" y="254" width="250" height="198" rx="8" fill="#171e2c" stroke="#2c374b" stroke-width="1"/>
+  <text x="58" y="276" class="cardTitle">Studio</text>
+  <text x="282" y="275" text-anchor="end" class="badge" fill="#ffb347">packages/studio</text>
+  <text x="58" y="297" class="cardBody">Reads Diary, Queue &amp; Memories.</text>
+  <rect x="56" y="310" width="226" height="36" rx="6" fill="#111622" stroke="#2e3b52"/>
+  <text x="66" y="325" class="mono">The Mind (llama.cpp)</text>
+  <text x="66" y="340" class="cardBody">Weather, lyrics, names, thoughts</text>
+  <rect x="56" y="354" width="226" height="36" rx="6" fill="#111622" stroke="#2e3b52"/>
+  <text x="66" y="369" class="mono">The Throat (Chimera)</text>
+  <text x="66" y="384" class="cardBody">Two-voice guides &amp; voice takes</text>
+  <rect x="56" y="398" width="226" height="36" rx="6" fill="#111622" stroke="#2e3b52"/>
+  <text x="66" y="413" class="mono">The Band (MusicGen-melody)</text>
+  <text x="66" y="428" class="cardBody">Follows guide hum to grow beds</text>
+
+  <!-- Diary Card -->
+  <rect x="44" y="466" width="250" height="62" rx="8" fill="#171e2c" stroke="#2c374b" stroke-width="1"/>
+  <text x="58" y="487" class="cardTitle">Diary &amp; Thoughts</text>
+  <text x="58" y="505" class="cardBody">Song ledger, mood history, mind</text>
+  <text x="58" y="519" class="cardBody">journal &amp; manual test queue.</text>
+
+  <!-- ZONE 2: ARCHIVE -->
+  <rect x="352" y="96" width="232" height="448" rx="12" fill="#121722" stroke="#7aa2c4" stroke-opacity="0.55" stroke-width="1.5"/>
+  <text x="370" y="120" class="zoneLabel" fill="#7aa2c4">2. ARCHIVE (FOREVER)</text>
+  <text x="370" y="136" class="cardBody">Immutable object storage</text>
+
+  <rect x="368" y="158" width="200" height="106" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="382" y="180" class="cardTitle">Session JSON (v1)</text>
+  <text x="382" y="198" class="mono">sessions/&lt;n&gt;.json</text>
+  <text x="382" y="218" class="cardBody">Complete declarative score:</text>
+  <text x="382" y="234" class="cardBody">takes, speech, synth specs,</text>
+  <text x="382" y="250" class="cardBody">mix FX, chords &amp; typing.</text>
+
+  <rect x="368" y="280" width="200" height="92" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="382" y="302" class="cardTitle">Music Beds (.m4a)</text>
+  <text x="382" y="320" class="mono">recordings/*.m4a</text>
+  <text x="382" y="340" class="cardBody">Only MusicGen beds stored</text>
+  <text x="382" y="356" class="cardBody">as audio (~1 MB per Song).</text>
+
+  <rect x="368" y="388" width="200" height="64" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="382" y="409" class="cardTitle">DJ Intros &amp; Index</text>
+  <text x="382" y="427" class="mono">intro-&lt;n&gt; · dj-rezzy-&lt;n&gt;</text>
+  <text x="382" y="443" class="cardBody">Song list &amp; unique slugs.</text>
+
+  <rect x="368" y="466" width="200" height="62" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="382" y="487" class="cardTitle">Memory Backups</text>
+  <text x="382" y="505" class="mono">diary/ · thoughts/mind/</text>
+  <text x="382" y="519" class="cardBody">Homecoming recovery store.</text>
+
+  <!-- ZONE 3: RADIO -->
+  <rect x="626" y="96" width="224" height="448" rx="12" fill="#121722" stroke="#9ec4b0" stroke-opacity="0.55" stroke-width="1.5"/>
+  <text x="644" y="120" class="zoneLabel" fill="#9ec4b0">3. RADIO (LIVE)</text>
+  <text x="644" y="136" class="cardBody">Stateless k3s server</text>
+
+  <rect x="642" y="158" width="192" height="114" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="656" y="180" class="cardTitle">Tactus Clock</text>
+  <text x="656" y="198" class="mono">GET /tactus</text>
+  <text x="656" y="218" class="cardBody">One shared beat for all.</text>
+  <text x="656" y="234" class="cardBody">Announces playing &amp; next</text>
+  <text x="656" y="250" class="cardBody">Song, or critic encores.</text>
+
+  <rect x="642" y="288" width="192" height="110" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="656" y="310" class="cardTitle">Routes &amp; Catalog</text>
+  <text x="656" y="328" class="mono">/ · /s/&lt;n&gt;/&lt;slug&gt;</text>
+  <text x="656" y="344" class="mono">/p/&lt;base36&gt; · /songs</text>
+  <text x="656" y="364" class="cardBody">Live stream, Song pages,</text>
+  <text x="656" y="380" class="cardBody">playlists &amp; search cache.</text>
+
+  <rect x="642" y="414" width="192" height="114" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="656" y="436" class="cardTitle">Receiver Assets</text>
+  <text x="656" y="454" class="mono">chimera.wasm · cmudict</text>
+  <text x="656" y="474" class="cardBody">Content-hashed UI bundle,</text>
+  <text x="656" y="490" class="cardBody">singing &amp; speaking WASM.</text>
+  <text x="656" y="506" class="cardBody">Never serves audio beds.</text>
+
+  <!-- ZONE 4: RECEIVER (BROWSER) -->
+  <rect x="892" y="96" width="240" height="448" rx="12" fill="#121722" stroke="#b98cc6" stroke-opacity="0.55" stroke-width="1.5"/>
+  <text x="910" y="120" class="zoneLabel" fill="#b98cc6">4. RECEIVER (BROWSER)</text>
+  <text x="910" y="136" class="cardBody">ikurad.io &amp; terminal CLI</text>
+
+  <rect x="908" y="158" width="208" height="82" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="922" y="180" class="cardTitle">Clock &amp; Preloader</text>
+  <text x="922" y="198" class="cardBody">Measures RTT to Tactus.</text>
+  <text x="922" y="214" class="cardBody">Pre-fetches upcoming beds</text>
+  <text x="922" y="230" class="cardBody">&amp; joins live mid-Song.</text>
+
+  <rect x="908" y="256" width="208" height="90" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="922" y="278" class="cardTitle">Local WASM Synthesis</text>
+  <text x="922" y="296" class="cardBody">Web Workers sing takes &amp;</text>
+  <text x="922" y="312" class="cardBody">spoken lines via Chimera</text>
+  <text x="922" y="328" class="cardBody">+ drone, pulse &amp; drums.</text>
+
+  <rect x="908" y="362" width="208" height="84" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="922" y="384" class="cardTitle">Web Audio Mixer &amp; FX</text>
+  <text x="922" y="402" class="cardBody">LUFS gain, stereo pan,</text>
+  <text x="922" y="418" class="cardBody">low-pass filter, hall reverb</text>
+  <text x="922" y="434" class="cardBody">&amp; tempo-synced dub echo.</text>
+
+  <rect x="908" y="462" width="208" height="66" rx="8" fill="#171e2c" stroke="#2c374b"/>
+  <text x="922" y="484" class="cardTitle">Dot-Matrix Stage</text>
+  <text x="922" y="502" class="cardBody">Synced typing lyrics,</text>
+  <text x="922" y="518" class="cardBody">cosmic shader &amp; Rezzy DJ.</text>
+
+  <!-- ARROWS BETWEEN ZONES -->
+  <line x1="310" y1="246" x2="350" y2="246" stroke="#ffb347" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <line x1="310" y1="330" x2="350" y2="330" stroke="#ffb347" stroke-width="2" marker-end="url(#arrowAmber)"/>
+  <line x1="310" y1="496" x2="350" y2="496" stroke="#ffb347" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowAmber)"/>
+
+  <line x1="584" y1="214" x2="624" y2="214" stroke="#7aa2c4" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <line x1="584" y1="420" x2="624" y2="420" stroke="#7aa2c4" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrowBlue)"/>
+
+  <line x1="850" y1="202" x2="890" y2="202" stroke="#9ec4b0" stroke-width="2" marker-end="url(#arrowMint)"/>
+  <line x1="850" y1="470" x2="890" y2="470" stroke="#9ec4b0" stroke-width="2" marker-end="url(#arrowMint)"/>
+
+  <!-- Direct Archive -> Receiver -->
+  <path d="M 468 544 L 468 580 L 1012 580 L 1012 546" fill="none" stroke="#7aa2c4" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <rect x="596" y="567" width="298" height="24" rx="5" fill="#10151f" stroke="#2b384d"/>
+  <text x="745" y="583" text-anchor="middle" class="edgeLabel" fill="#9bc2e5">Direct fetch: Session JSON + .m4a beds</text>
+
+  <!-- Radio -> Heart feedback -->
+  <path d="M 738 544 L 738 606 L 169 606 L 169 546" fill="none" stroke="#7a889e" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#arrowSlate)"/>
+  <rect x="296" y="594" width="276" height="22" rx="5" fill="#10151f" stroke="#283244"/>
+  <text x="434" y="609" text-anchor="middle" class="edgeLabel" fill="#8b97ab">Heart polls /tactus for Songs ahead</text>
+</svg>
