@@ -2236,6 +2236,7 @@ addEventListener('popstate', () => {
     // the page's first entry was not this one
     entry = false
     tellReplay()
+    revealPlay()
     return
   }
   if (askedList) carryOnToPlaylist(askedList.slug, { push: false })
@@ -2733,7 +2734,30 @@ async function listenLive(output, audioContext) {
   })
 }
 
+/** Reveals the play button once the page is ready for this route, retiring the preparing animation. */
+function revealPlay() {
+  const prep = document.getElementById('preparing')
+  if (prep) prep.hidden = true
+  document.getElementById('play').hidden = false
+}
+
 document.getElementById('play').addEventListener('click', () => listen())
+
+if (preloadingPlaylist) {
+  const waitingSlug = preloadingPlaylist.slug
+  Promise.race([preloadingPlaylist.ready, new Promise((resolve) => setTimeout(resolve, 4000))])
+    .then((res) => {
+      if (res?.found && playlist?.slug === waitingSlug && !playlist.items) playlist.items = res.items
+    })
+    .finally(() => {
+      if (playlist?.slug === waitingSlug) {
+        tellReplay()
+        revealPlay()
+      }
+    })
+} else {
+  revealPlay()
+}
 
 // a page reloaded for an update carries on listening by itself. Where the browser will not sound without
 // a touch, it listens in silence and says so, and sounds at the first touch.
