@@ -143,11 +143,12 @@ export async function countSyllables(line: string): Promise<number> {
 }
 
 /**
- * A score exactly as the throat is given it, its lyrics read aloud first:
- * what the Studio sings, and what a Receiver is given to sing the same.
+ * A score exactly as the throat is given it: if explicit IPA `syllables` are
+ * present they are kept intact; otherwise `lyrics` is read aloud for English
+ * G2P. What the Studio sings, and what a Receiver is given to sing the same.
  */
 export function throatScore<T extends Score>(score: T): T {
-  return { ...score, lyrics: prepareLyrics(score.lyrics) }
+  return score.syllables ? { ...score } : { ...score, lyrics: prepareLyrics(score.lyrics) }
 }
 
 /** A recording's name, without its folder or kind: the hash of the score that sang it. */

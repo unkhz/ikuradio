@@ -142,16 +142,18 @@ new file mode 100644
 index 0000000..6ee8f11
 --- /dev/null
 +++ b/crates/chimera/src/phonetics/notes.rs
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,108 @@
 +//! A melody with lyrics, sung offline: what `chimera render notes` sings, as a library, so that
 +//! the CLI and the browser sing the same score the same way, sample for sample.
 +//!
 +//! The score is JSON: `{"bpm", "lyrics", "notes": [[midi, beats], …]}`, a midi of 0 or less
 +//! being a rest, with optional `t0` (seconds before the first beat), `vibrato` (cents) and the
 +//! singer's throat: `pressure` (cmH2O), `tension` and `breathiness`.
++//! Optional `syllables` carries explicit IPA syllables, bypassing English G2P on `lyrics`.
 +
 +use crate::anatomy::human::{BODY_CHILD, BODY_FEMALE, BODY_MALE, HumanBody};
 +use crate::math::{js_max, js_round};
++use crate::phonetics::Syllable;
 +use crate::phonetics::english::EnglishG2P;
 +use crate::phonetics::mandarin::MandarinLexicon;
 +use crate::phonetics::sing::{SongOptions, SungNote, midi_to_hz, plan_song};
@@ -185,7 +187,11 @@ index 0000000..6ee8f11
 +    let bpm = j["bpm"].as_f64().ok_or("bpm missing")?;
 +    let vibrato = j["vibrato"].as_f64().unwrap_or(35.0);
 +    let raw: Vec<[f64; 2]> = serde_json::from_value(j["notes"].clone()).map_err(|e| format!("notes: {e}"))?;
-+    let syl = lyrics_in(j["lyrics"].as_str().ok_or("lyrics missing")?, g, &MandarinLexicon::new(), Lang::En);
++    let syl: Vec<Syllable> = if let Some(explicit) = j.get("syllables").filter(|v| !v.is_null()) {
++        serde_json::from_value(explicit.clone()).map_err(|e| format!("syllables: {e}"))?
++    } else {
++        lyrics_in(j["lyrics"].as_str().ok_or("lyrics missing")?, g, &MandarinLexicon::new(), Lang::En)
++    };
 +    let sounding = raw.iter().filter(|n| n[0] > 0.0).count();
 +    if syl.len() != sounding {
 +        return Err(format!("{} syllables for {sounding} notes: {}", syl.len(),

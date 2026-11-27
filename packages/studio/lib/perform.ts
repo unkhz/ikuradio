@@ -11,7 +11,7 @@
 
 import { getEnv } from 'tools'
 import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Phrase, type Score, type Syllables } from 'melody'
-import { blend, countSyllables, fullness, humanize, keepsPace, quickest, record, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
+import { blend, composeScat, countSyllables, fullness, humanize, isIpaScatToken, keepsPace, quickest, record, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
 import type { Part as PartDef, WordMode } from 'parts'
 import type { Melody } from 'perspectives'
 import type { Iteration } from './compose.js'
@@ -254,9 +254,9 @@ export async function perform(
     // the lead hums, or, in a Song heard that way, the whole choir in its harmonies
     const hummers = bridging.choir ? choir : [lead]
     // the hum walks from where the last part ended to where the next begins
-    // a hum, or, in a Song heard that way, scat: the same syllables for every voice, so they sing together
-    const sound = scatSyllables?.length ? scat(scatSyllables, wrongness(`scat:${song.number}:${section}`)) : hum
     const bridgeBpm = typeof regionTempo === 'number' ? regionTempo : mood.character.tempo
+    const useIpaScat = Boolean(scatSyllables?.length && scatSyllables.every(isIpaScatToken))
+    const sound = scatSyllables?.length && !useIpaScat ? scat(scatSyllables, wrongness(`scat:${song.number}:${section}`)) : hum
     let led = setBridge({
       from,
       to,
@@ -273,6 +273,11 @@ export async function perform(
         const scale = regionSeconds / current
         led = { ...led, notes: led.notes.map(([pitch, beats]) => [pitch, beats * scale] as [number, number]) }
       }
+    }
+    // lively IPA scat: phrased to the bridge's actual melody and rhythm, sung directly by Chimera
+    if (useIpaScat && scatSyllables) {
+      const scatted = composeScat(scatSyllables, led.notes, wrongness(`scat:${song.number}:${section}`))
+      led = { ...led, lyrics: scatted.lyrics, syllables: scatted.syllables }
     }
     const scores = choirOf(led, hummers, `bridge:${section}`)
     const hums = hummers.map((voice, v) => {

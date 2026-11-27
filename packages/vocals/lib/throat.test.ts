@@ -8,6 +8,7 @@ import { firstTune, setLine } from 'melody'
 import { throatScore } from './chimera.js'
 import { run } from './exec.js'
 import { humanize } from './humanize.js'
+import { composeScat } from './scat.js'
 import { firstChoir, throatOf } from './singers.js'
 import { throatName } from './throat.js'
 
@@ -63,6 +64,40 @@ describe('the throat', () => {
       const receiver: Float32Array = throat.sing(JSON.parse(JSON.stringify(take)), lead.body)
 
       expect(receiver.length).toBe(studio.length)
+      expect(receiver.every((sample, i) => sample === studio[i])).toBe(true)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  }, 60_000)
+
+  it.skipIf(!built)('sings an explicit IPA syllables take in a Receiver identically to the Studio', async () => {
+    const [lead] = firstChoir
+    const notes: [number, number][] = [
+      [64, 0.5], [67, 0.5], [69, 1], [67, 0.5], [64, 0.5], [62, 1], [60, 2], [0, 1],
+    ]
+    let n = 0
+    const random = () => ((n = (n * 9301 + 49297) % 233280) / 233280)
+    const scatted = composeScat(['ʙo', 'pfa', 'tɾi', 'kø', 'ʙu', 'tsak'], notes, random)
+    const take = throatScore({
+      ...humanize({ bpm: 88, lyrics: scatted.lyrics, syllables: scatted.syllables, notes }, 'throat-ipa-test'),
+      ...throatOf(random, 'plain'),
+    })
+
+    const dir = await mkdtemp(join(tmpdir(), 'ikuradio-throat-ipa-'))
+    try {
+      await writeFile(join(dir, 'take.json'), JSON.stringify(take))
+      await run(native, ['--float', 'render', 'notes', join(dir, 'take.json'), join(dir, 'studio'), lead.body])
+      const studio = samplesOf(join(dir, 'studio.wav'))
+
+      const { openThroat } = await import(`${page}throat.js`)
+      const throat = await openThroat(
+        readFileSync(`${page}throat/chimera.wasm`),
+        gunzipSync(readFileSync(`${page}throat/cmudict.txt.gz`)).toString(),
+      )
+      const receiver: Float32Array = throat.sing(JSON.parse(JSON.stringify(take)), lead.body)
+
+      expect(receiver.length).toBe(studio.length)
+      expect(receiver.length).toBeGreaterThan(48_000)
       expect(receiver.every((sample, i) => sample === studio[i])).toBe(true)
     } finally {
       await rm(dir, { recursive: true, force: true })

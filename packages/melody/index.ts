@@ -85,10 +85,31 @@ export {
 
 export type Singer = 'male' | 'female' | 'child'
 
+/** One IPA phoneme segment in a sung syllable (matches Chimera's Segment JSON). */
+export type PhonemeSegment = {
+  ipa: string
+  dur?: number
+  stress?: number
+  wordEnd?: boolean
+}
+
+/** One explicit IPA syllable for Chimera's vocal tract (bypasses English G2P when present on a Score). */
+export type PhonemeSyllable = {
+  text: string
+  onset: PhonemeSegment[]
+  nucleus: PhonemeSegment
+  coda: PhonemeSegment[]
+  melisma?: boolean
+  wordEnd: boolean
+  phraseEnd: boolean
+}
+
 /** One line, written to the note, in the language Chimera reads. */
 export type Score = {
   bpm: number
   lyrics: string
+  /** Optional explicit IPA syllables; when present, Chimera sings these instead of running English G2P on `lyrics`. */
+  syllables?: PhonemeSyllable[]
   /** [midi, beats]; a midi of 0 is silence. */
   notes: [number, number][]
 }

@@ -99,15 +99,37 @@ export type Session = {
 /** A Perspective a Song is heard from: its name and title, the Facet it turned, and the variant chosen. */
 export type SessionPerspective = { slug: string; title: string; facet: string; variant?: string }
 
+/** One IPA phoneme segment in an explicit phonetic syllable. */
+export type SessionPhoneme = {
+  ipa: string
+  dur?: number
+  stress?: number
+  wordEnd?: boolean
+}
+
+/** One explicit IPA syllable sung by Chimera directly, bypassing English G2P. */
+export type SessionSyllable = {
+  text: string
+  onset: SessionPhoneme[]
+  nucleus: SessionPhoneme
+  coda: SessionPhoneme[]
+  melisma?: boolean
+  wordEnd: boolean
+  phraseEnd: boolean
+}
+
 /**
  * A take, exactly as the throat is given it: the notes in MIDI (cents and
  * all) and beats at `bpm`, a rest being 0 or less, the words read aloud, the
  * breath before the first note, the vibrato, and the singer's own throat.
+ * Optional `syllables` carries explicit IPA syllables for non-English singing,
+ * scat vocalizations, or pronunciation overrides.
  * The body that sings it is the singer's, in `singers`.
  */
 export type SessionTake = {
   bpm: number
   lyrics: string
+  syllables?: SessionSyllable[]
   notes: [number, number][]
   /** Seconds of breath before the first note. */
   t0?: number
