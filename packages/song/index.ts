@@ -2,6 +2,7 @@ import * as original from './verses.js'
 import { numberToWords } from './lib/numbers.js'
 import { editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
+import { drawSpecialWords, isSpecialWord, specialByWord, specialWords, type SpecialWord } from './lib/special.js'
 import { known } from './lib/known.js'
 import { leansDeep, leansOn, overlap, stemOf, worn } from './lib/wear.js'
 import { allVocabulary, drawVocabulary, vocabulary, vocabularyNote } from './lib/vocabulary.js'
@@ -9,6 +10,7 @@ import { itsAgeOf, ofItsAge, timeless, timelessInstruction } from './lib/timeles
 import { forgotten, type Memories } from './lib/memories.js'
 export { forgotten, gather, memoriesOf, readMemories, recall, type Memories } from './lib/memories.js'
 export { allVocabulary, drawVocabulary, vocabulary, vocabularyNote } from './lib/vocabulary.js'
+export { drawSpecialWords, isSpecialWord, specialByWord, specialWords, type SpecialWord } from './lib/special.js'
 export {
   attentions,
   echoOf,
@@ -228,11 +230,16 @@ export async function writeVerse(
   const rest = restingNote(resting)
   const restDeep = deepNote(deep)
   const tray = vocabularyNote(drawVocabulary({ avoid: [...resting, ...deep] }))
+  // now and then, offer a pair of rare special words (with short glosses) to lift the weirdness
+  const curios = Math.random() < 0.25 ? drawSpecialWords(2, [...resting, ...deep]) : []
+  const curioNote = curios.length
+    ? `\nUnusual words you may weave in if they fit: ${curios.map((c) => `${c.word} (${c.gloss})`).join(', ')}.`
+    : ''
   const instruction =
     (memories.own.length || memories.heard.length ? rememberingInstruction(memories, focus) : verseInstruction) +
     `\n${countInstruction(fitting?.verse)}` +
     (fitting?.say?.verse ? ` ${fitting.say.verse}` : '')
-  const asked = inMood(instruction, mood) + rest + restDeep + tray
+  const asked = inMood(instruction, mood) + rest + restDeep + tray + curioNote
   // a verse that sings a word of this short age is not sung, nor one whose lines do not fit their bars
   const suits = (lines: string[]) =>
     leansOn(lines, resting) <= slips && leansDeep(lines, deep) <= slips && !lines.some(ofItsAge)
@@ -287,14 +294,30 @@ async function pickChorus(chorus: string, iteration: bigint, fitting?: Fitting) 
   const pool = dictionary?.offer(age, 400)
   const plain = pool ? await known(pool.words) : undefined
   const offered = pool && { words: [...(plain ?? pool.words)].slice(0, 30), loosely: pool.loosely }
+  // now and then (~45% of choruses), pop 1–3 rare rhyming special words into the rhyme prompt
+  const specialRhymes =
+    dictionary && Math.random() < 0.45
+      ? dictionary.specialOffer(age, 3, { loosely: offered?.loosely ?? false })
+      : []
   const [before = ''] = rest
   // with their syllables, so the line can be counted to its end
-  const syllablesOf = (word: string) => dictionary?.words.get(word)?.filter((sound) => /\d$/.test(sound)).length
-  const hint = offered?.words.length
-    ? `End the second line with one of these words, which ${offered.loosely ? `share the vowel of "${age}"` : `rhyme with "${age}"`}: ${offered.words
-        .map((word) => (fitting && syllablesOf(word) ? `${word} (${syllablesOf(word)})` : word))
-        .join(', ')}.`
+  const syllablesOf = (word: string) =>
+    specialByWord.get(word)?.ipa.length ?? dictionary?.words.get(word)?.filter((sound) => /\d$/.test(sound)).length
+  const specialHint = specialRhymes.length
+    ? `Rare unusual rhymes you are encouraged to try: ${specialRhymes
+        .map((c) => `${c.word} (${c.ipa.length}, ${c.gloss})`)
+        .join('; ')}.`
     : ''
+  const hint = offered?.words.length
+    ? [
+        specialHint,
+        `End the second line with one of these words, which ${offered.loosely ? `share the vowel of "${age}"` : `rhyme with "${age}"`}: ${offered.words
+          .map((word) => (fitting && syllablesOf(word) ? `${word} (${syllablesOf(word)})` : word))
+          .join(', ')}.`,
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : specialHint
   const instruction = [
     'The input is the chorus of a song that never ends. Its second line is missing.',
     'Keep the first line exactly as it is.',
@@ -310,12 +333,16 @@ async function pickChorus(chorus: string, iteration: bigint, fitting?: Fitting) 
     .join(' ')
   // the old second line is not shown: what the mind cannot see, it cannot copy
   const input = [opening, gap, ...rest.slice(1)].join('\n')
-  const sings = (second: string) =>
-    second.split(/\s+/).length <= longestSecondLine &&
-    second !== gap &&
-    (!dictionary ||
-      (dictionary.rhymes(lastWord(second), age, offered?.loosely) &&
-        (!plain || plain.has(lastWord(second)))))
+  const sings = (second: string) => {
+    const end = lastWord(second)
+    return (
+      second.split(/\s+/).length <= longestSecondLine &&
+      second !== gap &&
+      (!dictionary ||
+        (dictionary.rhymes(end, age, offered?.loosely) &&
+          (!plain || plain.has(end) || isSpecialWord(end))))
+    )
+  }
   // the second line must rhyme, must not grow, and should be new, not the
   // old one's shape with a new rhyme pinned to it
   let varied = await editVerse(input, instruction, 1, {

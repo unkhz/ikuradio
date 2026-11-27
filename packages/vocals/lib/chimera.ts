@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url'
 import type { Score, Singer } from 'melody'
 import { sing } from './exec.js'
 import { readAloud } from './reading.js'
+import { hasSpecialWord, resolveLineSyllables } from './special.js'
 
 function chimera() {
   return (
@@ -116,6 +117,19 @@ export async function countSyllables(line: string): Promise<number> {
     counted.delete(lyrics)
     counted.set(lyrics, known)
     return known
+  }
+
+  // lines with special IPA words are counted directly from their resolved IPA syllables
+  if (hasSpecialWord(lyrics)) {
+    const resolved = await resolveLineSyllables(lyrics)
+    if (resolved?.length) {
+      counted.set(lyrics, resolved.length)
+      for (const old of counted.keys()) {
+        if (counted.size <= countsRemembered) break
+        counted.delete(old)
+      }
+      return resolved.length
+    }
   }
 
   const count = await withScratch(async (dir) => {

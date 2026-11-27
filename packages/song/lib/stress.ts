@@ -8,6 +8,7 @@
 // never stressed, whatever the dictionary says of them alone.
 
 import { rhymes, type Pronunciations } from './rhyme.js'
+import { specialByWord } from './special.js'
 
 /** One word of a line as it is sung: its syllables' stress, if the dictionary knows it, and whether a comma follows it. */
 export type StressedWord = {
@@ -40,13 +41,21 @@ export function stressedWords(lyrics: string, dictionary: Pronunciations): Stres
     .split(/\s+/)
     .filter(Boolean)
     .flatMap((token) => {
-      const text = token.toLowerCase().replace(/[^a-z']/g, '')
+      const text = token.toLowerCase().replace(/[^\p{L}']/gu, '')
       if (!text) return []
-      const sounds = dictionary.get(text)
+      const special = specialByWord.get(text)
+      const sounds = dictionary.get(text) ?? special?.arpa
       // a possessive the dictionary does not know is its word and one more
       // syllable: the throat sings the 's apart, "tune-s"
-      const stem = !sounds && text.endsWith("'s") ? dictionary.get(text.slice(0, -2)) : undefined
-      let stresses = sounds ? stressOf(sounds) : stem ? [...stressOf(stem), 0] : undefined
+      const stemText = text.endsWith("'s") ? text.slice(0, -2) : undefined
+      const stem = !sounds && stemText ? (dictionary.get(stemText) ?? specialByWord.get(stemText)?.arpa) : undefined
+      let stresses = special
+        ? [...special.stresses]
+        : sounds
+          ? stressOf(sounds)
+          : stem
+            ? [...(specialByWord.get(stemText!)?.stresses ?? stressOf(stem)), 0]
+            : undefined
       if (stresses && stresses.length === 1 && small.has(text)) stresses = [0]
       return [{ text, stresses, comma: /[,.;:!?—–]$/.test(token) }]
     })

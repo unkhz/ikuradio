@@ -11,7 +11,7 @@
 
 import { getEnv } from 'tools'
 import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Phrase, type Score, type Syllables } from 'melody'
-import { blend, composeScat, countSyllables, fullness, humanize, isIpaScatToken, keepsPace, quickest, record, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
+import { blend, composeScat, countSyllables, fullness, hasSpecialWord, humanize, isIpaScatToken, keepsPace, quickest, record, resolveLineSyllables, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
 import type { Part as PartDef, WordMode } from 'parts'
 import type { Melody } from 'perspectives'
 import type { Iteration } from './compose.js'
@@ -365,7 +365,8 @@ export async function perform(
     }
     // the words with their stress, for fitting them bar by bar
     const stressed: Syllables[] | undefined = hummed ? undefined : await stressedLine(line, syllables)
-    const score = setLine({
+    const explicitSyllables = !hummed && hasSpecialWord(words) ? await resolveLineSyllables(words).catch(() => undefined) : undefined
+    let score = setLine({
       part,
       ...(explicit ? { phrases: explicit } : {}),
       line: index,
@@ -377,6 +378,9 @@ export async function perform(
       rate,
       words: stressed,
     })
+    if (explicitSyllables && explicitSyllables.length === score.notes.filter(([m]) => m > 0).length) {
+      score = { ...score, syllables: explicitSyllables }
+    }
     return { score, words: stressed, hummed }
   }
 

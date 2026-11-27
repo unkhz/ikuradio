@@ -25,3 +25,4 @@ export { loudnessOf, parseLoudness, silence, type Loudness } from './lib/loudnes
 export { encodeWav, speakInto, speechRate, type SpeechSegment, type SpeechSpec } from './lib/speak.js'
 export { renderDrone, renderDrums, renderPulse, renderSynth, synthInto, synthRate, type SynthSpec } from './lib/synth.js'
 export { composeScat, isIpaScatToken, parseIpaSyllable, parseIpaToken, type ParsedIpaToken } from './lib/scat.js'
+export { hasSpecialWord, resolveLineSyllables, specialWordSyllables } from './lib/special.js'
