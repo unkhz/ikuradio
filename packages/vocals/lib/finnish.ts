@@ -1,16 +1,19 @@
 // Deterministic Finnish syllabification and Chimera IPA articulation.
 //
-// Finnish orthography is nearly 100% phonemic, so every Finnish word can be
-// mapped directly to Chimera's articulatory vocal tract without a word list:
-//  - Unaspirated voiceless stops (`p / t / k` with `aspirated: false`)
-//  - Geminate consonants (`rr / ll / tt / pp / kk / ss / nn / mm`) merged into
-//    one lengthened onset instead of two colliding segments
-//  - Slight `l`-onset duration boost after voiceless stop codas (`t/p/k → l`)
-//  - Chimera's 5 native falling diphthongs (`ai/au/ei/ou/oi`) kept single
-//  - Opening diphthongs (`ie / uo / yö`) and other Finnish diphthongs
-//    (`äi / öi / ui / yi / äy / öy / eu / iu / ey / iy`) split smoothly across
-//    the same humanized MIDI note, subtracting upcoming consonant time so both
-//    vowels ring out in balance (targeting `ɛ / ɔ / œ` for `ie / uo / yö`).
+// Finnish orthography is nearly 100% phonemic, so every Finnish word maps
+// directly to our Chimera fork's tuned articulatory targets:
+//  - True Finnish vowels: open front `æ̞` (ä), mid front rounded `œ` (ö),
+//    back `u̠` (u), open back `ɑ` (a), and `e / i / o / y`
+//  - Dental voiceless stop `t̪` and anchored dental lateral `l̪`, with full
+//    glottal opening and tight 12 ms VOT on `/p t̪ k/` (`aspirated: true, vot: 0.012`)
+//    so stops stay crisp without English `[tʰ]` breathiness or `[d]` voicing bleed
+//  - Geminate consonants (`rr / ll / tt / pp / kk / ss / nn / mm / hh`) merged
+//    into one lengthened onset (`155–175 ms`)
+//  - Coda `r` before a consonant (`tur-ma`, `ker-ta`) boosted to `135 ms`, and
+//    `l̪` after a voiceless stop coda (`Revontulet leiskuvat`) boosted to `88 ms`
+//  - All 18 Finnish diphthongs carried natively on a single note via Chimera's
+//    diphthong expansions and `offglideShare` (`0.60` for opening `ie / uo / yö`,
+//    `0.42` for closing diphthongs).
 
 import type { PhonemeSegment, PhonemeSyllable, Score, Syllables } from 'melody'
 
@@ -24,77 +27,64 @@ const DIPHTHONGS = new Set([
   'ie', 'uo', 'yö',
 ])
 
-/** Finnish diphthongs Chimera's planner already expands natively as falling diphthongs. */
-const NATIVE_FALLING: Record<string, string> = {
-  ai: 'aɪ',
-  au: 'aʊ',
-  ei: 'eɪ',
-  ou: 'oʊ',
-  oi: 'ɔɪ',
-}
-
-/**
- * Opening diphthongs: Chimera's close-mid female `e / o / ø` sit too close in F1
- * to `i / u / y`, so the second half targets mid-open `ɛ / ɔ / œ` (true Finnish `[e̞ o̞ ø̞]`).
- */
-const OPENING_SPLIT: Record<string, [string, string]> = {
-  ie: ['i', 'ɛ'],
-  uo: ['u', 'ɔ'],
-  yö: ['y', 'œ'],
+/** Finnish diphthong → `[chimeraIpa, offglideShare]`. */
+const DIPHTHONG_IPA: Record<string, [string, number | undefined]> = {
+  ai: ['ɑi', 0.42],
+  au: ['ɑu̠', 0.42],
+  ei: ['eɪ', undefined],
+  ou: ['ou̠', 0.42],
+  oi: ['oi', 0.42],
+  // Opening diphthongs: spend ~60% of the note on the more open second half
+  ie: ['ie', 0.60],
+  uo: ['ʊɔ', 0.60],
+  yö: ['yœ', 0.60],
+  // Remaining closing/front diphthongs
+  äi: ['æ̞i', 0.42],
+  öi: ['œi', 0.42],
+  ui: ['u̠i', 0.42],
+  yi: ['yi', 0.42],
+  äy: ['æ̞y', 0.42],
+  öy: ['œy', 0.42],
+  eu: ['eu̠', 0.42],
+  iu: ['iu̠', 0.42],
+  ey: ['ey', 0.42],
+  iy: ['iy', 0.42],
 }
 
 /** Single-vowel Finnish letter → Chimera IPA vowel. */
 function singleVowelIpa(ch: string): string {
   switch (ch) {
     case 'a': return 'ɑ'
-    case 'ä': return 'æ'
-    case 'ö': return 'ø'
+    case 'ä': return 'æ̞'
+    case 'ö': return 'œ'
     case 'å': return 'o'
+    case 'u': return 'u̠'
     default: return ch
   }
 }
 
 /** Lengthened onset duration (s) for geminate consonants across a syllable boundary. */
 const GEMINATE_DUR: Record<string, number> = {
-  r: 0.115,
-  l: 0.095,
-  s: 0.125,
-  t: 0.105,
-  p: 0.105,
-  k: 0.105,
-  n: 0.095,
-  m: 0.095,
-  h: 0.105,
+  r: 0.165,
+  'l̪': 0.175,
+  s: 0.160,
+  't̪': 0.155,
+  p: 0.155,
+  k: 0.155,
+  n: 0.155,
+  m: 0.155,
+  h: 0.155,
 }
 
-/** Approximate sung duration (s) of a Chimera consonant (matches `sing.rs` `0.8 * def.dur`). */
-function estimatedConsonantSec(seg: PhonemeSegment): number {
-  if (seg.dur !== undefined) return seg.dur
-  switch (seg.ipa) {
-    case 'r': return 0.088
-    case 's':
-    case 'ʃ': return 0.096
-    case 'h': return 0.072
-    case 'p':
-    case 't':
-    case 'k': return 0.064
-    case 'f':
-    case 'v':
-    case 'b':
-    case 'd':
-    case 'g': return 0.058
-    case 'm':
-    case 'n':
-    case 'ŋ':
-    case 'l': return 0.055
-    case 'j': return 0.044
-    default: return 0.06
-  }
+/** Tight VOT (s) for crisp Finnish voiceless stops `/p t̪ k/`. */
+const STOP_VOT = 0.012
+const VOICELESS_STOPS = new Set(['p', 't', 't̪', 'k'])
+
+function stopSeg(ipa: string): PhonemeSegment {
+  return { ipa, aspirated: true, vot: STOP_VOT }
 }
 
-const VOICELESS_STOPS = new Set(['p', 't', 'k'])
-
-/** Maps a consonant cluster string to Chimera IPA segments (unaspirated Finnish stops). */
+/** Maps a consonant cluster string to Chimera IPA segments. */
 function consonantsToIpa(raw: string): PhonemeSegment[] {
   const out: PhonemeSegment[] = []
   for (let i = 0; i < raw.length; ) {
@@ -105,7 +95,7 @@ function consonantsToIpa(raw: string): PhonemeSegment[] {
       continue
     }
     if (pair === 'nk') {
-      out.push({ ipa: 'ŋ' }, { ipa: 'k', aspirated: false })
+      out.push({ ipa: 'ŋ' }, stopSeg('k'))
       i += 2
       continue
     }
@@ -115,21 +105,25 @@ function consonantsToIpa(raw: string): PhonemeSegment[] {
       continue
     }
     const ch = raw[i]!
-    if (ch === 'p' || ch === 't' || ch === 'k') {
-      out.push({ ipa: ch, aspirated: false })
+    if (ch === 'p' || ch === 'k') {
+      out.push(stopSeg(ch))
+    } else if (ch === 't') {
+      out.push(stopSeg('t̪'))
     } else if (ch === 'c' || ch === 'q') {
-      out.push({ ipa: 'k', aspirated: false })
+      out.push(stopSeg('k'))
     } else if (ch === 'x') {
-      out.push({ ipa: 'k', aspirated: false }, { ipa: 's' })
+      out.push(stopSeg('k'), { ipa: 's' })
     } else if (ch === 'z') {
-      out.push({ ipa: 't', aspirated: false }, { ipa: 's' })
+      out.push(stopSeg('t̪'), { ipa: 's' })
+    } else if (ch === 'l') {
+      out.push({ ipa: 'l̪' })
     } else if (ch === 'w') {
       out.push({ ipa: 'v' })
     } else if (ch === 'š') {
       out.push({ ipa: 'ʃ' })
     } else if (ch === 'ž') {
       out.push({ ipa: 'ʒ' })
-    } else if (/^[bdfghjlmnrsv]$/.test(ch)) {
+    } else if (/^[bdfghjmnrsv]$/.test(ch)) {
       out.push({ ipa: ch })
     }
     i++
@@ -226,7 +220,7 @@ type PreparedFinnishSyllable = {
   phraseEnd: boolean
 }
 
-/** Builds per-syllable IPA structures with geminate consolidation, `ng/nk`, and `t/p/k → l` protection. */
+/** Builds per-syllable IPA structures with geminate consolidation, `ng/nk`, coda `r`, and `p/t̪/k → l̪`. */
 function prepareFinnishLine(line: string): PreparedFinnishSyllable[] {
   const words = tokenizeFinnishLine(line)
   const out: PreparedFinnishSyllable[] = []
@@ -264,10 +258,10 @@ function prepareFinnishLine(line: string): PreparedFinnishSyllable[] {
       // Finnish `ng` across syllables (`lan-gat`) -> single lengthened velar nasal `ŋ`
       if (lastCoda.ipa === 'n' && firstOnset.ipa === 'g') {
         prev.coda.pop()
-        next.onset[0] = { ipa: 'ŋ', dur: 0.11 }
+        next.onset[0] = { ipa: 'ŋ', dur: 0.155 }
         continue
       }
-      // Finnish `nk` across syllables (`lan-ka`) -> `ŋ` coda + unaspirated `k` onset
+      // Finnish `nk` across syllables (`lan-ka`) -> `ŋ` coda + crisp `k` onset
       if (lastCoda.ipa === 'n' && firstOnset.ipa === 'k') {
         lastCoda.ipa = 'ŋ'
         continue
@@ -280,11 +274,16 @@ function prepareFinnishLine(line: string): PreparedFinnishSyllable[] {
         next.onset[0] = { ...firstOnset, dur: gemDur }
         continue
       }
+      // Coda `r` before a following onset consonant (`tur-ma`, `ker-ta`, `per-he`):
+      // give the trill enough room to strike clearly before the next consonant closes.
+      if (lastCoda.ipa === 'r' && lastCoda.dur === undefined) {
+        lastCoda.dur = 0.135
+      }
     }
 
-    // Voiceless stop coda followed by `l` onset (`Revontulet leiskuvat`):
-    // give `l` enough room to survive the stop's release tail.
-    if (VOICELESS_STOPS.has(lastCoda.ipa) && firstOnset.ipa === 'l' && firstOnset.dur === undefined) {
+    // Voiceless stop coda followed by `l̪` onset (`Revontulet leiskuvat`):
+    // give `l̪` enough room to survive the stop's release tail.
+    if (VOICELESS_STOPS.has(lastCoda.ipa) && firstOnset.ipa === 'l̪' && firstOnset.dur === undefined) {
       next.onset[0] = { ...firstOnset, dur: 0.088 }
     }
   }
@@ -292,100 +291,31 @@ function prepareFinnishLine(line: string): PreparedFinnishSyllable[] {
   return out
 }
 
-/** Splits a diphthong note across `[b1, b2]` with `b1 + b2 === beats` while keeping actual vowel times balanced. */
-function splitDiphthongBeats(
-  beats: number,
-  bpm: number,
-  stolenConsSec: number,
-  v1Share: number,
-): [number, number] {
-  const secPerBeat = 60 / bpm
-  const totalSec = beats * secPerBeat
-  const vowelRoom = Math.max(0.08, totalSec - stolenConsSec)
-  const minHalfSec = Math.min(0.055, totalSec * 0.35)
-  const v1Sec = Math.min(totalSec - minHalfSec, Math.max(minHalfSec, vowelRoom * v1Share))
-  const b1 = Math.round((v1Sec / secPerBeat) * 10000) / 10000
-  const b2 = Math.round((beats - b1) * 10000) / 10000
-  if (b1 <= 0 || b2 <= 0) {
-    const half = Math.round((beats * 0.5) * 10000) / 10000
-    return [half, Math.round((beats - half) * 10000) / 10000]
-  }
-  return [b1, b2]
-}
-
 /**
  * Attaches deterministic Finnish IPA `syllables` to an already-fitted, already-humanized
- * `Score` / `Take`, expanding non-native Finnish diphthongs (`ie / uo / yö`, `äi / ui / ...`)
- * cleanly across the same humanized MIDI pitch without altering total duration.
- *
- * Called after `humanize()` and `keepsPace()` so melody writing, choir harmony,
- * humanization, and syllable-rate enforcement all operate on true Finnish syllable counts.
+ * `Score` / `Take` using Chimera's native Finnish diphthong expansions and `offglideShare`.
  */
 export function expandFinnishTake<T extends Score>(take: T, line: string): T {
   const prepared = prepareFinnishLine(line)
   const positiveNotes = take.notes.filter(([midi]) => midi > 0).length
   if (prepared.length === 0 || prepared.length !== positiveNotes) return take
 
-  const expandedNotes: [number, number][] = []
-  const expandedSyllables: PhonemeSyllable[] = []
-  let sylIdx = 0
-
-  for (const [midi, beats] of take.notes) {
-    if (midi <= 0) {
-      expandedNotes.push([midi, beats])
-      continue
-    }
-    const cur = prepared[sylIdx]!
-    const next = prepared[sylIdx + 1]
-    sylIdx++
-
+  const syllables: PhonemeSyllable[] = prepared.map((cur) => {
     const nuc = cur.nucleusStr
     const isDiphthong = nuc.length === 2 && nuc[0] !== nuc[1]
-    const native = isDiphthong ? NATIVE_FALLING[nuc] : undefined
-
-    if (isDiphthong && !native) {
-      const opening = OPENING_SPLIT[nuc]
-      const [v1, v2] = opening ?? [singleVowelIpa(nuc[0]!), singleVowelIpa(nuc[1]!)]
-      const v1Share = opening ? 0.4 : 0.58
-      const stolenSec =
-        cur.coda.reduce((s, c) => s + estimatedConsonantSec(c), 0) +
-        (next && !cur.phraseEnd ? next.onset.reduce((s, c) => s + estimatedConsonantSec(c), 0) : 0)
-      const [b1, b2] = splitDiphthongBeats(beats, take.bpm, stolenSec, v1Share)
-      expandedNotes.push([midi, b1], [midi, b2])
-      expandedSyllables.push(
-        {
-          text: `${cur.raw}:1`,
-          onset: cur.onset,
-          nucleus: { ipa: v1, stress: cur.stress },
-          coda: [],
-          wordEnd: false,
-          phraseEnd: false,
-        },
-        {
-          text: `${cur.raw}:2`,
-          onset: [],
-          nucleus: { ipa: v2, stress: 0 },
-          coda: cur.coda,
-          wordEnd: cur.wordEnd,
-          phraseEnd: cur.phraseEnd,
-        },
-      )
-      continue
-    }
-
-    const ipa = !nuc
-      ? 'ə'
-      : native ?? singleVowelIpa(nuc[0]!)
-    expandedNotes.push([midi, beats])
-    expandedSyllables.push({
+    const diph = isDiphthong ? DIPHTHONG_IPA[nuc] : undefined
+    const ipa = !nuc ? 'ə' : diph ? diph[0] : singleVowelIpa(nuc[0]!)
+    const offglideShare = diph?.[1]
+    return {
       text: cur.raw,
       onset: cur.onset,
       nucleus: { ipa, stress: cur.stress },
       coda: cur.coda,
       wordEnd: cur.wordEnd,
       phraseEnd: cur.phraseEnd,
-    })
-  }
+      ...(offglideShare !== undefined ? { offglideShare } : {}),
+    }
+  })
 
-  return { ...take, notes: expandedNotes, syllables: expandedSyllables }
+  return { ...take, syllables }
 }

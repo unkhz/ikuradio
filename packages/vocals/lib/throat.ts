@@ -13,8 +13,8 @@ import { readFileSync } from 'node:fs'
  * its own patch. Both are now at the latest, 0dc13f8, which the scientist heard
  * sing less metallically than c24945a.
  */
-export const revision = '0dc13f8704bd998e8d70377f3bc4de53b16863f8'
-export const repository = 'https://github.com/jamesondh/chimera-vocal-synth'
+export const revision = '3afcc4a64606a678ba07abef9ecaa3b35358cc1d'
+export const repository = 'https://github.com/unkhz/chimera-vocal-synth'
 
 /** The song's change to Chimera. */
 export const patchFile = new URL('../chimera.patch', import.meta.url).pathname
@@ -39,7 +39,7 @@ export function throatName() {
  * Studio to fit the words to the room they have, and in a Receiver to say
  * them. Move it on purpose, and listen.
  */
-export const speechRevision = '0dc13f8704bd998e8d70377f3bc4de53b16863f8'
+export const speechRevision = '3afcc4a64606a678ba07abef9ecaa3b35358cc1d'
 
 /** The speaking throat's change to Chimera. */
 export const speechPatchFile = new URL('../speech.patch', import.meta.url).pathname

@@ -92,6 +92,7 @@ export type PhonemeSegment = {
   stress?: number
   wordEnd?: boolean
   aspirated?: boolean
+  vot?: number
 }
 
 /** One explicit IPA syllable for Chimera's vocal tract (bypasses English G2P when present on a Score). */
@@ -103,6 +104,7 @@ export type PhonemeSyllable = {
   melisma?: boolean
   wordEnd: boolean
   phraseEnd: boolean
+  offglideShare?: number
 }
 
 /** One line, written to the note, in the language Chimera reads. */

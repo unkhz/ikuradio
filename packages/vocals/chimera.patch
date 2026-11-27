@@ -129,8 +129,8 @@ diff --git a/crates/chimera/src/phonetics/mod.rs b/crates/chimera/src/phonetics/
 index 0a13a91..e58151c 100644
 --- a/crates/chimera/src/phonetics/mod.rs
 +++ b/crates/chimera/src/phonetics/mod.rs
-@@ -12,6 +12,7 @@ pub mod inventory;
- pub mod ipa;
+@@ -13,6 +13,7 @@ pub mod ipa;
+ pub mod japanese;
  pub mod korean;
  pub mod mandarin;
 +pub mod notes;
