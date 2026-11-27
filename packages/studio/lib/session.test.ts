@@ -209,4 +209,25 @@ describe('the Session written from the timeline', () => {
     const named = sessionOf({ arrangement: theSong, tracks, made: [made(0n), made(1n)], name: (file) => `id:${file}`, throat: 'c24945a+0123456789ab', songName: 'Hollow death, by boredom' })
     expect(named.name).toBe('Hollow death, by boredom')
   })
+
+  it('keeps explicit IPA syllables on takes and records non-English lang when set', () => {
+    expect(session).not.toHaveProperty('lang')
+    const fi0 = made(0n)
+    const fi1 = made(1n)
+    fi0.composed.settings = { ...fi0.composed.settings, language: { code: 'fi' } }
+    fi1.composed.settings = { ...fi1.composed.settings, language: { code: 'fi' } }
+    const syl = {
+      text: 'kier',
+      onset: [{ ipa: 'k', aspirated: false }],
+      nucleus: { ipa: 'i', stress: 1 },
+      coda: [],
+      wordEnd: false,
+      phraseEnd: false,
+    }
+    fi0.lines[0]!.voices[0]!.take = { ...fi0.lines[0]!.voices[0]!.take, syllables: [syl] }
+    const fiSession = sessionOf({ arrangement: theSong, tracks, made: [fi0, fi1], name: (file) => `id:${file}`, throat: 'c24945a+0123456789ab' })
+    expect(fiSession.lang).toBe('fi')
+    const firstVoice = fiSession.recordings.find(({ kind }) => kind === 'voice')
+    expect(firstVoice?.take?.syllables).toEqual([syl])
+  })
 })

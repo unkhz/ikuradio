@@ -247,6 +247,8 @@ export function sessionOf({ arrangement, arrangementTitle, parts: partMap, track
 
   const extraTracks = [...new Set(recordings.map(({ kind }) => kind).filter((kind) => kind !== 'voice' && kind !== 'bed'))]
 
+  const songLang = first.settings?.language?.code
+
   return {
     version: sessionVersion,
     song: song.number,
@@ -255,6 +257,7 @@ export function sessionOf({ arrangement, arrangementTitle, parts: partMap, track
     ...(extraTracks.length ? { tracks: extraTracks } : {}),
     ...(songName ? { name: songName } : {}),
     mood: mood.descriptions,
+    ...(songLang && songLang !== 'en' ? { lang: songLang } : {}),
     mode: mood.character.mode,
     tempo: mood.character.tempo,
     ...(mood.character.sound ? { sound: mood.character.sound } : {}),

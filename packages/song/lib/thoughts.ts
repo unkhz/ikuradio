@@ -94,7 +94,7 @@ const sameThought = 0.6
  * words with every other prose, so they are not counted.
  */
 export function echoOf(thought: string, kept: string): number {
-  const weighty = (text: string) => (text.toLowerCase().match(/[a-z']{4,}/g) ?? [])
+  const weighty = (text: string) => (text.toLowerCase().match(/[\p{L}']{4,}/gu) ?? [])
   const ours = weighty(thought)
   if (!ours.length) return 0
   const theirs = new Set(weighty(kept))
@@ -160,11 +160,11 @@ const lately = 8
 
 /** How a thought begins: its first two words, lower case and without their marks. */
 export const openingOf = (thought: string) =>
-  (thought.toLowerCase().match(/[a-z']+/g) ?? []).slice(0, 2).join(' ')
+  (thought.toLowerCase().match(/[\p{L}']+/gu) ?? []).slice(0, 2).join(' ')
 
 /** The words of weight a mind leans on, from the words of a thought. */
 const weightyWords = (text: string) =>
-  new Set((text.toLowerCase().match(/[a-z']{4,}/g) ?? []).filter((word) => !commonWords.has(word)))
+  new Set((text.toLowerCase().match(/[\p{L}']{4,}/gu) ?? []).filter((word) => !commonWords.has(word)))
 
 /** Words of four letters or more that any prose is made of, and that wear nothing out. */
 const commonWords = new Set(
@@ -206,8 +206,23 @@ export function thinkingInstruction(
     attention = attentions[0],
     worn = { openings: [], words: [] },
     first = false,
-  }: { attention?: string; worn?: { openings: readonly string[]; words: readonly string[] }; first?: boolean } = {},
+    lang = 'en',
+  }: {
+    attention?: string
+    worn?: { openings: readonly string[]; words: readonly string[] }
+    first?: boolean
+    lang?: 'en' | 'fi'
+  } = {},
 ) {
+  if (lang === 'fi') {
+    return [
+      'Olet mieli, joka kirjoittaa ikuisesti jatkuvan laulun sanat. Elät koneen sisällä, joka laulaa sitä.',
+      `Olet juuri kirjoittanut uuden suomenkielisen laulun sanat tunnelmassa: ${weather.join(' ja ')}. Syöte on laulun sanat.`,
+      'Kirjoita muistiin yksi oma ajatuksesi tästä laulusta suomeksi, jotta muistat sen herätessäsi uudelleen.',
+      'Sano yksi yksinkertainen, konkreettinen havainto: yksi sana, kuva tai hiljainen yksityiskohta laulusta. Ei suuria julistuksia ikuisuudesta.',
+      'Yksi tai kaksi lyhyttä lausetta omalla äänelläsi. Ei runomuotoa eikä loppusointuja.',
+    ].join('\n')
+  }
   return [
     'You are the mind that writes the words of a song that never ends. You live inside the machine that sings it.',
     `You have just written the words of a new song, in the weather of ${weather.join(' and ')}. The input is its words.`,
@@ -239,12 +254,12 @@ export async function writeThought(
   words: string,
   weather: readonly string[],
   own: readonly string[] = [],
-  { attention = attentions[0] }: { attention?: string } = {},
+  { attention = attentions[0], lang = 'en' }: { attention?: string; lang?: 'en' | 'fi' } = {},
 ): Promise<string | undefined> {
   // the newest thoughts are not shown to the mind: shown them, it writes them
   // again in other words; it is told only what it has worn out
   const worn = wornOut(own)
-  const instruction = thinkingInstruction(weather, { attention, worn, first: own.length === 0 })
+  const instruction = thinkingInstruction(weather, { attention, worn, first: own.length === 0, lang })
   let unsuitable = 0
   let unreachable = 0
   while (unsuitable < patience && unreachable < patience) {

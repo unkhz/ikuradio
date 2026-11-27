@@ -30,7 +30,7 @@ const small = new Set(
 
 /** The words of a verse as they are sung, small ones left out. */
 function wordsOf(text: string): string[] {
-  return (text.toLowerCase().match(/[a-z']+/g) ?? [])
+  return (text.toLowerCase().match(/[\p{L}']+/gu) ?? [])
     .map((word) => word.replace(/'s$/, '').replace(/^'+|'+$/g, ''))
     .filter((word) => word.length > 3 && !small.has(word))
 }
@@ -120,7 +120,7 @@ export function leansOn(lines: readonly string[], resting: readonly string[]) {
 export function overlap(line: string, before: string): number {
   // every word counts here, the small ones most: they are the shape
   const body = (text: string) =>
-    (text.toLowerCase().match(/[a-z']+/g) ?? []).slice(0, -1)
+    (text.toLowerCase().match(/[\p{L}']+/gu) ?? []).slice(0, -1)
   const ours = body(line)
   if (ours.length === 0) return 0
   const theirs = new Set(body(before))

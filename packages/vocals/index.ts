@@ -26,3 +26,4 @@ export { encodeWav, speakInto, speechRate, type SpeechSegment, type SpeechSpec }
 export { renderDrone, renderDrums, renderPulse, renderSynth, synthInto, synthRate, type SynthSpec } from './lib/synth.js'
 export { composeScat, isIpaScatToken, parseIpaSyllable, parseIpaToken, type ParsedIpaToken } from './lib/scat.js'
 export { hasSpecialWord, resolveLineSyllables, specialWordSyllables } from './lib/special.js'
+export { countFinnishSyllables, expandFinnishTake, finnishStressedLine, syllabifyFinnishWord } from './lib/finnish.js'

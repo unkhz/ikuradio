@@ -15,8 +15,8 @@
 
 import { firstMood, hear, nextMood, type Mood } from 'mood'
 import { fieldsOf, iterationsOf, partsById, tempoOf, type Arrangement, type Part } from 'parts'
-import { firstLyrics, forgotten, longWear, versesOf, wordinessWords, wordyCount, wornDeep, writeLyrics, type ExtraPartAsk, type Fitting, type Lyrics, type Memories } from 'song'
-import { countSyllables, firstChoir, gather, type Choir } from 'vocals'
+import { firstFinnishLyrics, firstLyrics, forgotten, longWear, versesOf, wordinessWords, wordyCount, wornDeep, writeLyrics, type ExtraPartAsk, type Fitting, type Lyrics, type Memories } from 'song'
+import { countFinnishSyllables, countSyllables, finnishStressedLine, firstChoir, gather, type Choir } from 'vocals'
 import {
   evolve,
   firstTune,
@@ -147,6 +147,7 @@ export function extraPartsFor(
   rate: number,
   parts: ReadonlyMap<string, Part>,
   lyrics: Settings['lyrics'] = defaults(1).lyrics,
+  lang: 'en' | 'fi' = 'en',
 ): ExtraPartAsk[] {
   const passOf = iterationsOf(arrangement.instances, arrangement.turns)
   const fields = fieldsOf(arrangement.instances, undefined, parts)
@@ -181,11 +182,12 @@ export function extraPartsFor(
       return { target: m.target, most: m.most }
     })
     const note = wordinessWords(wordiness)
+    const measureLine = (text: string) => (lang === 'fi' ? Promise.resolve(countFinnishSyllables(text)) : countSyllables(text))
     const check = async (line: number, text: string): Promise<'fits' | 'grace' | 'refused'> => {
-      const syllables = await countSyllables(text).catch(() => 0)
+      const syllables = await measureLine(text).catch(() => 0)
       if (syllables < 1) return 'refused'
       const phrase = phrases[line % phrases.length] ?? sung.verse[line % sung.verse.length]!
-      const words = await stressedLine(text, syllables)
+      const words = lang === 'fi' ? finnishStressedLine(text) : await stressedLine(text, syllables)
       if (!words) return syllables <= mostSyllables(phrase, k) ? 'fits' : 'refused'
       const fit = fitToCount(phrase, words, k)
       return !fit ? 'refused' : fit.grown ? 'grace' : 'fits'
@@ -197,7 +199,7 @@ export function extraPartsFor(
       ...(part.instruction ? { instruction: part.instruction } : {}),
       counts,
       check,
-      measure: (text) => countSyllables(text),
+      measure: measureLine,
       ...(note ? { say: note } : {}),
     })
   }
@@ -246,15 +248,17 @@ export function fittingFor(
   rate: number,
   lyrics: Settings['lyrics'] = defaults(1).lyrics,
   overrides?: Partial<Record<keyof Lyrics, FieldOverride>>,
+  lang: 'en' | 'fi' = 'en',
 ): Fitting {
   const phraseOf = (part: 'verse' | 'chorus', line: number) => (part === 'chorus' ? sung.chorus : sung.verse)[line % 4]!
+  const measureLine = (text: string) => (lang === 'fi' ? Promise.resolve(countFinnishSyllables(text)) : countSyllables(text))
   const checkAt = (part: 'verse' | 'chorus', bpm: number) => {
     const k = spacing(bpm, rate)
     return async (line: number, text: string): Promise<'fits' | 'grace' | 'refused'> => {
-      const syllables = await countSyllables(text).catch(() => 0)
+      const syllables = await measureLine(text).catch(() => 0)
       if (syllables < 1) return 'refused'
       const phrase = phraseOf(part, line)
-      const words = await stressedLine(text, syllables)
+      const words = lang === 'fi' ? finnishStressedLine(text) : await stressedLine(text, syllables)
       // a line whose stress cannot be read is counted only
       if (!words) return syllables <= mostSyllables(phrase, k) ? 'fits' : 'refused'
       const fit = fitToCount(phrase, words, k)
@@ -298,7 +302,7 @@ export function fittingFor(
     ...(Object.keys(say).length ? { say } : {}),
     ...(Object.keys(fields).length ? { fields } : {}),
     check: (part, line, text) => (part === 'chorus' ? checkChorus(line, text) : checkVerse(line, text)),
-    measure: (text) => countSyllables(text),
+    measure: measureLine,
   }
 }
 
@@ -410,9 +414,21 @@ export async function composer(
       // pages written before the tune could change remember the tune it was born with
       const known = last.tune ?? firstTune
       tune = beginsSong ? evolve(known, song) : known
+      // keep English and Finnish lyric lineages separate across diary transitions
+      const lang: 'en' | 'fi' = settings.language?.code ?? 'en'
+      const pageLang = (page: Page): 'en' | 'fi' => page.settings?.language?.code ?? 'en'
+      const recentPages = await diary.recent({ count: longWear, before: iteration })
+      const sameLangPages = recentPages.filter((page) => pageLang(page) === lang)
+      const previousLyrics =
+        pageLang(last) === lang
+          ? last.lyrics
+          : sameLangPages.reduce<Page | undefined>(
+              (latest, page) => (!latest || BigInt(page.iteration) > BigInt(latest.iteration) ? page : latest),
+              undefined,
+            )?.lyrics ?? (lang === 'fi' ? firstFinnishLyrics : firstLyrics)
       // the words the song has leaned on for a day or so rest, until they are not worn so deep
       const deep = wornDeep(
-        (await diary.recent({ count: longWear, before: iteration })).map(({ lyrics }) => versesOf(lyrics)),
+        sameLangPages.map(({ lyrics }) => versesOf(lyrics)),
         mood.descriptions,
       )
       if (deep.length) console.log(`iteration ${iteration} lets rest the words worn deep: ${deep.join(', ')}`)
@@ -421,9 +437,14 @@ export async function composer(
       const pass = Number(iteration - place.began)
       const currentSung = tuneSung(tune, choir, settings, mood, song, variation)
       const overrides = arrangement ? fieldOverrides(arrangement, pass, mood.character.tempo) : undefined
-      const extras = arrangement ? extraPartsFor(arrangement, pass, currentSung, mood.character.tempo, rate, parts, settings.lyrics) : undefined
-      const fitting = fittingFor(currentSung, mood.character.tempo, rate, settings.lyrics, overrides)
-      lyrics = await writeLyrics(iteration, mood.descriptions, last.lyrics, memories, { deep, fitting, ...(extras?.length ? { extras } : {}) })
+      const extras = arrangement ? extraPartsFor(arrangement, pass, currentSung, mood.character.tempo, rate, parts, settings.lyrics, lang) : undefined
+      const fitting = fittingFor(currentSung, mood.character.tempo, rate, settings.lyrics, overrides, lang)
+      lyrics = await writeLyrics(iteration, mood.descriptions, previousLyrics, memories, {
+        deep,
+        fitting,
+        ...(extras?.length ? { extras } : {}),
+        lang,
+      })
     }
     const where: SongPlace = { number: song, began: `${place.began}`, lasts: place.lasts, arrangement: place.arrangement }
     const sung = tuneSung(tune, choir, settings, mood, song, variation)

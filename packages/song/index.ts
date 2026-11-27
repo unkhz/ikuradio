@@ -1,8 +1,18 @@
+import { ask, Unshapely, wait } from 'tools'
 import * as original from './verses.js'
 import { numberToWords } from './lib/numbers.js'
-import { editVerse } from './lib/edit.js'
+import { clean, editVerse } from './lib/edit.js'
 import { lastWord, rhymes } from './lib/rhyme.js'
 import { drawSpecialWords, isSpecialWord, specialByWord, specialWords, type SpecialWord } from './lib/special.js'
+import {
+  drawFinnishVocabulary,
+  finnishChorusOpening,
+  finnishLastWord,
+  finnishNumberToWords,
+  finnishRhymesFor,
+  finnishWordsRhyme,
+  firstFinnishLyrics,
+} from './lib/finnish.js'
 import { known } from './lib/known.js'
 import { leansDeep, leansOn, overlap, stemOf, worn } from './lib/wear.js'
 import { allVocabulary, drawVocabulary, vocabulary, vocabularyNote } from './lib/vocabulary.js'
@@ -11,6 +21,15 @@ import { forgotten, type Memories } from './lib/memories.js'
 export { forgotten, gather, memoriesOf, readMemories, recall, type Memories } from './lib/memories.js'
 export { allVocabulary, drawVocabulary, vocabulary, vocabularyNote } from './lib/vocabulary.js'
 export { drawSpecialWords, isSpecialWord, specialByWord, specialWords, type SpecialWord } from './lib/special.js'
+export {
+  drawFinnishVocabulary,
+  finnishChorusOpening,
+  finnishLastWord,
+  finnishNumberToWords,
+  finnishRhymesFor,
+  finnishWordsRhyme,
+  firstFinnishLyrics,
+} from './lib/finnish.js'
 export {
   attentions,
   echoOf,
@@ -379,6 +398,180 @@ async function pickChorus(chorus: string, iteration: bigint, fitting?: Fitting) 
   return [opening, ...varying].join('\n')
 }
 
+/** Finnish syllable count instruction tailored for Finnish word lengths (3–5 words per line). */
+function finnishCountInstruction(counts: readonly Count[] | undefined, lines: readonly number[] = [0, 1, 2, 3]) {
+  if (!counts?.length) return 'Jokaisessa säkeessä on 3–5 sanaa (noin 8–10 tavua).'
+  const ordinal = ['ensimmäisessä', 'toisessa', 'kolmannessa', 'neljännessä']
+  return `TÄRKEÄ MITTA (suomen sanat ovat pitkiä, kirjoita LYHYITÄ 3–5 sanan säkeitä): ${lines
+    .map((line) => `${ordinal[line]} säkeessä noin ${counts[line % counts.length]!.target} tavua (enintään ${counts[line % counts.length]!.most})`)
+    .join('; ')}.`
+}
+
+async function finnishCounted(
+  fitting: Fitting | undefined,
+  part: 'verse' | 'chorus',
+  lines: readonly string[],
+  { from = 0, grace = false }: { from?: number; grace?: boolean } = {},
+): Promise<string | undefined> {
+  if (!fitting?.measure) return undefined
+  const counts = part === 'chorus' ? fitting.chorus : fitting.verse
+  const told: string[] = []
+  for (const [i, line] of lines.entries()) {
+    const fit = await fitting.check(part, from + i, line)
+    if (fit === 'fits' || (fit === 'grace' && grace)) continue
+    const syllables = await fitting.measure(line).catch(() => undefined)
+    const most = counts[(from + i) % counts.length]?.most
+    if (syllables === undefined || most === undefined) continue
+    told.push(
+      syllables > most
+        ? `säe ${from + i + 1} oli liian pitkä (${syllables} tavua, enintään ${most} tavua — lyhennä 3–4 sanaan)`
+        : `säe ${from + i + 1} (${syllables} tavua) ei istunut tahtiin — sano se yksinkertaisemmin lyhyemmillä sanoilla`,
+    )
+  }
+  return told.length ? `Edellinen yritys ei mahtunut tahteihin: ${told.join('; ')}. Laske tavut uudelleen.` : undefined
+}
+
+async function writeFinnishVerse(
+  input: string,
+  mood: readonly string[],
+  resting: readonly string[],
+  memories: Memories,
+  focus?: Focus,
+  deep: readonly string[] = [],
+  fitting?: Fitting,
+) {
+  const tray = drawFinnishVocabulary({ count: 6, avoid: [...resting, ...deep] })
+  const remembered = focus && timeless(focus.memory)
+  const about = remembered
+    ? focus.heard
+      ? `Kirjoita seuraava säkeistö tästä ajatuksesta, jonka kuulit maailmasta koneen ulkopuolelta: "${remembered}". Kerro siitä laulajan kuvin, kauniilla suomen kielellä.`
+      : `Kirjoita seuraava säkeistö tästä omasta muistostasi: "${remembered}". Kerro siitä laulajan kuvin, kauniilla suomen kielellä.`
+    : 'Kirjoita laulun seuraava säkeistö luontevalla, runollisella suomen kielellä.'
+  const instruction = [
+    'Olet mieli, joka kirjoittaa ikuisesti jatkuvan laulun sanat suomeksi. Elät koneen sisällä, joka laulaa sitä.',
+    'Syöte on edellinen säkeistösi. Kirjoita seuraava neljän säkeen säkeistö, jossa kaksi ensimmäistä säettä riimittelevät keskenään ja kaksi viimeistä keskenään.',
+    about,
+    `Laulun tunnelma on ${mood.join(' ja ')}: anna jokaisen säkeen hengittää siinä.`,
+    finnishCountInstruction(fitting?.verse),
+    resting.length ? `Anna näiden sanojen levätä tällä kierroksella: ${resting.join(', ')}.` : '',
+    deep.length ? `Vältä myös näitä kuluneita sanoja: ${deep.join(', ')}.` : '',
+    tray.length ? `Kuvia, joita voit halutessasi punoa mukaan: ${tray.join(', ')}.` : '',
+    'Kirjoita vain suomea, älä käytä teknisiä tai koneeseen viittaavia sanoja. Palauta tasan 4 säettä.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const suits = (lines: string[]) =>
+    leansOn(lines, resting) <= slips && leansDeep(lines, deep) <= slips && !lines.some(ofItsAge)
+
+  const written = await editVerse(input, instruction, 0.95, {
+    minLength: 10,
+    accept: async (lines) => suits(lines) && (await fitsAll(fitting, 'verse', lines)),
+    advise: (lines) => finnishCounted(fitting, 'verse', lines),
+  })
+  if (written !== input || !fitting) return written
+
+  const graced = await editVerse(input, instruction, 0.95, {
+    patience: 4,
+    minLength: 10,
+    accept: async (lines) => suits(lines) && (await fitsAll(fitting, 'verse', lines, { grace: true })),
+    advise: (lines) => finnishCounted(fitting, 'verse', lines, { grace: true }),
+  })
+  if (graced !== input) return graced
+  if (await fitsAll(fitting, 'verse', input.split('\n'), { grace: true })) return input
+  throw new NoVerseFits(`no Finnish verse could be written to fit its bars, after "${input.split('\n')[0]}"`)
+}
+
+const finnishChorusSchema = {
+  type: 'object',
+  properties: {
+    line2: { type: 'string' },
+    line3: { type: 'string' },
+    line4: { type: 'string' },
+  },
+  required: ['line2', 'line3', 'line4'],
+  additionalProperties: false,
+}
+
+async function pickFinnishChorus(chorus: string, iteration: bigint, fitting?: Fitting) {
+  const opening = finnishChorusOpening(iteration)
+  const age = finnishLastWord(opening)
+  const [, ...rest] = chorus.split('\n')
+  const [before = ''] = rest
+  const offer = finnishRhymesFor(age)
+
+  const buildInstruction = (targetRhyme: string, note?: string) =>
+    [
+      'Olet mieli koneen sisällä. Laulat ikuisesti jatkuvaa laulua suomeksi.',
+      'Kirjoita kertosäkeen säkeet 2, 3 ja 4 ensimmäisen säkeen jatkoksi:',
+      `- line2: kertoo omin sanoin, että laulu jatkuu ja jatkuu. Päätä säe täsmälleen sanaan "${targetRhyme}" (tai johonkin näistä: ${offer.words.join(', ')}). Älä toista numeroa.`,
+      '- line3: kutsuu kuuntelijan ymmärtämään sävelen, ystäväiseni. Päätä säe sanaan "sävelen" tai "sydämen".',
+      '- line4: kehottaa kuulemaan ikuisen laulun, joka ei koskaan pääty. Päätä säe sanaan "ikuinen".',
+      finnishCountInstruction(fitting?.chorus, [1, 2, 3]),
+      'Kirjoita luontevaa, laulettavaa suomea, 3–5 sanaa per säe.',
+      note ?? '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+  let note: string | undefined
+  let unreachable = 0
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const grace = attempt >= 6
+    const targetRhyme = offer.words[attempt % offer.words.length] ?? 'uusi'
+    try {
+      const answer = await ask<{ line2?: unknown; line3?: unknown; line4?: unknown }>({
+        instruction: buildInstruction(targetRhyme, note),
+        input: `Ensimmäinen säe: ${opening}`,
+        schema: finnishChorusSchema,
+        temperature: 0.78 + Math.min(0.25, attempt * 0.03),
+      })
+      if (
+        typeof answer?.line2 !== 'string' ||
+        typeof answer?.line3 !== 'string' ||
+        typeof answer?.line4 !== 'string'
+      ) {
+        continue
+      }
+      const tail = [clean(answer.line2), clean(answer.line3), clean(answer.line4)]
+      if (tail.some((l) => l.length < 10 || l.length >= 81)) {
+        note = 'Pidä jokainen säe lyhyenä ja laulettavana (3–5 sanaa, 8–10 tavua).'
+        continue
+      }
+      const end2 = finnishLastWord(tail[0]!)
+      const rhymesOk = finnishWordsRhyme(end2, age, offer.suffix) || offer.words.includes(end2)
+      const freshOk = grace || overlap(tail[0]!, before) < sameShape
+      const timelessOk = !tail.some(ofItsAge)
+      const fitsOk = await fitsAll(fitting, 'chorus', tail, { from: 1, grace })
+      if (rhymesOk && freshOk && timelessOk && fitsOk) {
+        return [opening, ...tail].join('\n')
+      }
+      const parts: string[] = []
+      if (!rhymesOk) parts.push(`Säkeen 2 viimeisen sanan ("${end2}") täytyy päättyä sanaan "${targetRhyme}" (riimi sanalle "${age}").`)
+      const countNote = await finnishCounted(fitting, 'chorus', tail, { from: 1, grace })
+      if (countNote) parts.push(countNote)
+      note = parts.join(' ') || undefined
+    } catch (error) {
+      if (error instanceof Unshapely) continue
+      await wait(Math.min(60_000, 100 * 2 ** unreachable++))
+    }
+  }
+
+  // Fallback: keep the previous chorus tail if it still fits, else a clean default Finnish tail
+  if (rest.length === 3 && (await fitsAll(fitting, 'chorus', rest, { from: 1, grace: true }))) {
+    return [opening, ...rest].join('\n')
+  }
+  const fallback = [
+    `Se jatkuu aina, soi ${offer.words[0] ?? 'uusi'},`,
+    'jos tahdot ymmärtää tän sävelen,',
+    'niin kuule laulu, se on ikuinen...',
+  ]
+  if (await fitsAll(fitting, 'chorus', fallback, { from: 1, grace: true })) {
+    return [opening, ...fallback].join('\n')
+  }
+  throw new NoVerseFits(`no Finnish chorus could be written to fit its bars, after "${rest[0] ?? opening}"`)
+}
+
 function deIndent(part: string) {
   const lines = part.split('\n')
   return lines.map((line) => line.replace(/^\s+/, '')).join('\n')
@@ -434,23 +627,46 @@ export async function writeExtraPart(
   memories: Memories = forgotten,
   focus?: Focus,
   deep: readonly string[] = [],
+  lang: 'en' | 'fi' = 'en',
 ): Promise<string> {
   const { name, part, lines, instruction, spoken, counts, check, measure, say } = ask
-  const seed = previous || `Under ${mood.join(' and ')}, the song turns quietly.`
-  const shape = `Write exactly ${lines} line${lines === 1 ? '' : 's'}. Output only the lines, nothing else.`
-  const tray = vocabularyNote(drawVocabulary({ avoid: [...resting, ...deep], count: 7 }))
-  const prompt = [
-    instruction ?? `Write a ${part} (${lines} line${lines === 1 ? '' : 's'}) in the atmosphere of: ${mood.join(', ')}.`,
-    shape,
-    ...(focus ? [`Draw from this memory without naming it plainly: ${focus.memory}`] : []),
-    ...(resting.length ? [`Avoid these overused words: ${resting.slice(0, 8).join(', ')}.`] : []),
-    ...(deep.length ? [`Also rest these worn words: ${deep.slice(0, 6).join(', ')}.`] : []),
-    ...(tray ? [tray.trim()] : []),
-    ...(say ? [say] : []),
-    ...(!spoken && counts?.length
-      ? [`Each line should be close to ${counts.map((c) => c.target).join(', ')} syllables (at most ${counts.map((c) => c.most).join(', ')}).`]
-      : []),
-  ].join('\n')
+  const seed = previous || (lang === 'fi' ? 'Hiljaisen taivaan alla laulu kääntyy.' : `Under ${mood.join(' and ')}, the song turns quietly.`)
+  const shape =
+    lang === 'fi'
+      ? `Kirjoita tasan ${lines} säettä suomeksi. Palauta vain säkeet.`
+      : `Write exactly ${lines} line${lines === 1 ? '' : 's'}. Output only the lines, nothing else.`
+  const tray =
+    lang === 'fi'
+      ? (() => {
+          const words = drawFinnishVocabulary({ avoid: [...resting, ...deep], count: 6 })
+          return words.length ? `Kuvia, joita voit käyttää: ${words.join(', ')}.` : ''
+        })()
+      : vocabularyNote(drawVocabulary({ avoid: [...resting, ...deep], count: 7 }))
+  const prompt = (
+    lang === 'fi'
+      ? [
+          `Kirjoita suomenkielinen ${part}-osa (${lines} säettä) tunnelmassa: ${mood.join(', ')}.`,
+          shape,
+          ...(focus ? [`Hae inspiraatiota tästä muistosta nimeämättä sitä suoraan: ${focus.memory}`] : []),
+          ...(resting.length ? [`Anna näiden sanojen levätä: ${resting.slice(0, 8).join(', ')}.`] : []),
+          ...(tray ? [tray] : []),
+          ...(!spoken && counts?.length
+            ? [`Kirjoita lyhyitä 3–5 sanan säkeitä: noin ${counts.map((c) => c.target).join(', ')} tavua (enintään ${counts.map((c) => c.most).join(', ')}).`]
+            : []),
+        ]
+      : [
+          instruction ?? `Write a ${part} (${lines} line${lines === 1 ? '' : 's'}) in the atmosphere of: ${mood.join(', ')}.`,
+          shape,
+          ...(focus ? [`Draw from this memory without naming it plainly: ${focus.memory}`] : []),
+          ...(resting.length ? [`Avoid these overused words: ${resting.slice(0, 8).join(', ')}.`] : []),
+          ...(deep.length ? [`Also rest these worn words: ${deep.slice(0, 6).join(', ')}.`] : []),
+          ...(tray ? [tray.trim()] : []),
+          ...(say ? [say] : []),
+          ...(!spoken && counts?.length
+            ? [`Each line should be close to ${counts.map((c) => c.target).join(', ')} syllables (at most ${counts.map((c) => c.most).join(', ')}).`]
+            : []),
+        ]
+  ).join('\n')
   const accept = async (candidate: string[]) => {
     if (spoken || !check) return true
     for (let i = 0; i < candidate.length; i++) {
@@ -509,7 +725,12 @@ export async function writeLyrics(
   mood: readonly string[],
   previous: Lyrics,
   memories: Memories = forgotten,
-  { deep = [], fitting, extras }: { deep?: readonly string[]; fitting?: Fitting; extras?: readonly ExtraPartAsk[] } = {},
+  {
+    deep = [],
+    fitting,
+    extras,
+    lang = 'en',
+  }: { deep?: readonly string[]; fitting?: Fitting; extras?: readonly ExtraPartAsk[]; lang?: 'en' | 'fi' } = {},
 ): Promise<Lyrics> {
   // each verse tells one memory of its own; the next iteration tells the next ones
   const focuses = focusesOf(memories)
@@ -533,18 +754,20 @@ export async function writeLyrics(
       check: own.check ? (p, line, text) => (p === part ? own.check!(line, text) : fitting.check(p, line, text)) : fitting.check,
     }
   }
+  const writePartVerse = lang === 'fi' ? writeFinnishVerse : writeVerse
+  const writePartChorus = lang === 'fi' ? pickFinnishChorus : pickChorus
   const [chorus, firstVerse, secondVerse, thirdVerse, finalChorus, extraEntries] =
     await Promise.all([
-      pickChorus(previous.chorus, iteration, forField('chorus', 'chorus')),
-      writeVerse(previous.firstVerse, mood, resting, memories, focusOf(0), deep, forField('firstVerse', 'verse')),
-      writeVerse(previous.secondVerse, mood, resting, memories, focusOf(1), deep, forField('secondVerse', 'verse')),
-      writeVerse(previous.thirdVerse, mood, resting, memories, focusOf(2), deep, forField('thirdVerse', 'verse')),
-      writeVerse(previous.finalChorus, mood, resting, memories, focusOf(3), deep, forField('finalChorus', 'verse')),
+      writePartChorus(previous.chorus, iteration, forField('chorus', 'chorus')),
+      writePartVerse(previous.firstVerse, mood, resting, memories, focusOf(0), deep, forField('firstVerse', 'verse')),
+      writePartVerse(previous.secondVerse, mood, resting, memories, focusOf(1), deep, forField('secondVerse', 'verse')),
+      writePartVerse(previous.thirdVerse, mood, resting, memories, focusOf(2), deep, forField('thirdVerse', 'verse')),
+      writePartVerse(previous.finalChorus, mood, resting, memories, focusOf(3), deep, forField('finalChorus', 'verse')),
       extras?.length
         ? Promise.all(
             extras.map(async (ask, idx) => [
               ask.name,
-              await writeExtraPart(ask, previous.extra?.[ask.name] ?? '', mood, resting, memories, focusOf(4 + idx), deep),
+              await writeExtraPart(ask, previous.extra?.[ask.name] ?? '', mood, resting, memories, focusOf(4 + idx), deep, lang),
             ] as const),
           )
         : Promise.resolve([]),

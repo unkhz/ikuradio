@@ -43,6 +43,8 @@ export type Session = {
   name?: string
   /** The weather it is sung in. */
   mood: string[]
+  /** Language of the Song's words (`'fi'`, etc.), omitted on default English Songs. */
+  lang?: string
   mode: string
   tempo: number
   /** The band the mind heard in the Mood, if it heard one. */
@@ -105,6 +107,7 @@ export type SessionPhoneme = {
   dur?: number
   stress?: number
   wordEnd?: boolean
+  aspirated?: boolean
 }
 
 /** One explicit IPA syllable sung by Chimera directly, bypassing English G2P. */

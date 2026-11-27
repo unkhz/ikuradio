@@ -19,7 +19,7 @@ export function clean(line: string) {
 const sounding = (line: string) =>
   line
     .toLowerCase()
-    .replace(/[^a-z0-9' ]+/g, ' ')
+    .replace(/[^\p{L}0-9' ]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim()
 

@@ -9,6 +9,12 @@ const envSchema = z.object({
     .default(
       new URL('../../../models/mind.gguf', import.meta.url).pathname,
     ),
+  /** Finnish mind (Poro 2 8B Instruct GGUF) woken only for Finnish-language Songs. */
+  PORO_MODEL: z
+    .string()
+    .default(
+      new URL('../../../models/poro.gguf', import.meta.url).pathname,
+    ),
   /** How many tokens of context each of the mind's slots holds. */
   MIND_CONTEXT: z.coerce.number().int().min(512).default(3072),
   /** How many questions the mind answers at once. */

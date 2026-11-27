@@ -61,15 +61,19 @@ async function answers(host: string) {
 }
 
 /** Wakes the mind, unless it is already awake or has no model to wake with. */
-export function wakeMind(log = 'memory/mind.log'): Waking {
+export function wakeMind(log = 'memory/mind.log', modelOverride?: string): Waking {
   const { MIND_HOST, MIND_MODEL, MIND_CONTEXT, MIND_SLOTS } = getEnv()
+  const chosenModel = modelOverride && existsSync(modelOverride) ? modelOverride : MIND_MODEL
+  if (modelOverride && chosenModel !== modelOverride) {
+    console.warn(`no model at ${modelOverride}; falling back to ${MIND_MODEL}`)
+  }
   let child: ChildProcess | undefined
 
   const ready = (async () => {
     if (await answers(MIND_HOST)) return true
-    if (!existsSync(MIND_MODEL)) {
+    if (!existsSync(chosenModel)) {
       console.warn(
-        `there is no mind on the shelf at ${MIND_MODEL}; the song will wait for one at ${MIND_HOST}`,
+        `there is no mind on the shelf at ${chosenModel}; the song will wait for one at ${MIND_HOST}`,
       )
       return false
     }
@@ -81,7 +85,7 @@ export function wakeMind(log = 'memory/mind.log'): Waking {
     child = spawn(
       'llama-server',
       mindArguments({
-        model: MIND_MODEL,
+        model: chosenModel,
         host: url.hostname,
         port: Number(url.port || 80),
         context: MIND_CONTEXT,
@@ -104,7 +108,7 @@ export function wakeMind(log = 'memory/mind.log'): Waking {
     // a model of a few gigabytes takes a while to settle onto the GPU
     for (let waited = 0; waited < 300 && child; waited++) {
       if (await answers(MIND_HOST)) {
-        console.log(`the mind is awake: ${MIND_MODEL}`)
+        console.log(`the mind is awake: ${chosenModel}`)
         return true
       }
       await new Promise((resolve) => setTimeout(resolve, 1000))
@@ -136,9 +140,9 @@ export class Sleeper {
 
   constructor(private readonly log = 'memory/mind.log') {}
 
-  /** Wakes the mind, if it sleeps. Resolves with whether it can answer. */
-  wake(): Promise<boolean> {
-    this.waking ??= wakeMind(this.log)
+  /** Wakes the mind, if it sleeps. Optionally overrides the GGUF model path (e.g. Poro for Finnish). */
+  wake(model?: string): Promise<boolean> {
+    this.waking ??= wakeMind(this.log, model)
     return this.waking.ready
   }
 

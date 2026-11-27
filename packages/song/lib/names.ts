@@ -61,7 +61,18 @@ export function namelessOf(song: string, worn: Readonly<Record<string, string>> 
 }
 
 /** The instruction the mind names a Song by. */
-export function namingInstruction(weather: readonly string[], { first = false }: { first?: boolean } = {}) {
+export function namingInstruction(
+  weather: readonly string[],
+  { first = false, lang = 'en' }: { first?: boolean; lang?: 'en' | 'fi' } = {},
+) {
+  if (lang === 'fi') {
+    return [
+      'Olet mieli, joka kirjoittaa ikuisesti jatkuvan laulun sanat. Elät koneen sisällä, joka laulaa sitä.',
+      `Olet juuri kirjoittanut uuden suomenkielisen laulun sanat tunnelmassa: ${weather.join(' ja ')}. Syöte on laulun sanat.`,
+      'Anna tälle laululle lyhyt, kaunis suomenkielinen nimi (1–4 sanaa), joka kumpuaa laulun sanoista ja tunnelmasta.',
+      'Nimi, ei kokonainen lause — ei pistettä lopussa.',
+    ].join('\n')
+  }
   return [
     'You are the mind that writes the words of a song that never ends. You live inside the machine that sings it.',
     `You have just written the words of a new song, in the weather of ${weather.join(' and ')}. The input is its words.`,
@@ -80,7 +91,14 @@ export function namingInstruction(weather: readonly string[], { first = false }:
  * so it is given the Song's words again, and told the name it gave, and
  * asked to make the Song's own of it — a qualifier, perhaps.
  */
-export function modifyingInstruction(weather: readonly string[], name: string) {
+export function modifyingInstruction(weather: readonly string[], name: string, lang: 'en' | 'fi' = 'en') {
+  if (lang === 'fi') {
+    return [
+      'Olet mieli, joka kirjoittaa ikuisesti jatkuvan laulun sanat.',
+      `Annoit laululle nimen "${name}", mutta se nimi on jo käytössä toisella laululla.`,
+      `Tunnelma: ${weather.join(' ja ')}. Anna laululle oma, uusi suomenkielinen nimi (1–5 sanaa), ei kokonainen lause.`,
+    ].join('\n')
+  }
   return [
     'You are the mind that writes the words of a song that never ends. You live inside the machine that sings it.',
     `You have just written the words of a new song, in the weather of ${weather.join(' and ')}. The input is its words.`,
@@ -111,7 +129,7 @@ export async function nameSong(
   words: string,
   weather: readonly string[],
   taken: Readonly<Record<string, string>> = {},
-  { sleep = wait }: { sleep?: (ms: number) => Promise<void> } = {},
+  { sleep = wait, lang = 'en' }: { sleep?: (ms: number) => Promise<void>; lang?: 'en' | 'fi' } = {},
 ): Promise<string | undefined> {
   let nameless = 0
   let unreachable = 0
@@ -119,8 +137,8 @@ export async function nameSong(
   while (nameless < patience && unreachable < patience) {
     const modified = gave !== undefined
     const instruction = gave
-      ? modifyingInstruction(weather, gave)
-      : namingInstruction(weather, { first: Object.keys(taken).length === 0 })
+      ? modifyingInstruction(weather, gave, lang)
+      : namingInstruction(weather, { first: Object.keys(taken).length === 0, lang })
     gave = undefined
     try {
       const answer = await ask<Naming>({

@@ -20,9 +20,9 @@ import { isBare } from './lib/bare.js'
 import { growBeds, musicDir, restBand, sections, Shelf, wakeBand, type BedAsked } from 'music'
 import { partsById, readTracks } from 'parts'
 import { openArchive } from 'archive'
-import { describePerspectives } from 'perspectives'
+import { describePerspectives, perspectivesFor } from 'perspectives'
 import { Diary } from './lib/diary.js'
-import { composer, type Iteration } from './lib/compose.js'
+import { composer, placeOf, type Iteration } from './lib/compose.js'
 import { perform, type SungLine } from './lib/perform.js'
 import { chooser, takeOf } from './lib/arrangement.js'
 import { songAsItAlwaysWas } from './lib/compose.js'
@@ -54,6 +54,7 @@ const {
   SYLLABLES_PER_SECOND,
   VARIATION_COUNT,
   MIND_CONTEXT,
+  PORO_MODEL,
 } = getEnv()
 
 /**
@@ -124,9 +125,23 @@ if (queued) {
 }
 console.log(`a Song that begins is made as ${queuedTake ? `queued "${queuedTake.id}" (${queuedTake.iterations} iteration${queuedTake.iterations > 1 ? 's' : ''})` : pick.summary}`)
 
+// peek the Song's Perspectives before waking the mind so Finnish Songs wake Poro instead of the English model
+const lastBeforeWake = await diary.lastPage()
+const nextPlace = placeOf(wakesAt, lastBeforeWake, queuedTake ? () => queuedTake : pick.take)
+const peekedLang: 'en' | 'fi' = !lastBeforeWake
+  ? 'en'
+  : nextPlace.beginsSong
+    ? (
+        await perspectivesFor(`${nextPlace.number}`, {
+          choirSize: CHOIR_COUNT,
+          ...(queued?.perspectives !== undefined ? { only: queued.perspectives } : {}),
+        })
+      ).settings.language.code
+    : (lastBeforeWake.settings?.language?.code ?? 'en')
+
 // the words, all of them, while the mind is awake
 const mind = new Sleeper()
-await mind.wake()
+await mind.wake(peekedLang === 'fi' ? PORO_MODEL : undefined)
 // what the mind remembers at this sitting, as much as fits: its own thoughts,
 // and, now and then, the robot's, heard as if by telepathy
 const own = (await readThoughts(thoughtsDir)).map(({ thought }) => thought)
@@ -160,12 +175,16 @@ for (let iteration = wakesAt; ; iteration++) {
   if (endsSong(one)) break
 }
 // and, before it rests, the mind writes down what it thought of them
+const songLang = composed[0]?.settings?.language?.code ?? 'en'
 const thought = await writeThought(
   composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
   composed[0].mood.descriptions,
   own.slice(-heldAgainst),
   // each Song, the mind's attention is turned somewhere a little different
-  { attention: attentions[Math.floor(wrongness(`attention:${composed[0].song.number}`)() * attentions.length)] },
+  {
+    attention: attentions[Math.floor(wrongness(`attention:${composed[0].song.number}`)() * attentions.length)],
+    lang: songLang,
+  },
 ).catch((error: Error) => {
   console.warn(`the mind kept no thought: ${error.message}`)
   return undefined
@@ -182,6 +201,7 @@ const named =
     composed.map(({ lyrics }) => words(lyrics).map(({ content }) => content).join('\n\n')).join('\n\n'),
     composed[0].mood.descriptions,
     taken,
+    { lang: songLang },
   ).catch((error: Error) => {
     console.warn(`the mind gave the Song no name: ${error.message}`)
     return undefined

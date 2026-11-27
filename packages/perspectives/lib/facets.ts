@@ -21,6 +21,7 @@ export const facets = [
   'progression',
   'melody',
   'lyrics',
+  'language',
 ] as const
 
 export type Facet = (typeof facets)[number]
@@ -99,6 +100,12 @@ export type Settings = {
    * have no words. Hooked where the mind is told each line's count.
    */
   lyrics: { verse: Lyrics; chorus: Lyrics }
+  /**
+   * Which language the Song is written and sung in: `'en'` by default, or
+   * `'fi'` for Finnish (written by Poro and sung via Finnish IPA syllables).
+   * Hooked where the Studio wakes the mind, composes lyrics, and performs takes.
+   */
+  language: { code: 'en' | 'fi' }
 }
 
 /** How high and how far a part's melody goes. */
@@ -132,6 +139,7 @@ export function defaults(choirSize: number): Settings {
     progression: { verse: { ...roaming }, chorus: { ...roaming }, bridge: { ...roaming } },
     melody: { verse: { ...usualMelody }, chorus: { ...usualMelody }, bridge: { ...usualMelody } },
     lyrics: { verse: { ...usualLyrics }, chorus: { ...usualLyrics } },
+    language: { code: 'en' },
   }
 }
 

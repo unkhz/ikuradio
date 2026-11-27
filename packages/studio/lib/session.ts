@@ -21,9 +21,10 @@ export type Made = {
 export const seconds = (n: number) => Math.round(n * 1000) / 1000
 
 /** A take as a Session keeps it: only what the throat reads. */
-export const takeOf = ({ bpm, lyrics, notes, t0, vibrato, pressure, tension, breathiness }: Take) => ({
+export const takeOf = ({ bpm, lyrics, syllables, notes, t0, vibrato, pressure, tension, breathiness }: Take) => ({
   bpm,
   lyrics,
+  ...(syllables?.length ? { syllables } : {}),
   notes,
   t0,
   vibrato,

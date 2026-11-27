@@ -11,7 +11,7 @@
 
 import { getEnv } from 'tools'
 import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Phrase, type Score, type Syllables } from 'melody'
-import { blend, composeScat, countSyllables, fullness, hasSpecialWord, humanize, isIpaScatToken, keepsPace, quickest, record, resolveLineSyllables, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
+import { blend, composeScat, countFinnishSyllables, countSyllables, expandFinnishTake, finnishStressedLine, fullness, hasSpecialWord, humanize, isIpaScatToken, keepsPace, quickest, record, resolveLineSyllables, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
 import type { Part as PartDef, WordMode } from 'parts'
 import type { Melody } from 'perspectives'
 import type { Iteration } from './compose.js'
@@ -187,6 +187,7 @@ export async function perform(
   const humanness = settings.humanness.scale
   const bridging = settings['bridge-singers']
   const { syllables: scatSyllables } = settings['bridge-voice']
+  const lang = settings.language?.code ?? 'en'
 
   /**
    * Every singer's score for a line, from the lead's: the lead as it is, the
@@ -355,7 +356,10 @@ export async function perform(
     voice?: Readonly<Record<string, number | string>>,
   ): Promise<Fitted & { hummed: boolean }> => {
     // a line with nothing a throat can sing is hummed: one "ooh" for every note of its tune
-    let syllables = await countSyllables(line).catch(() => 0)
+    let syllables =
+      lang === 'fi'
+        ? countFinnishSyllables(line)
+        : await countSyllables(line).catch(() => 0)
     let words = line
     let hummed = false
     if (syllables < 1) {
@@ -364,8 +368,15 @@ export async function perform(
       hummed = true
     }
     // the words with their stress, for fitting them bar by bar
-    const stressed: Syllables[] | undefined = hummed ? undefined : await stressedLine(line, syllables)
-    const explicitSyllables = !hummed && hasSpecialWord(words) ? await resolveLineSyllables(words).catch(() => undefined) : undefined
+    const stressed: Syllables[] | undefined = hummed
+      ? undefined
+      : lang === 'fi'
+        ? finnishStressedLine(line)
+        : await stressedLine(line, syllables)
+    const explicitSyllables =
+      !hummed && lang !== 'fi' && hasSpecialWord(words)
+        ? await resolveLineSyllables(words).catch(() => undefined)
+        : undefined
     let score = setLine({
       part,
       ...(explicit ? { phrases: explicit } : {}),
@@ -420,7 +431,11 @@ export async function perform(
       }
       // a line that would come too quickly is never sung: the iteration fails, and is made again
       keepsPace(take, rate, `"${line}" in iteration ${iteration}, voice ${v}`)
-      return { voice: singer, score, take }
+      const fastest = quickest(take)
+      // for Finnish takes, attach deterministic IPA syllables and expand opening diphthongs
+      // after humanization + pace checks so both diphthong halves share one humanized pitch and total duration
+      const sungTake = lang === 'fi' && !hummed ? expandFinnishTake(take, line) : take
+      return { voice: singer, score, take: sungTake, fastest }
     })
 
     const sung = (
@@ -447,7 +462,7 @@ export async function perform(
     if (hummed) console.warn(`hummed a line with no words to sing: "${line}"`)
 
     // the line keeps its place in time even if nobody could sing it
-    const { score, take } = takes[0]!
+    const { score, take, fastest } = takes[0]!
     const [lastPitch, lastBeats] = score.notes.at(-1) ?? [0, 0]
     const rest = lastPitch === 0 ? (lastBeats * 60) / score.bpm : 0
     const file = sung.length > 0 ? await blend(sung).catch(() => '') : ''
@@ -471,7 +486,7 @@ export async function perform(
       enters: take.t0,
       voiced: scoreSeconds(score) - rest,
       ...grownOf(part, index, score, explicit),
-      quickest: Math.round(quickest(take) * 1000) / 1000,
+      quickest: Math.round(fastest * 1000) / 1000,
       ...(written ? { written } : {}),
     }
   }

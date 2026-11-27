@@ -91,6 +91,7 @@ export type PhonemeSegment = {
   dur?: number
   stress?: number
   wordEnd?: boolean
+  aspirated?: boolean
 }
 
 /** One explicit IPA syllable for Chimera's vocal tract (bypasses English G2P when present on a Score). */
