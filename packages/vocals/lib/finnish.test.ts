@@ -23,6 +23,7 @@ describe('Finnish syllabification and stress', () => {
     expect(syllabifyFinnishWord('ystäväiseni')).toEqual(['ys', 'tä', 'väi', 'se', 'ni'])
     expect(syllabifyFinnishWord('Suomi')).toEqual(['suo', 'mi'])
     expect(syllabifyFinnishWord('yöllä')).toEqual(['yöl', 'lä'])
+    expect(syllabifyFinnishWord('tähtien')).toEqual(['täh', 'ti', 'en'])
   })
 
   it('counts syllables and places primary stress on every word initial syllable', () => {
@@ -85,9 +86,10 @@ describe('expandFinnishTake', () => {
     expect(expanded.syllables![7]!.onset).toEqual([{ ipa: 't̪', aspirated: true, vot: 0.012 }])
     expect(expanded.syllables![7]!.nucleus.ipa).toBe('œ')
 
-    // turma -> t̪ + back u̠ + boosted coda r (0.135)
-    expect(expanded.syllables![9]!.nucleus.ipa).toBe('u̠')
+    // turma -> t̪ + close-back u̝ + boosted coda r (0.135) + open-back ɑ̠
+    expect(expanded.syllables![9]!.nucleus.ipa).toBe('u̝')
     expect(expanded.syllables![9]!.coda).toEqual([{ ipa: 'r', dur: 0.135 }])
+    expect(expanded.syllables![10]!.nucleus.ipa).toBe('ɑ̠')
   })
 
   it('boosts l̪ onset duration after voiceless stop codas (Revontulet leiskuvat)', () => {

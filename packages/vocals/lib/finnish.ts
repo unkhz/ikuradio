@@ -1,10 +1,11 @@
 // Deterministic Finnish syllabification and Chimera IPA articulation.
 //
 // Finnish orthography is nearly 100% phonemic, so every Finnish word maps
-// directly to our Chimera fork's tuned articulatory targets:
-//  - True Finnish vowels: open front `æ̞` (ä), mid front rounded `œ` (ö),
-//    back `u̠` (u), open back `ɑ` (a), and `e / i / o / y`
-//  - Dental voiceless stop `t̪` and anchored dental lateral `l̪`, with full
+// directly to our Chimera fork's calibrated articulatory targets:
+//  - Calibrated Finnish vowels (Kuronen 2000 + Google FLEURS fi_fi + Wiik/Iivonen):
+//    open front `æ̞` (ä), mid front rounded `œ` (ö), close back `u̝` (u),
+//    open back `ɑ̠` (a), and `e / i / o / y`
+//  - Dental voiceless stop `t̪` and smooth-anchored lateral `l̪`, with full
 //    glottal opening and tight 12 ms VOT on `/p t̪ k/` (`aspirated: true, vot: 0.012`)
 //    so stops stay crisp without English `[tʰ]` breathiness or `[d]` voicing bleed
 //  - Geminate consonants (`rr / ll / tt / pp / kk / ss / nn / mm / hh`) merged
@@ -12,28 +13,30 @@
 //  - Coda `r` before a consonant (`tur-ma`, `ker-ta`) boosted to `135 ms`, and
 //    `l̪` after a voiceless stop coda (`Revontulet leiskuvat`) boosted to `88 ms`
 //  - All 18 Finnish diphthongs carried natively on a single note via Chimera's
-//    diphthong expansions and `offglideShare` (`0.60` for opening `ie / uo / yö`,
-//    `0.42` for closing diphthongs).
+//    diphthong expansions and `offglideShare` (`0.60` for first-syllable opening
+//    `ie / uo / yö`; non-initial `ie / uo / yö` like `tähtien` split as `täh-ti-en`).
 
 import type { PhonemeSegment, PhonemeSyllable, Score, Syllables } from 'melody'
 
 const VOWELS = new Set([...'aeiouyäöå'])
 
-/** All 18 standard Finnish diphthongs. */
-const DIPHTHONGS = new Set([
+/** Opening diphthongs: stay in one syllable only in the first syllable of a word (`kierros`, `Suomi`, `yöllä`). */
+const OPENING_DIPHTHONGS = new Set(['ie', 'uo', 'yö'])
+
+/** Closing diphthongs: stay in one syllable in any position (`poutainen`, `ystäväiseni`, `ikuinen`). */
+const CLOSING_DIPHTHONGS = new Set([
   'ai', 'ei', 'oi', 'ui', 'yi', 'äi', 'öi',
   'au', 'eu', 'iu', 'ou',
   'ey', 'iy', 'äy', 'öy',
-  'ie', 'uo', 'yö',
 ])
 
 /** Finnish diphthong → `[chimeraIpa, offglideShare]`. */
 const DIPHTHONG_IPA: Record<string, [string, number | undefined]> = {
-  ai: ['ɑi', 0.42],
-  au: ['ɑu̠', 0.42],
+  ai: ['ɑ̠i', 0.45],
+  au: ['ɑ̠u̝', 0.52],
   ei: ['eɪ', undefined],
-  ou: ['ou̠', 0.42],
-  oi: ['oi', 0.42],
+  ou: ['ou̝', 0.50],
+  oi: ['oi', 0.45],
   // Opening diphthongs: spend ~60% of the note on the more open second half
   ie: ['ie', 0.60],
   uo: ['ʊɔ', 0.60],
@@ -41,12 +44,12 @@ const DIPHTHONG_IPA: Record<string, [string, number | undefined]> = {
   // Remaining closing/front diphthongs
   äi: ['æ̞i', 0.42],
   öi: ['œi', 0.42],
-  ui: ['u̠i', 0.42],
+  ui: ['u̝i', 0.42],
   yi: ['yi', 0.42],
   äy: ['æ̞y', 0.42],
   öy: ['œy', 0.42],
-  eu: ['eu̠', 0.42],
-  iu: ['iu̠', 0.42],
+  eu: ['eu̝', 0.42],
+  iu: ['iu̝', 0.42],
   ey: ['ey', 0.42],
   iy: ['iy', 0.42],
 }
@@ -54,11 +57,11 @@ const DIPHTHONG_IPA: Record<string, [string, number | undefined]> = {
 /** Single-vowel Finnish letter → Chimera IPA vowel. */
 function singleVowelIpa(ch: string): string {
   switch (ch) {
-    case 'a': return 'ɑ'
+    case 'a': return 'ɑ̠'
     case 'ä': return 'æ̞'
     case 'ö': return 'œ'
     case 'å': return 'o'
-    case 'u': return 'u̠'
+    case 'u': return 'u̝'
     default: return ch
   }
 }
@@ -151,7 +154,11 @@ export function syllabifyFinnishWord(word: string): string[] {
     cur += v1
     if (i < w.length && VOWELS.has(w[i]!)) {
       const v2 = w[i]!
-      if (v2 === v1 || DIPHTHONGS.has(v1 + v2)) {
+      const pair = v1 + v2
+      const isDiph =
+        CLOSING_DIPHTHONGS.has(pair) ||
+        (syls.length === 0 && OPENING_DIPHTHONGS.has(pair))
+      if (v2 === v1 || isDiph) {
         cur += v2
         i++
       }
