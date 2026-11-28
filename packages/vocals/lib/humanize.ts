@@ -21,10 +21,12 @@ export { wrongness }
 const between = (random: () => number, low: number, high: number) =>
   low + (high - low) * random()
 
-/** At most this many cents away from true, for the whole take. */
-const drift = 8
+/** At most this many cents away from true, for the whole take (skilled choir intonation). */
+const drift = 3.5
 /** At most this many cents away from the take's drift, for any one note. */
-const wobble = 5
+const wobble = 2.5
+/** Chimera's continuous slow pitch micro-drift (cents) during held vowels: natural life without sounding autotuned. */
+const microDrift = 3.5
 /** At most this share of a note's length is given to its neighbour. */
 const lean = 0.12
 
@@ -80,10 +82,13 @@ const leanest = 0.3
 export function humanize(score: Score, name: string, humanness = 1, rate?: number): Take {
   const random = wrongness(name)
   const scale = Math.max(0, humanness)
-  const takeDrift = between(random, -drift * scale, drift * scale)
+  // Good singers stay tightly in tune at scale = 1 (with subtle continuous micro-drift so they
+  // never sound autotuned), while loose Perspectives (scale > 1) open up pitch drift superlinearly.
+  const pitchScale = scale > 1 ? scale * scale : scale
+  const takeDrift = between(random, -drift * pitchScale, drift * pitchScale)
   const notes = score.notes.map(([midi, beats]): [number, number] => [
     midi > 0
-      ? midi + (takeDrift + between(random, -wobble * scale, wobble * scale)) / 100
+      ? midi + (takeDrift + between(random, -wobble * pitchScale, wobble * pitchScale)) / 100
       : midi,
     beats,
   ])
@@ -107,7 +112,8 @@ export function humanize(score: Score, name: string, humanness = 1, rate?: numbe
     ...score,
     notes,
     t0: between(random, 0.24, 0.36),
-    vibrato: between(random, 22, 48) * (0.5 + 0.5 * scale),
+    vibrato: between(random, 18, 36) * (0.5 + 0.5 * scale),
+    drift: Math.round(microDrift * pitchScale * 100) / 100,
   }
 }
 

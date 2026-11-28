@@ -31,11 +31,14 @@ describe('humanize', () => {
     expect(humanize(score, 'a')).not.toEqual(humanize(score, 'b'))
   })
 
-  it('never moves a note far enough to change the tune', () => {
+  it('keeps skilled choir intonation tight while preserving subtle natural drift', () => {
     for (const name of ['a', 'b', 'c', 'd', 'e']) {
-      humanize(score, name).notes.forEach(([midi], i) => {
-        expect(Math.abs(midi - score.notes[i][0])).toBeLessThan(0.14)
+      const take = humanize(score, name)
+      take.notes.forEach(([midi], i) => {
+        expect(Math.abs(midi - score.notes[i][0])).toBeLessThan(0.065)
       })
+      expect(take.drift).toBeGreaterThan(2)
+      expect(take.drift).toBeLessThanOrEqual(4)
     }
   })
 
