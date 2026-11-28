@@ -49,7 +49,7 @@ if [ "$DO_SYNC" -eq 1 ]; then
   fi
   git ls-files -co --exclude-standard \
     | COPYFILE_DISABLE=1 tar -c -T - -f - \
-    | ssh -o ConnectTimeout=10 "$HOST" "tar --warning=no-unknown-keyword -x -C $DEST"
+    | ssh -o ConnectTimeout=10 "$HOST" "tar --warning=no-unknown-keyword -x -C $DEST && export PATH=\"\$HOME/.bun/bin:\$HOME/.cargo/bin:\$PATH\" && cd $DEST && bun run throat"
   echo "Sync complete."
 fi
 
