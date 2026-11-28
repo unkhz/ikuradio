@@ -8,6 +8,6 @@ resources:
   - throat.yaml
 images:
   - name: ghcr.io/unkhz/ikuradio/radio
-    newTag: "a8b97a00d8b7f0fe01af46957f649511b3f56ae4"
+    newTag: "9538146cb905595d836195ec9d346beea800aaea"
   - name: ghcr.io/unkhz/ikuradio/throat
     newTag: "latest"
