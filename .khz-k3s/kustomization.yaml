@@ -10,4 +10,4 @@ images:
   - name: ghcr.io/unkhz/ikuradio/radio
     newTag: "9538146cb905595d836195ec9d346beea800aaea"
   - name: ghcr.io/unkhz/ikuradio/throat
-    newTag: "latest"
+    newTag: "9538146cb905595d836195ec9d346beea800aaea"
