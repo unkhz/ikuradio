@@ -127,13 +127,14 @@ describe('throatOf', () => {
     const choir = gather(3, wrongness('choir'))
     expect(choir.every(({ throat }) => throat !== undefined)).toBe(true)
     expect(new Set(choir.map(({ throat }) => JSON.stringify(throat))).size).toBe(3)
-    // individual Chimera timbre & continuous vocal-tract blend vary per singer
+    // individual Chimera timbre & continuous vocal-tract blend vary per singer, without fry pitch-pull
     for (const { throat } of choir) {
       expect(throat!.brightness).toBeGreaterThanOrEqual(0.15)
       expect(throat!.brightness).toBeLessThanOrEqual(0.92)
       expect(throat!.vibratoRate).toBeGreaterThanOrEqual(4.8)
       expect(throat!.vibratoRate).toBeLessThanOrEqual(6.8)
       expect(throat!.epilarynx).toBeGreaterThanOrEqual(0)
+      expect(throat!.fry ?? 0).toBe(0)
       expect(throat!.body).toBeDefined()
     }
     expect(new Set(choir.map(({ throat }) => throat!.vibratoRate)).size).toBeGreaterThan(1)

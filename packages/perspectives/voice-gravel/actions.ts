@@ -5,9 +5,8 @@ export default turning('voice', (setting) => ({
   setting: {
     lead: {
       ...setting.lead,
-      roughness: 0.74,
-      fry: 0.48,
-      growl: 0.52,
+      roughness: 0.78,
+      growl: 0.62,
       ring: 0.48,
       brightness: 0.62,
       breathiness: 0.1,
@@ -15,9 +14,8 @@ export default turning('voice', (setting) => ({
     },
     harmony: {
       ...setting.harmony,
-      roughness: 0.46,
-      fry: 0.3,
-      growl: 0.3,
+      roughness: 0.48,
+      growl: 0.36,
       ring: 0.32,
       brightness: 0.54,
       breathiness: 0.12,

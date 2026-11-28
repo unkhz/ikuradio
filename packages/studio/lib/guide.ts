@@ -106,6 +106,12 @@ export type Guide = {
 /** A guide the timeline asks for: its key, which section of the iteration it is hummed for, and its tempo (`null` for free time). */
 export type GuideAsked = { key: string; section: number; bpm?: number | null }
 
+/** Clean pitch-accurate throat for guides: keeps breath/tension, strips roughness/fry/tract colouration so MusicGen hears pure pitches. */
+function guideThroat(throat?: Throat): Pick<Throat, 'pressure' | 'tension' | 'breathiness'> | undefined {
+  if (!throat) return undefined
+  return { pressure: throat.pressure, tension: throat.tension, breathiness: throat.breathiness }
+}
+
 /**
  * Hums the guides an iteration's timeline asks for: one for each key, the sections the Music grows its beds from. A guide the lead cannot hum
  * is left out, and the Music listens to the sung voice instead. Without two voices, a guide is hummed for the first section of each kind of bed, as it always was.
@@ -151,7 +157,7 @@ export async function humGuides(
       const held = holdLast(keyed, beatsOf(tail))
       try {
         // steady, without a singer's wavering: it is a map, not a performance
-        const take: Take = { ...held, t0: 0.05, vibrato: 0, ...lead.throat }
+        const take: Take = { ...held, t0: 0.05, vibrato: 0, drift: 0, ...guideThroat(lead.throat) }
         const file = await record(take, lead.body)
         return {
           kind: section.kind,
@@ -326,7 +332,7 @@ export async function humTwoVoices({ mood, choir, settings, iteration, song }: I
       const sung = (score: Score, throat?: Throat): Take => {
         const held = holdLast(score, (tail * sectionBpm) / 60)
         // steady, without a singer's wavering: it is a map, not a performance
-        return { ...held, lyrics: hum(held.notes.filter(([m]) => m > 0).length), t0: 0.05, vibrato: 0, ...throat }
+        return { ...held, lyrics: hum(held.notes.filter(([m]) => m > 0).length), t0: 0.05, vibrato: 0, drift: 0, ...guideThroat(throat) }
       }
       const upperTake = sung(upper, lead.throat)
       const lowerTake = sung(lower, low.throat)

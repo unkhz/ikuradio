@@ -121,7 +121,7 @@ export type VoiceTone = {
   ring: number
   /** 0..1 vocal fold roughness / grit. */
   roughness: number
-  /** 0..1 vocal fry / creak. */
+  /** 0..1 vocal fry / creak. Note: Chimera's fry pulls f0 down toward 48 Hz, so melodic voices keep this at 0. */
   fry: number
   /** 0..1 ventricular / false vocal folds (growl). */
   growl: number

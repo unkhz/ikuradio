@@ -71,7 +71,11 @@ export type ThroatOptions = {
 /**
  * A throat for a singer: pressure, fold tension, breathiness, plus individual
  * Chimera timbre and tract personality (brightness, singer's ring, subtle fold
- * roughness/fry, vibrato rate, pitch glide, and continuous body blend).
+ * roughness, vibrato rate, pitch glide, and continuous body blend).
+ *
+ * Note: Chimera's `fry` parameter linearly interpolates `f0` down toward 48 Hz
+ * (`glottis.rs`), so even small values (0.04–0.10) detune sung notes by 50–150
+ * cents flat. Singers therefore always keep `fry` unset (0).
  */
 export function throatOf(random: () => number, breath?: Breath, opts: ThroatOptions = {}): Throat {
   // the Mood's breath, if it has one, give or take a little; otherwise anywhere
@@ -82,7 +86,6 @@ export function throatOf(random: () => number, breath?: Breath, opts: ThroatOpti
   const brightnessBase = isLead ? 0.44 + 0.32 * random() : 0.30 + 0.34 * random()
   const epilarynxBase = isLead ? (0.04 + 0.24 * press + 0.12 * random()) : (0.0 + 0.14 * press + 0.08 * random())
   const roughness = round2(clamp(random() * random() * 0.18, 0, 0.25))
-  const fry = round2(clamp((1 - press * 0.6) * random() * random() * 0.16, 0, 0.22))
   const vibratoRate = round2(4.8 + random() * 2.0)
   const glide = round3(0.015 + random() * 0.030)
   const body = opts.body ? bodyMixFor(opts.body, random, opts.morph ?? 0.15) : undefined
@@ -94,7 +97,6 @@ export function throatOf(random: () => number, breath?: Breath, opts: ThroatOpti
     brightness: round2(clamp(brightnessBase + (press - 0.5) * 0.12, 0.15, 0.92)),
     epilarynx: round2(clamp(epilarynxBase, 0, 0.5)),
     roughness,
-    fry,
     vibratoRate,
     glide,
     ...(body ? { body } : {}),

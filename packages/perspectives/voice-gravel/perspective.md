@@ -8,4 +8,4 @@ slug: voice-gravel
 ---
 # Gravel and growl
 
-Weathered, raspy folds, heavy vocal fry, false-fold ventricular growl, and a cutting edge of ring. An extreme singer variant with raw, gritty personality.
+Weathered, raspy folds, false-fold ventricular growl, and a cutting edge of ring. An extreme singer variant with raw, gritty personality.

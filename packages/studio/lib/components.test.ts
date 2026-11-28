@@ -66,8 +66,13 @@ describe('Studio support for new parts, voice controls, drone, and pulse', () =>
     const gravel = await perspectivesFor('9002', { choirSize: 3, only: ['voice-gravel'] })
     const grLead = applyVoiceTone(base, gravel.settings.voice.lead)!
     expect(grLead.roughness).toBeGreaterThanOrEqual(0.7)
-    expect(grLead.ventricular).toBeGreaterThanOrEqual(0.5)
-    expect(grLead.fry).toBeGreaterThanOrEqual(0.45)
+    expect(grLead.ventricular).toBeGreaterThanOrEqual(0.6)
+    expect(grLead.fry ?? 0).toBe(0)
+
+    const whisper = await perspectivesFor('9004', { choirSize: 3, only: ['voice-whisper'] })
+    const whLead = applyVoiceTone(base, whisper.settings.voice.lead)!
+    expect(whLead.breathiness).toBeGreaterThanOrEqual(0.7)
+    expect(whLead.fry ?? 0).toBe(0)
 
     const chimera = await perspectivesFor('9003', { choirSize: 3, only: ['voice-chimera'] })
     expect(chimera.perspectives[0]?.variant).toMatch(/hybrid/)
