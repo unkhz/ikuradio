@@ -64,7 +64,7 @@ jobs:
 
       - name: Tune the cluster to this Radio
         run: |
-          sed -i -E "s/^( *newTag:).*/\1 \"${GITHUB_SHA}\"/" .khz-k3s/kustomization.yaml
+          sed -i -E "/name: ghcr\.io\/unkhz\/ikuradio\/radio$/{n;s/^( *newTag:).*/\1 \"${GITHUB_SHA}\"/}" .khz-k3s/kustomization.yaml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .khz-k3s/kustomization.yaml

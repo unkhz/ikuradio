@@ -1,10 +1,13 @@
-# The Radio in khz-k3s, carried by Argo CD from unkhz/apps.
-# The Radio workflow sets newTag to each image it builds.
+# The Radio and Throat in khz-k3s, carried by Argo CD from unkhz/apps.
+# Each workflow sets newTag for its own image.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 namespace: apps
 resources:
   - radio.yaml
+  - throat.yaml
 images:
   - name: ghcr.io/unkhz/ikuradio/radio
     newTag: "a8b97a00d8b7f0fe01af46957f649511b3f56ae4"
+  - name: ghcr.io/unkhz/ikuradio/throat
+    newTag: "latest"
