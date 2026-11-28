@@ -11,6 +11,7 @@ export {
   pick,
   usualLyrics,
   usualMelody,
+  usualVoice,
   turning,
   type Actions,
   type Facet,
@@ -21,6 +22,7 @@ export {
   type Turn,
   type TurnContext,
   type Turned,
+  type VoiceTone,
 } from './lib/facets.js'
 export {
   describePerspectives,

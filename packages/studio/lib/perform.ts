@@ -13,7 +13,7 @@ import { getEnv } from 'tools'
 import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Phrase, type Score, type Syllables } from 'melody'
 import { blend, composeScat, countSyllables, fullness, hasSpecialWord, humanize, isIpaScatToken, keepsPace, quickest, record, resolveLineSyllables, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
 import type { Part as PartDef, WordMode } from 'parts'
-import type { Melody } from 'perspectives'
+import { usualVoice, type Melody, type VoiceTone } from 'perspectives'
 import type { Iteration } from './compose.js'
 import { stressedLine } from './stressed.js'
 import { twoVoices } from './guide.js'
@@ -125,6 +125,52 @@ export function throatForBreath(base: Throat | undefined, breath?: string): Thro
     }
   }
   return base
+}
+
+const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x))
+const round3 = (n: number) => Math.round(n * 1000) / 1000
+const screen = (base: number, lift: number) => clamp(base + lift * (1 - base), 0, 1)
+
+/**
+ * Blends a `voice` Facet `VoiceTone` (moved by Tides and/or extreme singer
+ * Perspectives) onto a singer's individual `Throat`. At `usualVoice` defaults
+ * every singer keeps their own `throatOf` personality untouched.
+ */
+export function applyVoiceTone(base: Throat | undefined, tone: VoiceTone | undefined): Throat | undefined {
+  if (!tone) return base
+  const isNeutral =
+    tone.ring === usualVoice.ring &&
+    tone.roughness === usualVoice.roughness &&
+    tone.fry === usualVoice.fry &&
+    tone.growl === usualVoice.growl &&
+    tone.brightness === usualVoice.brightness &&
+    tone.breathiness === usualVoice.breathiness &&
+    tone.vibratoRate === usualVoice.vibratoRate &&
+    tone.glide === usualVoice.glide
+  if (isNeutral) return base
+
+  const epilarynx = round3(screen(base?.epilarynx ?? 0, tone.ring))
+  const roughness = round3(screen(base?.roughness ?? 0, tone.roughness))
+  const fry = round3(screen(base?.fry ?? 0, tone.fry))
+  const ventricular = round3(screen(base?.ventricular ?? 0, tone.growl))
+  const brightness = round3(clamp((base?.brightness ?? 0.5) + (tone.brightness - usualVoice.brightness), 0.05, 1))
+  const breathiness = round3(clamp((base?.breathiness ?? 0.15) + (tone.breathiness - usualVoice.breathiness), 0.02, 0.85))
+  const vibratoRate = round3(clamp((base?.vibratoRate ?? 6) + (tone.vibratoRate - usualVoice.vibratoRate), 3.5, 8))
+  const glide = round3(clamp((base?.glide ?? 0.025) + (tone.glide - usualVoice.glide), 0.005, 0.15))
+
+  return {
+    pressure: base?.pressure ?? 9,
+    tension: base?.tension ?? 0.55,
+    ...base,
+    breathiness,
+    brightness,
+    vibratoRate,
+    glide,
+    ...(epilarynx > 0 ? { epilarynx } : {}),
+    ...(roughness > 0 ? { roughness } : {}),
+    ...(fry > 0 ? { fry } : {}),
+    ...(ventricular > 0 ? { ventricular } : {}),
+  }
 }
 
 /** A compact suffix distinguishing a region whose melody parameters, tempo, cadence, or voice block overrides differ from the defaults, or empty when default. */
@@ -419,10 +465,16 @@ export async function perform(
     const scores = choirOf(led, voices, key, chords)
     const takes = voices.map((singer, v) => {
       const score = scores[v]!
+      const roleTone = v === 0 ? settings.voice?.lead : settings.voice?.harmony
+      const humanized = humanize(score, `${iteration}:${key}:${v}`, effectiveHumanness, rate)
+      const vibrato = roleTone && roleTone.vibratoDepth !== 1
+        ? Math.round(clamp(humanized.vibrato * roleTone.vibratoDepth, 0, 110) * 100) / 100
+        : humanized.vibrato
       const take = {
-        ...humanize(score, `${iteration}:${key}:${v}`, effectiveHumanness, rate),
-        // each singer breathes through a throat of their own, optionally shaped by block `breath`
-        ...throatForBreath(singer.throat, breathPreset),
+        ...humanized,
+        vibrato,
+        // each singer breathes through a throat of their own, optionally shaped by block `breath` and `voice` Tides/Perspectives
+        ...applyVoiceTone(throatForBreath(singer.throat, breathPreset), roleTone),
       }
       // a line that would come too quickly is never sung: the iteration fails, and is made again
       keepsPace(take, rate, `"${line}" in iteration ${iteration}, voice ${v}`)

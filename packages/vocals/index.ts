@@ -15,11 +15,13 @@ export { readAloud } from './lib/reading.js'
 export { mixdown, blend, fullness, type Placed } from './lib/mixdown.js'
 export { humanize, keepsPace, quickest, TooFast, wrongness, type Take, type Throat } from './lib/humanize.js'
 export {
+  bodyMixFor,
   gather,
   introduce,
   firstChoir,
   throatOf,
   type Choir,
+  type ThroatOptions,
   type Voice,
 } from './lib/singers.js'
 export { run, Turns } from './lib/exec.js'

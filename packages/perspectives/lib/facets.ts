@@ -22,6 +22,7 @@ export const facets = [
   'melody',
   'lyrics',
   'language',
+  'voice',
 ] as const
 
 export type Facet = (typeof facets)[number]
@@ -102,10 +103,54 @@ export type Settings = {
   lyrics: { verse: Lyrics; chorus: Lyrics }
   /**
    * Which language the Song is written and sung in: `'en'` by default, or
-   * `'fi'` for Finnish (written by Poro and sung via Finnish IPA syllables).
+   * `'fi'` for Finnish (written by Poro and sung via Chimera's Finnish front end).
    * Hooked where the Studio wakes the mind, composes lyrics, and performs takes.
    */
   language: { code: 'en' | 'fi' }
+  /**
+   * Chimera vocal timbre and personality shaping for the lead and backing harmonies.
+   * Turned by extreme singer Perspectives (operatic ring, whisper, gravel/growl,
+   * chimeric hybrids). Hooked where the choir is gathered and where each take is performed.
+   */
+  voice: { lead: VoiceTone; harmony: VoiceTone }
+}
+
+/** Chimera vocal timbre and tract shaping for one choir role (`lead` or `harmony`). */
+export type VoiceTone = {
+  /** 0..1 epilarynx narrowing (singer's ring / operatic ping / twang). */
+  ring: number
+  /** 0..1 vocal fold roughness / grit. */
+  roughness: number
+  /** 0..1 vocal fry / creak. */
+  fry: number
+  /** 0..1 ventricular / false vocal folds (growl). */
+  growl: number
+  /** 0..1 spectral brightness (0.5 neutral). */
+  brightness: number
+  /** 0..0.85 breathiness bias (0.15 neutral). */
+  breathiness: number
+  /** Vibrato rate in Hz (6.0 neutral). */
+  vibratoRate: number
+  /** Vibrato depth multiplier (1.0 usual, 0 straight tone, 2.0 dramatic). */
+  vibratoDepth: number
+  /** Pitch glide time constant in seconds (0.025 neutral). */
+  glide: number
+  /** 0..1 continuous male/female/child body-blend wander (0.15 usual, 1.0 chimeric). */
+  morph: number
+}
+
+/** Neutral voice tone: lets each singer's own `throatOf` individuality speak untouched. */
+export const usualVoice: VoiceTone = {
+  ring: 0,
+  roughness: 0,
+  fry: 0,
+  growl: 0,
+  brightness: 0.5,
+  breathiness: 0.15,
+  vibratoRate: 6,
+  vibratoDepth: 1,
+  glide: 0.025,
+  morph: 0.15,
 }
 
 /** How high and how far a part's melody goes. */
@@ -140,6 +185,7 @@ export function defaults(choirSize: number): Settings {
     melody: { verse: { ...usualMelody }, chorus: { ...usualMelody }, bridge: { ...usualMelody } },
     lyrics: { verse: { ...usualLyrics }, chorus: { ...usualLyrics } },
     language: { code: 'en' },
+    voice: { lead: { ...usualVoice }, harmony: { ...usualVoice } },
   }
 }
 

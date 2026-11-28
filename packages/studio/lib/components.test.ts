@@ -6,7 +6,7 @@ import { partsById, readArrangements, readParts, readTracks, type Arrangement } 
 import { firstLyrics } from 'song'
 import { askedOf } from './asking.js'
 import { extraPartsFor } from './compose.js'
-import { throatForBreath, type SungLine } from './perform.js'
+import { applyVoiceTone, throatForBreath, type SungLine } from './perform.js'
 import { mixOf, renderSynths } from './synth.js'
 import { sessionOf } from './timeline.js'
 import { madeFromSession } from './fixtures/archive.js'
@@ -50,6 +50,28 @@ describe('Studio support for new parts, voice controls, drone, and pulse', () =>
     const pressed = throatForBreath(base, 'pressed')!
     expect(pressed.tension).toBeGreaterThan(base.tension)
     expect(pressed.pressure).toBeGreaterThan(base.pressure)
+  })
+
+  it('blends voice Facet perspectives cleanly onto a singer throat without clobbering neutral defaults', async () => {
+    const { perspectivesFor, usualVoice } = await import('perspectives')
+    const base = { pressure: 9, tension: 0.55, breathiness: 0.15, brightness: 0.55, vibratoRate: 5.8 }
+    expect(applyVoiceTone(base, usualVoice)).toEqual(base)
+
+    const operatic = await perspectivesFor('9001', { choirSize: 3, only: ['voice-operatic'] })
+    const opLead = applyVoiceTone(base, operatic.settings.voice.lead)!
+    expect(opLead.epilarynx).toBeGreaterThanOrEqual(0.8)
+    expect(opLead.brightness).toBeGreaterThan(base.brightness)
+    expect(opLead.breathiness).toBeLessThan(base.breathiness)
+
+    const gravel = await perspectivesFor('9002', { choirSize: 3, only: ['voice-gravel'] })
+    const grLead = applyVoiceTone(base, gravel.settings.voice.lead)!
+    expect(grLead.roughness).toBeGreaterThanOrEqual(0.7)
+    expect(grLead.ventricular).toBeGreaterThanOrEqual(0.5)
+    expect(grLead.fry).toBeGreaterThanOrEqual(0.45)
+
+    const chimera = await perspectivesFor('9003', { choirSize: 3, only: ['voice-chimera'] })
+    expect(chimera.perspectives[0]?.variant).toMatch(/hybrid/)
+    expect(chimera.settings.voice.lead.morph).toBeGreaterThanOrEqual(0.9)
   })
 
   it('renders drone over guide chords, keeps pulse silent in free time, and writes Session with spoken/silence/drone/pulse', async () => {

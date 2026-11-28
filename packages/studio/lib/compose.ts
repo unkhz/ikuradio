@@ -409,6 +409,8 @@ export async function composer(
       choir = beginsSong
         ? gather(targetChoirSize, Math.random, mood.character.voice, {
             high: sidesOf(settings.harmony.placement, targetChoirSize - 1).map((side) => side === 'above'),
+            morph: settings.voice?.lead.morph,
+            harmonyMorph: settings.voice?.harmony.morph,
           })
         : remembered
       // pages written before the tune could change remember the tune it was born with
