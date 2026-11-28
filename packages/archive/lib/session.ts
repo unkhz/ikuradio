@@ -108,9 +108,10 @@ export type SessionPhoneme = {
   stress?: number
   wordEnd?: boolean
   aspirated?: boolean
+  vot?: number
 }
 
-/** One explicit IPA syllable sung by Chimera directly, bypassing English G2P. */
+/** One explicit IPA syllable sung by Chimera directly, bypassing G2P. */
 export type SessionSyllable = {
   text: string
   onset: SessionPhoneme[]
@@ -119,31 +120,52 @@ export type SessionSyllable = {
   melisma?: boolean
   wordEnd: boolean
   phraseEnd: boolean
+  offglideShare?: number
 }
 
 /**
  * A take, exactly as the throat is given it: the notes in MIDI (cents and
- * all) and beats at `bpm`, a rest being 0 or less, the words read aloud, the
- * breath before the first note, the vibrato, and the singer's own throat.
- * Optional `syllables` carries explicit IPA syllables for non-English singing,
- * scat vocalizations, or pronunciation overrides.
- * The body that sings it is the singer's, in `singers`.
+ * all) and beats at `bpm`, a rest being 0 or less, the words, optional
+ * Chimera front-end language (`lang`), the breath before the first note,
+ * the vibrato, and the singer's own throat and Chimera timbre controls.
+ * Optional `syllables` carries explicit IPA syllables for scat vocalizations,
+ * pronunciation overrides, or older archived songs.
+ * The body that sings it is the singer's, in `singers` (unless overridden by `body`).
  */
 export type SessionTake = {
   bpm: number
   lyrics: string
+  lang?: 'en' | 'tr' | 'fi'
   syllables?: SessionSyllable[]
   notes: [number, number][]
   /** Seconds of breath before the first note. */
   t0?: number
   /** Vibrato depth in cents on held vowels. */
   vibrato?: number
+  /** Vibrato rate in Hz. */
+  vibratoRate?: number
   /** Lung pressure, in cmH2O. */
   pressure?: number
   /** 0 slack … 1 pressed. */
   tension?: number
   /** 0 clear … 1 all breath. */
   breathiness?: number
+  /** 0 warm … 1 bright spectral tilt. */
+  brightness?: number
+  /** 0 smooth … 1 rough vocal folds. */
+  roughness?: number
+  /** 0 modal … 1 vocal fry. */
+  fry?: number
+  /** Pitch glide time constant (s). */
+  glide?: number
+  /** Pitch micro-drift. */
+  drift?: number
+  /** 0..1 epilarynx narrowing (singer's ring / twang). */
+  epilarynx?: number
+  /** 0..1 ventricular / false folds (growl). */
+  ventricular?: number
+  /** Continuous vocal-tract body blend override (`{ female, child }`). */
+  body?: { female: number; child: number }
 }
 
 /**
@@ -152,12 +174,23 @@ export type SessionTake = {
  */
 export type SessionSpeech = {
   text: string
-  body: 'female' | 'male' | 'child'
+  body: 'female' | 'male' | 'child' | { female: number; child: number }
+  lang?: 'en' | 'tr' | 'fi'
   f0?: number
   rate?: number
+  accent?: number
+  stretch?: [number, number][]
   pressure?: number
   tension?: number
   breathiness?: number
+  brightness?: number
+  roughness?: number
+  fry?: number
+  vibratoRate?: number
+  glide?: number
+  drift?: number
+  epilarynx?: number
+  ventricular?: number
 }
 
 /**

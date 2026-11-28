@@ -1,36 +1,51 @@
 import { describe, expect, it } from 'bun:test'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
-import type { Score } from 'melody'
-import {
-  countFinnishSyllables,
-  expandFinnishTake,
-  finnishStressedLine,
-  syllabifyFinnishWord,
-} from './finnish.js'
+import { countSyllables, readSyllables, syllablesToStressed, throatScore } from './chimera.js'
+import { speakInto } from './speak.js'
 
+const home = new URL('../.chimera/', import.meta.url).pathname
+const native = `${home}target/release/chimera`
 const throatWasm = fileURLToPath(new URL('../../ui/public/throat/chimera.wasm', import.meta.url))
 const cmudictGz = fileURLToPath(new URL('../../ui/public/throat/cmudict.txt.gz', import.meta.url))
 const throatJs = fileURLToPath(new URL('../../ui/public/throat.js', import.meta.url))
+const speechWasm = fileURLToPath(new URL('../../ui/public/throat/speech/chimera.wasm', import.meta.url))
+const built = existsSync(native) && existsSync(throatWasm)
 
-describe('Finnish syllabification and stress', () => {
-  it('syllabifies Finnish words with diphthongs, long vowels, and consonant clusters', () => {
-    expect(syllabifyFinnishWord('Revontulet')).toEqual(['re', 'von', 'tu', 'let'])
-    expect(syllabifyFinnishWord('kierros')).toEqual(['kier', 'ros'])
-    expect(syllabifyFinnishWord('neljätoista')).toEqual(['nel', 'jä', 'tois', 'ta'])
-    expect(syllabifyFinnishWord('ikuinen')).toEqual(['i', 'kui', 'nen'])
-    expect(syllabifyFinnishWord('ystäväiseni')).toEqual(['ys', 'tä', 'väi', 'se', 'ni'])
-    expect(syllabifyFinnishWord('Suomi')).toEqual(['suo', 'mi'])
-    expect(syllabifyFinnishWord('yöllä')).toEqual(['yöl', 'lä'])
-    expect(syllabifyFinnishWord('tähtien')).toEqual(['täh', 'ti', 'en'])
+describe('Finnish via Chimera built-in front end', () => {
+  it('groups Chimera syllable output into per-word stresses and commas', () => {
+    const words = syllablesToStressed([
+      { text: 'Tä', onset: [], nucleus: { ipa: 'æ̞', stress: 1 }, coda: [], wordEnd: false, phraseEnd: false },
+      { text: 'mä', onset: [], nucleus: { ipa: 'æ̞', stress: 0 }, coda: [], wordEnd: true, phraseEnd: false },
+      { text: 'lau', onset: [], nucleus: { ipa: 'ɑ̠u̝', stress: 1 }, coda: [], wordEnd: false, phraseEnd: false },
+      { text: 'lu', onset: [], nucleus: { ipa: 'u̝', stress: 0 }, coda: [], wordEnd: true, phraseEnd: true },
+    ])
+    expect(words).toEqual([
+      { stresses: [1, 0] },
+      { stresses: [1, 0], comma: true },
+    ])
   })
 
-  it('counts syllables and places primary stress on every word initial syllable', () => {
+  it('keeps Finnish lyrics untouched in throatScore instead of running English readAloud', () => {
+    const score = throatScore({
+      bpm: 84,
+      lang: 'fi',
+      lyrics: '  Tämä on laulu, kierros 14,  ',
+      notes: [[64, 1]],
+    })
+    expect(score.lyrics).toBe('Tämä on laulu, kierros 14,')
+    expect(score.lang).toBe('fi')
+  })
+
+  it.skipIf(!built)('reads Finnish syllables, counts, and stresses directly from Chimera', async () => {
     const line = 'Tämä on laulu, kierros neljätoista,'
-    expect(countFinnishSyllables(line)).toBe(11)
-    const stressed = finnishStressedLine(line)
-    expect(stressed).toEqual([
+    const syls = await readSyllables(line, 'fi')
+    expect(syls.map((s) => s.text)).toEqual([
+      'Tä', 'mä', 'on', 'lau', 'lu', 'kier', 'ros', 'nel', 'jä', 'tois', 'ta',
+    ])
+    expect(await countSyllables(line, 'fi')).toBe(11)
+    expect(syllablesToStressed(syls)).toEqual([
       { stresses: [1, 0] },
       { stresses: [1] },
       { stresses: [1, 0], comma: true },
@@ -38,97 +53,44 @@ describe('Finnish syllabification and stress', () => {
       { stresses: [1, 0, 2, 0], comma: true },
     ])
   })
-})
 
-describe('expandFinnishTake', () => {
-  it('maps Finnish vowels, dental t̪/l̪, tight-VOT stops, geminates, and native diphthongs with offglideShare', () => {
-    const line = 'kierros Suomi yöllä tähtönen turma'
-    const base: Score = {
-      bpm: 80,
-      lyrics: line,
-      notes: [
-        [69, 0.5], [69, 1.0],
-        [0, 0.25],
-        [67, 0.5], [67, 1.0],
-        [0, 0.25],
-        [65, 0.5], [65, 1.0],
-        [0, 0.25],
-        [64, 0.5], [64, 0.5], [64, 1.0],
-        [0, 0.25],
-        [62, 0.5], [62, 1.0],
-      ],
-    }
-    const expanded = expandFinnishTake(base, line)
-    expect(expanded.syllables).toBeDefined()
-    const sounding = expanded.notes.filter(([m]) => m > 0)
-    expect(expanded.syllables!.length).toBe(sounding.length)
-
-    // kierros -> kier (k tight-VOT + ie offglide 0.60) + ros (single geminate r dur=0.165)
-    expect(expanded.syllables![0]!.onset).toEqual([{ ipa: 'k', aspirated: true, vot: 0.012 }])
-    expect(expanded.syllables![0]!.nucleus.ipa).toBe('ie')
-    expect(expanded.syllables![0]!.offglideShare).toBe(0.60)
-    expect(expanded.syllables![0]!.coda).toEqual([])
-    expect(expanded.syllables![1]!.onset).toEqual([{ ipa: 'r', dur: 0.165 }])
-
-    // Suomi -> ʊɔ (u̠+ɔ) with offglide 0.60
-    expect(expanded.syllables![2]!.nucleus.ipa).toBe('ʊɔ')
-    expect(expanded.syllables![2]!.offglideShare).toBe(0.60)
-
-    // yöllä -> yœ + geminate l̪ (dur=0.175) + open front æ̞
-    expect(expanded.syllables![4]!.nucleus.ipa).toBe('yœ')
-    expect(expanded.syllables![4]!.offglideShare).toBe(0.60)
-    expect(expanded.syllables![5]!.onset).toEqual([{ ipa: 'l̪', dur: 0.175 }])
-    expect(expanded.syllables![5]!.nucleus.ipa).toBe('æ̞')
-
-    // tähtönen -> dental t̪ + æ̞ + h, t̪ + œ, nen
-    expect(expanded.syllables![6]!.onset).toEqual([{ ipa: 't̪', aspirated: true, vot: 0.012 }])
-    expect(expanded.syllables![6]!.nucleus.ipa).toBe('æ̞')
-    expect(expanded.syllables![7]!.onset).toEqual([{ ipa: 't̪', aspirated: true, vot: 0.012 }])
-    expect(expanded.syllables![7]!.nucleus.ipa).toBe('œ')
-
-    // turma -> t̪ + close-back u̝ + boosted coda r (0.135) + open-back ɑ̠
-    expect(expanded.syllables![9]!.nucleus.ipa).toBe('u̝')
-    expect(expanded.syllables![9]!.coda).toEqual([{ ipa: 'r', dur: 0.135 }])
-    expect(expanded.syllables![10]!.nucleus.ipa).toBe('ɑ̠')
-  })
-
-  it('boosts l̪ onset duration after voiceless stop codas (Revontulet leiskuvat)', () => {
-    const line = 'Revontulet leiskuvat'
-    const base: Score = {
-      bpm: 76,
-      lyrics: line,
-      notes: Array.from({ length: countFinnishSyllables(line) }, () => [64, 0.5] as [number, number]),
-    }
-    const expanded = expandFinnishTake(base, line)
-    // syllable 3 is `let` (coda t̪), syllable 4 is `leis` (onset l̪ boosted to 0.088)
-    expect(expanded.syllables![3]!.coda).toEqual([{ ipa: 't̪', aspirated: true, vot: 0.012 }])
-    expect(expanded.syllables![4]!.onset).toEqual([{ ipa: 'l̪', dur: 0.088 }])
-  })
-
-  it('renders cleanly through Chimera WASM without error', async () => {
+  it.skipIf(!built)('sings Finnish cleanly via Chimera WASM with lang: "fi" (no explicit syllables)', async () => {
     const { openThroat } = await import(throatJs)
     const throat = await openThroat(
       readFileSync(throatWasm),
       gunzipSync(readFileSync(cmudictGz)).toString(),
     )
     const lines = [
-      'Tämä on laulu, kierros neljätoista,',
-      'Revontulet leiskuvat yöllä,',
+      'Lumous kietoo alla jään',
+      'Sävel kantaa hiljaisuuteen',
       'Tuiki tuiki tähtönen, kukka, tuli, tulli, turma,',
-      'Kuule laulu ikuinen',
+      'Ha\'un vaa\'an tähtien',
     ]
     for (const line of lines) {
-      const n = countFinnishSyllables(line)
-      const score = expandFinnishTake(
-        {
-          bpm: 80,
-          lyrics: line,
-          notes: Array.from({ length: n }, () => [64, 0.5] as [number, number]),
-        },
-        line,
+      const n = await countSyllables(line, 'fi')
+      const notes = Array.from({ length: n }, (): [number, number] => [64, 0.5])
+      notes.push([0, 1])
+      const pcm: Float32Array = throat.sing(
+        { bpm: 84, lang: 'fi', lyrics: line, notes, t0: 0.25, vibrato: 30 },
+        'female',
       )
-      const pcm: Float32Array = throat.sing({ ...score, t0: 0.25, vibrato: 30 }, 'female')
-      expect(pcm.length).toBeGreaterThan(4800)
+      expect(pcm.length).toBeGreaterThan(24000)
+      let peak = 0
+      for (let i = 0; i < pcm.length; i++) {
+        const a = Math.abs(pcm[i]!)
+        if (a > peak) peak = a
+      }
+      expect(peak).toBeGreaterThan(0.05)
+      expect(Number.isFinite(peak)).toBe(true)
     }
-  })
+  }, 60_000)
+
+  it.skipIf(!existsSync(speechWasm))('speaks Finnish via Chimera speaking WASM with lang: "fi"', async () => {
+    const out = await speakInto(
+      { text: 'Hei, kuuletko minua? Vesihiisi sihisi hississä.', body: 'female', lang: 'fi' },
+      '/tmp/ikuradio-finnish-speech-test.wav',
+    )
+    expect(out.seconds).toBeGreaterThan(1.5)
+    expect(out.segments.length).toBeGreaterThan(15)
+  }, 30_000)
 })

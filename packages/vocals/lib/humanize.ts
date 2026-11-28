@@ -13,7 +13,7 @@
 // so a line can be sung again from memory. Only a new name, a new
 // iteration, a new place in the song, gives a new take.
 
-import { wrongness, type Score } from 'melody'
+import { wrongness, type BodyMix, type Score } from 'melody'
 
 export { wrongness }
 
@@ -37,8 +37,8 @@ export type Take = Score & {
 
 /**
  * A throat of one's own: how hard a singer breathes, how tightly their folds
- * close, and how much air escapes between them. Missing, the throat sings as
- * Chimera does by default: 9, 0.55 and 0.15.
+ * close, how much air escapes between them, and optional Chimera timbre/tract
+ * properties. Missing, the throat sings with Chimera's defaults (9, 0.55, 0.15).
  */
 export type Throat = {
   /** Lung pressure, in cmH2O. */
@@ -47,6 +47,24 @@ export type Throat = {
   tension: number
   /** 0 clear … 1 all breath. */
   breathiness: number
+  /** 0 warm … 1 bright spectral tilt (Chimera source brightness). */
+  brightness?: number
+  /** 0 smooth … 1 rough vocal folds (Chimera source roughness). */
+  roughness?: number
+  /** 0 modal … 1 vocal fry / creak (Chimera source fry). */
+  fry?: number
+  /** Vibrato rate in Hz (Chimera default 6.0). */
+  vibratoRate?: number
+  /** Pitch glide time constant in seconds. */
+  glide?: number
+  /** Pitch micro-drift amount. */
+  drift?: number
+  /** 0..1 epilarynx narrowing (Chimera singer's ring / twang). */
+  epilarynx?: number
+  /** 0..1 ventricular / false-fold engagement (growl). */
+  ventricular?: number
+  /** Continuous Chimera vocal-tract body blend override (`{ female, child }`). */
+  body?: BodyMix
 }
 
 /** How far a lean may go at most, whatever a Song's humanness: a note never gives away a third of itself. */

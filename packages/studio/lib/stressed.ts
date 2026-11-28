@@ -5,18 +5,32 @@
 // they do not, the line is fitted the old way, without stress, and nothing
 // is guessed.
 
-import type { Syllables } from 'melody'
+import type { PhonemeSyllable, Syllables, VoiceLang } from 'melody'
 import { stresses, type StressedWord } from 'song'
-import { countSyllables, prepareLyrics } from 'vocals'
+import { countSyllables, prepareLyrics, readSyllables, syllablesToStressed } from 'vocals'
 
 export async function stressedLine(
   line: string,
   syllables: number,
   {
+    lang = 'en',
     read = stresses,
     count = countSyllables,
-  }: { read?: (lyrics: string) => Promise<StressedWord[]>; count?: (word: string) => Promise<number> } = {},
+    readNative = readSyllables,
+  }: {
+    lang?: VoiceLang
+    read?: (lyrics: string) => Promise<StressedWord[]>
+    count?: (word: string) => Promise<number>
+    readNative?: (text: string, lang: VoiceLang) => Promise<PhonemeSyllable[]>
+  } = {},
 ): Promise<Syllables[] | undefined> {
+  if (lang !== 'en') {
+    const syls = await readNative(line, lang).catch(() => undefined)
+    if (!syls?.length) return undefined
+    const words = syllablesToStressed(syls)
+    const counted = words.reduce((sum, word) => sum + word.stresses.length, 0)
+    return counted === syllables ? words : undefined
+  }
   const words = await read(prepareLyrics(line)).catch(() => undefined)
   if (!words) return undefined
   const known: Syllables[] = []

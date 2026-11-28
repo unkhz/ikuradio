@@ -11,7 +11,7 @@
 
 import { getEnv } from 'tools'
 import { chordsHeard, harmonizeChoir, keyFor, modes, scoreSeconds, setBridge, setLine, wrongness, type ChordSource, type Phrase, type Score, type Syllables } from 'melody'
-import { blend, composeScat, countFinnishSyllables, countSyllables, expandFinnishTake, finnishStressedLine, fullness, hasSpecialWord, humanize, isIpaScatToken, keepsPace, quickest, record, resolveLineSyllables, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
+import { blend, composeScat, countSyllables, fullness, hasSpecialWord, humanize, isIpaScatToken, keepsPace, quickest, record, resolveLineSyllables, speakInto, throatScore, type SpeechSpec, type Take, type Throat } from 'vocals'
 import type { Part as PartDef, WordMode } from 'parts'
 import type { Melody } from 'perspectives'
 import type { Iteration } from './compose.js'
@@ -356,10 +356,7 @@ export async function perform(
     voice?: Readonly<Record<string, number | string>>,
   ): Promise<Fitted & { hummed: boolean }> => {
     // a line with nothing a throat can sing is hummed: one "ooh" for every note of its tune
-    let syllables =
-      lang === 'fi'
-        ? countFinnishSyllables(line)
-        : await countSyllables(line).catch(() => 0)
+    let syllables = await countSyllables(line, lang).catch(() => 0)
     let words = line
     let hummed = false
     if (syllables < 1) {
@@ -370,9 +367,7 @@ export async function perform(
     // the words with their stress, for fitting them bar by bar
     const stressed: Syllables[] | undefined = hummed
       ? undefined
-      : lang === 'fi'
-        ? finnishStressedLine(line)
-        : await stressedLine(line, syllables)
+      : await stressedLine(line, syllables, { lang })
     const explicitSyllables =
       !hummed && lang !== 'fi' && hasSpecialWord(words)
         ? await resolveLineSyllables(words).catch(() => undefined)
@@ -432,9 +427,8 @@ export async function perform(
       // a line that would come too quickly is never sung: the iteration fails, and is made again
       keepsPace(take, rate, `"${line}" in iteration ${iteration}, voice ${v}`)
       const fastest = quickest(take)
-      // for Finnish takes, attach deterministic IPA syllables and expand opening diphthongs
-      // after humanization + pace checks so both diphthong halves share one humanized pitch and total duration
-      const sungTake = lang === 'fi' && !hummed ? expandFinnishTake(take, line) : take
+      // non-English takes pass `lang` directly to Chimera's built-in language front end
+      const sungTake = lang !== 'en' && !hummed ? { ...take, lang } : take
       return { voice: singer, score, take: sungTake, fastest }
     })
 

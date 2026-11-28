@@ -31,7 +31,7 @@ function samplesOf(file: string) {
 
 describe('the throat', () => {
   it('is named by its revision and its patch', () => {
-    expect(throatName()).toMatch(/^030f41a\+[0-9a-f]{12}$/)
+    expect(throatName()).toMatch(/^6281c32\+[0-9a-f]{12}$/)
   })
 
   it.skipIf(!built)('sings a take in a Receiver exactly as the Studio sings it', async () => {
@@ -95,6 +95,47 @@ describe('the throat', () => {
         gunzipSync(readFileSync(`${page}throat/cmudict.txt.gz`)).toString(),
       )
       const receiver: Float32Array = throat.sing(JSON.parse(JSON.stringify(take)), lead.body)
+
+      expect(receiver.length).toBe(studio.length)
+      expect(receiver.length).toBeGreaterThan(48_000)
+      expect(receiver.every((sample, i) => sample === studio[i])).toBe(true)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  }, 60_000)
+
+  it.skipIf(!built)('sings a native lang: "fi" take with Chimera timbre controls identically in Studio and Receiver', async () => {
+    const notes: [number, number][] = [
+      [64, 0.5], [64, 0.5], [67, 0.5], [67, 0.5], [69, 0.5], [69, 0.5], [67, 1.5], [0, 1],
+    ]
+    const take = throatScore({
+      bpm: 84,
+      lang: 'fi',
+      lyrics: 'Lumous kietoo alla jään',
+      notes,
+      t0: 0.25,
+      vibrato: 35,
+      vibratoRate: 5.8,
+      pressure: 9.2,
+      tension: 0.55,
+      breathiness: 0.14,
+      brightness: 0.65,
+      epilarynx: 0.4,
+      body: { female: 0.85, child: 0.1 },
+    })
+
+    const dir = await mkdtemp(join(tmpdir(), 'ikuradio-throat-fi-'))
+    try {
+      await writeFile(join(dir, 'take.json'), JSON.stringify(take))
+      await run(native, ['--float', 'render', 'notes', join(dir, 'take.json'), join(dir, 'studio'), 'female'])
+      const studio = samplesOf(join(dir, 'studio.wav'))
+
+      const { openThroat } = await import(`${page}throat.js`)
+      const throat = await openThroat(
+        readFileSync(`${page}throat/chimera.wasm`),
+        gunzipSync(readFileSync(`${page}throat/cmudict.txt.gz`)).toString(),
+      )
+      const receiver: Float32Array = throat.sing(JSON.parse(JSON.stringify(take)), 'female')
 
       expect(receiver.length).toBe(studio.length)
       expect(receiver.length).toBeGreaterThan(48_000)

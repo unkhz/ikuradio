@@ -16,7 +16,7 @@
 import { firstMood, hear, nextMood, type Mood } from 'mood'
 import { fieldsOf, iterationsOf, partsById, tempoOf, type Arrangement, type Part } from 'parts'
 import { firstFinnishLyrics, firstLyrics, forgotten, longWear, versesOf, wordinessWords, wordyCount, wornDeep, writeLyrics, type ExtraPartAsk, type Fitting, type Lyrics, type Memories } from 'song'
-import { countFinnishSyllables, countSyllables, finnishStressedLine, firstChoir, gather, type Choir } from 'vocals'
+import { countSyllables, firstChoir, gather, type Choir } from 'vocals'
 import {
   evolve,
   firstTune,
@@ -182,12 +182,12 @@ export function extraPartsFor(
       return { target: m.target, most: m.most }
     })
     const note = wordinessWords(wordiness)
-    const measureLine = (text: string) => (lang === 'fi' ? Promise.resolve(countFinnishSyllables(text)) : countSyllables(text))
+    const measureLine = (text: string) => countSyllables(text, lang)
     const check = async (line: number, text: string): Promise<'fits' | 'grace' | 'refused'> => {
       const syllables = await measureLine(text).catch(() => 0)
       if (syllables < 1) return 'refused'
       const phrase = phrases[line % phrases.length] ?? sung.verse[line % sung.verse.length]!
-      const words = lang === 'fi' ? finnishStressedLine(text) : await stressedLine(text, syllables)
+      const words = await stressedLine(text, syllables, { lang })
       if (!words) return syllables <= mostSyllables(phrase, k) ? 'fits' : 'refused'
       const fit = fitToCount(phrase, words, k)
       return !fit ? 'refused' : fit.grown ? 'grace' : 'fits'
@@ -251,14 +251,14 @@ export function fittingFor(
   lang: 'en' | 'fi' = 'en',
 ): Fitting {
   const phraseOf = (part: 'verse' | 'chorus', line: number) => (part === 'chorus' ? sung.chorus : sung.verse)[line % 4]!
-  const measureLine = (text: string) => (lang === 'fi' ? Promise.resolve(countFinnishSyllables(text)) : countSyllables(text))
+  const measureLine = (text: string) => countSyllables(text, lang)
   const checkAt = (part: 'verse' | 'chorus', bpm: number) => {
     const k = spacing(bpm, rate)
     return async (line: number, text: string): Promise<'fits' | 'grace' | 'refused'> => {
       const syllables = await measureLine(text).catch(() => 0)
       if (syllables < 1) return 'refused'
       const phrase = phraseOf(part, line)
-      const words = lang === 'fi' ? finnishStressedLine(text) : await stressedLine(text, syllables)
+      const words = await stressedLine(text, syllables, { lang })
       // a line whose stress cannot be read is counted only
       if (!words) return syllables <= mostSyllables(phrase, k) ? 'fits' : 'refused'
       const fit = fitToCount(phrase, words, k)

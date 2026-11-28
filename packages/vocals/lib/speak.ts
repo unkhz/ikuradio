@@ -6,16 +6,28 @@
 import { createHash } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import { gunzipSync } from 'node:zlib'
+import type { BodyMix, VoiceLang } from 'melody'
 import { makeOnce, vocalsDir } from './chimera.js'
 
 export type SpeechSpec = {
   text: string
-  body: 'female' | 'male' | 'child'
+  body: 'female' | 'male' | 'child' | BodyMix
+  lang?: VoiceLang
   f0?: number
   rate?: number
+  accent?: number
+  stretch?: [number, number][]
   pressure?: number
   tension?: number
   breathiness?: number
+  brightness?: number
+  roughness?: number
+  fry?: number
+  vibratoRate?: number
+  glide?: number
+  drift?: number
+  epilarynx?: number
+  ventricular?: number
 }
 
 export const speechRate = 48000

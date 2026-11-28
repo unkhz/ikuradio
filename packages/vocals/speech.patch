@@ -47,33 +47,38 @@ diff --git a/crates/chimera/src/phonetics/mod.rs b/crates/chimera/src/phonetics/
 index 0a13a91..9e28ad5 100644
 --- a/crates/chimera/src/phonetics/mod.rs
 +++ b/crates/chimera/src/phonetics/mod.rs
-@@ -14,6 +14,7 @@ pub mod korean;
+@@ -15,6 +15,7 @@ pub mod japanese;
+ pub mod korean;
  pub mod mandarin;
  pub mod planner;
  pub mod russian;
 +pub mod say;
  pub mod sing;
  pub mod songs;
- pub mod syllables;
 diff --git a/crates/chimera/src/phonetics/say.rs b/crates/chimera/src/phonetics/say.rs
 new file mode 100644
-index 0000000..7bf02eb
+index 0000000..9d4f7b1
 --- /dev/null
 +++ b/crates/chimera/src/phonetics/say.rs
-@@ -0,0 +1,83 @@
-+//! English text said offline, as `chimera render text` says it, as a library: the CMU dictionary,
-+//! the phrase planner, a body and its speaking pitch. What the CLI and the browser say is the same
-+//! speech, sample for sample. The request is JSON: `{"text", "body", "sampleRate"}`, a body being a name or a mix, `{"female", "child"}`,, and, to
-+//! shape the voice, `rate` (a speaking-rate multiplier, 1 as usual), `stretch` (`[[word, factor], …]`, words drawn out), `f0` (the baseline pitch in
-+//! Hz), `accent` (how far stressed syllables lean, a fraction), and the throat: `pressure`
-+//! (cmH2O), `tension` and `breathiness`.
+@@ -0,0 +1,115 @@
++//! Text said offline, as `chimera render text|turkish|finnish` says it, as a library: the CMU
++//! dictionary or built-in rule front end (`lang`: `"en"`, `"tr"`, `"fi"`), the phrase planner,
++//! a body and its speaking pitch. What the CLI and the browser say is the same speech, sample for
++//! sample. The request is JSON: `{"text", "body", "sampleRate"}`, a body being a name or a mix,
++//! `{"female", "child"}`, and, to shape the voice: `lang`, `rate`, `stretch` (`[[word, factor], …]`),
++//! `f0` (baseline pitch in Hz), `accent` (how far stressed syllables lean), source controls
++//! (`pressure`, `tension`, `breathiness`, `brightness`, `roughness`, `fry`, `vibratoRate`,
++//! `glide`, `drift`), and tract controls (`epilarynx`, `ventricular`).
 +
-+use crate::phonetics::english::EnglishG2P;
-+use crate::anatomy::human::{BodyMix, BodyName};
-+use crate::phonetics::planner::{PhraseInput, PlanOptions, plan_phrases};
-+use crate::phonetics::Plan;
-+use crate::voice::human_voice::{HumanVoice, SourcePatch};
++use crate::anatomy::human::{ArticKey, ArticPatch, BodyMix, BodyName};
 +use crate::math::js_round;
++use crate::phonetics::Plan;
++use crate::phonetics::english::EnglishG2P;
++use crate::phonetics::finnish;
++use crate::phonetics::planner::{PhraseInput, PlanOptions, plan_phrases};
++use crate::phonetics::syllables::Lang;
++use crate::phonetics::turkish;
++use crate::voice::human_voice::{HumanVoice, SourcePatch};
 +
 +/// What a body speaks at, as `render text` does, blended as the body is.
 +pub fn speaking_f0(body: BodyMix) -> f64 {
@@ -95,6 +100,10 @@ index 0000000..7bf02eb
 +    // a body is a name, male, female or child, or a mix of them: {"female": 0..1, "child": 0..1}
 +    let mix: BodyMix = serde_json::from_value(j["body"].clone()).map_err(|e| format!("body: {e}"))?;
 +    let text = j["text"].as_str().ok_or("text missing")?;
++    let lang: Lang = match j.get("lang").filter(|v| !v.is_null()) {
++        None => Lang::En,
++        Some(l) => serde_json::from_value(l.clone()).map_err(|e| format!("lang: {e}"))?,
++    };
 +    let f0 = j["f0"].as_f64().unwrap_or_else(|| speaking_f0(mix));
 +    let mut voice = HumanVoice::new(fs, mix.body(), 2);
 +    voice.set_source(&SourcePatch {
@@ -102,9 +111,32 @@ index 0000000..7bf02eb
 +        pressure: j["pressure"].as_f64(),
 +        tension: j["tension"].as_f64(),
 +        breathiness: j["breathiness"].as_f64(),
++        brightness: j["brightness"].as_f64(),
++        roughness: j["roughness"].as_f64(),
++        fry: j["fry"].as_f64(),
++        vibrato_rate: j["vibratoRate"].as_f64(),
++        glide: j["glide"].as_f64(),
++        drift: j["drift"].as_f64(),
 +        ..Default::default()
 +    });
-+    let mut phrases = g.to_phrases(text);
++    let mut artic = ArticPatch::default();
++    let mut has_artic = false;
++    if let Some(ep) = j["epilarynx"].as_f64() {
++        artic.set(ArticKey::Epilarynx, ep);
++        has_artic = true;
++    }
++    if let Some(vn) = j["ventricular"].as_f64() {
++        artic.set(ArticKey::Ventricular, vn);
++        has_artic = true;
++    }
++    if has_artic {
++        voice.set_articulation(&artic, None);
++    }
++    let mut phrases = match lang {
++        Lang::Fi => finnish::to_phrases(text),
++        Lang::Tr => turkish::to_phrases(text),
++        Lang::En => g.to_phrases(text),
++    };
 +    // `stretch`: [[word, factor], ...], the words said counted from 0 across the phrases. A word
 +    // drawn out, for effect, has its vowels held as many times as long as the planner would
 +    if let Some(list) = j["stretch"].as_array() {

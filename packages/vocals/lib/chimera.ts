@@ -9,7 +9,7 @@ import { mkdir, mkdtemp, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Score, Singer } from 'melody'
+import type { PhonemeSyllable, Score, Singer, Syllables, VoiceLang } from 'melody'
 import { sing } from './exec.js'
 import { readAloud } from './reading.js'
 import { hasSpecialWord, resolveLineSyllables } from './special.js'
@@ -109,21 +109,22 @@ export function parseRefusal(message: string): number | undefined {
  * The throat is offered a single note. If the line is longer, it refuses and
  * says how many syllables it heard, which is the answer.
  */
-export async function countSyllables(line: string): Promise<number> {
-  const lyrics = prepareLyrics(line)
-  const known = counted.get(lyrics)
+export async function countSyllables(line: string, lang: VoiceLang = 'en'): Promise<number> {
+  const lyrics = lang === 'en' ? prepareLyrics(line) : line.trim()
+  const key = lang === 'en' ? lyrics : `${lang}:${lyrics}`
+  const known = counted.get(key)
   if (known !== undefined) {
     // asked again: it moves to the end, among the most recent
-    counted.delete(lyrics)
-    counted.set(lyrics, known)
+    counted.delete(key)
+    counted.set(key, known)
     return known
   }
 
   // lines with special IPA words are counted directly from their resolved IPA syllables
-  if (hasSpecialWord(lyrics)) {
+  if (lang === 'en' && hasSpecialWord(lyrics)) {
     const resolved = await resolveLineSyllables(lyrics)
     if (resolved?.length) {
-      counted.set(lyrics, resolved.length)
+      counted.set(key, resolved.length)
       for (const old of counted.keys()) {
         if (counted.size <= countsRemembered) break
         counted.delete(old)
@@ -136,7 +137,7 @@ export async function countSyllables(line: string): Promise<number> {
     const input = join(dir, 'probe.json')
     await writeFile(
       input,
-      JSON.stringify({ bpm: 60, lyrics, notes: [[60, 1]] }),
+      JSON.stringify({ bpm: 60, lyrics, ...(lang !== 'en' ? { lang } : {}), notes: [[60, 1]] }),
     )
     try {
       await sing(chimera(), ['render', 'notes', input, join(dir, 'probe')])
@@ -147,7 +148,7 @@ export async function countSyllables(line: string): Promise<number> {
       return syllables
     }
   })
-  counted.set(lyrics, count)
+  counted.set(key, count)
   // the oldest are let go
   for (const old of counted.keys()) {
     if (counted.size <= countsRemembered) break
@@ -156,13 +157,61 @@ export async function countSyllables(line: string): Promise<number> {
   return count
 }
 
+const syllablesRead = new Map<string, PhonemeSyllable[]>()
+
+/**
+ * Syllables as Chimera's built-in front end reads `line` in `lang` (`'en'`, `'tr'`, `'fi'`).
+ * Cached per `(lang, line)` like `countSyllables`.
+ */
+export async function readSyllables(line: string, lang: VoiceLang = 'en'): Promise<PhonemeSyllable[]> {
+  const lyrics = lang === 'en' ? prepareLyrics(line) : line.trim()
+  if (!lyrics) return []
+  const key = `${lang}:${lyrics}`
+  const known = syllablesRead.get(key)
+  if (known !== undefined) {
+    syllablesRead.delete(key)
+    syllablesRead.set(key, known)
+    return known
+  }
+  const raw = await sing(chimera(), ['syllables', lyrics, lang])
+  const parsed = JSON.parse(raw) as PhonemeSyllable[]
+  syllablesRead.set(key, parsed)
+  for (const old of syllablesRead.keys()) {
+    if (syllablesRead.size <= countsRemembered) break
+    syllablesRead.delete(old)
+  }
+  return parsed
+}
+
+/**
+ * Groups Chimera's per-syllable output (`wordEnd`, `phraseEnd`, `nucleus.stress`)
+ * into per-word `Syllables[]` for `fitToCount` and `timedLine`.
+ */
+export function syllablesToStressed(syllables: readonly PhonemeSyllable[]): Syllables[] {
+  const words: Syllables[] = []
+  let stresses: number[] = []
+  for (const syl of syllables) {
+    stresses.push(syl.nucleus.stress ?? 0)
+    if (syl.wordEnd) {
+      words.push({ stresses, ...(syl.phraseEnd ? { comma: true } : {}) })
+      stresses = []
+    }
+  }
+  if (stresses.length) words.push({ stresses })
+  return words
+}
+
 /**
  * A score exactly as the throat is given it: if explicit IPA `syllables` are
- * present they are kept intact; otherwise `lyrics` is read aloud for English
- * G2P. What the Studio sings, and what a Receiver is given to sing the same.
+ * present they are kept intact; non-English `lang` scores keep their lyrics as
+ * written for Chimera's rule front end; otherwise English `lyrics` is read
+ * aloud for CMUdict G2P. What the Studio sings, and what a Receiver is given
+ * to sing the same.
  */
 export function throatScore<T extends Score>(score: T): T {
-  return score.syllables ? { ...score } : { ...score, lyrics: prepareLyrics(score.lyrics) }
+  if (score.syllables) return { ...score }
+  if (score.lang && score.lang !== 'en') return { ...score, lyrics: score.lyrics.trim() }
+  return { ...score, lyrics: prepareLyrics(score.lyrics) }
 }
 
 /** A recording's name, without its folder or kind: the hash of the score that sang it. */

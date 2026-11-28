@@ -85,6 +85,12 @@ export {
 
 export type Singer = 'male' | 'female' | 'child'
 
+/** Language front end for Chimera's built-in Latin-script router (`'en'` when omitted). */
+export type VoiceLang = 'en' | 'tr' | 'fi'
+
+/** Continuous Chimera vocal-tract body blend (0..1 each; `{ female: 0, child: 0 }` is male). */
+export type BodyMix = { female: number; child: number }
+
 /** One IPA phoneme segment in a sung syllable (matches Chimera's Segment JSON). */
 export type PhonemeSegment = {
   ipa: string
@@ -111,7 +117,9 @@ export type PhonemeSyllable = {
 export type Score = {
   bpm: number
   lyrics: string
-  /** Optional explicit IPA syllables; when present, Chimera sings these instead of running English G2P on `lyrics`. */
+  /** Language front end Chimera reads `lyrics` with (`'en'` when omitted). */
+  lang?: VoiceLang
+  /** Optional explicit IPA syllables; when present, Chimera sings these instead of running G2P on `lyrics`. */
   syllables?: PhonemeSyllable[]
   /** [midi, beats]; a midi of 0 is silence. */
   notes: [number, number][]

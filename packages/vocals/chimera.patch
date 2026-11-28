@@ -10,7 +10,7 @@ index 67fda05..4c58b26 100644
  use chimera::phonetics::planner::{
      PhraseInput, PlanOptions, plan_phrases, plan_utterance, vowel_table,
  };
-@@ -560,65 +561,12 @@ pub fn notes(ctx: &Ctx, a: &[String]) -> Result<(), String> {
+@@ -587,65 +588,12 @@ pub fn notes(ctx: &Ctx, a: &[String]) -> Result<(), String> {
      let input = a.first().ok_or("render notes <in.json> <out> [male|female|child] [--artic tracks.json] [--tele voice.tele]")?;
      let out_name = wav_name(arg(a, 1, "out/notes"));
      let body_name = arg(a, 2, "male");
@@ -129,7 +129,7 @@ diff --git a/crates/chimera/src/phonetics/mod.rs b/crates/chimera/src/phonetics/
 index 0a13a91..e58151c 100644
 --- a/crates/chimera/src/phonetics/mod.rs
 +++ b/crates/chimera/src/phonetics/mod.rs
-@@ -13,6 +13,7 @@ pub mod ipa;
+@@ -14,6 +14,7 @@ pub mod ipa;
  pub mod japanese;
  pub mod korean;
  pub mod mandarin;
@@ -139,19 +139,25 @@ index 0a13a91..e58151c 100644
  pub mod sing;
 diff --git a/crates/chimera/src/phonetics/notes.rs b/crates/chimera/src/phonetics/notes.rs
 new file mode 100644
-index 0000000..6ee8f11
+index 0000000..9a12b4c
 --- /dev/null
 +++ b/crates/chimera/src/phonetics/notes.rs
-@@ -0,0 +1,108 @@
+@@ -0,0 +1,141 @@
 +//! A melody with lyrics, sung offline: what `chimera render notes` sings, as a library, so that
 +//! the CLI and the browser sing the same score the same way, sample for sample.
 +//!
 +//! The score is JSON: `{"bpm", "lyrics", "notes": [[midi, beats], …]}`, a midi of 0 or less
-+//! being a rest, with optional `t0` (seconds before the first beat), `vibrato` (cents) and the
-+//! singer's throat: `pressure` (cmH2O), `tension` and `breathiness`.
-+//! Optional `syllables` carries explicit IPA syllables, bypassing English G2P on `lyrics`.
++//! being a rest, with optional:
++//! - `lang`: `"en"` (default), `"tr"`, or `"fi"` (passed to Chimera's language router)
++//! - `syllables`: explicit IPA syllables, bypassing G2P on `lyrics`
++//! - `body`: continuous `BodyMix` override (`{"female", "child"}` or preset name)
++//! - `t0` (seconds before the first beat), `vibrato` (cents), `vibratoRate` (Hz)
++//! - source controls: `pressure` (cmH2O), `tension`, `breathiness`, `brightness`, `roughness`,
++//!   `fry`, `glide`, `drift`
++//! - persistent vocal-tract controls: `epilarynx` (singer's ring, 0..1), `ventricular` (false
++//!   folds / growl, 0..1).
 +
-+use crate::anatomy::human::{BODY_CHILD, BODY_FEMALE, BODY_MALE, HumanBody};
++use crate::anatomy::human::{ArticKey, ArticPatch, BodyMix};
 +use crate::math::{js_max, js_round};
 +use crate::phonetics::Syllable;
 +use crate::phonetics::english::EnglishG2P;
@@ -160,12 +166,12 @@ index 0000000..6ee8f11
 +use crate::phonetics::syllables::{Lang, lyrics_in};
 +use crate::voice::human_voice::{HumanVoice, SourcePatch};
 +
-+/// A body by its name: male, female or child.
-+pub fn body_named(name: &str) -> Result<HumanBody, String> {
++/// Parses a body name (`male`, `female`, `child`) or blend (`{"female", "child"}`).
++pub fn body_mix_from_name(name: &str) -> Result<BodyMix, String> {
 +    match name {
-+        "male" => Ok(BODY_MALE),
-+        "female" => Ok(BODY_FEMALE),
-+        "child" => Ok(BODY_CHILD),
++        "male" => Ok(BodyMix::MALE),
++        "female" => Ok(BodyMix::FEMALE),
++        "child" => Ok(BodyMix::CHILD),
 +        _ => Err(format!("unknown body {name:?}; have male, female, child")),
 +    }
 +}
@@ -179,18 +185,26 @@ index 0000000..6ee8f11
 +    pub sounding: usize,
 +}
 +
-+/// Schedules a score on a new voice of `body_name` at `fs`. The lyrics are English, through the
-+/// dictionary `g`, as the CLI reads them when no language is named. Refuses a score whose lyrics
-+/// do not have one syllable for every sung note, saying how many it heard.
++/// Schedules a score on a new voice of `body_name` (or optional `j["body"]` blend) at `fs`.
++/// Explicit `syllables` take precedence; otherwise `lyrics` go through Chimera's language front
++/// ends using optional `lang` (`"en"`, `"tr"`, `"fi"`, defaulting to `"en"`). Refuses a score
++/// whose lyrics do not have one syllable for every sung note, saying how many it heard.
 +pub fn schedule_notes(j: &serde_json::Value, body_name: &str, g: &EnglishG2P, fs: f64) -> Result<ScheduledNotes, String> {
-+    let b = body_named(body_name)?;
++    let mix: BodyMix = match j.get("body").filter(|v| !v.is_null()) {
++        Some(val) => serde_json::from_value(val.clone()).map_err(|e| format!("body: {e}"))?,
++        None => body_mix_from_name(body_name)?,
++    };
 +    let bpm = j["bpm"].as_f64().ok_or("bpm missing")?;
 +    let vibrato = j["vibrato"].as_f64().unwrap_or(35.0);
 +    let raw: Vec<[f64; 2]> = serde_json::from_value(j["notes"].clone()).map_err(|e| format!("notes: {e}"))?;
 +    let syl: Vec<Syllable> = if let Some(explicit) = j.get("syllables").filter(|v| !v.is_null()) {
 +        serde_json::from_value(explicit.clone()).map_err(|e| format!("syllables: {e}"))?
 +    } else {
-+        lyrics_in(j["lyrics"].as_str().ok_or("lyrics missing")?, g, &MandarinLexicon::new(), Lang::En)
++        let lang: Lang = match j.get("lang").filter(|v| !v.is_null()) {
++            None => Lang::En,
++            Some(l) => serde_json::from_value(l.clone()).map_err(|e| format!("lang: {e}"))?,
++        };
++        lyrics_in(j["lyrics"].as_str().ok_or("lyrics missing")?, g, &MandarinLexicon::new(), lang)
 +    };
 +    let sounding = raw.iter().filter(|n| n[0] > 0.0).count();
 +    if syl.len() != sounding {
@@ -198,21 +212,40 @@ index 0000000..6ee8f11
 +            syl.iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(" ")));
 +    }
 +    let t0 = j["t0"].as_f64().unwrap_or(0.3);
-+    // the song's own: how hard each singer breathes, and how tightly their folds close
++    // the song's own: how hard each singer breathes, how tightly their folds close, and optional
++    // Chimera source/tract colouration
 +    let pressure = j["pressure"].as_f64().unwrap_or(9.0);
 +    let tension = j["tension"].as_f64().unwrap_or(0.55);
-+    let breathiness = j["breathiness"].as_f64();
 +    let beat = 60.0 / bpm;
-+    let mut v = HumanVoice::new(fs, b, 2);
++    let mut v = HumanVoice::new(fs, mix.body(), 2);
 +    let first = raw.iter().find(|n| n[0] > 0.0).ok_or("no notes")?;
 +    v.set_source(&SourcePatch {
 +        f0: Some(midi_to_hz(first[0])),
 +        voiced: Some(true),
 +        pressure: Some(pressure),
 +        tension: Some(tension),
-+        breathiness,
++        breathiness: j["breathiness"].as_f64(),
++        brightness: j["brightness"].as_f64(),
++        roughness: j["roughness"].as_f64(),
++        fry: j["fry"].as_f64(),
++        vibrato_rate: j["vibratoRate"].as_f64(),
++        glide: j["glide"].as_f64(),
++        drift: j["drift"].as_f64(),
 +        ..Default::default()
 +    });
++    let mut artic = ArticPatch::default();
++    let mut has_artic = false;
++    if let Some(ep) = j["epilarynx"].as_f64() {
++        artic.set(ArticKey::Epilarynx, ep);
++        has_artic = true;
++    }
++    if let Some(vn) = j["ventricular"].as_f64() {
++        artic.set(ArticKey::Ventricular, vn);
++        has_artic = true;
++    }
++    if has_artic {
++        v.set_articulation(&artic, None);
++    }
 +    let (mut t, mut k, mut end) = (t0, 0usize, 0.0f64);
 +    let mut phrase: Vec<SungNote> = Vec::new();
 +    let mut start = t;
@@ -220,7 +253,7 @@ index 0000000..6ee8f11
 +        if phrase.is_empty() {
 +            return;
 +        }
-+        let plan = plan_song(phrase, &SongOptions { body: body_name.into(), bpm, t0: start, vibrato, ..Default::default() });
++        let plan = plan_song(phrase, &SongOptions { body: mix, bpm, t0: start, vibrato, ..Default::default() });
 +        v.schedule(&plan.gestures);
 +        *end = js_max(*end, plan.end);
 +        phrase.clear();

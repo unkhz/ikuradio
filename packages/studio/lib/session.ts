@@ -21,16 +21,46 @@ export type Made = {
 export const seconds = (n: number) => Math.round(n * 1000) / 1000
 
 /** A take as a Session keeps it: only what the throat reads. */
-export const takeOf = ({ bpm, lyrics, syllables, notes, t0, vibrato, pressure, tension, breathiness }: Take) => ({
+export const takeOf = ({
   bpm,
   lyrics,
+  lang,
+  syllables,
+  notes,
+  t0,
+  vibrato,
+  vibratoRate,
+  pressure,
+  tension,
+  breathiness,
+  brightness,
+  roughness,
+  fry,
+  glide,
+  drift,
+  epilarynx,
+  ventricular,
+  body,
+}: Take) => ({
+  bpm,
+  lyrics,
+  ...(lang && lang !== 'en' ? { lang } : {}),
   ...(syllables?.length ? { syllables } : {}),
   notes,
   t0,
   vibrato,
+  ...(vibratoRate !== undefined ? { vibratoRate } : {}),
   ...(pressure !== undefined ? { pressure } : {}),
   ...(tension !== undefined ? { tension } : {}),
   ...(breathiness !== undefined ? { breathiness } : {}),
+  ...(brightness !== undefined ? { brightness } : {}),
+  ...(roughness !== undefined ? { roughness } : {}),
+  ...(fry !== undefined ? { fry } : {}),
+  ...(glide !== undefined ? { glide } : {}),
+  ...(drift !== undefined ? { drift } : {}),
+  ...(epilarynx !== undefined ? { epilarynx } : {}),
+  ...(ventricular !== undefined ? { ventricular } : {}),
+  ...(body !== undefined ? { body } : {}),
 })
 
 /** A section's progression as the Session keeps it: the style and its numbers, and any chromatic/tonicization/modulation settings. */
